@@ -36,7 +36,7 @@ module Engine =
                         let vector = particle - particles[i + offset]
                         let length = vector.Length
                         if length < 1.0 then
-                            (1.0 - length) * vector
+                            (1.0 - length) * (vector / length)
                         else Point.Zero))
 
             // full lookup table
