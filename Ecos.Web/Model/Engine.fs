@@ -18,6 +18,15 @@ module World =
 
 module Engine =
 
+    /// Calculates the repulsion between two particles.
+    let getRepulsion particleA particleB =
+        assert(particleA <> particleB)
+        let vector : Point = particleA - particleB
+        let length = vector.Length
+        if length < 1.0 then
+            (1.0 - length) * (vector / length)   // strength * unit vector
+        else Point.Zero
+
     let dt = 0.1
 
     /// Moves the particles in the given world one time step
@@ -33,11 +42,7 @@ module Engine =
                 Array.init (nParticles - i) (fun offset ->
                     if offset = 0 then Point.Zero
                     else
-                        let vector = particle - particles[i + offset]
-                        let length = vector.Length
-                        if length < 1.0 then
-                            (1.0 - length) * (vector / length)
-                        else Point.Zero))
+                        getRepulsion particle particles[i + offset]))
 
             // full lookup table
         let lookup i j =
