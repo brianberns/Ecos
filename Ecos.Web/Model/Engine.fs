@@ -7,14 +7,16 @@ type Particle = Point
 /// World of objects to animate.
 type World =
     {
+        Extent : Point
         Particles : Particle[]
     }
 
 module World =
 
     /// Creates a world.
-    let create particles =
+    let create extent particles =
         {
+            Extent = extent
             Particles = particles
         }
 
@@ -41,7 +43,19 @@ module Engine =
         assert(temp >= 0.0)
         temp * random.NextPoint()
 
-    let dt = 0.1
+    /// Force that tries to keep particles inside the world.
+    let clip (extent : Point) point =
+        let x =
+            point.X
+                - min 0.0 ((2.0 * point.X) + extent.X)   // left edge
+                - max 0.0 ((2.0 * point.X) - extent.X)   // right edge
+        let y =
+            point.Y
+                - min 0.0 ((2.0 * point.Y) + extent.Y)   // bottom edge
+                - max 0.0 ((2.0 * point.Y) - extent.Y)   // top edge
+        Point.create x y
+
+    let dt = 0.05
 
     /// Moves the particles in the given world one time step
     /// forward.
@@ -70,6 +84,7 @@ module Engine =
                         |> Array.sum
                 let brownian = getBrownian random particles[i]
                 let delta = repulsion + brownian
-                particles[i] + (delta * dt))
+                let point = particles[i] + (delta * dt)
+                clip world.Extent point)
 
-        { Particles = particles }
+        { world with Particles = particles }

@@ -7,20 +7,20 @@ open Ecos
 module World =
 
     /// Creates particles.
-    let createParticles random width height numParticles =
+    let createParticles random extent numParticles =
 
             // initial particle locations
-        let factor = (min width height) / 4.0
+        let factor = (min extent.X extent.Y) / 4.0
         let scale = Point.create factor factor
         Particle.makeParticles random numParticles
             scale Point.Zero
 
     /// Creates a world.
-    let create random width height numParticles =
+    let create random extent numParticles =
 
             // create particles
         let particles =
-            createParticles random width height numParticles
+            createParticles random extent numParticles
 
             // create and animate world
-        World.create particles
+        World.create extent particles

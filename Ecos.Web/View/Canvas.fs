@@ -19,10 +19,12 @@ module Canvas =
     ctx.lineWidth <- 0.05
     ctx.globalAlpha <- 0.7
 
-    /// Size of the world to draw.
-    let worldWidth = 40.0
-    let worldHeight =
-        canvas.height * worldWidth / canvas.width
+    /// Size of the world.
+    let worldExtent =
+        let width = 40.0
+        let height =
+            canvas.height * width / canvas.width
+        Point.create width height
 
         // initialize reset button
     let mutable reset = false
@@ -37,7 +39,7 @@ module Canvas =
             :?> HTMLInputElement
 
     /// Number of engine time steps per frame.
-    let stepsPerFrame = 1
+    let stepsPerFrame = 5
 
     /// Animates one frame.
     let animateFrame random world =
@@ -51,7 +53,7 @@ module Canvas =
             // prepare to draw
         ctx.clearRect(0, 0, canvas.width, canvas.height)
         ctx.translate(canvas.width / 2.0, canvas.height / 2.0)
-        let s = canvas.width / worldWidth
+        let s = canvas.width / worldExtent.X
         ctx.scale(s, s)
 
             // draw each particle
@@ -84,11 +86,7 @@ module Canvas =
         let createWorld () =
             let numParticles =
                 System.Int32.Parse txtNumParticles.value
-            Web.World.create
-                random
-                worldWidth
-                worldHeight
-                numParticles
+            Web.World.create random worldExtent numParticles
 
         let rec loop iFrame prev world =
             window.requestAnimationFrame(fun timestamp ->
