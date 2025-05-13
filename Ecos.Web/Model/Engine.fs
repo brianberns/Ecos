@@ -35,11 +35,11 @@ module Engine =
                 * (vector / length)
         else Point.Zero
 
-    let getTemperature (point : Point) =
-        point.Length / 1.0
+    let getTemperature (extent : Point) (point : Point) =
+        extent.Length / (20.0 * point.Length)
 
-    let getBrownian (random : Random) particle =
-        let temp = getTemperature particle
+    let getBrownian (random : Random) extent particle =
+        let temp = getTemperature extent particle
         assert(temp >= 0.0)
         temp * random.NextPoint()
 
@@ -82,7 +82,8 @@ module Engine =
                 let repulsion =
                     Array.init nParticles (lookup i)
                         |> Array.sum
-                let brownian = getBrownian random particles[i]
+                let brownian =
+                    getBrownian random world.Extent particles[i]
                 let delta = repulsion + brownian
                 let point = particles[i] + (delta * dt)
                 clip world.Extent point)
