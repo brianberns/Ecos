@@ -17,7 +17,7 @@ module Canvas =
         // initialize drawing context
     let ctx = canvas.getContext_2d()
     ctx.lineWidth <- 0.05
-    ctx.globalAlpha <- 0.5
+    ctx.globalAlpha <- 0.7
 
     /// Size of the world to draw.
     let worldWidth = 40.0

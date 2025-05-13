@@ -1,5 +1,7 @@
 ﻿namespace Ecos
 
+open System
+
 /// 2D point.
 type Point =
     { X : float; Y : float }
@@ -45,3 +47,18 @@ module Point =
     /// Creates a point.
     let create x y =
         { X = x; Y = y }
+
+module Math =
+
+    /// 2π.
+    let Tau = 2.0 * Math.PI
+
+[<AutoOpen>]
+module PointExt =
+
+    type Random with
+
+        /// Returns a point of unit length in a random direction.
+        member random.NextPoint() =
+            let theta = Math.Tau * random.NextDouble()
+            Point.create (cos theta) (sin theta)

@@ -20,22 +20,26 @@ module World =
 
 module Engine =
 
+    let repulsionStrength = 1.0
+    let repulsionRadius = 1.0
+
     /// Calculates the repulsion between two particles.
     let getRepulsion particleA particleB =
         assert(particleA <> particleB)
         let vector : Point = particleA - particleB
         let length = vector.Length
-        if length < 1.0 then
-            (1.0 - length) * (vector / length)   // strength * unit vector
+        if length < repulsionRadius then
+            repulsionStrength * (repulsionRadius - length)
+                * (vector / length)
         else Point.Zero
 
     let getTemperature (point : Point) =
-        1.0
+        point.Length / 1.0
 
     let getBrownian (random : Random) particle =
         let temp = getTemperature particle
-        let getDelta () = temp * (random.NextDouble() - 0.5)
-        Point.create (getDelta ()) (getDelta ())
+        assert(temp >= 0.0)
+        temp * random.NextPoint()
 
     let dt = 0.1
 
