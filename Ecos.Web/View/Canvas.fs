@@ -1,0 +1,96 @@
+﻿namespace Ecos.Web
+
+open Browser
+open Browser.Types
+
+open Ecos
+
+module Canvas =
+
+        // initialize canvas
+    let canvas =
+        document.getElementById "canvas"
+            :?> HTMLCanvasElement
+
+        // initialize drawing context
+    let ctx = canvas.getContext_2d()
+    ctx.lineWidth <- 0.05
+
+    /// Size of the world to draw.
+    let worldWidth = 40.0
+    let worldHeight =
+        canvas.height * worldWidth / canvas.width
+
+        // initialize reset button
+    let mutable reset = false
+    let btnReset =
+        document.getElementById "reset"
+            :?> HTMLButtonElement
+    btnReset.onclick <- (fun _ -> reset <- true)
+
+        // initialize number of particles button
+    let txtNumParticles =
+        document.getElementById "numParticles"
+            :?> HTMLInputElement
+
+    /// Number of engine time steps per frame.
+    let stepsPerFrame = 5
+
+    /// Animates one frame.
+    let animateFrame world =
+
+            // move particles
+        let world =
+            (world, [1 .. stepsPerFrame])
+                ||> Seq.fold (fun world _ ->
+                    Engine.step world)
+
+            // prepare to draw
+        ctx.clearRect(0, 0, canvas.width, canvas.height)
+        ctx.translate(canvas.width / 2.0, canvas.height / 2.0)
+        let s = canvas.width / worldWidth
+        ctx.scale(s, s)
+
+            // draw each particle
+        Array.iter
+            (Particle.draw ctx)
+            world.Particles
+
+            // reset transform
+        ctx.setTransform(1.0, 0.0, 0.0, 1.0, 0.0, 0.0)
+
+        world
+
+    /// Log framerate.
+    let logFramerate check iFrame prev cur =
+        if iFrame % check = 0 then
+            console.log(
+                $"%.3f{float check * 1000.0 / (cur - prev)} frames/sec")
+            cur
+        else prev
+
+    /// Animation loop.
+    let animate () =
+
+        let createWorld () =
+            let numParticles =
+                System.Int32.Parse txtNumParticles.value
+            Web.World.create
+                worldWidth
+                worldHeight
+                numParticles
+
+        let rec loop iFrame prev world =
+            window.requestAnimationFrame(fun timestamp ->
+                let cur =
+                    logFramerate 100 iFrame prev timestamp
+                let world =
+                    if reset then
+                        reset <- false
+                        createWorld ()
+                    else world
+                animateFrame world
+                    |> loop (iFrame + 1) cur)
+                |> ignore
+
+        loop 1 0.0 (createWorld ())

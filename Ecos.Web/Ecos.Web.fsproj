@@ -1,0 +1,28 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="Readme.md" />
+    <Content Include=".config\dotnet-tools.json" />
+    <Content Include="package.json" />
+    <None Include="vite.config.ts" />
+    <Content Include="index.html" />
+    <Compile Include="Model\Point.fs" />
+    <Compile Include="Model\Engine.fs" />
+    <Compile Include="View\Particle.fs" />
+    <Compile Include="View\World.fs" />
+    <Compile Include="View\Canvas.fs" />
+    <Compile Include="Program.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Fable.Browser.Dom" Version="2.19.0" />
+    <PackageReference Include="Fable.Core" Version="4.5.0" />
+    <PackageReference Include="Fable.Import.Browser" Version="1.4.0" />
+  </ItemGroup>
+
+</Project>
