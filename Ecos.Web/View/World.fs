@@ -16,7 +16,7 @@ module World =
             Random(seed)
 
             // initial particle locations
-        let factor = (min width height) / 2.0
+        let factor = (min width height) / 4.0
         let scale = Point.create factor factor
         Particle.makeParticles random numParticles
             scale Point.Zero

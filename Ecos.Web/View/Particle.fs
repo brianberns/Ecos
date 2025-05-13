@@ -1,7 +1,10 @@
 ﻿namespace Ecos.Web
 
 open System
+
 open Browser.Types
+open Fable.Core.JsInterop
+
 open Ecos
 
 module Particle =
@@ -23,8 +26,11 @@ module Particle =
         ctx.beginPath()
 
             // draw each particle as a circle
-        let r = 0.2
+        let r = 0.4
         ctx.arc(point.X, point.Y, r, 0.0, two_pi)
 
             // draw the circle's border
         ctx.stroke()
+
+        ctx.fillStyle <- !^"black"
+        ctx.fill()

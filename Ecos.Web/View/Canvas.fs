@@ -15,6 +15,7 @@ module Canvas =
         // initialize drawing context
     let ctx = canvas.getContext_2d()
     ctx.lineWidth <- 0.05
+    ctx.globalAlpha <- 0.5
 
     /// Size of the world to draw.
     let worldWidth = 40.0
@@ -34,7 +35,7 @@ module Canvas =
             :?> HTMLInputElement
 
     /// Number of engine time steps per frame.
-    let stepsPerFrame = 5
+    let stepsPerFrame = 1
 
     /// Animates one frame.
     let animateFrame world =
