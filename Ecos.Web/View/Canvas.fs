@@ -1,5 +1,7 @@
 ﻿namespace Ecos.Web
 
+open System
+
 open Browser
 open Browser.Types
 
@@ -38,13 +40,13 @@ module Canvas =
     let stepsPerFrame = 1
 
     /// Animates one frame.
-    let animateFrame world =
+    let animateFrame random world =
 
             // move particles
         let world =
             (world, [1 .. stepsPerFrame])
                 ||> Seq.fold (fun world _ ->
-                    Engine.step world)
+                    Engine.step random world)
 
             // prepare to draw
         ctx.clearRect(0, 0, canvas.width, canvas.height)
@@ -73,10 +75,17 @@ module Canvas =
     /// Animation loop.
     let animate () =
 
+            // random number generator
+        let random =
+            let seed = DateTime.Now.Millisecond
+            console.log($"Random seed: {seed}")
+            Random(seed)
+
         let createWorld () =
             let numParticles =
                 System.Int32.Parse txtNumParticles.value
             Web.World.create
+                random
                 worldWidth
                 worldHeight
                 numParticles
@@ -90,7 +99,7 @@ module Canvas =
                         reset <- false
                         createWorld ()
                     else world
-                animateFrame world
+                animateFrame random world
                     |> loop (iFrame + 1) cur)
                 |> ignore
 

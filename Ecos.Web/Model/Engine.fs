@@ -1,5 +1,7 @@
 ﻿namespace Ecos
 
+open System
+
 type Particle = Point
 
 /// World of objects to animate.
@@ -27,11 +29,19 @@ module Engine =
             (1.0 - length) * (vector / length)   // strength * unit vector
         else Point.Zero
 
+    let getTemperature (point : Point) =
+        1.0
+
+    let getBrownian (random : Random) particle =
+        let temp = getTemperature particle
+        let getDelta () = temp * (random.NextDouble() - 0.5)
+        Point.create (getDelta ()) (getDelta ())
+
     let dt = 0.1
 
     /// Moves the particles in the given world one time step
     /// forward.
-    let step world =
+    let step random world =
 
             // compute the upper triangle of the lookup table
         let particles = world.Particles
@@ -51,9 +61,11 @@ module Engine =
 
         let particles =
             Array.init nParticles (fun i ->
-                let delta =
+                let repulsion =
                     Array.init nParticles (lookup i)
                         |> Array.sum
+                let brownian = getBrownian random particles[i]
+                let delta = repulsion + brownian
                 particles[i] + (delta * dt))
 
         { Particles = particles }
