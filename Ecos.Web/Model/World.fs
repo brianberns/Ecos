@@ -5,7 +5,7 @@ open System
 type Particle =
     {
         Valence : int
-        Bonds : int
+        NumBonds : int
         Location : Point
     }
 
@@ -14,15 +14,20 @@ module Particle =
     let create valence location =
         {
             Valence = valence
-            Bonds = 0
+            NumBonds = 0
             Location = location
         }
 
-    let bond particleA particleB bonds =
-        assert(particleA.Bonds + bonds <= particleA.Valence)
-        assert(particleB.Bonds + bonds <= particleB.Valence)
-        { particleA with Bonds = particleA.Bonds + bonds },
-        { particleB with Bonds = particleB.Bonds + bonds }
+    let resetBonds particle =
+        { particle with NumBonds = 0 }
+
+    let bond particleA particleB numBonds =
+        assert(particleA.NumBonds + numBonds <= particleA.Valence)
+        assert(particleB.NumBonds + numBonds <= particleB.Valence)
+        { particleA with
+            NumBonds = particleA.NumBonds + numBonds },
+        { particleB with
+            NumBonds = particleB.NumBonds + numBonds }
 
 /// World of objects to animate.
 type World =
@@ -59,7 +64,7 @@ module World =
     let getBonds (particles : _[]) =
 
         let tuples =
-            [|
+            seq {
                 for i = 0 to particles.Length - 1 do
                     let particleA = particles[i]
                     for j = 0 to i - 1 do
@@ -67,26 +72,29 @@ module World =
                         let vector = particleA.Location - particleB.Location
                         let length = vector.Length
                         if length <= repulsionRadius then
-                            yield i, j, vector, length
-            |] |> Array.sortBy (fun (_, _, _, length) -> length)
+                            i, j, vector, length
+            } |> Seq.sortBy (fun (_, _, _, length) -> length)
 
         let particleMap =
             particles
-                |> Seq.mapi (fun i particle -> i, particle)
+                |> Seq.mapi (fun i particle ->
+                    i, Particle.resetBonds particle)
                 |> Map
         (particleMap, tuples)
             ||> Seq.fold (fun particleMap (i, j, _, _) ->
                 let particleA = particleMap[i]
                 let particleB = particleMap[j]
-                let bonds =
+                let nBonds =
                     min
-                        (particleA.Valence - particleA.Bonds)
-                        (particleB.Valence - particleB.Bonds)
-                let particleA, particleB =
-                    Particle.bond particleA particleB bonds
-                particleMap
-                    |> Map.add i particleA
-                    |> Map.add j particleB)
+                        (particleA.Valence - particleA.NumBonds)
+                        (particleB.Valence - particleB.NumBonds)
+                if nBonds > 0 then
+                    let particleA, particleB =
+                        Particle.bond particleA particleB nBonds
+                    particleMap
+                        |> Map.add i particleA
+                        |> Map.add j particleB
+                else particleMap)
             |> Map.values
             |> Seq.toArray
 
