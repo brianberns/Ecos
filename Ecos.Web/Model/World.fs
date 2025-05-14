@@ -45,8 +45,10 @@ module World =
                 * (vector / length)
         else Point.Zero
 
-    let getTemperature (extent : Point) (point : Point) =
-        extent.Length / (20.0 * point.Length)
+    let getTemperature extent (point : Point) =
+        let scale = 4.0
+        let stdDev = (min extent.X extent.Y) / scale
+        exp -((point.X * point.X + point.Y * point.Y) / (stdDev * stdDev))
 
     let getBrownian (random : Random) extent particle =
         let temp = getTemperature extent particle.Location

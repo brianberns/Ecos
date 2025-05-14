@@ -8,7 +8,7 @@ module World =
     let createParticles random extent numParticles =
 
             // initial particle locations
-        let factor = (min extent.X extent.Y) / 4.0
+        let factor = (min extent.X extent.Y) / 2.5
         let scale = Point.create factor factor
         Particle.makeParticles random numParticles
             scale Point.Zero
