@@ -19,7 +19,10 @@ module Particle =
 /// World of objects to animate.
 type World =
     {
+        /// Size of the world, with the origin at the center.
         Extent : Point
+
+        /// Particles in the world.
         Particles : Particle[]
     }
 
@@ -45,9 +48,9 @@ module World =
                 * (vector / length)
         else Point.Zero
 
+    /// Gets the temperature at the given point.
     let getTemperature extent (point : Point) =
-        let scale = 4.0
-        let stdDev = (min extent.X extent.Y) / scale
+        let stdDev = (min extent.X extent.Y) / 4.0
         exp -((point.X * point.X + point.Y * point.Y) / (stdDev * stdDev))
 
     let getBrownian (random : Random) extent particle =
