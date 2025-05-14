@@ -71,21 +71,21 @@ module World =
     /// forward.
     let step random world =
 
-            // compute the upper triangle of the lookup table
+            // compute the contents of the lookup table
         let particles = world.Particles
         let nParticles = particles.Length
-        let upper =
+        let triangle =
             Array.init nParticles (fun i ->
                 let particle = particles[i]
-                Array.init (nParticles - i) (fun offset ->
-                    if offset = 0 then Point.Zero
+                Array.init (i + 1) (fun j ->
+                    if j = i then Point.Zero
                     else
-                        getRepulsion particle particles[i + offset]))
+                        getRepulsion particle particles[j]))
 
             // full lookup table
         let lookup i j =
-            if i <= j then upper[i][j - i]
-            else -upper[j][i - j]
+            if j <= i then triangle[i][j]
+            else -triangle[j][i]
 
         let particles =
             Array.init nParticles (fun i ->
