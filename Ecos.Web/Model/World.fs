@@ -2,7 +2,19 @@
 
 open System
 
-type Particle = Point
+type Particle =
+    {
+        Valence : int
+        Location : Point
+    }
+
+module Particle =
+
+    let create valence location =
+        {
+            Valence = valence
+            Location = location
+        }
 
 /// World of objects to animate.
 type World =
@@ -20,15 +32,13 @@ module World =
             Particles = particles
         }
 
-module Engine =
-
     let repulsionStrength = 1.0
     let repulsionRadius = 1.0
 
     /// Calculates the repulsion between two particles.
     let getRepulsion particleA particleB =
         assert(particleA <> particleB)
-        let vector : Point = particleA - particleB
+        let vector = particleA.Location - particleB.Location
         let length = vector.Length
         if length < repulsionRadius then
             repulsionStrength * (repulsionRadius - length)
@@ -39,7 +49,7 @@ module Engine =
         extent.Length / (20.0 * point.Length)
 
     let getBrownian (random : Random) extent particle =
-        let temp = getTemperature extent particle
+        let temp = getTemperature extent particle.Location
         assert(temp >= 0.0)
         temp * random.NextPoint()
 
@@ -79,13 +89,16 @@ module Engine =
 
         let particles =
             Array.init nParticles (fun i ->
+                let particle = particles[i]
                 let repulsion =
                     Array.init nParticles (lookup i)
                         |> Array.sum
                 let brownian =
-                    getBrownian random world.Extent particles[i]
+                    getBrownian random world.Extent particle
                 let delta = repulsion + brownian
-                let point = particles[i] + (delta * dt)
-                clip world.Extent point)
+                let location = particles[i].Location + (delta * dt)
+
+                { particle with
+                    Location = clip world.Extent location })
 
         { world with Particles = particles }

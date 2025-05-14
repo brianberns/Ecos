@@ -12,7 +12,7 @@
     <None Include="vite.config.ts" />
     <Content Include="index.html" />
     <Compile Include="Model\Point.fs" />
-    <Compile Include="Model\Engine.fs" />
+    <Compile Include="Model\World.fs" />
     <Compile Include="View\Particle.fs" />
     <Compile Include="View\World.fs" />
     <Compile Include="View\Canvas.fs" />

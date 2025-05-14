@@ -17,7 +17,6 @@ module Canvas =
         // initialize drawing context
     let ctx = canvas.getContext_2d()
     ctx.lineWidth <- 0.05
-    ctx.globalAlpha <- 0.7
 
     /// Size of the world.
     let worldExtent =
@@ -48,7 +47,7 @@ module Canvas =
         let world =
             (world, [1 .. stepsPerFrame])
                 ||> Seq.fold (fun world _ ->
-                    Engine.step random world)
+                    World.step random world)
 
             // prepare to draw
         ctx.clearRect(0, 0, canvas.width, canvas.height)
