@@ -5,6 +5,7 @@ open System
 type Particle =
     {
         Valence : int
+        Bonds : int
         Location : Point
     }
 
@@ -13,8 +14,15 @@ module Particle =
     let create valence location =
         {
             Valence = valence
+            Bonds = 0
             Location = location
         }
+
+    let bond particleA particleB bonds =
+        assert(particleA.Bonds + bonds <= particleA.Valence)
+        assert(particleB.Bonds + bonds <= particleB.Valence)
+        { particleA with Bonds = particleA.Bonds + bonds },
+        { particleB with Bonds = particleB.Bonds + bonds }
 
 /// World of objects to animate.
 type World =
@@ -47,6 +55,40 @@ module World =
             repulsionStrength * (repulsionRadius - length)
                 * (vector / length)
         else Point.Zero
+
+    let getBonds (particles : _[]) =
+
+        let tuples =
+            [|
+                for i = 0 to particles.Length - 1 do
+                    let particleA = particles[i]
+                    for j = 0 to i - 1 do
+                        let particleB = particles[j]
+                        let vector = particleA.Location - particleB.Location
+                        let length = vector.Length
+                        if length <= repulsionRadius then
+                            yield i, j, vector, length
+            |] |> Array.sortBy (fun (_, _, _, length) -> length)
+
+        let particleMap =
+            particles
+                |> Seq.mapi (fun i particle -> i, particle)
+                |> Map
+        (particleMap, tuples)
+            ||> Seq.fold (fun particleMap (i, j, _, _) ->
+                let particleA = particleMap[i]
+                let particleB = particleMap[j]
+                let bonds =
+                    min
+                        (particleA.Valence - particleA.Bonds)
+                        (particleB.Valence - particleB.Bonds)
+                let particleA, particleB =
+                    Particle.bond particleA particleB bonds
+                particleMap
+                    |> Map.add i particleA
+                    |> Map.add j particleB)
+            |> Map.values
+            |> Seq.toArray
 
     /// Gets the temperature at the given point.
     let getTemperature extent (point : Point) =
