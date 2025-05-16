@@ -125,7 +125,8 @@ module World =
                         particles
                             .SetItem(i, a)
                             .SetItem(j, b)
-                    let bondSet = bondSet.Add(i, j).Add(j, i)
+                    assert(j < i)
+                    let bondSet = bondSet.Add(i, j)
                     particles, bondSet
                 else particles, bondSet)
             |> snd
@@ -157,7 +158,11 @@ module World =
                     else entries[j][i], -1.0
                 if i = j then Point.Zero
                 elif entry.Length < repulsionRadius then
-                    let bonded = Set.contains (i, j) bondSet
+                    let bonded =
+                        let pair =
+                            if j < i then i, j
+                            else j, i
+                        Set.contains pair bondSet
                     getForce entry sign bonded
                 else Point.Zero)
                 |> Array.sum
