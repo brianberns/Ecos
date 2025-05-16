@@ -21,13 +21,13 @@ module Particle =
     let resetBonds particle =
         { particle with NumBonds = 0 }
 
-    let bond particleA particleB numBonds =
-        assert(particleA.NumBonds + numBonds <= particleA.Valence)
-        assert(particleB.NumBonds + numBonds <= particleB.Valence)
+    let bond particleA particleB =
+        assert(particleA.NumBonds < particleA.Valence)
+        assert(particleB.NumBonds < particleB.Valence)
         { particleA with
-            NumBonds = particleA.NumBonds + numBonds },
+            NumBonds = particleA.NumBonds + 1 },
         { particleB with
-            NumBonds = particleB.NumBonds + numBonds }
+            NumBonds = particleB.NumBonds + 1 }
 
 /// World of objects to animate.
 type World =
@@ -108,26 +108,25 @@ module World =
                 |> Map
 
         let tuples =
-            seq {
+            [|
                 for i = 0 to nParticles - 1 do
                     for j = 0 to i - 1 do
                         let entry = triangle[i][j]
                         if entry.Length <= repulsionRadius then
                             i, j, entry
-            } |> Seq.sortBy (fun (_, _, entry) -> entry.Length)
+            |] |> Array.sortBy (fun (_, _, entry) -> entry.Length)
 
         let _, bondSet =
             ((particleMap, Set.empty), tuples)
                 ||> Seq.fold (fun (particleMap, bondSet) (i, j, _) ->
                     let particleA = particleMap[i]
                     let particleB = particleMap[j]
-                    let nBonds =
-                        min
-                            (particleA.Valence - particleA.NumBonds)
-                            (particleB.Valence - particleB.NumBonds)
-                    if nBonds > 0 then
+                    let canBond =
+                        particleA.Valence > particleA.NumBonds
+                            && particleB.Valence > particleB.NumBonds
+                    if canBond then
                         let particleA, particleB =
-                            Particle.bond particleA particleB nBonds
+                            Particle.bond particleA particleB
                         let particleMap =
                             particleMap
                                 |> Map.add i particleA
