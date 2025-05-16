@@ -26,8 +26,7 @@ module World =
 
     /// Gets the temperature at the given point.
     let getTemperature extent (point : Point) =
-        let stdDev = (min extent.X extent.Y) / 4.0
-        exp -((point.X * point.X + point.Y * point.Y) / (stdDev * stdDev))
+        2.0
 
     /// Calculates Brownian motion of the given particle.
     let getBrownian (random : Random) extent particle =
