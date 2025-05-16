@@ -49,7 +49,7 @@ module World =
         }
 
     let repulsionStrength = 1.0
-    let repulsionRadius = 1.0
+    let repulsionRadius = 2.0
 
     /// Gets the temperature at the given point.
     let getTemperature extent (point : Point) =
@@ -151,7 +151,7 @@ module World =
                                         * (repulsionRadius - entry.Length)
                                 let strength =
                                     if bondSet.Contains(i, j) then
-                                        strength - repulsionStrength / 2.0
+                                        strength - repulsionRadius / 2.0
                                     else strength
                                 strength
                                     * (entry.Vector / entry.Length)
