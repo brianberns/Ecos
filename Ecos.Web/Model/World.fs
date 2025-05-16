@@ -51,53 +51,6 @@ module World =
     let repulsionStrength = 1.0
     let repulsionRadius = 1.0
 
-    /// Calculates the repulsion between two particles.
-    let getRepulsion particleA particleB =
-        assert(particleA <> particleB)
-        let vector = particleA.Location - particleB.Location
-        let length = vector.Length
-        if length < repulsionRadius then
-            repulsionStrength * (repulsionRadius - length)
-                * (vector / length)
-        else Point.Zero
-
-    let getBonds (particles : _[]) =
-
-        let tuples =
-            seq {
-                for i = 0 to particles.Length - 1 do
-                    let particleA = particles[i]
-                    for j = 0 to i - 1 do
-                        let particleB = particles[j]
-                        let vector = particleA.Location - particleB.Location
-                        let length = vector.Length
-                        if length <= repulsionRadius then
-                            i, j, vector, length
-            } |> Seq.sortBy (fun (_, _, _, length) -> length)
-
-        let particleMap =
-            particles
-                |> Seq.mapi (fun i particle ->
-                    i, Particle.resetBonds particle)
-                |> Map
-        (particleMap, tuples)
-            ||> Seq.fold (fun particleMap (i, j, _, _) ->
-                let particleA = particleMap[i]
-                let particleB = particleMap[j]
-                let nBonds =
-                    min
-                        (particleA.Valence - particleA.NumBonds)
-                        (particleB.Valence - particleB.NumBonds)
-                if nBonds > 0 then
-                    let particleA, particleB =
-                        Particle.bond particleA particleB nBonds
-                    particleMap
-                        |> Map.add i particleA
-                        |> Map.add j particleB
-                else particleMap)
-            |> Map.values
-            |> Seq.toArray
-
     /// Gets the temperature at the given point.
     let getTemperature extent (point : Point) =
         let stdDev = (min extent.X extent.Y) / 4.0
@@ -130,23 +83,82 @@ module World =
         let particles = world.Particles
         let nParticles = particles.Length
         let triangle =
+            let zero =
+                {|
+                    Vector = Point.Zero
+                    Length = 0.0
+                |}
             Array.init nParticles (fun i ->
                 let particle = particles[i]
                 Array.init (i + 1) (fun j ->
-                    if j = i then Point.Zero
+                    if j = i then zero
                     else
-                        getRepulsion particle particles[j]))
+                        let vector =
+                            particle.Location - particles[j].Location
+                        let length = vector.Length
+                        {|
+                            Vector = vector
+                            Length = length
+                        |}))
 
-            // full lookup table
-        let lookup i j =
-            if j <= i then triangle[i][j]
-            else -triangle[j][i]
+        let particleMap =
+            particles
+                |> Seq.mapi (fun i particle ->
+                    i, Particle.resetBonds particle)
+                |> Map
+
+        let tuples =
+            seq {
+                for i = 0 to nParticles - 1 do
+                    for j = 0 to i - 1 do
+                        let entry = triangle[i][j]
+                        if entry.Length <= repulsionRadius then
+                            i, j, entry
+            } |> Seq.sortBy (fun (_, _, entry) -> entry.Length)
+
+        let _, bondSet =
+            ((particleMap, Set.empty), tuples)
+                ||> Seq.fold (fun (particleMap, bondSet) (i, j, _) ->
+                    let particleA = particleMap[i]
+                    let particleB = particleMap[j]
+                    let nBonds =
+                        min
+                            (particleA.Valence - particleA.NumBonds)
+                            (particleB.Valence - particleB.NumBonds)
+                    if nBonds > 0 then
+                        let particleA, particleB =
+                            Particle.bond particleA particleB nBonds
+                        let particleMap =
+                            particleMap
+                                |> Map.add i particleA
+                                |> Map.add j particleB
+                        let bondSet = bondSet.Add(i, j).Add(j, i)
+                        particleMap, bondSet
+                    else particleMap, bondSet)
 
         let particles =
             Array.init nParticles (fun i ->
                 let particle = particles[i]
                 let repulsion =
-                    Array.init nParticles (lookup i)
+                    Array.init nParticles (fun j ->
+                        let entry, sign =
+                            if j <= i then triangle[i][j], 1.0
+                            else triangle[j][i], -1.0
+                        let repulsion =
+                            if i = j then Point.Zero
+                            elif entry.Length < repulsionRadius then
+                                let strength =
+                                    repulsionStrength
+                                        * (repulsionRadius - entry.Length)
+                                let strength =
+                                    if bondSet.Contains(i, j) then
+                                        strength - repulsionStrength / 2.0
+                                    else strength
+                                strength
+                                    * (entry.Vector / entry.Length)
+                                    * sign
+                            else Point.Zero
+                        repulsion)
                         |> Array.sum
                 let brownian =
                     getBrownian random world.Extent particle
