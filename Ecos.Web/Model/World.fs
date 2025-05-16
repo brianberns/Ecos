@@ -50,23 +50,31 @@ module World =
     /// Time step.
     let dt = 0.05
 
-    /// Information about a vector.
+    /// Relationship between two points.
     type private VectorEntry =
         {
-            /// Vector between two points.
+            /// Vector between the points.
             Vector : Point
 
             /// Length of the vector.
             Length : float
+
+            /// Repulsion between the points.
+            Repulsion : float
         }
 
     module private VectorEntry =
 
         /// Creates a vector entry.
-        let create vector =
+        let create (vector : Point) =
+            let length = vector.Length
+            let repulsion =
+                repulsionStrength
+                    * (repulsionRadius - length)
             {
                 Vector = vector
-                Length = vector.Length
+                Length = length
+                Repulsion = repulsion
             }
 
         /// Zero vector.
@@ -125,13 +133,17 @@ module World =
 
     /// Calculates the force between two particles.
     let private getForce entry sign bonded =
-        let strength =
-            repulsionStrength
-                * (repulsionRadius - entry.Length)
+
+            // repulsion
+        let strength = entry.Repulsion
+
+            // attraction between bonded particles?
         let strength =
             if bonded then
                 strength - repulsionRadius / 2.0
             else strength
+
+            // align to vector
         strength
             * (entry.Vector / entry.Length)
             * sign

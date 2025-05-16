@@ -10,7 +10,7 @@ open Ecos
 module Particle =
 
     let minValence = 1
-    let maxValence = 6
+    let maxValence = 3
 
     /// Makes the given number of particles.
     let makeParticles
