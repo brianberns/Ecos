@@ -93,13 +93,6 @@ module World =
                         particle.Location - particles[j].Location
                     VectorEntry.create vector))
 
-    /// Resets particle bonds to zero and maps particles by index.
-    let private resetBonds particles =
-        particles
-            |> Seq.mapi (fun i particle ->
-                i, Particle.resetBonds particle)
-            |> Map
-
     /// Sorts interacting particles by distance.
     let private sortInteractions (entries : _[][]) =
         seq {
@@ -111,23 +104,30 @@ module World =
         } |> Seq.sortBy (fun (_, _, entry) -> entry.Length)
 
     /// Creates bonds between closest particles.
-    let private createBonds indexes (particleMap : Map<_, _>) =
-        ((particleMap, Set.empty), indexes)
-            ||> Seq.fold (fun (particleMap, bondSet) (i : int, j : int, _) ->
-                let a = particleMap[i]
-                let b = particleMap[j]
+    let private createBonds indexes particles =
+
+            // reset bonds to zero
+        let particles =
+            particles
+                |> Seq.map Particle.resetBonds
+                |> ImmutableArray.Create<_>
+
+        ((particles, Set.empty), indexes)
+            ||> Seq.fold (fun (particles, bondSet) (i : int, j : int, _) ->
+                let a = particles[i]
+                let b = particles[j]
                 let canBond =
                     a.Valence > a.NumBonds
                         && b.Valence > b.NumBonds
                 if canBond then
                     let a, b = Particle.bond a b
-                    let particleMap =
-                        particleMap
-                            |> Map.add i a
-                            |> Map.add j b
+                    let particles =
+                        particles
+                            .SetItem(i, a)
+                            .SetItem(j, b)
                     let bondSet = bondSet.Add(i, j).Add(j, i)
-                    particleMap, bondSet
-                else particleMap, bondSet)
+                    particles, bondSet
+                else particles, bondSet)
             |> snd
 
     /// Calculates the force between two particles.
@@ -175,8 +175,7 @@ module World =
         let entries = getVectors world.Particles
         let bondSet =
             let tuples = sortInteractions entries
-            resetBonds world.Particles
-                |> createBonds tuples
+            createBonds tuples world.Particles
         let particles =
             Array.init world.Particles.Length (
                 stepParticle random world entries bondSet)

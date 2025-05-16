@@ -11,6 +11,7 @@
     <Content Include="package.json" />
     <None Include="vite.config.ts" />
     <Content Include="index.html" />
+    <Compile Include="Model\ImmutableArray.fs" />
     <Compile Include="Model\Point.fs" />
     <Compile Include="Model\Particle.fs" />
     <Compile Include="Model\World.fs" />
