@@ -94,11 +94,11 @@ module World =
             |> Map
 
     /// Sorts interacting particles by distance.
-    let private sortInteractions (triangle : _[][]) =
+    let private sortInteractions (entries : _[][]) =
         seq {
-            for i = 0 to triangle.Length - 1 do
+            for i = 0 to entries.Length - 1 do
                 for j = 0 to i - 1 do
-                    let entry = triangle[i][j]
+                    let entry = entries[i][j]
                     if entry.Length <= repulsionRadius then
                         i, j, entry
         } |> Seq.sortBy (fun (_, _, entry) -> entry.Length)
@@ -123,33 +123,36 @@ module World =
                 else particleMap, bondSet)
             |> snd
 
+    /// Calculates the force between two particles.
+    let private getForce entry sign bonded =
+        let strength =
+            repulsionStrength
+                * (repulsionRadius - entry.Length)
+        let strength =
+            if bonded then
+                strength - repulsionRadius / 2.0
+            else strength
+        strength
+            * (entry.Vector / entry.Length)
+            * sign
+
     /// Moves a single particle one time step forward.
-    let private stepParticle random world (triangle : _[][]) bondSet i =
+    let private stepParticle random world (entries : _[][]) bondSet i =
         let particle = world.Particles[i]
-        let repulsion =
+        let force =
             Array.init world.Particles.Length (fun j ->
                 let entry, sign =
-                    if j <= i then triangle[i][j], 1.0
-                    else triangle[j][i], -1.0
-                let repulsion =
-                    if i = j then Point.Zero
-                    elif entry.Length < repulsionRadius then
-                        let strength =
-                            repulsionStrength
-                                * (repulsionRadius - entry.Length)
-                        let strength =
-                            if Set.contains (i, j) bondSet then
-                                strength - repulsionRadius / 2.0
-                            else strength
-                        strength
-                            * (entry.Vector / entry.Length)
-                            * sign
-                    else Point.Zero
-                repulsion)
+                    if j <= i then entries[i][j], 1.0
+                    else entries[j][i], -1.0
+                if i = j then Point.Zero
+                elif entry.Length < repulsionRadius then
+                    let bonded = Set.contains (i, j) bondSet
+                    getForce entry sign bonded
+                else Point.Zero)
                 |> Array.sum
         let brownian =
             getBrownian random world.Extent particle
-        let delta = repulsion + brownian
+        let delta = force + brownian
         let location = particle.Location + (delta * dt)
 
         { particle with
@@ -158,12 +161,12 @@ module World =
     /// Moves the particles in the given world one time step
     /// forward.
     let step random world =
-        let triangle = getVectors world.Particles
+        let entries = getVectors world.Particles
         let bondSet =
-            let tuples = sortInteractions triangle
+            let tuples = sortInteractions entries
             resetBonds world.Particles
                 |> createBonds tuples
         let particles =
             Array.init world.Particles.Length (
-                stepParticle random world triangle bondSet)
+                stepParticle random world entries bondSet)
         { world with Particles = particles }
