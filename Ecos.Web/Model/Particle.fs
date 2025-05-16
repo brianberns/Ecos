@@ -1,14 +1,21 @@
 ﻿namespace Ecos
 
+/// A particle.
 type Particle =
     {
+        /// Number of bonds this particle is capable of making.
         Valence : int
+
+        /// Number of bonds this particle currently has.
         NumBonds : int
+
+        /// Particle location.
         Location : Point
     }
 
 module Particle =
 
+    //// Creates a particle.
     let create valence location =
         {
             Valence = valence
@@ -16,13 +23,13 @@ module Particle =
             Location = location
         }
 
+    /// Resets a particle to have no bonds.
     let resetBonds particle =
         { particle with NumBonds = 0 }
 
-    let bond particleA particleB =
-        assert(particleA.NumBonds < particleA.Valence)
-        assert(particleB.NumBonds < particleB.Valence)
-        { particleA with
-            NumBonds = particleA.NumBonds + 1 },
-        { particleB with
-            NumBonds = particleB.NumBonds + 1 }
+    /// Bonds the given particles.
+    let bond a b =
+        assert(a.NumBonds < a.Valence)
+        assert(b.NumBonds < b.Valence)
+        { a with NumBonds = a.NumBonds + 1 },
+        { b with NumBonds = b.NumBonds + 1 }
