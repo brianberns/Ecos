@@ -113,7 +113,7 @@ module World =
                 |> ImmutableArray.Create<_>
 
         ((particles, Set.empty), indexes)
-            ||> Seq.fold (fun (particles, bondSet) (i : int, j : int, _) ->
+            ||> Seq.fold (fun (particles, bondSet) (i, j, _) ->
                 let a = particles[i]
                 let b = particles[j]
                 let canBond =
@@ -125,7 +125,7 @@ module World =
                         particles
                             .SetItem(i, a)
                             .SetItem(j, b)
-                    assert(j < i)
+                    assert(i > j)
                     let bondSet = bondSet.Add(i, j)
                     particles, bondSet
                 else particles, bondSet)
