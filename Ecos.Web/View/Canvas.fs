@@ -9,6 +9,9 @@ open Ecos
 
 module Canvas =
 
+    /// Number of engine time steps per frame.
+    let stepsPerFrame = 5
+
         // initialize canvas
     let canvas =
         document.getElementById "canvas"
@@ -36,9 +39,6 @@ module Canvas =
     let txtNumParticles =
         document.getElementById "numParticles"
             :?> HTMLInputElement
-
-    /// Number of engine time steps per frame.
-    let stepsPerFrame = 5
 
     /// Animates one frame.
     let animateFrame random world =

@@ -22,8 +22,8 @@ module Particle =
                 r * scale * random.NextPoint() + offset
             Particle.create valence location)
 
-    let minHue = 60
-    let maxHue = 360
+    let minHue =  60   // yellow
+    let maxHue = 360   // red
 
     /// Gets a color representing the given particle.
     let getColor particle =

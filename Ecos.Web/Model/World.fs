@@ -14,6 +14,15 @@ type World =
 
 module World =
 
+    /// Repulsion strength.
+    let repulsionStrength = 1.0
+
+    /// Maximum distance at which repulsion occurs.
+    let repulsionRadius = 2.0
+
+    /// Time step.
+    let dt = 0.05
+
     /// Creates a world.
     let create extent particles =
         {
@@ -21,11 +30,8 @@ module World =
             Particles = particles
         }
 
-    let repulsionStrength = 1.0
-    let repulsionRadius = 2.0
-
     /// Gets the temperature at the given point.
-    let getTemperature extent (point : Point) =
+    let getTemperature _extent (_point : Point) =
         2.0
 
     /// Calculates Brownian motion of the given particle.
@@ -45,9 +51,6 @@ module World =
                 - min 0.0 ((2.0 * point.Y) + extent.Y)   // bottom edge
                 - max 0.0 ((2.0 * point.Y) - extent.Y)   // top edge
         Point.create x y
-
-    /// Time step.
-    let dt = 0.05
 
     /// Relationship between two points.
     type private VectorEntry =
