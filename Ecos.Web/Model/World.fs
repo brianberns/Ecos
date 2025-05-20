@@ -20,6 +20,12 @@ module World =
     /// Maximum distance at which repulsion occurs.
     let repulsionRadius = 2.0
 
+    /// Brownian strength.
+    let brownianStrength = 0.1
+
+    /// Brownian friction.
+    let brownianFriction = 0.1
+
     /// Time step.
     let dt = 0.05
 
@@ -147,40 +153,46 @@ module World =
             * (entry.Vector / entry.Length)
             * sign
 
-    /// Moves a single particle one time step forward.
-    let private stepParticle random world (entries : _[][]) bondSet i =
+    /// Calculates the forces acting on a particle.
+    let private getForces world (entries : _[][]) bondSet i =
+        Array.init world.Particles.Length (fun j ->
+            let entry, sign =
+                if j <= i then entries[i][j], 1.0
+                else entries[j][i], -1.0
+            if i = j then Point.Zero
+            elif entry.Length < repulsionRadius then
+                let bonded =
+                    let pair =
+                        if j < i then i, j
+                        else j, i
+                    Set.contains pair bondSet
+                getForce entry sign bonded
+            else Point.Zero)
 
+    /// Gets the momentum of the given particle due to Brownian
+    /// motion (using the Ornstein-Uhlenbeck process for
+    /// smoothness.)
+    let getMomentum random particle =
+        let noise =
+            sqrt dt
+                * Point.create
+                    (gaussianNoise random)
+                    (gaussianNoise random)
+        let delta = -brownianFriction * particle.Momentum * dt + brownianStrength * noise
+        particle.Momentum + delta
+
+    /// Moves a single particle one time step forward.
+    let private stepParticle random world entries bondSet i =
         let particle = world.Particles[i]
 
-            // force that acts directly on the particle's location
+            // force acting directly on particle's location
         let force =
-            Array.init world.Particles.Length (fun j ->
-                let entry, sign =
-                    if j <= i then entries[i][j], 1.0
-                    else entries[j][i], -1.0
-                if i = j then Point.Zero
-                elif entry.Length < repulsionRadius then
-                    let bonded =
-                        let pair =
-                            if j < i then i, j
-                            else j, i
-                        Set.contains pair bondSet
-                    getForce entry sign bonded
-                else Point.Zero)
-                |> Array.sum
+            Array.sum (getForces world entries bondSet i)
 
-            // Brownian motion using Ornstein-Uhlenbeck process for momentum
-        let momentum =
-            let noise =
-                sqrt dt
-                    * Point.create
-                        (gaussianNoise random)
-                        (gaussianNoise random)
-            let theta = 0.1   // friction
-            let sigma = 0.1   // noise strength
-            let delta = -theta * particle.Momentum * dt + sigma * noise
-            particle.Momentum + delta
+            // update background momentum
+        let momentum = getMomentum random particle
 
+            // update location
         let location =
             let delta = force + momentum
             particle.Location + (delta * dt)
