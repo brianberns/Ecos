@@ -52,13 +52,3 @@ module Math =
 
     /// 2π.
     let Tau = 2.0 * Math.PI
-
-[<AutoOpen>]
-module PointExt =
-
-    type Random with
-
-        /// Returns a point of unit length in a random direction.
-        member random.NextPoint() =
-            let theta = Math.Tau * random.NextDouble()
-            Point.create (cos theta) (sin theta)

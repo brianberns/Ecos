@@ -30,15 +30,11 @@ module World =
             Particles = particles
         }
 
-    /// Gets the temperature at the given point.
-    let getTemperature _extent (_point : Point) =
-        2.0
-
-    /// Calculates Brownian motion of the given particle.
-    let getBrownian (random : Random) extent particle =
-        let temp = getTemperature extent particle.Location
-        assert(temp >= 0.0)
-        temp * random.NextPoint()
+    /// Standard normal distribution using Box-Muller transform.
+    let gaussianNoise (random : Random) =
+        let u1 = random.NextDouble()
+        let u2 = random.NextDouble()
+        sqrt (-2.0 * log u1) * cos (Math.Tau * u2)
 
     /// Force that tries to keep particles inside the world.
     let clip (extent : Point) point =
@@ -153,7 +149,10 @@ module World =
 
     /// Moves a single particle one time step forward.
     let private stepParticle random world (entries : _[][]) bondSet i =
+
         let particle = world.Particles[i]
+
+            // force that acts directly on the particle's location
         let force =
             Array.init world.Particles.Length (fun j ->
                 let entry, sign =
@@ -169,13 +168,27 @@ module World =
                     getForce entry sign bonded
                 else Point.Zero)
                 |> Array.sum
-        let brownian =
-            getBrownian random world.Extent particle
-        let delta = force + brownian
-        let location = particle.Location + (delta * dt)
+
+            // Brownian motion using Ornstein-Uhlenbeck process for momentum
+        let momentum =
+            let noise =
+                sqrt dt
+                    * Point.create
+                        (gaussianNoise random)
+                        (gaussianNoise random)
+            let theta = 0.1   // friction
+            let sigma = 0.1   // noise strength
+            let delta = -theta * particle.Momentum * dt + sigma * noise
+            particle.Momentum + delta
+
+        let location =
+            let delta = force + momentum
+            particle.Location + (delta * dt)
+                |> clip world.Extent
 
         { particle with
-            Location = clip world.Extent location }
+            Location = location
+            Momentum = momentum }
 
     /// Moves the particles in the given world one time step
     /// forward.

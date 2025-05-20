@@ -11,6 +11,9 @@ type Particle =
 
         /// Particle location.
         Location : Point
+
+        /// Particle momentum.
+        Momentum : Point
     }
 
 module Particle =
@@ -21,6 +24,7 @@ module Particle =
             Valence = valence
             NumBonds = 0
             Location = location
+            Momentum = Point.Zero
         }
 
     /// Resets a particle to have no bonds.

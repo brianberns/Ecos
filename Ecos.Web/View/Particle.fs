@@ -12,6 +12,11 @@ module Particle =
     let minValence = 1
     let maxValence = 3
 
+    /// Answers a unit vector pointing in a random direction.
+    let randomUnitVector (random : Random) =
+        let theta = Math.Tau * random.NextDouble()
+        Point.create (cos theta) (sin theta)
+
     /// Makes the given number of particles.
     let makeParticles
         (random : Random) numParticles (scale : Point) offset =
@@ -19,7 +24,7 @@ module Particle =
             let valence = random.Next(minValence, maxValence + 1)
             let r = random.NextDouble()
             let location =
-                r * scale * random.NextPoint() + offset
+                r * scale * randomUnitVector random + offset
             Particle.create valence location)
 
     let minHue =  60   // yellow
