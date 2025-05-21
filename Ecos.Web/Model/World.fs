@@ -137,7 +137,7 @@ module World =
             |> snd
 
     /// Calculates the force between two particles.
-    let private getForce entry sign bonded =
+    let private getForce entry bonded =
 
             // repulsion
         let strength = entry.Repulsion
@@ -149,25 +149,26 @@ module World =
             else strength
 
             // align to vector
-        strength
-            * (entry.Vector / entry.Length)
-            * sign
+        strength * (entry.Vector / entry.Length)
 
     /// Calculates the forces acting on a particle.
     let private getForces world (entries : _[][]) bondSet i =
         Array.init world.Particles.Length (fun j ->
-            let entry, sign =
-                if j <= i then entries[i][j], 1.0
-                else entries[j][i], -1.0
             if i = j then Point.Zero
-            elif entry.Length < repulsionRadius then
-                let bonded =
-                    let pair =
-                        if j < i then i, j
-                        else j, i
-                    Set.contains pair bondSet
-                getForce entry sign bonded
-            else Point.Zero)
+            elif j < i then
+                let entry = entries[i][j]
+                if entry.Length < repulsionRadius then
+                    let bonded =
+                        Set.contains (i, j) bondSet
+                    getForce entry bonded
+                else Point.Zero
+            else
+                let entry = entries[j][i]
+                if entry.Length < repulsionRadius then
+                    let bonded =
+                        Set.contains (j, i) bondSet
+                    -getForce entry bonded
+                else Point.Zero)
 
     /// Gets the momentum of the given particle due to Brownian
     /// motion (using the Ornstein-Uhlenbeck process for
