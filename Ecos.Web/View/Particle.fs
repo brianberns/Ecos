@@ -9,25 +9,17 @@ open Ecos
 
 module ParticleType =
 
-    let minValence = 1
-    let maxValence = 3
-
-    let minHue =  60   // yellow
-    let maxHue = 360   // red
-
-    /// Gets a color representing the given valence.
-    let getColor valence =
-        let hue =
-            (maxHue - minHue)
-                * (valence - minValence)
-                / (maxValence - minValence) + minHue
-        $"hsl({hue}, 100%%, 50%%)"
+    let colors =
+        [|
+            for hue in [ 60; 120; 180; 240; 300; 360 ] do
+                $"hsl({hue}, 100%%, 50%%)"
+        |]
 
     /// All particle types.
     let all =
         [|
-            for valence = minValence to maxValence do
-                ParticleType.create valence (getColor valence)
+            ParticleType.create 1 (Array.head colors)
+            ParticleType.create 1 (Array.last colors)
         |]
 
 module Particle =
@@ -39,11 +31,12 @@ module Particle =
 
     /// Makes the given number of particles.
     let makeParticles
-        (random : Random) numParticles (scale : Point) offset =
+        (random : Random)
+        typ
+        numParticles
+        (scale : Point)
+        offset =
         Array.init numParticles (fun _ ->
-            let typ =
-                let idx = random.Next(ParticleType.all.Length)
-                ParticleType.all[idx]
             let r = random.NextDouble()
             let location =
                 r * scale * randomUnitVector random + offset

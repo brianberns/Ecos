@@ -5,7 +5,7 @@ open Ecos
 module World =
 
     /// Initial cluster tightness.
-    let tightness = 2.5
+    let tightness = 4.0
 
     /// Creates particles.
     let createParticles random extent numParticles =
@@ -14,8 +14,20 @@ module World =
         let scale =
             let factor = (min extent.X extent.Y) / tightness
             Point.create factor factor
-        Particle.makeParticles random numParticles
-            scale Point.Zero
+        [|
+            yield! Particle.makeParticles
+                random
+                ParticleType.all[0]
+                (numParticles / 2)
+                scale
+                (Point.create -(extent.X / 4.0) 0.0)
+            yield! Particle.makeParticles
+                random
+                ParticleType.all[1]
+                (numParticles / 2)
+                scale
+                (Point.create (extent.X / 4.0) 0.0)
+        |]
 
     /// Creates a world.
     let create random extent numParticles =
