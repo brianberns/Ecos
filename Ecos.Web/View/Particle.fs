@@ -23,7 +23,8 @@ module ParticleType =
                 / (maxValence - minValence) + minHue
         $"hsl({hue}, 100%%, 50%%)"
 
-    let types =
+    /// All particle types.
+    let all =
         [|
             for valence = minValence to maxValence do
                 ParticleType.create valence (getColor valence)
@@ -41,8 +42,8 @@ module Particle =
         (random : Random) numParticles (scale : Point) offset =
         Array.init numParticles (fun _ ->
             let typ =
-                let idx = random.Next(ParticleType.types.Length)
-                ParticleType.types[idx]
+                let idx = random.Next(ParticleType.all.Length)
+                ParticleType.all[idx]
             let r = random.NextDouble()
             let location =
                 r * scale * randomUnitVector random + offset
