@@ -149,8 +149,7 @@ module World =
             else strength
 
             // align to vector
-        strength
-            * (entry.Vector / entry.Length)
+        strength * (entry.Vector / entry.Length)
 
     /// Calculates the forces acting on a particle.
     let private getForces world (entries : _[][]) bondSet i =
