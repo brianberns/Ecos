@@ -102,8 +102,10 @@ module World =
     let private sortInteractions (entries : _[][]) =
         seq {
             for i = 0 to entries.Length - 1 do
+                let row = entries[i]
+                assert(row.Length = i + 1)
                 for j = 0 to i - 1 do
-                    let entry = entries[i][j]
+                    let entry = row[j]
                     if entry.Length <= repulsionRadius then
                         i, j, entry
         } |> Seq.sortBy (fun (_, _, entry) -> entry.Length)
@@ -153,10 +155,12 @@ module World =
 
     /// Calculates the forces acting on a particle.
     let private getForces world (entries : _[][]) bondSet i =
+        let row = entries[i]
+        assert(row.Length = i + 1)
         Array.init world.Particles.Length (fun j ->
             if i = j then Point.Zero
             elif j < i then
-                let entry = entries[i][j]
+                let entry = row[j]
                 if entry.Length < repulsionRadius then
                     let bonded =
                         Set.contains (i, j) bondSet
