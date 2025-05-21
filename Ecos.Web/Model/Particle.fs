@@ -1,10 +1,31 @@
 ﻿namespace Ecos
 
+/// Particle type.
+[<ReferenceEquality>]
+type ParticleType =
+    {
+        /// Number of bonds a particle of this type is capable
+        /// of making.
+        Valence : int
+
+        /// Color of this particle type.
+        Color : string
+    }
+
+module ParticleType =
+
+    /// Creates a particle type.
+    let create valence color =
+        {
+            Valence = valence
+            Color = color
+        }
+
 /// A particle.
 type Particle =
     {
-        /// Number of bonds this particle is capable of making.
-        Valence : int
+        /// Particle type.
+        Type : ParticleType
 
         /// Number of bonds this particle currently has.
         NumBonds : int
@@ -19,9 +40,9 @@ type Particle =
 module Particle =
 
     //// Creates a particle.
-    let create valence location =
+    let create typ location =
         {
-            Valence = valence
+            Type = typ
             NumBonds = 0
             Location = location
             Momentum = Point.Zero
@@ -33,7 +54,7 @@ module Particle =
 
     /// Bonds the given particles.
     let bond a b =
-        assert(a.NumBonds < a.Valence)
-        assert(b.NumBonds < b.Valence)
+        assert(a.NumBonds < a.Type.Valence)
+        assert(b.NumBonds < b.Type.Valence)
         { a with NumBonds = a.NumBonds + 1 },
         { b with NumBonds = b.NumBonds + 1 }

@@ -7,10 +7,29 @@ open Fable.Core.JsInterop
 
 open Ecos
 
-module Particle =
+module ParticleType =
 
     let minValence = 1
     let maxValence = 3
+
+    let minHue =  60   // yellow
+    let maxHue = 360   // red
+
+    /// Gets a color representing the given valence.
+    let getColor valence =
+        let hue =
+            (maxHue - minHue)
+                * (valence - minValence)
+                / (maxValence - minValence) + minHue
+        $"hsl({hue}, 100%%, 50%%)"
+
+    let types =
+        [|
+            for valence = minValence to maxValence do
+                ParticleType.create valence (getColor valence)
+        |]
+
+module Particle =
 
     /// Answers a unit vector pointing in a random direction.
     let randomUnitVector (random : Random) =
@@ -21,22 +40,13 @@ module Particle =
     let makeParticles
         (random : Random) numParticles (scale : Point) offset =
         Array.init numParticles (fun _ ->
-            let valence = random.Next(minValence, maxValence + 1)
+            let typ =
+                let idx = random.Next(ParticleType.types.Length)
+                ParticleType.types[idx]
             let r = random.NextDouble()
             let location =
                 r * scale * randomUnitVector random + offset
-            Particle.create valence location)
-
-    let minHue =  60   // yellow
-    let maxHue = 360   // red
-
-    /// Gets a color representing the given particle.
-    let getColor particle =
-        let hue =
-            (maxHue - minHue)
-                * (particle.Valence - minValence)
-                / (maxValence - minValence) + minHue
-        !^($"hsl({hue}, 100%%, 50%%)")
+            Particle.create typ location)
 
     /// Draws the given particle.
     let draw (ctx : CanvasRenderingContext2D) particle =
@@ -53,5 +63,5 @@ module Particle =
             // draw the circle's border
         ctx.stroke()
 
-        ctx.fillStyle <- getColor particle
+        ctx.fillStyle <- !^particle.Type.Color
         ctx.fill()
