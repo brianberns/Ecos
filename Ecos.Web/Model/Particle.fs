@@ -56,5 +56,9 @@ module Particle =
     let bond a b =
         assert(a.NumBonds < a.Type.Valence)
         assert(b.NumBonds < b.Type.Valence)
-        { a with NumBonds = a.NumBonds + 1 },
-        { b with NumBonds = b.NumBonds + 1 }
+        let nBonds =
+            min
+                (a.Type.Valence - a.NumBonds)
+                (b.Type.Valence - b.NumBonds)
+        { a with NumBonds = a.NumBonds + nBonds },
+        { b with NumBonds = b.NumBonds + nBonds }

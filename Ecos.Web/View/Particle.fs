@@ -9,17 +9,25 @@ open Ecos
 
 module ParticleType =
 
-    let colors =
-        [|
-            for hue in [ 60; 120; 180; 240; 300; 360 ] do
-                $"hsl({hue}, 100%%, 50%%)"
-        |]
+    let minValence = 1
+    let maxValence = 2
+
+    let minHue =  60   // yellow
+    let maxHue = 360   // red
+
+    /// Gets a color representing the given valence.
+    let getColor valence =
+        let hue =
+            (maxHue - minHue)
+                * (valence - minValence)
+                / (maxValence - minValence) + minHue
+        $"hsl({hue}, 100%%, 50%%)"
 
     /// All particle types.
     let all =
         [|
-            ParticleType.create 1 (Array.head colors)
-            ParticleType.create 1 (Array.last colors)
+            for valence = minValence to maxValence do
+                ParticleType.create valence (getColor valence)
         |]
 
 module Particle =

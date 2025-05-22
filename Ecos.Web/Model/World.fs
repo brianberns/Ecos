@@ -124,8 +124,8 @@ module World =
                 let a = particles[i]
                 let b = particles[j]
                 let canBond =
-                    a.Type.Valence > a.NumBonds
-                        && b.Type.Valence > b.NumBonds
+                    a.NumBonds < a.Type.Valence
+                        && b.NumBonds < b.Type.Valence
                 if canBond then
                     let a, b = Particle.bond a b
                     let particles =

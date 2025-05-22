@@ -18,13 +18,13 @@ module World =
             yield! Particle.makeParticles
                 random
                 ParticleType.all[0]
-                (numParticles / 2)
+                (2 * numParticles / 3)
                 scale
                 (Point.create -(extent.X / 4.0) 0.0)
             yield! Particle.makeParticles
                 random
                 ParticleType.all[1]
-                (numParticles / 2)
+                (numParticles / 3)
                 scale
                 (Point.create (extent.X / 4.0) 0.0)
         |]
