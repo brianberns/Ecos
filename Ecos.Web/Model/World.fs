@@ -10,6 +10,8 @@ type World =
 
         /// Particles in the world.
         Particles : Particle[]
+
+        BondTypePriorityMap : Map<ParticleType * ParticleType, int>
     }
 
 module World =
@@ -30,10 +32,11 @@ module World =
     let dt = 0.05
 
     /// Creates a world.
-    let create extent particles =
+    let create extent particles bondTypePriorityMap =
         {
             Extent = extent
             Particles = particles
+            BondTypePriorityMap = bondTypePriorityMap
         }
 
     /// Standard normal distribution using Box-Muller transform.
@@ -65,12 +68,14 @@ module World =
 
             /// Repulsion between the points.
             Repulsion : float
+
+            BondTypePriority : int
         }
 
     module private VectorEntry =
 
         /// Creates a vector entry.
-        let create (vector : Point) =
+        let create (vector : Point) bondTypePriority =
             let length = vector.Length
             let repulsion =
                 repulsionStrength
@@ -79,24 +84,29 @@ module World =
                 Vector = vector
                 Length = length
                 Repulsion = repulsion
+                BondTypePriority = bondTypePriority
             }
 
         /// Zero vector.
-        let zero = create Point.Zero
+        let zero = create Point.Zero 0
 
     /// Calculates vector between every pair of particles. The
     /// result is the lower half of a symmetric lookup table
     //// (up to sign).
-    let private getVectors (particles : _[]) =
+    let private getVectors bondTypePriorityMap (particles : _[]) =
         Array.init particles.Length (fun i ->
             let particle = particles[i]
             Array.init (i + 1) (fun j ->
                 assert(j <= i)   // lower half of table only
                 if j = i then VectorEntry.zero
                 else
-                    let vector =
-                        particle.Location - particles[j].Location
-                    VectorEntry.create vector))
+                    let other = particles[j]
+                    let vector = particle.Location - other.Location
+                    let priority =
+                        bondTypePriorityMap
+                            |> Map.tryFind (particle.Type, other.Type)
+                            |> Option.defaultValue 0
+                    VectorEntry.create vector priority))
 
     /// Sorts interacting particles by distance.
     let private sortInteractions (entries : _[][]) =
@@ -108,7 +118,8 @@ module World =
                     let entry = row[j]
                     if entry.Length <= repulsionRadius then
                         i, j, entry
-        } |> Seq.sortBy (fun (_, _, entry) -> entry.Length)
+        } |> Seq.sortBy (fun (_, _, entry) ->
+            -entry.BondTypePriority, entry.Length)
 
     /// Creates bonds between closest particles.
     let private createBonds indexes particles =
@@ -210,7 +221,8 @@ module World =
     /// Moves the particles in the given world one time step
     /// forward.
     let step random world =
-        let entries = getVectors world.Particles
+        let entries =
+            getVectors world.BondTypePriorityMap world.Particles
         let bondSet =
             let tuples = sortInteractions entries
             createBonds tuples world.Particles

@@ -1,7 +1,9 @@
 ﻿namespace Ecos
 
+open System
+
 /// Particle type.
-[<ReferenceEquality>]
+[<CustomComparison; CustomEquality>]
 type ParticleType =
     {
         /// Number of bonds a particle of this type is capable
@@ -11,6 +13,24 @@ type ParticleType =
         /// Color of this particle type.
         Color : string
     }
+
+    override this.Equals(other) =
+        this.Color = (other :?> ParticleType).Color
+
+    override this.GetHashCode() = 
+        this.Color.GetHashCode()
+
+    interface IEquatable<ParticleType> with
+        member this.Equals(other) =
+            this.Color = other.Color
+
+    interface IComparable with
+        member this.CompareTo(other) =
+            compare this.Color (other :?> ParticleType).Color
+
+    interface IComparable<ParticleType> with
+        member this.CompareTo(other) =
+            compare this.Color other.Color
 
 module ParticleType =
 
