@@ -1,7 +1,5 @@
 ﻿namespace Ecos
 
-open System
-
 /// World of objects to animate.
 type World =
     {
@@ -18,19 +16,19 @@ type World =
 module World =
 
     /// Repulsion strength.
-    let repulsionStrength = 0.1
+    let repulsionStrength = 1.0
 
     /// Maximum distance at which repulsion occurs.
     let repulsionRadius = 1.0
 
     /// Attraction strength.
-    let attractionStrength = 0.0
+    let attractionStrength = 0.5
 
     /// Maximum distance at which attraction occurs.
     let attractionRadius = 2.0
 
     /// Friction.
-    let friction = 0.9
+    let friction = 0.99
 
     /// Time step.
     let dt = 0.05
@@ -109,7 +107,7 @@ module World =
                 if j = i then VectorEntry.zero
                 else
                     let vector =
-                        particles[j].Location - particle.Location   // pointing away from this particle
+                        particle.Location - particles[j].Location
                     VectorEntry.create vector))
 
     /// Sorts interacting particles by distance.
@@ -174,18 +172,14 @@ module World =
             if i = j then Point.Zero
             elif j < i then
                 let entry = row[j]
-                if entry.Length < repulsionRadius then
-                    let bonded =
-                        Set.contains (i, j) bondSet
-                    getForce entry bonded
-                else Point.Zero
+                let bonded =
+                    Set.contains (i, j) bondSet
+                getForce entry bonded
             else
                 let entry = entries[j][i]
-                if entry.Length < repulsionRadius then
-                    let bonded =
-                        Set.contains (j, i) bondSet
-                    -getForce entry bonded
-                else Point.Zero)
+                let bonded =
+                    Set.contains (j, i) bondSet
+                -getForce entry bonded)
 
     let private bounce world location velocity =
         let vx =
@@ -210,7 +204,7 @@ module World =
         let force =
             Array.sum (getForces world entries bondSet i)
         let velocity = (particle.Velocity + force) * friction
-        let location = (particle.Location + velocity) * dt
+        let location = particle.Location + (velocity * dt)
         let velocity = bounce world location velocity
         { particle with
             Location = location
