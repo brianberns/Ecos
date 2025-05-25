@@ -21,12 +21,13 @@ module Canvas =
     let ctx = canvas.getContext_2d()
     ctx.lineWidth <- 0.05
 
-    /// Size of the world.
-    let worldExtent =
+    /// Extent of the world.
+    let extentMin, extentMax =
         let width = 40.0
         let height =
             canvas.height * width / canvas.width
-        Point.create width height
+        let pt = (Point.create width height) / 2.0
+        -pt, pt
 
         // initialize reset button
     let mutable reset = false
@@ -52,7 +53,7 @@ module Canvas =
             // prepare to draw
         ctx.clearRect(0, 0, canvas.width, canvas.height)
         ctx.translate(canvas.width / 2.0, canvas.height / 2.0)
-        let s = canvas.width / worldExtent.X
+        let s = canvas.width / (extentMax.X - extentMin.X)
         ctx.scale(s, s)
 
             // draw each particle
@@ -85,7 +86,7 @@ module Canvas =
         let createWorld () =
             let numParticles =
                 System.Int32.Parse txtNumParticles.value
-            Web.World.create random worldExtent numParticles
+            Web.World.create random extentMin extentMax numParticles
 
         let rec loop iFrame prev world =
             window.requestAnimationFrame(fun timestamp ->

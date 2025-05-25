@@ -33,8 +33,8 @@ type Particle =
         /// Particle location.
         Location : Point
 
-        /// Particle momentum.
-        Momentum : Point
+        /// Particle velocity.
+        Velocity : Point
     }
 
 module Particle =
@@ -45,7 +45,7 @@ module Particle =
             Type = typ
             NumBonds = 0
             Location = location
-            Momentum = Point.Zero
+            Velocity = Point.Zero
         }
 
     /// Resets a particle to have no bonds.

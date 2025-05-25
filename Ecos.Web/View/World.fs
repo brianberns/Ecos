@@ -18,11 +18,12 @@ module World =
             scale Point.Zero
 
     /// Creates a world.
-    let create random extent numParticles =
+    let create random extentMin extentMax numParticles =
 
             // create particles
         let particles =
+            let extent = extentMax - extentMin
             createParticles random extent numParticles
 
             // create and animate world
-        World.create extent particles
+        World.create extentMin extentMax particles

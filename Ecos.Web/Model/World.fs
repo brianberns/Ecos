@@ -5,8 +5,11 @@ open System
 /// World of objects to animate.
 type World =
     {
-        /// Size of the world, with the origin at the center.
-        Extent : Point
+        /// Minimum extent point.
+        ExtentMin : Point
+
+        /// Maximum extent point.
+        ExtentMax : Point
 
         /// Particles in the world.
         Particles : Particle[]
@@ -15,74 +18,85 @@ type World =
 module World =
 
     /// Repulsion strength.
-    let repulsionStrength = 1.0
+    let repulsionStrength = 0.1
 
     /// Maximum distance at which repulsion occurs.
-    let repulsionRadius = 2.0
+    let repulsionRadius = 1.0
 
-    /// Brownian strength.
-    let brownianStrength = 0.1
+    /// Attraction strength.
+    let attractionStrength = 0.0
 
-    /// Brownian friction.
-    let brownianFriction = 0.1
+    /// Maximum distance at which attraction occurs.
+    let attractionRadius = 2.0
+
+    /// Friction.
+    let friction = 0.9
 
     /// Time step.
     let dt = 0.05
 
     /// Creates a world.
-    let create extent particles =
+    let create extentMin extentMax particles =
+        assert(extentMax.X >= extentMin.X)
+        assert(extentMax.Y >= extentMin.Y)
         {
-            Extent = extent
+            ExtentMin = extentMin
+            ExtentMax = extentMax
             Particles = particles
         }
 
-    /// Standard normal distribution using Box-Muller transform.
-    let gaussianNoise (random : Random) =
-        let u1 = random.NextDouble()
-        let u2 = random.NextDouble()
-        sqrt (-2.0 * log u1) * cos (Math.Tau * u2)
-
-    /// Force that tries to keep particles inside the world.
-    let clip (extent : Point) point =
-        let x =
-            point.X
-                - min 0.0 ((2.0 * point.X) + extent.X)   // left edge
-                - max 0.0 ((2.0 * point.X) - extent.X)   // right edge
-        let y =
-            point.Y
-                - min 0.0 ((2.0 * point.Y) + extent.Y)   // bottom edge
-                - max 0.0 ((2.0 * point.Y) - extent.Y)   // top edge
-        Point.create x y
-
-    /// Relationship between two points.
+    /// Relationship between two particles.
     type private VectorEntry =
         {
-            /// Vector between the points.
+            /// Vector between the particles.
             Vector : Point
 
             /// Length of the vector.
             Length : float
 
-            /// Repulsion between the points.
+            /// Repulsion between the particles.
             Repulsion : float
+
+            /// Possible attraction between the particles.
+            Attraction : float
         }
 
     module private VectorEntry =
 
         /// Creates a vector entry.
         let create (vector : Point) =
+
             let length = vector.Length
+
             let repulsion =
-                repulsionStrength
-                    * (repulsionRadius - length)
+                if length < repulsionRadius then
+                    repulsionStrength
+                        * (repulsionRadius - length)
+                        / repulsionRadius
+                else 0.0
+
+            let attraction =
+                if length < attractionRadius then
+                    attractionStrength
+                        * (attractionRadius - length)
+                        / attractionRadius
+                else 0.0
+
             {
                 Vector = vector
                 Length = length
                 Repulsion = repulsion
+                Attraction = attraction
             }
 
-        /// Zero vector.
-        let zero = create Point.Zero
+        /// Zero vector entry.
+        let zero =
+            {
+                Vector = Point.Zero
+                Length = 0.0
+                Repulsion = 0.0
+                Attraction = 0.0
+            }
 
     /// Calculates vector between every pair of particles. The
     /// result is the lower half of a symmetric lookup table
@@ -95,7 +109,7 @@ module World =
                 if j = i then VectorEntry.zero
                 else
                     let vector =
-                        particle.Location - particles[j].Location
+                        particles[j].Location - particle.Location   // pointing away from this particle
                     VectorEntry.create vector))
 
     /// Sorts interacting particles by distance.
@@ -106,7 +120,8 @@ module World =
                 assert(row.Length = i + 1)
                 for j = 0 to i - 1 do
                     let entry = row[j]
-                    if entry.Length <= repulsionRadius then
+                    assert(attractionRadius >= repulsionRadius)
+                    if entry.Length <= attractionRadius then
                         i, j, entry
         } |> Seq.sortBy (fun (_, _, entry) -> entry.Length)
 
@@ -141,14 +156,12 @@ module World =
     /// Calculates the force between two particles.
     let private getForce entry bonded =
 
-            // repulsion
-        let strength = entry.Repulsion
-
-            // attraction between bonded particles?
+            // compute strength of force between the particles
         let strength =
             if bonded then
-                strength - repulsionRadius / 2.0
-            else strength
+                entry.Repulsion - entry.Attraction
+            else
+                entry.Repulsion
 
             // align to vector
         strength * (entry.Vector / entry.Length)
@@ -174,38 +187,34 @@ module World =
                     -getForce entry bonded
                 else Point.Zero)
 
-    /// Gets the momentum of the given particle due to Brownian
-    /// motion (using the Ornstein-Uhlenbeck process for
-    /// smoothness.)
-    let getMomentum random particle =
-        let noise =
-            sqrt dt
-                * Point.create
-                    (gaussianNoise random)
-                    (gaussianNoise random)
-        let delta = -brownianFriction * particle.Momentum * dt + brownianStrength * noise
-        particle.Momentum + delta
+    let private bounce world location velocity =
+        let vx =
+            if location.X < world.ExtentMin.X then
+                abs velocity.X
+            elif location.X > world.ExtentMax.X then
+                -(abs velocity.X)
+            else
+                velocity.X
+        let vy =
+            if location.Y < world.ExtentMin.Y then
+                abs velocity.Y
+            elif location.Y > world.ExtentMax.Y then
+                -(abs velocity.Y)
+            else
+                velocity.Y
+        Point.create vx vy
 
     /// Moves a single particle one time step forward.
     let private stepParticle random world entries bondSet i =
         let particle = world.Particles[i]
-
-            // force acting directly on particle's location
         let force =
             Array.sum (getForces world entries bondSet i)
-
-            // update background momentum
-        let momentum = getMomentum random particle
-
-            // update location
-        let location =
-            let delta = force + momentum
-            particle.Location + (delta * dt)
-                |> clip world.Extent
-
+        let velocity = (particle.Velocity + force) * friction
+        let location = (particle.Location + velocity) * dt
+        let velocity = bounce world location velocity
         { particle with
             Location = location
-            Momentum = momentum }
+            Velocity = velocity }
 
     /// Moves the particles in the given world one time step
     /// forward.
