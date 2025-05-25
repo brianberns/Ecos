@@ -16,7 +16,7 @@ type World =
 module World =
 
     /// Repulsion strength.
-    let repulsionStrength = 1.0
+    let repulsionStrength = 2.0
 
     /// Maximum distance at which repulsion occurs.
     let repulsionRadius = 1.0
