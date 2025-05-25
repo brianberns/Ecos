@@ -46,7 +46,7 @@ module World =
     /// Relationship between two particles.
     type private VectorEntry =
         {
-            /// Vector between the particles.
+            /// Normalized vector between the particles.
             Vector : Point
 
             /// Length of the vector.
@@ -65,6 +65,7 @@ module World =
         let create (vector : Point) =
 
             let length = vector.Length
+            let norm = vector / length
 
             let repulsion =
                 if length < repulsionRadius then
@@ -81,7 +82,7 @@ module World =
                 else 0.0
 
             {
-                Vector = vector
+                Vector = norm
                 Length = length
                 Repulsion = repulsion
                 Attraction = attraction
@@ -161,8 +162,8 @@ module World =
             else
                 entry.Repulsion
 
-            // align to vector
-        strength * (entry.Vector / entry.Length)
+            // align to normalized vector
+        strength * entry.Vector
 
     /// Calculates the forces acting on a particle.
     let private getForces world (entries : _[][]) bondSet i =
