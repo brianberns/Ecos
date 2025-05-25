@@ -10,7 +10,7 @@ open Ecos
 module ParticleType =
 
     let minValence = 1
-    let maxValence = 3
+    let maxValence = 2
 
     let minHue =  60   // yellow
     let maxHue = 360   // red

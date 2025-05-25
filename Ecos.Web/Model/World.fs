@@ -49,9 +49,6 @@ module World =
             /// Normalized vector between the particles.
             Vector : Point
 
-            /// Length of the vector.
-            Length : float
-
             /// Repulsion between the particles.
             Repulsion : float
 
@@ -83,7 +80,6 @@ module World =
 
             {
                 Vector = norm
-                Length = length
                 Repulsion = repulsion
                 Attraction = attraction
             }
@@ -92,7 +88,6 @@ module World =
         let zero =
             {
                 Vector = Point.Zero
-                Length = 0.0
                 Repulsion = 0.0
                 Attraction = 0.0
             }
@@ -120,9 +115,10 @@ module World =
                 for j = 0 to i - 1 do
                     let entry = row[j]
                     assert(attractionRadius >= repulsionRadius)
-                    if entry.Length <= attractionRadius then
+                    if entry.Attraction > 0.0 then
                         i, j, entry
-        } |> Seq.sortBy (fun (_, _, entry) -> entry.Length)
+        } |> Seq.sortByDescending (fun (_, _, entry) ->
+            entry.Attraction)
 
     /// Creates bonds between closest particles.
     let private createBonds indexes particles =
