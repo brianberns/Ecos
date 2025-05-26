@@ -39,11 +39,12 @@ module Particle =
 
     /// Makes the given number of particles.
     let makeParticles
-        (random : Random) numParticles (scale : Point) offset =
+        (random : Random)
+        typ
+        numParticles
+        (scale : Point)
+        offset =
         Array.init numParticles (fun _ ->
-            let typ =
-                let idx = random.Next(ParticleType.all.Length)
-                ParticleType.all[idx]
             let r = random.NextDouble()
             let location =
                 r * scale * randomUnitVector random + offset
