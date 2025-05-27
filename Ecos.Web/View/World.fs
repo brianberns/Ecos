@@ -34,6 +34,21 @@ module World =
 
     /// Draws the given world.
     let draw ctx world =
+
+            // draw particles
         Array.iter
             (Particle.draw ctx)
             world.Particles
+
+            // draw bonds
+        Set.iter (fun (i, j) ->
+
+            let a = world.Particles[i]
+            let b = world.Particles[j]
+
+            ctx.beginPath()
+            ctx.moveTo(a.Location.X, a.Location.Y)
+            ctx.lineTo(b.Location.X, b.Location.Y)
+            ctx.stroke()
+
+            ) world.Bonds
