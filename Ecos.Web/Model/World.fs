@@ -167,19 +167,20 @@ module World =
                 let bound = world.Bonds.Contains (j, i)
                 -getForce entry bound)
 
+    /// Bounces the given trajectory off a wall, if necessary.
     let private bounce world location velocity =
         let vx =
             if location.X < world.ExtentMin.X then
                 abs velocity.X
             elif location.X > world.ExtentMax.X then
-                -(abs velocity.X)
+                -abs velocity.X
             else
                 velocity.X
         let vy =
             if location.Y < world.ExtentMin.Y then
                 abs velocity.Y
             elif location.Y > world.ExtentMax.Y then
-                -(abs velocity.Y)
+                -abs velocity.Y
             else
                 velocity.Y
         Point.create vx vy
