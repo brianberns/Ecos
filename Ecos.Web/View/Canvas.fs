@@ -10,7 +10,7 @@ open Ecos
 module Canvas =
 
     /// Number of engine time steps per frame.
-    let stepsPerFrame = 5
+    let stepsPerFrame = 1
 
         // initialize canvas
     let canvas =

@@ -15,24 +15,9 @@ module World =
 
     /// Creates particles.
     let createParticles random extent numParticles =
-
-            // initial particle locations
-        let scale =
-            let factor = (min extent.X extent.Y) / tightness
-            Point.create factor factor
         [|
-            yield! Particle.makeParticles
-                random
-                hydrogen
-                (2 * numParticles / 3)
-                scale
-                (Point.create -(extent.X / 4.0) 0.0)
-            yield! Particle.makeParticles
-                random
-                oxygen
-                (numParticles / 3)
-                scale
-                (Point.create (extent.X / 4.0) 0.0)
+            Particle.create hydrogen (Point.create -1.5 0.0) (Point.create  0.1 0.0)
+            Particle.create oxygen   (Point.create  1.5 0.0) (Point.create -0.1 0.0)
         |]
 
     /// Creates a world.

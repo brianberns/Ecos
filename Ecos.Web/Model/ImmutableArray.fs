@@ -2,7 +2,7 @@
 
 /// Immutable array.
 type ImmutableArray<'t> =
-    private {
+    {
         Items : 't[]
     }
 

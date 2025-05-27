@@ -24,13 +24,13 @@ module World =
     let repulsionRadius = 1.0
 
     /// Attraction strength.
-    let attractionStrength = 0.5
+    let attractionStrength = 2.0
 
     /// Maximum distance at which attraction occurs.
-    let attractionRadius = 2.0
+    let attractionRadius = 1.0
 
     /// Friction.
-    let friction = 0.99
+    let friction = 1.0
 
     /// Time step.
     let dt = 0.05
@@ -131,32 +131,35 @@ module World =
             entry.BondTypePriority, entry.Attraction)
 
     /// Creates bonds between closest particles.
-    let private createBonds indexes particles =
+    let private createBonds indexes world =
 
             // reset bonds to zero
         let particles =
-            particles
+            world.Particles
                 |> Seq.map Particle.resetBonds
                 |> ImmutableArray.Create<_>
 
-        ((particles, Set.empty), indexes)
-            ||> Seq.fold (fun (particles, bondSet) (i, j, _) ->
-                let a = particles[i]
-                let b = particles[j]
-                let canBond =
-                    a.NumBonds < a.Type.Valence
-                        && b.NumBonds < b.Type.Valence
-                if canBond then
-                    let a, b = Particle.bond a b
-                    let particles =
-                        particles
-                            .SetItem(i, a)
-                            .SetItem(j, b)
-                    assert(i > j)
-                    let bondSet = bondSet.Add(i, j)
-                    particles, bondSet
-                else particles, bondSet)
-            |> snd
+        let particles, bondSet =
+            ((particles, Set.empty), indexes)
+                ||> Seq.fold (fun (particles, bondSet) (i, j, _) ->
+                    let a = particles[i]
+                    let b = particles[j]
+                    let canBond =
+                        a.NumBonds < a.Type.Valence
+                            && b.NumBonds < b.Type.Valence
+                    if canBond then
+                        let a, b = Particle.bond a b
+                        let particles =
+                            particles
+                                .SetItem(i, a)
+                                .SetItem(j, b)
+                        assert(i > j)
+                        let bondSet = bondSet.Add(i, j)
+                        particles, bondSet
+                    else particles, bondSet)
+
+        { world with Particles = particles.Items },
+        bondSet
 
     /// Calculates the force between two particles.
     let private getForce entry bonded =
@@ -188,31 +191,31 @@ module World =
                     Set.contains (j, i) bondSet
                 -getForce entry bonded)
 
-    let private bounce world location velocity =
-        let vx =
+    let private wrap world location =
+        let x =
             if location.X < world.ExtentMin.X then
-                abs velocity.X
+                world.ExtentMax.X - (world.ExtentMin.X - location.X)
             elif location.X > world.ExtentMax.X then
-                -(abs velocity.X)
+                world.ExtentMin.X + (location.X - world.ExtentMax.X)
             else
-                velocity.X
-        let vy =
+                location.X
+        let y =
             if location.Y < world.ExtentMin.Y then
-                abs velocity.Y
+                world.ExtentMax.Y - (world.ExtentMin.Y - location.Y)
             elif location.Y > world.ExtentMax.Y then
-                -(abs velocity.Y)
+                world.ExtentMin.Y + (location.Y - world.ExtentMax.Y)
             else
-                velocity.Y
-        Point.create vx vy
+                location.Y
+        Point.create x y
 
     /// Moves a single particle one time step forward.
-    let private stepParticle random world entries bondSet i =
+    let private stepParticle world entries bondSet i =
         let particle = world.Particles[i]
         let force =
             Array.sum (getForces world entries bondSet i)
         let velocity = (particle.Velocity + force) * friction
         let location = particle.Location + (velocity * dt)
-        let velocity = bounce world location velocity
+        let location = wrap world location
         { particle with
             Location = location
             Velocity = velocity }
@@ -222,10 +225,10 @@ module World =
     let step random world =
         let entries =
             getVectors world.BondTypePriorityMap world.Particles
-        let bondSet =
+        let world, bondSet =
             let tuples = sortInteractions entries
-            createBonds tuples world.Particles
+            createBonds tuples world
         let particles =
             Array.init world.Particles.Length (
-                stepParticle random world entries bondSet)
+                stepParticle world entries bondSet)
         { world with Particles = particles }

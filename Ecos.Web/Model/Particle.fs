@@ -60,12 +60,12 @@ type Particle =
 module Particle =
 
     //// Creates a particle.
-    let create typ location =
+    let create typ location velocity =
         {
             Type = typ
             NumBonds = 0
             Location = location
-            Velocity = Point.Zero
+            Velocity = velocity
         }
 
     /// Resets a particle to have no bonds.
@@ -80,5 +80,9 @@ module Particle =
             min
                 (a.Type.Valence - a.NumBonds)
                 (b.Type.Valence - b.NumBonds)
-        { a with NumBonds = a.NumBonds + nBonds },
-        { b with NumBonds = b.NumBonds + nBonds }
+        { a with
+            NumBonds = a.NumBonds + nBonds
+            Velocity = Point.Zero },
+        { b with
+            NumBonds = b.NumBonds + nBonds
+            Velocity = Point.Zero }

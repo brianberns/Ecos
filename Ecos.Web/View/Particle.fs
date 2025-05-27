@@ -48,7 +48,8 @@ module Particle =
             let r = random.NextDouble()
             let location =
                 r * scale * randomUnitVector random + offset
-            Particle.create typ location)
+            let velocity = Point.Zero
+            Particle.create typ location velocity)
 
     /// Draws the given particle.
     let draw (ctx : CanvasRenderingContext2D) particle =
