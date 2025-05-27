@@ -52,6 +52,9 @@ module Particle =
     let resetBonds particle =
         { particle with NumBonds = 0 }
 
+    /// Elasticity of bond collision.
+    let private elasticity = 0.1
+
     /// Bonds the given particles.
     let bond a b radiate =
         assert(a.NumBonds < a.Type.Valence)
@@ -60,16 +63,19 @@ module Particle =
             min
                 (a.Type.Valence - a.NumBonds)
                 (b.Type.Valence - b.NumBonds)
-        let numBondsA = a.NumBonds + nBonds
-        let numBondsB = b.NumBonds + nBonds
-        if radiate then
-            let velocity = (a.Velocity + b.Velocity) / 2.0   // inelastic collision
-            { a with
-                NumBonds = numBondsA
-                Velocity = velocity },
-            { b with
-                NumBonds = numBondsB
-                Velocity = velocity }
-        else
-            { a with NumBonds = numBondsA },
-            { b with NumBonds = numBondsB }
+        { a with
+            NumBonds = a.NumBonds + nBonds
+            Velocity =
+                if radiate then
+                    ((a.Velocity * (1.0 - elasticity))
+                        + (b.Velocity * (1.0 + elasticity)))
+                        / 2.0
+                else a.Velocity },
+        { b with
+            NumBonds = b.NumBonds + nBonds
+            Velocity =
+                if radiate then
+                    ((a.Velocity * (1.0 + elasticity))
+                        + (b.Velocity * (1.0 - elasticity)))
+                        / 2.0
+                else b.Velocity }
