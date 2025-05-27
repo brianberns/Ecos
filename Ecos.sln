@@ -7,6 +7,8 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Ecos.Web", "Ecos.Web\Ecos.W
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Ecos.Engine", "Ecos.Engine\Ecos.Engine.fsproj", "{8769AE95-2EF6-4B95-B6E2-FF9524D8C9A8}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Ecos.Desktop", "Ecos.Desktop\Ecos.Desktop.fsproj", "{B76CCBBB-2E92-48CF-ADA0-A6459BCFC724}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +23,10 @@ Global
 		{8769AE95-2EF6-4B95-B6E2-FF9524D8C9A8}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{8769AE95-2EF6-4B95-B6E2-FF9524D8C9A8}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{8769AE95-2EF6-4B95-B6E2-FF9524D8C9A8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B76CCBBB-2E92-48CF-ADA0-A6459BCFC724}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B76CCBBB-2E92-48CF-ADA0-A6459BCFC724}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B76CCBBB-2E92-48CF-ADA0-A6459BCFC724}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B76CCBBB-2E92-48CF-ADA0-A6459BCFC724}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
