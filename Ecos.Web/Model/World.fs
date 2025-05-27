@@ -112,7 +112,7 @@ module World =
                     VectorEntry.create vector))
 
     /// Sorts attracted particles by distance.
-    let private sortAttracted (entries : _[][]) =
+    let private sortAttracted world (entries : _[][]) =
         seq {
             for i = 0 to entries.Length - 1 do
                 let row = entries[i]
@@ -120,11 +120,13 @@ module World =
                 for j = 0 to i - 1 do
                     let entry = row[j]
                     if entry.Distance <= attractionRadius then
-                        i, j, entry
-        } |> Seq.sortBy (fun (_, _, entry) -> entry.Distance)
+                        let bound = world.Bonds.Contains (i, j)
+                        i, j, entry.Distance, bound
+        } |> Seq.sortBy (fun (_, _, distance, bound) ->
+            (if bound then 0 else 1), distance)
 
     /// Creates bonds between closest particles.
-    let private createBonds indexes world =
+    let private createBonds world indexes =
 
             // reset bonds to zero
         let particles =
@@ -134,14 +136,13 @@ module World =
 
         let particles, bonds =
             ((particles, Set.empty), indexes)
-                ||> Seq.fold (fun (particles, bonds) (i, j, _) ->
+                ||> Seq.fold (fun (particles, bonds) (i, j, _, bound) ->
                     let a = particles[i]
                     let b = particles[j]
                     let canBond =
                         a.NumBonds < a.Type.Valence
                             && b.NumBonds < b.Type.Valence
                     if canBond then
-                        let bound = world.Bonds.Contains (i, j)
                         let a, b = Particle.bond a b (not bound)
                         let particles =
                             particles
@@ -215,8 +216,8 @@ module World =
         let entries =
             getVectors world.Particles
         let world =
-            let tuples = sortAttracted entries
-            createBonds tuples world
+            let tuples = sortAttracted world entries
+            createBonds world tuples
         let particles =
             Array.init world.Particles.Length (
                 stepParticle world entries)
