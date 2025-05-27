@@ -18,7 +18,7 @@ module World =
         [|
             Particle.create hydrogen (Point.create 0.0 0.0) (Point.create 1.0 0.0)
             Particle.create hydrogen (Point.create 2.0 0.1) (Point.create 0.0 0.0)
-            Particle.create hydrogen (Point.create 4.0 0.2) (Point.create 0.0 0.0)
+            // Particle.create hydrogen (Point.create 4.0 0.2) (Point.create 0.0 0.0)
         |]
         (*
         let scale =

@@ -63,7 +63,7 @@ module Particle =
         let numBondsA = a.NumBonds + nBonds
         let numBondsB = b.NumBonds + nBonds
         if radiate then
-            let velocity = (a.Velocity + b.Velocity) / 2.0
+            let velocity = (a.Velocity + b.Velocity) / 2.0   // inelastic collision
             { a with
                 NumBonds = numBondsA
                 Velocity = velocity },

@@ -1,7 +1,7 @@
 ﻿## Run
 
 * npm i -D vite
-* dotnet fable watch --verbose --run npx vite
+* dotnet fable watch --verbose --sourceMaps --run npx vite
 
 ## Build for publishing
 

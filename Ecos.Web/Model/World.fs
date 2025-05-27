@@ -19,10 +19,13 @@ type World =
 module World =
 
     /// Repulsion strength.
-    let repulsionStrength = 1.0
+    let repulsionStrength = 3.0
 
     /// Maximum distance at which repulsion occurs.
     let repulsionRadius = 0.9
+
+    /// Attraction strength.
+    let attractionStrength = 1.0
 
     /// Maximum distance at which attraction occurs.
     let attractionRadius = 1.0
@@ -52,6 +55,9 @@ module World =
 
             /// Repulsion between the particles.
             Repulsion : float
+
+            /// Attraction between the particles.
+            Attraction : float
         }
 
     module private VectorEntry =
@@ -68,10 +74,18 @@ module World =
                         / repulsionRadius
                 else 0.0
 
+            let attraction =
+                if distance < attractionRadius then
+                    attractionStrength
+                        * (attractionRadius - distance)
+                        / attractionRadius
+                else 0.0
+
             {
                 Distance = distance
                 Vector = norm
                 Repulsion = repulsion
+                Attraction = attraction
             }
 
         /// Zero vector entry.
@@ -80,6 +94,7 @@ module World =
                 Distance = 0.0
                 Vector = Point.Zero
                 Repulsion = 0.0
+                Attraction = 0.0
             }
 
     /// Calculates vector between every pair of particles. The
@@ -142,12 +157,11 @@ module World =
             Bonds = bonds }
 
     /// Calculates the force between two particles.
-    let private getForce entry bound =
+    let private getForce entry =
 
             // compute strength of force between the particles
         let strength =
-            if bound then 0.0
-            else entry.Repulsion
+            entry.Repulsion - entry.Attraction
 
             // align to normalized vector
         strength * entry.Vector
@@ -160,12 +174,10 @@ module World =
             if i = j then Point.Zero
             elif j < i then
                 let entry = row[j]
-                let bound = world.Bonds.Contains (i, j)
-                getForce entry bound
+                getForce entry
             else
                 let entry = entries[j][i]
-                let bound = world.Bonds.Contains (j, i)
-                -getForce entry bound)
+                -getForce entry)
 
     /// Bounces the given trajectory off a wall, if necessary.
     let private bounce world location velocity =
