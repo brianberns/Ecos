@@ -16,8 +16,9 @@ module World =
     /// Creates particles.
     let createParticles random extent numParticles =
         [|
-            Particle.create hydrogen (Point.create -1.5 0.0) (Point.create  0.1 0.5)
-            Particle.create oxygen   (Point.create  1.5 0.0) (Point.create -0.1 0.5)
+            Particle.create hydrogen (Point.create 0.0 0.0) (Point.create 1.0 0.0)
+            Particle.create hydrogen (Point.create 2.0 0.1) (Point.create 0.0 0.0)
+            Particle.create hydrogen (Point.create 4.0 0.2) (Point.create 0.0 0.0)
         |]
 
     /// Creates a world.
@@ -30,3 +31,9 @@ module World =
 
             // create and animate world
         World.create extentMin extentMax particles
+
+    /// Draws the given world.
+    let draw ctx world =
+        Array.iter
+            (Particle.draw ctx)
+            world.Particles

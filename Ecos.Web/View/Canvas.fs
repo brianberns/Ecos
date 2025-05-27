@@ -56,10 +56,8 @@ module Canvas =
         let s = canvas.width / (extentMax.X - extentMin.X)
         ctx.scale(s, s)
 
-            // draw each particle
-        Array.iter
-            (Particle.draw ctx)
-            world.Particles
+            // draw the world
+        World.draw ctx world
 
             // reset transform
         ctx.setTransform(1.0, 0.0, 0.0, 1.0, 0.0, 0.0)
