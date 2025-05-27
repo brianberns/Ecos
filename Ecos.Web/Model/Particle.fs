@@ -60,13 +60,16 @@ module Particle =
             min
                 (a.Type.Valence - a.NumBonds)
                 (b.Type.Valence - b.NumBonds)
-        { a with
-            NumBonds = a.NumBonds + nBonds
-            Velocity =
-                if radiate then Point.Zero
-                else a.Velocity },
-        { b with
-            NumBonds = b.NumBonds + nBonds
-            Velocity =
-                if radiate then Point.Zero
-                else b.Velocity }
+        let numBondsA = a.NumBonds + nBonds
+        let numBondsB = b.NumBonds + nBonds
+        if radiate then
+            let avg = (a.Velocity + b.Velocity) / 2.0
+            { a with
+                NumBonds = numBondsA
+                Velocity = avg },
+            { b with
+                NumBonds = numBondsB
+                Velocity = avg }
+        else
+            { a with NumBonds = numBondsA },
+            { b with NumBonds = numBondsB }

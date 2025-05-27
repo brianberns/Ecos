@@ -16,8 +16,8 @@ module World =
     /// Creates particles.
     let createParticles random extent numParticles =
         [|
-            Particle.create hydrogen (Point.create -1.5 0.0) (Point.create  0.1 0.0)
-            Particle.create oxygen   (Point.create  1.5 0.0) (Point.create -0.1 0.0)
+            Particle.create hydrogen (Point.create -1.5 0.0) (Point.create  0.1 0.5)
+            Particle.create oxygen   (Point.create  1.5 0.0) (Point.create -0.1 0.5)
         |]
 
     /// Creates a world.

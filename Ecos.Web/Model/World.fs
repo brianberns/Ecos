@@ -19,16 +19,13 @@ type World =
 module World =
 
     /// Repulsion strength.
-    let repulsionStrength = 2.0
+    let repulsionStrength = 4.0
 
     /// Maximum distance at which repulsion occurs.
-    let repulsionRadius = 1.0
-
-    /// Attraction strength.
-    let attractionStrength = 1.0
+    let repulsionRadius = 0.9
 
     /// Maximum distance at which attraction occurs.
-    let attractionRadius = 2.0
+    let attractionRadius = 1.0
 
     /// Time step.
     let dt = 0.05
@@ -47,49 +44,42 @@ module World =
     /// Relationship between two particles.
     type private VectorEntry =
         {
+            /// Distance between the particles.
+            Distance : float
+
             /// Normalized vector between the particles.
             Vector : Point
 
             /// Repulsion between the particles.
             Repulsion : float
-
-            /// Possible attraction between the particles.
-            Attraction : float
         }
 
     module private VectorEntry =
 
         /// Creates a vector entry.
         let create (vector : Point) =
-            let length = vector.Length
-            let norm = vector / length
+            let distance = vector.Length
+            let norm = vector / distance
 
             let repulsion =
-                if length < repulsionRadius then
+                if distance < repulsionRadius then
                     repulsionStrength
-                        * (repulsionRadius - length)
+                        * (repulsionRadius - distance)
                         / repulsionRadius
                 else 0.0
 
-            let attraction =
-                if length < attractionRadius then
-                    attractionStrength
-                        * (attractionRadius - length)
-                        / attractionRadius
-                else 0.0
-
             {
+                Distance = distance
                 Vector = norm
                 Repulsion = repulsion
-                Attraction = attraction
             }
 
         /// Zero vector entry.
         let zero =
             {
+                Distance = 0.0
                 Vector = Point.Zero
                 Repulsion = 0.0
-                Attraction = 0.0
             }
 
     /// Calculates vector between every pair of particles. The
@@ -106,19 +96,17 @@ module World =
                     let vector = particle.Location - other.Location
                     VectorEntry.create vector))
 
-    /// Sorts interacting particles by distance.
-    let private sortInteractions (entries : _[][]) =
+    /// Sorts attracted particles by distance.
+    let private sortAttracted (entries : _[][]) =
         seq {
             for i = 0 to entries.Length - 1 do
                 let row = entries[i]
                 assert(row.Length = i + 1)
                 for j = 0 to i - 1 do
                     let entry = row[j]
-                    assert(attractionRadius >= repulsionRadius)
-                    if entry.Attraction > 0.0 then
+                    if entry.Distance <= attractionRadius then
                         i, j, entry
-        } |> Seq.sortByDescending (fun (_, _, entry) ->
-            entry.Attraction)
+        } |> Seq.sortBy (fun (_, _, entry) -> entry.Distance)
 
     /// Creates bonds between closest particles.
     let private createBonds indexes world =
@@ -159,7 +147,7 @@ module World =
             // compute strength of force between the particles
         let strength =
             if bonded then
-                entry.Repulsion - entry.Attraction
+                entry.Repulsion
             else
                 entry.Repulsion
 
@@ -217,7 +205,7 @@ module World =
         let entries =
             getVectors world.Particles
         let world =
-            let tuples = sortInteractions entries
+            let tuples = sortAttracted entries
             createBonds tuples world
         let particles =
             Array.init world.Particles.Length (
