@@ -364,3 +364,4 @@ FodyWeavers.xsd
 
 # Generated files
 *.fs.js
+*.fs.js.map
