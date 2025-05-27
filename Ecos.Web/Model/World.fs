@@ -19,7 +19,7 @@ type World =
 module World =
 
     /// Repulsion strength.
-    let repulsionStrength = 4.0
+    let repulsionStrength = 1.0
 
     /// Maximum distance at which repulsion occurs.
     let repulsionRadius = 0.9
@@ -147,7 +147,7 @@ module World =
             // compute strength of force between the particles
         let strength =
             if bonded then
-                entry.Repulsion
+                0.0
             else
                 entry.Repulsion
 
