@@ -19,19 +19,16 @@ type World =
 module World =
 
     /// Repulsion strength.
-    let repulsionStrength = 1.0
+    let repulsionStrength = 2.0
 
     /// Maximum distance at which repulsion occurs.
     let repulsionRadius = 1.0
 
     /// Attraction strength.
-    let attractionStrength = 2.0
+    let attractionStrength = 1.0
 
     /// Maximum distance at which attraction occurs.
-    let attractionRadius = 1.0
-
-    /// Friction.
-    let friction = 1.0
+    let attractionRadius = 2.0
 
     /// Time step.
     let dt = 0.05
@@ -141,7 +138,8 @@ module World =
                         a.NumBonds < a.Type.Valence
                             && b.NumBonds < b.Type.Valence
                     if canBond then
-                        let a, b = Particle.bond a b
+                        let bonded = world.Bonds.Contains (i, j)
+                        let a, b = Particle.bond a b (not bonded)
                         let particles =
                             particles
                                 .SetItem(i, a)
@@ -206,7 +204,7 @@ module World =
         let particle = world.Particles[i]
         let force =
             Array.sum (getForces world entries i)
-        let velocity = (particle.Velocity + force) * friction
+        let velocity = particle.Velocity + force
         let location = particle.Location + (velocity * dt)
         let location = wrap world location
         { particle with

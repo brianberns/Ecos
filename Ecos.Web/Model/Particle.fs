@@ -53,7 +53,7 @@ module Particle =
         { particle with NumBonds = 0 }
 
     /// Bonds the given particles.
-    let bond a b =
+    let bond a b radiate =
         assert(a.NumBonds < a.Type.Valence)
         assert(b.NumBonds < b.Type.Valence)
         let nBonds =
@@ -62,7 +62,11 @@ module Particle =
                 (b.Type.Valence - b.NumBonds)
         { a with
             NumBonds = a.NumBonds + nBonds
-            Velocity = Point.Zero },
+            Velocity =
+                if radiate then Point.Zero
+                else a.Velocity },
         { b with
             NumBonds = b.NumBonds + nBonds
-            Velocity = Point.Zero }
+            Velocity =
+                if radiate then Point.Zero
+                else b.Velocity }
