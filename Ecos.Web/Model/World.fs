@@ -12,7 +12,7 @@ type World =
         /// Particles in the world.
         Particles : Particle[]
 
-        /// Indexes of bonded particles.
+        /// Indexes of bound particles.
         Bonds : Set<int * int>
     }
 
@@ -126,8 +126,8 @@ module World =
                         a.NumBonds < a.Type.Valence
                             && b.NumBonds < b.Type.Valence
                     if canBond then
-                        let bonded = world.Bonds.Contains (i, j)
-                        let a, b = Particle.bond a b (not bonded)
+                        let bound = world.Bonds.Contains (i, j)
+                        let a, b = Particle.bond a b (not bound)
                         let particles =
                             particles
                                 .SetItem(i, a)
@@ -142,14 +142,12 @@ module World =
             Bonds = bonds }
 
     /// Calculates the force between two particles.
-    let private getForce entry bonded =
+    let private getForce entry bound =
 
             // compute strength of force between the particles
         let strength =
-            if bonded then
-                0.0
-            else
-                entry.Repulsion
+            if bound then 0.0
+            else entry.Repulsion
 
             // align to normalized vector
         strength * entry.Vector
@@ -162,12 +160,12 @@ module World =
             if i = j then Point.Zero
             elif j < i then
                 let entry = row[j]
-                let bonded = world.Bonds.Contains (i, j)
-                getForce entry bonded
+                let bound = world.Bonds.Contains (i, j)
+                getForce entry bound
             else
                 let entry = entries[j][i]
-                let bonded = world.Bonds.Contains (j, i)
-                -getForce entry bonded)
+                let bound = world.Bonds.Contains (j, i)
+                -getForce entry bound)
 
     let private bounce world location velocity =
         let vx =

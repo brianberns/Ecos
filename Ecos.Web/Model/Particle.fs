@@ -63,13 +63,13 @@ module Particle =
         let numBondsA = a.NumBonds + nBonds
         let numBondsB = b.NumBonds + nBonds
         if radiate then
-            let avg = (a.Velocity + b.Velocity) / 2.0
+            let velocity = (a.Velocity + b.Velocity) / 2.0
             { a with
                 NumBonds = numBondsA
-                Velocity = avg },
+                Velocity = velocity },
             { b with
                 NumBonds = numBondsB
-                Velocity = avg }
+                Velocity = velocity }
         else
             { a with NumBonds = numBondsA },
             { b with NumBonds = numBondsB }
