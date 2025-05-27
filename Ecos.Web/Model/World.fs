@@ -11,6 +11,9 @@ type World =
 
         /// Particles in the world.
         Particles : Particle[]
+
+        /// Indexes of bonded particles.
+        Bonds : Set<int * int>
     }
 
 module World =
@@ -41,6 +44,7 @@ module World =
             ExtentMin = extentMin
             ExtentMax = extentMax
             Particles = particles
+            Bonds = Set.empty
         }
 
     /// Relationship between two particles.
@@ -128,9 +132,9 @@ module World =
                 |> Seq.map Particle.resetBonds
                 |> ImmutableArray.Create<_>
 
-        let particles, bondSet =
+        let particles, bonds =
             ((particles, Set.empty), indexes)
-                ||> Seq.fold (fun (particles, bondSet) (i, j, _) ->
+                ||> Seq.fold (fun (particles, bonds) (i, j, _) ->
                     let a = particles[i]
                     let b = particles[j]
                     let canBond =
@@ -143,12 +147,13 @@ module World =
                                 .SetItem(i, a)
                                 .SetItem(j, b)
                         assert(i > j)
-                        let bondSet = bondSet.Add(i, j)
-                        particles, bondSet
-                    else particles, bondSet)
+                        let bonds = bonds.Add(i, j)
+                        particles, bonds
+                    else particles, bonds)
 
-        { world with Particles = particles.Items },
-        bondSet
+        { world with
+            Particles = particles.Items
+            Bonds = bonds }
 
     /// Calculates the force between two particles.
     let private getForce entry bonded =
@@ -164,22 +169,21 @@ module World =
         strength * entry.Vector
 
     /// Calculates the forces acting on a particle.
-    let private getForces world (entries : _[][]) bondSet i =
+    let private getForces world (entries : _[][]) i =
         let row = entries[i]
         assert(row.Length = i + 1)
         Array.init world.Particles.Length (fun j ->
             if i = j then Point.Zero
             elif j < i then
                 let entry = row[j]
-                let bonded =
-                    Set.contains (i, j) bondSet
+                let bonded = world.Bonds.Contains (i, j)
                 getForce entry bonded
             else
                 let entry = entries[j][i]
-                let bonded =
-                    Set.contains (j, i) bondSet
+                let bonded = world.Bonds.Contains (j, i)
                 -getForce entry bonded)
 
+    /// Wraps a location around the edges of the given world.
     let private wrap world location =
         let x =
             if location.X < world.ExtentMin.X then
@@ -198,10 +202,10 @@ module World =
         Point.create x y
 
     /// Moves a single particle one time step forward.
-    let private stepParticle world entries bondSet i =
+    let private stepParticle world entries i =
         let particle = world.Particles[i]
         let force =
-            Array.sum (getForces world entries bondSet i)
+            Array.sum (getForces world entries i)
         let velocity = (particle.Velocity + force) * friction
         let location = particle.Location + (velocity * dt)
         let location = wrap world location
@@ -211,13 +215,13 @@ module World =
 
     /// Moves the particles in the given world one time step
     /// forward.
-    let step random world =
+    let step world =
         let entries =
             getVectors world.Particles
-        let world, bondSet =
+        let world =
             let tuples = sortInteractions entries
             createBonds tuples world
         let particles =
             Array.init world.Particles.Length (
-                stepParticle world entries bondSet)
+                stepParticle world entries)
         { world with Particles = particles }

@@ -42,13 +42,13 @@ module Canvas =
             :?> HTMLInputElement
 
     /// Animates one frame.
-    let animateFrame random world =
+    let animateFrame world =
 
             // move particles
         let world =
             (world, [1 .. stepsPerFrame])
                 ||> Seq.fold (fun world _ ->
-                    World.step random world)
+                    World.step world)
 
             // prepare to draw
         ctx.clearRect(0, 0, canvas.width, canvas.height)
@@ -97,7 +97,7 @@ module Canvas =
                         reset <- false
                         createWorld ()
                     else world
-                animateFrame random world
+                animateFrame world
                     |> loop (iFrame + 1) cur)
                 |> ignore
 
