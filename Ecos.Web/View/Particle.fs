@@ -5,7 +5,7 @@ open System
 open Browser.Types
 open Fable.Core.JsInterop
 
-open Ecos
+open Ecos.Engine
 
 module ParticleType =
 

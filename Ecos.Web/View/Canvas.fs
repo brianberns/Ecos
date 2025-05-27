@@ -5,7 +5,7 @@ open System
 open Browser
 open Browser.Types
 
-open Ecos
+open Ecos.Engine
 
 module Canvas =
 
@@ -84,7 +84,8 @@ module Canvas =
         let createWorld () =
             let numParticles =
                 System.Int32.Parse txtNumParticles.value
-            Web.World.create random extentMin extentMax numParticles
+            Ecos.Web.World.create
+                random extentMin extentMax numParticles
 
         let rec loop iFrame prev world =
             window.requestAnimationFrame(fun timestamp ->

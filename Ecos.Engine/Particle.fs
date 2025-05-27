@@ -1,4 +1,4 @@
-﻿namespace Ecos
+﻿namespace Ecos.Engine
 
 /// Particle type.
 [<ReferenceEquality>]

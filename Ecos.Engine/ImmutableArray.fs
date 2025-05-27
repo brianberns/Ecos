@@ -1,4 +1,4 @@
-﻿namespace Ecos
+﻿namespace Ecos.Engine
 
 /// Immutable array.
 type ImmutableArray<'t> =

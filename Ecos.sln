@@ -1,9 +1,11 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
-VisualStudioVersion = 17.13.35931.197 d17.13
+VisualStudioVersion = 17.13.35931.197
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Ecos.Web", "Ecos.Web\Ecos.Web.fsproj", "{ED3DC681-648B-4CCE-A863-8BB956BBA6D6}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Ecos.Engine", "Ecos.Engine\Ecos.Engine.fsproj", "{8769AE95-2EF6-4B95-B6E2-FF9524D8C9A8}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,6 +17,10 @@ Global
 		{ED3DC681-648B-4CCE-A863-8BB956BBA6D6}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{ED3DC681-648B-4CCE-A863-8BB956BBA6D6}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{ED3DC681-648B-4CCE-A863-8BB956BBA6D6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8769AE95-2EF6-4B95-B6E2-FF9524D8C9A8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8769AE95-2EF6-4B95-B6E2-FF9524D8C9A8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8769AE95-2EF6-4B95-B6E2-FF9524D8C9A8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8769AE95-2EF6-4B95-B6E2-FF9524D8C9A8}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

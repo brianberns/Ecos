@@ -1,6 +1,6 @@
 ﻿namespace Ecos.Web
 
-open Ecos
+open Ecos.Engine
 
 module World =
 
