@@ -169,23 +169,22 @@ module World =
                 let bonded = world.Bonds.Contains (j, i)
                 -getForce entry bonded)
 
-    /// Wraps a location around the edges of the given world.
-    let private wrap world location =
-        let x =
+    let private bounce world location velocity =
+        let vx =
             if location.X < world.ExtentMin.X then
-                world.ExtentMax.X - (world.ExtentMin.X - location.X)
+                abs velocity.X
             elif location.X > world.ExtentMax.X then
-                world.ExtentMin.X + (location.X - world.ExtentMax.X)
+                -(abs velocity.X)
             else
-                location.X
-        let y =
+                velocity.X
+        let vy =
             if location.Y < world.ExtentMin.Y then
-                world.ExtentMax.Y - (world.ExtentMin.Y - location.Y)
+                abs velocity.Y
             elif location.Y > world.ExtentMax.Y then
-                world.ExtentMin.Y + (location.Y - world.ExtentMax.Y)
+                -(abs velocity.Y)
             else
-                location.Y
-        Point.create x y
+                velocity.Y
+        Point.create vx vy
 
     /// Moves a single particle one time step forward.
     let private stepParticle world entries i =
@@ -194,7 +193,7 @@ module World =
             Array.sum (getForces world entries i)
         let velocity = particle.Velocity + force
         let location = particle.Location + (velocity * dt)
-        let location = wrap world location
+        let velocity = bounce world location velocity
         { particle with
             Location = location
             Velocity = velocity }
