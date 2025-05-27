@@ -11,8 +11,6 @@ type World =
 
         /// Particles in the world.
         Particles : Particle[]
-
-        BondTypePriorityMap : Map<ParticleType * ParticleType, int>
     }
 
 module World =
@@ -36,14 +34,13 @@ module World =
     let dt = 0.05
 
     /// Creates a world.
-    let create extentMin extentMax particles bondTypePriorityMap =
+    let create extentMin extentMax particles =
         assert(extentMax.X >= extentMin.X)
         assert(extentMax.Y >= extentMin.Y)
         {
             ExtentMin = extentMin
             ExtentMax = extentMax
             Particles = particles
-            BondTypePriorityMap = bondTypePriorityMap
         }
 
     /// Relationship between two particles.
@@ -57,14 +54,12 @@ module World =
 
             /// Possible attraction between the particles.
             Attraction : float
-
-            BondTypePriority : int
         }
 
     module private VectorEntry =
 
         /// Creates a vector entry.
-        let create (vector : Point) bondTypePriority =
+        let create (vector : Point) =
             let length = vector.Length
             let norm = vector / length
 
@@ -86,7 +81,6 @@ module World =
                 Vector = norm
                 Repulsion = repulsion
                 Attraction = attraction
-                BondTypePriority = bondTypePriority
             }
 
         /// Zero vector entry.
@@ -95,13 +89,12 @@ module World =
                 Vector = Point.Zero
                 Repulsion = 0.0
                 Attraction = 0.0
-                BondTypePriority = 0
             }
 
     /// Calculates vector between every pair of particles. The
     /// result is the lower half of a symmetric lookup table
     //// (up to sign).
-    let private getVectors bondTypePriorityMap (particles : _[]) =
+    let private getVectors (particles : _[]) =
         Array.init particles.Length (fun i ->
             let particle = particles[i]
             Array.init (i + 1) (fun j ->
@@ -110,11 +103,7 @@ module World =
                 else
                     let other = particles[j]
                     let vector = particle.Location - other.Location
-                    let priority =
-                        bondTypePriorityMap
-                            |> Map.tryFind (particle.Type, other.Type)
-                            |> Option.defaultValue 0
-                    VectorEntry.create vector priority))
+                    VectorEntry.create vector))
 
     /// Sorts interacting particles by distance.
     let private sortInteractions (entries : _[][]) =
@@ -128,7 +117,7 @@ module World =
                     if entry.Attraction > 0.0 then
                         i, j, entry
         } |> Seq.sortByDescending (fun (_, _, entry) ->
-            entry.BondTypePriority, entry.Attraction)
+            entry.Attraction)
 
     /// Creates bonds between closest particles.
     let private createBonds indexes world =
@@ -224,7 +213,7 @@ module World =
     /// forward.
     let step random world =
         let entries =
-            getVectors world.BondTypePriorityMap world.Particles
+            getVectors world.Particles
         let world, bondSet =
             let tuples = sortInteractions entries
             createBonds tuples world

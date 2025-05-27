@@ -23,18 +23,10 @@ module World =
     /// Creates a world.
     let create random extentMin extentMax numParticles =
 
-        let bondTypePriorityMap =
-            Map [
-                (hydrogen, oxygen), 1
-                (oxygen, hydrogen), 1
-            ]
-
             // create particles
         let particles =
             let extent = extentMax - extentMin
             createParticles random extent numParticles
 
             // create and animate world
-        World.create
-            extentMin extentMax
-            particles bondTypePriorityMap
+        World.create extentMin extentMax particles
