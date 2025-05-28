@@ -56,7 +56,7 @@ module World =
             /// Repulsion between the particles.
             Repulsion : float
 
-            /// Attraction between the particles.
+            /// Possible attraction between the particles.
             Attraction : float
         }
 
@@ -158,11 +158,15 @@ module World =
             Bonds = bonds }
 
     /// Calculates the force between two particles.
-    let private getForce entry =
+    let private getForce entry bound =
 
             // compute strength of force between the particles
         let strength =
-            entry.Repulsion - entry.Attraction
+            if bound then
+                assert(entry.Attraction > 0.0)
+                entry.Repulsion - entry.Attraction
+            else
+                entry.Repulsion
 
             // align to normalized vector
         strength * entry.Vector
@@ -175,10 +179,12 @@ module World =
             if i = j then Point.Zero
             elif j < i then
                 let entry = row[j]
-                getForce entry
+                let bound = world.Bonds.Contains (i, j)
+                getForce entry bound
             else
                 let entry = entries[j][i]
-                -getForce entry)
+                let bound = world.Bonds.Contains (j, i)
+                -getForce entry bound)
 
     /// Bounces the given trajectory off a wall, if necessary.
     let private bounce world location velocity =
