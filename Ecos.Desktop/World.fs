@@ -24,12 +24,20 @@ module World =
         let scale =
             let factor = (min extent.X extent.Y) / tightness
             Point.create factor factor
-        Particle.makeParticles
-            random
-            hydrogen
-            numParticles
-            scale
-            Point.Zero
+        [|
+            yield! Particle.makeParticles
+                random
+                hydrogen
+                (2 * numParticles / 3)
+                scale
+                Point.Zero
+            yield! Particle.makeParticles
+                random
+                oxygen
+                (numParticles / 3)
+                scale
+                Point.Zero
+        |]
 
     /// Creates a world.
     let create random extentMin extentMax numParticles =
