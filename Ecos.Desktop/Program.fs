@@ -1,6 +1,7 @@
 ﻿namespace Ecos.Desktop
 
 open System
+open System.Diagnostics
 
 open Avalonia
 open Avalonia.Controls
@@ -36,14 +37,27 @@ type WorldView() as this =
     let mutable world = createWorld ()
 
     let timer =
+        let stopwatch = Stopwatch.StartNew()
+        let check = 100
+        let mutable prev = stopwatch.ElapsedMilliseconds
+        let mutable iFrame = 0
         DispatcherTimer(
             TimeSpan.FromMilliseconds(16.0),
             DispatcherPriority.Render,
             EventHandler(fun _ _ ->
+
+                iFrame <- iFrame + 1
+                if iFrame % check = 0 then
+                    let cur = stopwatch.ElapsedMilliseconds
+                    $"Frames/sec: %0.3f{1000.0 * float check / float (cur - prev)}"
+                        |> Trace.WriteLine
+                    prev <- cur
+
                 world <-
                     (world, [1 .. stepsPerFrame])
                         ||> Seq.fold (fun world _ ->
                             World.step world)
+
                 this.InvalidateVisual()))
 
     do timer.Start()
