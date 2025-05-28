@@ -54,11 +54,13 @@ module Particle =
             let velocity = Point.Zero
             Particle.create typ location velocity)
 
+    /// Pen to use for particle border.
+    let private pen = Pen(Brushes.Black, thickness = 0.05)
+
     /// Draws the given particle.
     let draw (ctx : DrawingContext) particle =
         let r = 0.4
         let brush = ParticleType.brushMap[particle.Type]
-        let pen = Pen(Brushes.Black, thickness = 0.05)
         ctx.DrawEllipse(
             brush, pen,
             particle.Location.ToAvalonia(),
