@@ -47,7 +47,7 @@ module World =
             world.Particles
 
             // draw bonds
-        let pen = Pen(Brushes.Black)
+        let pen = Pen(Brushes.Black, thickness = 0.05)
         Set.iter (fun (i, j) ->
             let a = world.Particles[i]
             let b = world.Particles[j]

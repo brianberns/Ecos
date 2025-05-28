@@ -20,8 +20,8 @@ module ParticleType =
 
     let colors =
         [|
-            "Yellow"
-            "Red"
+            "yellow"
+            "red"
         |]
 
     /// Gets a color representing the given valence.
@@ -63,7 +63,7 @@ module Particle =
             particle.Type.Color
                 |> Color.Parse
                 |> SolidColorBrush
-        let pen = Pen(Brushes.Black)
+        let pen = Pen(Brushes.Black, thickness = 0.05)
         ctx.DrawEllipse(
             brush, pen,
             particle.Location.ToAvalonia(),
