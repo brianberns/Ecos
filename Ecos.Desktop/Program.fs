@@ -7,7 +7,7 @@ open Avalonia.Controls
 open Avalonia.Controls.ApplicationLifetimes
 open Avalonia.Layout
 open Avalonia.Media
-open Avalonia.Themes.Fluent
+open Avalonia.Themes.Simple
 open Avalonia.Threading
 
 open Ecos.Engine
@@ -79,7 +79,7 @@ type MainWindow() as this =
         Border(
             Width = 800.0,
             Height = 600.0,
-            Background = Brushes.DarkGray,
+            Background = Brushes.White,
             Child = worldView,
             Margin = Thickness(5.0),
             HorizontalAlignment = HorizontalAlignment.Left)
@@ -105,7 +105,7 @@ type App() =
     inherit Application()
 
     override this.Initialize() =
-        this.Styles.Add(FluentTheme())
+        this.Styles.Add(SimpleTheme())
 
     override this.OnFrameworkInitializationCompleted() =
         let desktop =
