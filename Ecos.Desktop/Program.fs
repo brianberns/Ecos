@@ -1,55 +1,74 @@
 ﻿namespace Ecos.Desktop
 
+open System
+
 open Avalonia
 open Avalonia.Controls
 open Avalonia.Controls.ApplicationLifetimes
 open Avalonia.Layout
 open Avalonia.Media
 open Avalonia.Threading
-open System
 
-type BouncingBallCanvas() as this =
+open Ecos.Engine
+
+module Canvas =
+
+    /// Number of engine time steps per frame.
+    let stepsPerFrame = 1
+
+    /// Extent of the world.
+    let extentMin, extentMax =
+        let width = 40.0
+        let height = 600.0 * width / 800.0
+        let pt = (Point.create width height) / 2.0
+        -pt, pt
+
+type WorldCanvas() as this =
     inherit Control()
 
-    let radius = 20.0
-    let mutable x = 50.0
-    let mutable y = 50.0
-    let mutable vx = 3.0
-    let mutable vy = 2.5
+        // random number generator
+    let random =
+        let seed = DateTime.Now.Millisecond
+        Random(seed)
 
-    let resetPosition () =
-        x <- 50.0
-        y <- 50.0
-        vx <- 3.0
-        vy <- 2.5
+    let mutable world =
+        Ecos.Desktop.World.create
+            random Canvas.extentMin Canvas.extentMax 200
 
-    let timer = DispatcherTimer(TimeSpan.FromMilliseconds(16.0), DispatcherPriority.Render, EventHandler(fun _ _ ->
-        let bounds = this.Bounds
+    let timer =
+        DispatcherTimer(
+            TimeSpan.FromMilliseconds(16.0),
+            DispatcherPriority.Render,
+            EventHandler(fun _ _ ->
+                world <-
+                    (world, [1 .. Canvas.stepsPerFrame])
+                        ||> Seq.fold (fun world _ ->
+                            World.step world)
+                this.InvalidateVisual()))
 
-        x <- x + vx
-        y <- y + vy
+    do timer.Start()
 
-        if x <= 0.0 || x + radius * 2.0 >= bounds.Width then vx <- -vx
-        if y <= 0.0 || y + radius * 2.0 >= bounds.Height then vy <- -vy
+    member _.Reset() = ()
 
-        this.InvalidateVisual()
-    ))
+    override _.Render(ctx) =
+        base.Render(ctx)
+        let group = TransformGroup()
+        let s =
+            this.Bounds.Width
+                / (Canvas.extentMax.X - Canvas.extentMin.X)
+        ScaleTransform(s, s)
+            |> group.Children.Add
+        TranslateTransform(
+            this.Bounds.Width / 2.0,
+            this.Bounds.Height / 2.0)
+            |> group.Children.Add
+        ctx.PushTransform(group.Value) |> ignore
+        World.draw ctx world
 
-    do
-        timer.Start()
-
-    member _.Reset() = resetPosition()
-
-    override this.Render(context: DrawingContext) =
-        base.Render(context)
-        let brush = SolidColorBrush(Color.Parse("#FF00FF")) :> IBrush
-        let pen = Pen(Brushes.Black)
-        context.DrawEllipse(brush, pen, Point(x + radius, y + radius), radius, radius)
-
-type BouncingBallWindow() as this =
+type MainWindow() as this =
     inherit Window()
 
-    let canvas = BouncingBallCanvas()
+    let canvas = WorldCanvas()
 
     let resetButton =
         Button(
@@ -65,9 +84,9 @@ type BouncingBallWindow() as this =
     let dock = DockPanel()
 
     do
-        this.Title <- "Bouncing Ball (Custom Render)"
-        this.Width <- 400.0
-        this.Height <- 300.0
+        this.Title <- "Ecos"
+        this.Width <- 800.0
+        this.Height <- 600.0
 
         DockPanel.SetDock(resetButton, Dock.Top)
         dock.Children.Add(resetButton) |> ignore
@@ -83,7 +102,7 @@ type App() =
     override this.OnFrameworkInitializationCompleted() =
         match this.ApplicationLifetime with
         | :? IClassicDesktopStyleApplicationLifetime as desktop ->
-            desktop.MainWindow <- BouncingBallWindow()
+            desktop.MainWindow <- MainWindow()
         | _ -> ()
         base.OnFrameworkInitializationCompleted()
 
