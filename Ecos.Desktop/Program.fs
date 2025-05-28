@@ -65,14 +65,18 @@ type WorldCanvas() as this =
 type MainWindow() as this =
     inherit Window()
 
-    let canvas = WorldCanvas()
+    let canvas =
+        WorldCanvas()
 
     let border =
         Border(
+            Width = 800.0,
+            Height = 600.0,
             BorderBrush = Brushes.Black,
             BorderThickness = Thickness(1.0),
             Child = canvas,
-            Margin = Thickness(5.0))
+            Margin = Thickness(5.0),
+            HorizontalAlignment = HorizontalAlignment.Left)
 
     let resetButton =
         Button(
@@ -85,18 +89,17 @@ type MainWindow() as this =
             FontWeight = FontWeight.Bold,
             HorizontalAlignment = HorizontalAlignment.Left)
 
-    let dock = DockPanel()
+    let panel = StackPanel()
 
     do
         this.Title <- "Ecos"
-        this.Width <- 800.0
-        this.Height <- 600.0
+        this.Width <- 820.0
+        this.Height <- 660.0
 
-        DockPanel.SetDock(resetButton, Dock.Top)
-        dock.Children.Add(resetButton) |> ignore
-        dock.Children.Add(border) |> ignore
+        panel.Children.Add(border) |> ignore
+        panel.Children.Add(resetButton) |> ignore
 
-        this.Content <- dock
+        this.Content <- panel
 
         resetButton.Click.Add(fun _ -> canvas.Reset())
 
