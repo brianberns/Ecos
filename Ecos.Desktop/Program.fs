@@ -52,6 +52,7 @@ type WorldView() as this =
 
     override _.Render(ctx) =
         base.Render(ctx)
+
         let group = TransformGroup()
         let s =
             this.Bounds.Width / (extentMax.X - extentMin.X)
@@ -60,6 +61,7 @@ type WorldView() as this =
             TranslateTransform(
                 this.Bounds.Width / 2.0,
                 this.Bounds.Height / 2.0) ]
+
         use _ = ctx.PushTransform(group.Value)
         World.draw ctx world
 
@@ -68,7 +70,8 @@ type MainWindow() as this =
     inherit Window(
         Title = "Ecos",
         Width = 820.0,
-        Height = 660.0)
+        Height = 660.0,
+        Background = Brushes.WhiteSmoke)
 
     let worldView = WorldView()
 
@@ -76,6 +79,7 @@ type MainWindow() as this =
         Border(
             Width = 800.0,
             Height = 600.0,
+            Background = Brushes.White,
             BorderBrush = Brushes.Black,
             BorderThickness = Thickness(1.0),
             Child = worldView,
