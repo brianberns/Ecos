@@ -185,13 +185,18 @@ module World =
 
     /// Calculates the forces acting on a particle.
     let private getForces world (entries : _[][]) i =
-        let row = entries[i]
-        assert(row.Length = i + 1)
+
+        let entryRow = entries[i]
+        assert(entryRow.Length = i + 1)
+
+        let bondRow = world.Bonds[i]
+        assert(bondRow.Length = i)
+
         Array.init world.Particles.Length (fun j ->
             if i = j then Point.Zero
             elif i > j then
-                let entry = row[j]
-                let bound = world.Bonds[i][j]
+                let entry = entryRow[j]
+                let bound = bondRow[j]
                 getForce entry bound
             else
                 let entry = entries[j][i]
