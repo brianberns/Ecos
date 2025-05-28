@@ -27,8 +27,12 @@ module World =
     /// Attraction strength.
     let attractionStrength = 1.0
 
-    /// Maximum distance at which attraction occurs.
-    let attractionRadius = 1.0
+    /// Maximum distance at which attraction occurs
+    /// for bound particles.
+    let attractionRadius = 2.0
+
+    /// Maximum distance at which bonding occurs.
+    let bondRadius = 1.0
 
     /// Time step.
     let dt = 0.05
@@ -118,9 +122,9 @@ module World =
 
                 for j = 0 to i - 1 do
                     let entry = entryRow[j]
-                    if entry.Distance <= attractionRadius then
-                        assert(i > j)
-                        let bound = bondRow[j]
+                    let bound = bondRow[j]
+                    if (bound && entry.Distance <= attractionRadius)
+                        || entry.Distance <= bondRadius then
                         let key =
                             (if bound then 0 else 1), entry.Distance
                         key, (i, j, bound)
