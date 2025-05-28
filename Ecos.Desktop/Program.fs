@@ -42,7 +42,7 @@ type WorldView() as this =
         let mutable prev = stopwatch.ElapsedMilliseconds
         let mutable iFrame = 0
         DispatcherTimer(
-            TimeSpan.FromMilliseconds(16.0),
+            TimeSpan.FromMilliseconds(10.0),
             DispatcherPriority.Render,
             EventHandler(fun _ _ ->
 
