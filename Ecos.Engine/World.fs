@@ -121,12 +121,15 @@ module World =
                     let entry = row[j]
                     if entry.Distance <= attractionRadius then
                         let bound = world.Bonds.Contains (i, j)
-                        i, j, entry.Distance, bound
-        } |> Seq.sortBy (fun (_, _, distance, bound) ->
-            (if bound then 0 else 1), distance)
+                        let key =
+                            (if bound then 0 else 1), entry.Distance
+                        key, (i, j, bound)
+        }
+            |> Seq.sortBy fst
+            |> Seq.map snd
 
     /// Creates bonds between closest particles.
-    let private createBonds world indexes =
+    let private createBonds world tuples =
 
             // reset bonds to zero
         let particles =
@@ -135,8 +138,8 @@ module World =
                 |> ImmutableArray.Create<_>
 
         let particles, bonds =
-            ((particles, Set.empty), indexes)
-                ||> Seq.fold (fun (particles, bonds) (i, j, _, bound) ->
+            ((particles, Set.empty), tuples)
+                ||> Seq.fold (fun (particles, bonds) (i, j, bound) ->
                     let a = particles[i]
                     let b = particles[j]
                     let canBond =
@@ -222,8 +225,8 @@ module World =
         let entries =
             getVectors world.Particles
         let world =
-            let tuples = sortAttracted world entries
-            createBonds world tuples
+            sortAttracted world entries
+                |> createBonds world
         let particles =
             Array.init world.Particles.Length (
                 stepParticle world entries)
