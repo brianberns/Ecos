@@ -18,22 +18,20 @@ module ParticleType =
     let minValence = 1
     let maxValence = 2
 
-    let colors =
+    let private brushes =
         [|
-            "yellow"
-            "red"
+            Brushes.Yellow
+            Brushes.Red
         |]
 
-    /// Gets a color representing the given valence.
-    let getColor valence =
-        colors[valence - 1]
-
-    /// All particle types.
-    let all =
-        [|
+    /// Brush map.
+    let brushMap =
+        Map [
             for valence = minValence to maxValence do
-                ParticleType.create valence (getColor valence)
-        |]
+                let typ = ParticleType.create valence
+                let brush = brushes[valence - 1]
+                typ, brush
+        ]
 
 module Particle =
 
@@ -59,10 +57,7 @@ module Particle =
     /// Draws the given particle.
     let draw (ctx : DrawingContext) particle =
         let r = 0.4
-        let brush =
-            particle.Type.Color
-                |> Color.Parse
-                |> SolidColorBrush
+        let brush = ParticleType.brushMap[particle.Type]
         let pen = Pen(Brushes.Black, thickness = 0.05)
         ctx.DrawEllipse(
             brush, pen,

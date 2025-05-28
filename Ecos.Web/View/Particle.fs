@@ -23,12 +23,14 @@ module ParticleType =
                 / (maxValence - minValence) + minHue
         $"hsl({hue}, 100%%, 50%%)"
 
-    /// All particle types.
-    let all =
-        [|
+    /// Color map.
+    let colorMap =
+        Map [
             for valence = minValence to maxValence do
-                ParticleType.create valence (getColor valence)
-        |]
+                let typ = ParticleType.create valence
+                let color = getColor valence
+                typ, color
+        ]
 
 module Particle =
 
@@ -66,5 +68,6 @@ module Particle =
             // draw the circle's border
         ctx.stroke()
 
-        ctx.fillStyle <- !^particle.Type.Color
+        let color = ParticleType.colorMap[particle.Type]
+        ctx.fillStyle <- !^color
         ctx.fill()

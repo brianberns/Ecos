@@ -8,11 +8,15 @@ module World =
     /// Initial cluster tightness.
     let tightness = 2.0
 
-    let hydrogen = ParticleType.all[0]
-    assert(hydrogen.Valence = 1)
+    let hydrogen =
+        ParticleType.colorMap.Keys
+            |> Seq.where (fun typ -> typ.Valence = 1)
+            |> Seq.exactlyOne
 
-    let oxygen = ParticleType.all[1]
-    assert(oxygen.Valence = 2)
+    let oxygen =
+        ParticleType.colorMap.Keys
+            |> Seq.where (fun typ -> typ.Valence = 2)
+            |> Seq.exactlyOne
 
     /// Creates particles.
     let createParticles random extent numParticles =
