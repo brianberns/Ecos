@@ -106,13 +106,18 @@ module World =
     let private sortAttracted world (entries : _[][]) =
         seq {
             for i = 0 to entries.Length - 1 do
-                let row = entries[i]
-                assert(row.Length = i)
+
+                let entryRow = entries[i]
+                assert(entryRow.Length = i)
+
+                let bondRow = world.Bonds[i]
+                assert(bondRow.Length = i)
+
                 for j = 0 to i - 1 do
-                    let entry = row[j]
+                    let entry = entryRow[j]
                     if entry.Distance <= attractionRadius then
                         assert(i > j)
-                        let bound = world.Bonds[i][j]
+                        let bound = bondRow[j]
                         let key =
                             (if bound then 0 else 1), entry.Distance
                         key, (i, j, bound)
