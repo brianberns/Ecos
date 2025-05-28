@@ -7,6 +7,7 @@ open Avalonia.Controls
 open Avalonia.Controls.ApplicationLifetimes
 open Avalonia.Layout
 open Avalonia.Media
+open Avalonia.Themes.Fluent
 open Avalonia.Threading
 
 open Ecos.Engine
@@ -70,8 +71,7 @@ type MainWindow() as this =
     inherit Window(
         Title = "Ecos",
         Width = 820.0,
-        Height = 660.0,
-        Background = Brushes.WhiteSmoke)
+        Height = 660.0)
 
     let worldView = WorldView()
 
@@ -79,9 +79,7 @@ type MainWindow() as this =
         Border(
             Width = 800.0,
             Height = 600.0,
-            Background = Brushes.White,
-            BorderBrush = Brushes.Black,
-            BorderThickness = Thickness(1.0),
+            Background = Brushes.DarkGray,
             Child = worldView,
             Margin = Thickness(5.0),
             HorizontalAlignment = HorizontalAlignment.Left)
@@ -91,10 +89,6 @@ type MainWindow() as this =
             Button(
                 Content = "Reset",
                 Margin = Thickness(5.0),
-                Padding = Thickness(10.0),
-                Background = Brushes.LightGray,
-                BorderBrush = Brushes.Black,
-                BorderThickness = Thickness(1.0),
                 HorizontalAlignment = HorizontalAlignment.Left)
         btn.Click.Add(fun _ -> worldView.Reset())
         btn
@@ -109,7 +103,10 @@ type MainWindow() as this =
 /// Application.
 type App() =
     inherit Application()
-    override _.Initialize() = ()
+
+    override this.Initialize() =
+        this.Styles.Add(FluentTheme())
+
     override this.OnFrameworkInitializationCompleted() =
         let desktop =
             this.ApplicationLifetime
