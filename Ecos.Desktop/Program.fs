@@ -12,7 +12,7 @@ open Avalonia.Threading
 open Ecos.Engine
 
 /// Control that displays the world.
-type WorldControl() as this =
+type WorldView() as this =
     inherit Control()
 
     /// Number of engine time steps per frame.
@@ -23,14 +23,16 @@ type WorldControl() as this =
         let pt = (Point.create 40.0 30.0) / 2.0
         -pt, pt
 
-        // random number generator
+    /// Random number generator
     let random =
         let seed = DateTime.Now.Millisecond
         Random(seed)
 
-    let mutable world =
+    let createWorld () =
         Ecos.Desktop.World.create
             random extentMin extentMax 200
+
+    let mutable world = createWorld ()
 
     let timer =
         DispatcherTimer(
@@ -45,7 +47,8 @@ type WorldControl() as this =
 
     do timer.Start()
 
-    member _.Reset() = ()
+    member _.Reset() =
+        world <- createWorld ()
 
     override _.Render(ctx) =
         base.Render(ctx)
@@ -67,7 +70,7 @@ type MainWindow() as this =
         Width = 820.0,
         Height = 660.0)
 
-    let worldView = WorldControl()
+    let worldView = WorldView()
 
     let border =
         Border(
@@ -88,7 +91,6 @@ type MainWindow() as this =
                 Background = Brushes.LightGray,
                 BorderBrush = Brushes.Black,
                 BorderThickness = Thickness(1.0),
-                FontWeight = FontWeight.Bold,
                 HorizontalAlignment = HorizontalAlignment.Left)
         btn.Click.Add(fun _ -> worldView.Reset())
         btn
