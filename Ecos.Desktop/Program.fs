@@ -11,7 +11,8 @@ open Avalonia.Threading
 
 open Ecos.Engine
 
-type WorldCanvas() as this =
+/// Control that displays the world.
+type WorldControl() as this =
     inherit Control()
 
     /// Number of engine time steps per frame.
@@ -19,9 +20,7 @@ type WorldCanvas() as this =
 
     /// Extent of the world.
     let extentMin, extentMax =
-        let width = 40.0
-        let height = 600.0 * width / 800.0
-        let pt = (Point.create width height) / 2.0
+        let pt = (Point.create 40.0 30.0) / 2.0
         -pt, pt
 
         // random number generator
@@ -53,20 +52,22 @@ type WorldCanvas() as this =
         let group = TransformGroup()
         let s =
             this.Bounds.Width / (extentMax.X - extentMin.X)
-        ScaleTransform(s, s)
-            |> group.Children.Add
-        TranslateTransform(
-            this.Bounds.Width / 2.0,
-            this.Bounds.Height / 2.0)
-            |> group.Children.Add
+        group.Children.AddRange [
+            ScaleTransform(s, s)
+            TranslateTransform(
+                this.Bounds.Width / 2.0,
+                this.Bounds.Height / 2.0) ]
         use _ = ctx.PushTransform(group.Value)
         World.draw ctx world
 
+/// Main window.
 type MainWindow() as this =
-    inherit Window()
+    inherit Window(
+        Title = "Ecos",
+        Width = 820.0,
+        Height = 660.0)
 
-    let canvas =
-        WorldCanvas()
+    let worldView = WorldControl()
 
     let border =
         Border(
@@ -74,43 +75,40 @@ type MainWindow() as this =
             Height = 600.0,
             BorderBrush = Brushes.Black,
             BorderThickness = Thickness(1.0),
-            Child = canvas,
+            Child = worldView,
             Margin = Thickness(5.0),
             HorizontalAlignment = HorizontalAlignment.Left)
 
-    let resetButton =
-        Button(
-            Content = "Reset",
-            Margin = Thickness(5.0),
-            Padding = Thickness(10.0),
-            Background = Brushes.LightGray,
-            BorderBrush = Brushes.Black,
-            BorderThickness = Thickness(1.0),
-            FontWeight = FontWeight.Bold,
-            HorizontalAlignment = HorizontalAlignment.Left)
+    let resetBtn =
+        let btn =
+            Button(
+                Content = "Reset",
+                Margin = Thickness(5.0),
+                Padding = Thickness(10.0),
+                Background = Brushes.LightGray,
+                BorderBrush = Brushes.Black,
+                BorderThickness = Thickness(1.0),
+                FontWeight = FontWeight.Bold,
+                HorizontalAlignment = HorizontalAlignment.Left)
+        btn.Click.Add(fun _ -> worldView.Reset())
+        btn
 
-    let panel = StackPanel()
+    let panel =
+        let panel = StackPanel()
+        panel.Children.AddRange [ border; resetBtn ]
+        panel
 
-    do
-        this.Title <- "Ecos"
-        this.Width <- 820.0
-        this.Height <- 660.0
+    do this.Content <- panel
 
-        panel.Children.Add(border) |> ignore
-        panel.Children.Add(resetButton) |> ignore
-
-        this.Content <- panel
-
-        resetButton.Click.Add(fun _ -> canvas.Reset())
-
+/// Application.
 type App() =
     inherit Application()
     override _.Initialize() = ()
     override this.OnFrameworkInitializationCompleted() =
-        match this.ApplicationLifetime with
-        | :? IClassicDesktopStyleApplicationLifetime as desktop ->
-            desktop.MainWindow <- MainWindow()
-        | _ -> ()
+        let desktop =
+            this.ApplicationLifetime
+                :?> IClassicDesktopStyleApplicationLifetime
+        desktop.MainWindow <- MainWindow()
         base.OnFrameworkInitializationCompleted()
 
 module Program =
