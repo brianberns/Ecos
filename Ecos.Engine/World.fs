@@ -104,7 +104,7 @@ module World =
         Array.init particles.Length (fun i ->
             let particle = particles[i]
             Array.init (i + 1) (fun j ->
-                assert(j <= i)   // lower half of table only
+                assert(i >= j)   // lower half of table only
                 if j = i then VectorEntry.zero
                 else
                     let other = particles[j]
@@ -177,7 +177,7 @@ module World =
         assert(row.Length = i + 1)
         Array.init world.Particles.Length (fun j ->
             if i = j then Point.Zero
-            elif j < i then
+            elif i > j then
                 let entry = row[j]
                 let bound = world.Bonds.Contains (i, j)
                 getForce entry bound
