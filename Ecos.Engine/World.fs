@@ -13,7 +13,7 @@ type World =
         Particles : Particle[]
 
         /// Indexes of bound particles.
-        Bonds : Set<int (*i*) * int (*j*)>   // i > j
+        Bonds : bool[(*i*)][(*j*)]   // i > j
     }
 
 module World =
@@ -41,7 +41,9 @@ module World =
             ExtentMin = extentMin
             ExtentMax = extentMax
             Particles = particles
-            Bonds = Set.empty
+            Bonds =
+                Array.init particles.Length (fun i ->
+                    Array.replicate i false)
         }
 
     /// Relationship between two particles.
@@ -120,7 +122,8 @@ module World =
                 for j = 0 to i - 1 do
                     let entry = row[j]
                     if entry.Distance <= attractionRadius then
-                        let bound = world.Bonds.Contains (i, j)
+                        assert(i > j)
+                        let bound = world.Bonds[i][j]
                         let key =
                             (if bound then 0 else 1), entry.Distance
                         key, (i, j, bound)
@@ -137,9 +140,9 @@ module World =
                 |> Seq.map Particle.resetBonds
                 |> ImmutableArray.Create<_>
 
-        let particles, bonds =
+        let particles, bondSet =
             ((particles, Set.empty), tuples)
-                ||> Seq.fold (fun (particles, bonds) (i, j, bound) ->
+                ||> Seq.fold (fun (particles, bondSet) (i, j, bound) ->
                     let a = particles[i]
                     let b = particles[j]
                     let canBond =
@@ -152,9 +155,15 @@ module World =
                                 .SetItem(i, a)
                                 .SetItem(j, b)
                         assert(i > j)
-                        let bonds = bonds.Add(i, j)
-                        particles, bonds
-                    else particles, bonds)
+                        let bondSet = bondSet.Add(i, j)
+                        particles, bondSet
+                    else particles, bondSet)
+
+        let bonds =
+            Array.init particles.Length (fun i ->
+                Array.init i (fun j ->
+                    assert(i > j)
+                    bondSet.Contains (i, j)))
 
         { world with
             Particles = particles.Items
@@ -182,11 +191,11 @@ module World =
             if i = j then Point.Zero
             elif i > j then
                 let entry = row[j]
-                let bound = world.Bonds.Contains (i, j)
+                let bound = world.Bonds[i][j]
                 getForce entry bound
             else
                 let entry = entries[j][i]
-                let bound = world.Bonds.Contains (j, i)
+                let bound = world.Bonds[j][i]
                 -getForce entry bound)
 
     /// Bounces the given trajectory off a wall, if necessary.

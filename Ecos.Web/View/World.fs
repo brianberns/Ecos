@@ -1,5 +1,6 @@
 ﻿namespace Ecos.Web
 
+open Browser.Types
 open Ecos.Engine
 
 module World =
@@ -36,6 +37,13 @@ module World =
             // create and animate world
         World.create extentMin extentMax particles
 
+    /// Draws a bond between the given particles.
+    let drawBond (ctx : CanvasRenderingContext2D) a b =
+        ctx.beginPath()
+        ctx.moveTo(a.Location.X, a.Location.Y)
+        ctx.lineTo(b.Location.X, b.Location.Y)
+        ctx.stroke()
+
     /// Draws the given world.
     let draw ctx world =
 
@@ -45,14 +53,10 @@ module World =
             world.Particles
 
             // draw bonds
-        Set.iter (fun (i, j) ->
-
-            let a = world.Particles[i]
-            let b = world.Particles[j]
-
-            ctx.beginPath()
-            ctx.moveTo(a.Location.X, a.Location.Y)
-            ctx.lineTo(b.Location.X, b.Location.Y)
-            ctx.stroke()
-
-            ) world.Bonds
+        for i = 1 to world.Particles.Length - 1 do
+            for j = 0 to i - 1 do
+                assert(i > j)
+                if world.Bonds[i][j] then
+                    let a = world.Particles[i]
+                    let b = world.Particles[j]
+                    drawBond ctx a b
