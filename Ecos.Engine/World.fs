@@ -226,10 +226,10 @@ module World =
     /// Moves the particles in the given world one time step
     /// forward.
     let step world =
-        let entries =
-            getVectors world.Particles
+        let entries = getVectors world.Particles
         let world =
-            sortAttracted world entries
+            entries
+                |> sortAttracted world
                 |> createBonds world
         let particles =
             Array.init world.Particles.Length (
