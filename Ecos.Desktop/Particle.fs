@@ -2,11 +2,16 @@
 
 open System
 
-open Avalonia.Controls
-open Avalonia.Controls.Shapes
+open Avalonia
 open Avalonia.Media
 
 open Ecos.Engine
+
+[<AutoOpen>]
+module PointExt =
+    type Ecos.Engine.Point with
+        member this.ToAvalonia() =
+            Point(this.X, this.Y)
 
 module ParticleType =
 
@@ -52,17 +57,14 @@ module Particle =
             Particle.create typ location velocity)
 
     /// Draws the given particle.
-    let draw (canvas : Canvas) particle =
+    let draw (ctx : DrawingContext) particle =
         let r = 0.4
         let brush =
             particle.Type.Color
                 |> Color.Parse
                 |> SolidColorBrush
-        let shape =
-            Ellipse(
-                Width = 2.0 * r,
-                Height = 2.0 * r,
-                Fill = brush)
-        canvas.Children.Add(shape)
-        Canvas.SetLeft(shape, particle.Location.X)
-        Canvas.SetTop(shape, particle.Location.Y)
+        let pen = Pen(Brushes.Black)
+        ctx.DrawEllipse(
+            brush, pen,
+            particle.Location.ToAvalonia(),
+            r, r)
