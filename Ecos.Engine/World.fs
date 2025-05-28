@@ -19,7 +19,7 @@ type World =
 module World =
 
     /// Repulsion strength.
-    let repulsionStrength = 3.0
+    let repulsionStrength = 2.0
 
     /// Maximum distance at which repulsion occurs.
     let repulsionRadius = 0.9
@@ -29,7 +29,7 @@ module World =
 
     /// Maximum distance at which attraction occurs
     /// for bound particles.
-    let attractionRadius = 2.0
+    let attractionRadius = 1.2
 
     /// Maximum distance at which bonding occurs.
     let bondRadius = 1.0

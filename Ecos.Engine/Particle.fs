@@ -69,7 +69,7 @@ module Particle =
         { particle with NumBonds = 0 }
 
     /// Elasticity of bond collision.
-    let private elasticity = 0.1
+    let private elasticity = 0.0
 
     /// Bonds the given particles.
     let bond a b radiate =
