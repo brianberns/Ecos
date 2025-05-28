@@ -13,7 +13,7 @@ type World =
         Particles : Particle[]
 
         /// Indexes of bound particles.
-        Bonds : Set<int * int>
+        Bonds : Set<int (*i*) * int (*j*)>   // i > j
     }
 
 module World =
