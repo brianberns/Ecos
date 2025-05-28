@@ -12,7 +12,6 @@
     <None Include="vite.config.ts" />
     <Content Include="index.html" />
     <Folder Include="Model\" />
-    <Compile Include="..\Ecos.Engine\ImmutableArray.fs" Link="Model\ImmutableArray.fs" />
     <Compile Include="..\Ecos.Engine\Point.fs" Link="Model\Point.fs" />
     <Compile Include="..\Ecos.Engine\Particle.fs" Link="Model\Particle.fs" />
     <Compile Include="..\Ecos.Engine\World.fs" Link="Model\World.fs" />

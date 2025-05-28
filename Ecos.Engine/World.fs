@@ -33,6 +33,11 @@ module World =
     /// Time step.
     let dt = 0.05
 
+    /// Initializes empty symmetrical bond array.
+    let private initBonds numParticles =
+        Array.init numParticles (fun i ->
+            Array.replicate i false)
+
     /// Creates a world.
     let create extentMin extentMax particles =
         assert(extentMax.X >= extentMin.X)
@@ -41,9 +46,7 @@ module World =
             ExtentMin = extentMin
             ExtentMax = extentMax
             Particles = particles
-            Bonds =
-                Array.init particles.Length (fun i ->
-                    Array.replicate i false)
+            Bonds = initBonds particles.Length
         }
 
     /// Relationship between two particles.
@@ -131,36 +134,29 @@ module World =
             // reset bonds to zero
         let particles =
             world.Particles
-                |> Seq.map Particle.resetBonds
-                |> ImmutableArray.Create<_>
+                |> Array.map Particle.resetBonds
+        let bonds = initBonds particles.Length
 
-        let particles, bondSet =
-            ((particles, Set.empty), tuples)
-                ||> Seq.fold (fun (particles, bondSet) (i, j, bound) ->
-                    let a = particles[i]
-                    let b = particles[j]
-                    let canBond =
-                        a.NumBonds < a.Type.Valence
-                            && b.NumBonds < b.Type.Valence
-                    if canBond then
-                        let a, b = Particle.bond a b (not bound)
-                        let particles =
-                            particles
-                                .SetItem(i, a)
-                                .SetItem(j, b)
-                        assert(i > j)
-                        let bondSet = bondSet.Add(i, j)
-                        particles, bondSet
-                    else particles, bondSet)
+        for i, j, bound in tuples do
 
-        let bonds =
-            Array.init particles.Length (fun i ->
-                Array.init i (fun j ->
-                    assert(i > j)
-                    bondSet.Contains (i, j)))
+            let a = particles[i]
+            let b = particles[j]
+
+            let canBond =
+                a.NumBonds < a.Type.Valence
+                    && b.NumBonds < b.Type.Valence
+            if canBond then
+
+                let a, b = Particle.bond a b (not bound)
+                particles[i] <- a
+                particles[j] <- b
+
+                assert(i > j)
+                assert(not (bonds[i][j]))
+                bonds[i][j] <- true
 
         { world with
-            Particles = particles.Items
+            Particles = particles
             Bonds = bonds }
 
     /// Calculates the force between two particles.

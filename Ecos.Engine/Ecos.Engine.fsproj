@@ -6,7 +6,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="ImmutableArray.fs" />
     <Compile Include="Point.fs" />
     <Compile Include="Particle.fs" />
     <Compile Include="World.fs" />
