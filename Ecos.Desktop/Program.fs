@@ -59,7 +59,7 @@ type WorldCanvas() as this =
             this.Bounds.Width / 2.0,
             this.Bounds.Height / 2.0)
             |> group.Children.Add
-        ctx.PushTransform(group.Value) |> ignore
+        use _ = ctx.PushTransform(group.Value)
         World.draw ctx world
 
 type MainWindow() as this =
