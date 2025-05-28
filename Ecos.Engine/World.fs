@@ -90,35 +90,24 @@ module World =
                 Attraction = attraction
             }
 
-        /// Zero vector entry.
-        let zero =
-            {
-                Distance = 0.0
-                Vector = Point.Zero
-                Repulsion = 0.0
-                Attraction = 0.0
-            }
-
     /// Calculates vector between every pair of particles. The
     /// result is the lower half of a symmetric lookup table
     //// (up to sign).
     let private getVectors (particles : _[]) =
         Array.init particles.Length (fun i ->
             let particle = particles[i]
-            Array.init (i + 1) (fun j ->
+            Array.init i (fun j ->
                 assert(i >= j)   // lower half of table only
-                if j = i then VectorEntry.zero
-                else
-                    let other = particles[j]
-                    let vector = particle.Location - other.Location
-                    VectorEntry.create vector))
+                let other = particles[j]
+                let vector = particle.Location - other.Location
+                VectorEntry.create vector))
 
     /// Sorts attracted particles by distance.
     let private sortAttracted world (entries : _[][]) =
         seq {
             for i = 0 to entries.Length - 1 do
                 let row = entries[i]
-                assert(row.Length = i + 1)
+                assert(row.Length = i)
                 for j = 0 to i - 1 do
                     let entry = row[j]
                     if entry.Distance <= attractionRadius then
@@ -187,7 +176,7 @@ module World =
     let private getForces world (entries : _[][]) i =
 
         let entryRow = entries[i]
-        assert(entryRow.Length = i + 1)
+        assert(entryRow.Length = i)
 
         let bondRow = world.Bonds[i]
         assert(bondRow.Length = i)
