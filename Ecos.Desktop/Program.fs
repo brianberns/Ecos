@@ -11,7 +11,8 @@ open Avalonia.Threading
 
 open Ecos.Engine
 
-module Canvas =
+type WorldCanvas() as this =
+    inherit Control()
 
     /// Number of engine time steps per frame.
     let stepsPerFrame = 1
@@ -23,9 +24,6 @@ module Canvas =
         let pt = (Point.create width height) / 2.0
         -pt, pt
 
-type WorldCanvas() as this =
-    inherit Control()
-
         // random number generator
     let random =
         let seed = DateTime.Now.Millisecond
@@ -33,7 +31,7 @@ type WorldCanvas() as this =
 
     let mutable world =
         Ecos.Desktop.World.create
-            random Canvas.extentMin Canvas.extentMax 200
+            random extentMin extentMax 200
 
     let timer =
         DispatcherTimer(
@@ -41,7 +39,7 @@ type WorldCanvas() as this =
             DispatcherPriority.Render,
             EventHandler(fun _ _ ->
                 world <-
-                    (world, [1 .. Canvas.stepsPerFrame])
+                    (world, [1 .. stepsPerFrame])
                         ||> Seq.fold (fun world _ ->
                             World.step world)
                 this.InvalidateVisual()))
@@ -54,8 +52,7 @@ type WorldCanvas() as this =
         base.Render(ctx)
         let group = TransformGroup()
         let s =
-            this.Bounds.Width
-                / (Canvas.extentMax.X - Canvas.extentMin.X)
+            this.Bounds.Width / (extentMax.X - extentMin.X)
         ScaleTransform(s, s)
             |> group.Children.Add
         TranslateTransform(
@@ -69,6 +66,13 @@ type MainWindow() as this =
     inherit Window()
 
     let canvas = WorldCanvas()
+
+    let border =
+        Border(
+            BorderBrush = Brushes.Black,
+            BorderThickness = Thickness(1.0),
+            Child = canvas,
+            Margin = Thickness(5.0))
 
     let resetButton =
         Button(
@@ -90,7 +94,7 @@ type MainWindow() as this =
 
         DockPanel.SetDock(resetButton, Dock.Top)
         dock.Children.Add(resetButton) |> ignore
-        dock.Children.Add(canvas) |> ignore
+        dock.Children.Add(border) |> ignore
 
         this.Content <- dock
 
