@@ -39,7 +39,7 @@ module Canvas =
         btn.onclick <- (fun _ -> reset <- true)
         btn
 
-        // initialize number of particles button
+    /// Number of particles input.
     let txtNumParticles =
         document.getElementById("numParticles")
             :?> HTMLInputElement
