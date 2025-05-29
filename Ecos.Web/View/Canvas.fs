@@ -12,14 +12,13 @@ module Canvas =
     /// Number of engine time steps per frame.
     let stepsPerFrame = 1
 
-        // initialize canvas
+    /// Drawing canvas.
     let canvas =
-        document.getElementById "canvas"
+        document.getElementById("canvas")
             :?> HTMLCanvasElement
 
-        // initialize drawing context
+    /// Drawing context.
     let ctx = canvas.getContext_2d()
-    ctx.lineWidth <- 0.05
 
     /// Extent of the world.
     let extentMin, extentMax =

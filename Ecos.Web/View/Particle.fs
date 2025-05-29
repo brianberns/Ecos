@@ -66,6 +66,7 @@ module Particle =
             r, 0.0, Math.Tau)
 
             // draw the circle's border
+        ctx.lineWidth <- 0.05
         ctx.stroke()
 
         let color = ParticleType.colorMap[particle.Type]
