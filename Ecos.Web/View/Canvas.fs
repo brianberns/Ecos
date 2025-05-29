@@ -28,16 +28,20 @@ module Canvas =
         let pt = (Point.create width height) / 2.0
         -pt, pt
 
-        // initialize reset button
+    /// Reset world on next frame?
     let mutable reset = false
+
+    /// Reset button.
     let btnReset =
-        document.getElementById "reset"
-            :?> HTMLButtonElement
-    btnReset.onclick <- (fun _ -> reset <- true)
+        let btn =
+            document.getElementById("reset")
+                :?> HTMLButtonElement
+        btn.onclick <- (fun _ -> reset <- true)
+        btn
 
         // initialize number of particles button
     let txtNumParticles =
-        document.getElementById "numParticles"
+        document.getElementById("numParticles")
             :?> HTMLInputElement
 
     /// Animates one frame.
