@@ -66,9 +66,9 @@ module Particle =
             r, 0.0, Math.Tau)
 
             // draw the circle's border
-        ctx.lineWidth <- 0.05
         ctx.stroke()
 
+            // fill the circle
         let color = ParticleType.colorMap[particle.Type]
         ctx.fillStyle <- !^color
         ctx.fill()
