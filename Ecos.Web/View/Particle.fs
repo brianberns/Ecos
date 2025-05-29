@@ -53,17 +53,19 @@ module Particle =
             let velocity = Point.Zero
             Particle.create typ location velocity)
 
+    /// Particle radius.
+    let radius = World.eqDistance / 2.0
+
     /// Draws the given particle.
     let draw (ctx : CanvasRenderingContext2D) particle =
 
         ctx.beginPath()
 
             // draw each particle as a circle
-        let r = 0.4
         ctx.arc(
             particle.Location.X,
             particle.Location.Y,
-            r, 0.0, Math.Tau)
+            radius, 0.0, Math.Tau)
 
             // draw the circle's border
         ctx.stroke()

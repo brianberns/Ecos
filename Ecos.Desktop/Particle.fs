@@ -57,11 +57,13 @@ module Particle =
     /// Pen to use for particle border.
     let private pen = Pen(Brushes.Black, thickness = 0.05)
 
+    /// Particle radius.
+    let radius = World.eqDistance / 2.0
+
     /// Draws the given particle.
     let draw (ctx : DrawingContext) particle =
-        let r = 0.4
         let brush = ParticleType.brushMap[particle.Type]
         ctx.DrawEllipse(
             brush, pen,
             particle.Location.ToAvalonia(),
-            r, r)
+            radius, radius)

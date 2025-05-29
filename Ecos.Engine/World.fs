@@ -22,17 +22,23 @@ module World =
     let repulsionStrength = 2.0
 
     /// Maximum distance at which repulsion occurs.
-    let repulsionRadius = 0.9
+    let repulsionDistance = 0.9
 
     /// Attraction strength.
     let attractionStrength = 1.0
 
     /// Maximum distance at which attraction occurs
     /// for bound particles.
-    let attractionRadius = 1.2
+    let attractionDistance = 1.2
 
     /// Maximum distance at which bonding occurs.
-    let bondRadius = 1.0
+    let bondDistance = 1.0
+
+    /// Attraction/repulsion equilibrium distance.
+    let eqDistance =
+        (repulsionStrength - attractionStrength)
+            / ((repulsionStrength / repulsionDistance)
+                - (attractionStrength / attractionDistance))
 
     /// Time step.
     let dt = 0.05
@@ -77,17 +83,17 @@ module World =
             let norm = vector / distance
 
             let repulsion =
-                if distance < repulsionRadius then
+                if distance < repulsionDistance then
                     repulsionStrength
-                        * (repulsionRadius - distance)
-                        / repulsionRadius
+                        * (repulsionDistance - distance)
+                        / repulsionDistance
                 else 0.0
 
             let attraction =
-                if distance < attractionRadius then
+                if distance < attractionDistance then
                     attractionStrength
-                        * (attractionRadius - distance)
-                        / attractionRadius
+                        * (attractionDistance - distance)
+                        / attractionDistance
                 else 0.0
 
             {
@@ -123,8 +129,8 @@ module World =
                 for j = 0 to i - 1 do
                     let entry = entryRow[j]
                     let bound = bondRow[j]
-                    if (bound && entry.Distance <= attractionRadius)
-                        || entry.Distance <= bondRadius then
+                    if (bound && entry.Distance <= attractionDistance)
+                        || entry.Distance <= bondDistance then
                         let key =
                             (if bound then 0 else 1), entry.Distance
                         key, (i, j, bound)
