@@ -13,7 +13,7 @@ module PointExt =
         member this.ToAvalonia() =
             Point(this.X, this.Y)
 
-module ParticleType =
+module AtomType =
 
     let minValence = 1
     let maxValence = 2
@@ -28,49 +28,49 @@ module ParticleType =
     let brushMap =
         Map [
             for valence = minValence to maxValence do
-                let typ = ParticleType.create valence
+                let typ = AtomType.create valence
                 let brush = brushes[valence - 1]
                 typ, brush
         ]
 
-module Particle =
+module Atom =
 
     /// Answers a unit vector pointing in a random direction.
     let randomUnitVector (random : Random) =
         let theta = Math.Tau * random.NextDouble()
         Point.create (cos theta) (sin theta)
 
-    /// Makes the given number of particles.
-    let makeParticles
+    /// Makes the given number of atoms.
+    let makeAtoms
         (random : Random)
         typ
-        numParticles
+        numAtoms
         (scale : Point)
         offset =
-        Array.init numParticles (fun _ ->
+        Array.init numAtoms (fun _ ->
             let r = random.NextDouble()
             let location =
                 r * scale * randomUnitVector random + offset
             let velocity = Point.Zero
-            Particle.create typ location velocity)
+            Atom.create typ location velocity)
 
-    /// Pen to use for particle border.
+    /// Pen to use for atom border.
     let private pen = Pen(Brushes.Black, thickness = 0.05)
 
-    /// Particle radius.
+    /// Atom radius.
     let radius = World.eqDistance / 2.0
 
-    /// Draws the given particle.
-    let draw (ctx : DrawingContext) particle =
-        let brush = ParticleType.brushMap[particle.Type]
+    /// Draws the given atom.
+    let draw (ctx : DrawingContext) atom =
+        let brush = AtomType.brushMap[atom.Type]
         ctx.DrawEllipse(
             brush, pen,
-            particle.Location.ToAvalonia(),
+            atom.Location.ToAvalonia(),
             radius, radius)
 
-    /// Draws a bond between the given particles.
-    let drawBond (ctx : DrawingContext) a b =
+    /// Draws a bond between the given atoms.
+    let drawBond (ctx : DrawingContext) atomA atomB =
         ctx.DrawLine(
             pen,
-            a.Location.ToAvalonia(),
-            b.Location.ToAvalonia())
+            atomA.Location.ToAvalonia(),
+            atomB.Location.ToAvalonia())

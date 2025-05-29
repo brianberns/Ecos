@@ -9,10 +9,10 @@ type World =
         /// Maximum extent point.
         ExtentMax : Point
 
-        /// Particles in the world.
-        Particles : Particle[]
+        /// Atoms in the world.
+        Atoms : Atom[]
 
-        /// Indexes of bound particles.
+        /// Indexes of bound atoms.
         Bonds : bool[(*i*)][(*j*)]   // i > j
     }
 
@@ -28,7 +28,7 @@ module World =
     let attractionStrength = 1.0
 
     /// Maximum distance at which attraction occurs
-    /// for bound particles.
+    /// for bound atoms.
     let attractionDistance = 1.2
 
     /// Maximum distance at which bonding occurs.
@@ -44,34 +44,34 @@ module World =
     let dt = 0.05
 
     /// Initializes empty symmetrical bond array.
-    let private initBonds numParticles =
-        Array.init numParticles (fun i ->
+    let private initBonds numAtoms =
+        Array.init numAtoms (fun i ->
             Array.replicate i false)
 
     /// Creates a world.
-    let create extentMin extentMax particles =
+    let create extentMin extentMax atoms =
         assert(extentMax.X >= extentMin.X)
         assert(extentMax.Y >= extentMin.Y)
         {
             ExtentMin = extentMin
             ExtentMax = extentMax
-            Particles = particles
-            Bonds = initBonds particles.Length
+            Atoms = atoms
+            Bonds = initBonds atoms.Length
         }
 
-    /// Relationship between two particles.
+    /// Relationship between two atoms.
     type private VectorEntry =
         {
-            /// Distance between the particles.
+            /// Distance between the atoms.
             Distance : float
 
-            /// Normalized vector between the particles.
+            /// Normalized vector between the atoms.
             Vector : Point
 
-            /// Repulsion between the particles.
+            /// Repulsion between the atoms.
             Repulsion : float
 
-            /// Possible attraction between the particles.
+            /// Possible attraction between the atoms.
             Attraction : float
         }
 
@@ -103,19 +103,19 @@ module World =
                 Attraction = attraction
             }
 
-    /// Calculates vector between every pair of particles. The
+    /// Calculates vector between every pair of atoms. The
     /// result is the lower half of a symmetric lookup table
     //// (up to sign).
-    let private getVectors (particles : _[]) =
-        Array.init particles.Length (fun i ->
-            let particle = particles[i]
+    let private getVectors (atoms : _[]) =
+        Array.init atoms.Length (fun i ->
+            let atom = atoms[i]
             Array.init i (fun j ->
                 assert(i >= j)   // lower half of table only
-                let other = particles[j]
-                let vector = particle.Location - other.Location
+                let other = atoms[j]
+                let vector = atom.Location - other.Location
                 VectorEntry.create vector))
 
-    /// Sorts attracted particles by distance.
+    /// Sorts attracted atoms by distance.
     let private sortAttracted world (entries : _[][]) =
         seq {
             for i = 0 to entries.Length - 1 do
@@ -138,41 +138,41 @@ module World =
             |> Seq.sortBy fst
             |> Seq.map snd
 
-    /// Creates bonds between closest particles.
+    /// Creates bonds between closest atoms.
     let private createBonds world tuples =
 
             // reset bonds to zero
-        let particles =
-            world.Particles
-                |> Array.map Particle.resetBonds
-        let bonds = initBonds particles.Length
+        let atoms =
+            world.Atoms
+                |> Array.map Atom.resetBonds
+        let bonds = initBonds atoms.Length
 
         for i, j, bound in tuples do
 
-            let a = particles[i]
-            let b = particles[j]
+            let a = atoms[i]
+            let b = atoms[j]
 
             let canBond =
                 a.NumBonds < a.Type.Valence
                     && b.NumBonds < b.Type.Valence
             if canBond then
 
-                let a, b = Particle.bond a b (not bound)
-                particles[i] <- a
-                particles[j] <- b
+                let a, b = Atom.bond a b (not bound)
+                atoms[i] <- a
+                atoms[j] <- b
 
                 assert(i > j)
                 assert(not (bonds[i][j]))
                 bonds[i][j] <- true
 
         { world with
-            Particles = particles
+            Atoms = atoms
             Bonds = bonds }
 
-    /// Calculates the force between two particles.
+    /// Calculates the force between two atoms.
     let private getForce entry bound =
 
-            // compute strength of force between the particles
+            // compute strength of force between the atoms
         let strength =
             if bound then
                 assert(entry.Attraction > 0.0)
@@ -183,7 +183,7 @@ module World =
             // align to normalized vector
         strength * entry.Vector
 
-    /// Calculates the forces acting on a particle.
+    /// Calculates the forces acting on an atom.
     let private getForces world (entries : _[][]) i =
 
         let entryRow = entries[i]
@@ -192,7 +192,7 @@ module World =
         let bondRow = world.Bonds[i]
         assert(bondRow.Length = i)
 
-        Array.init world.Particles.Length (fun j ->
+        Array.init world.Atoms.Length (fun j ->
             if i = j then Point.Zero
             elif i > j then
                 let entry = entryRow[j]
@@ -221,27 +221,27 @@ module World =
                 velocity.Y
         Point.create vx vy
 
-    /// Moves a single particle one time step forward.
-    let private stepParticle world entries i =
-        let particle = world.Particles[i]
+    /// Moves a single atom one time step forward.
+    let private stepAtom world entries i =
+        let atom = world.Atoms[i]
         let force =
             Array.sum (getForces world entries i)
-        let velocity = particle.Velocity + force
-        let location = particle.Location + (velocity * dt)
+        let velocity = atom.Velocity + force
+        let location = atom.Location + (velocity * dt)
         let velocity = bounce world location velocity
-        { particle with
+        { atom with
             Location = location
             Velocity = velocity }
 
-    /// Moves the particles in the given world one time step
+    /// Moves the atoms in the given world one time step
     /// forward.
     let step world =
-        let entries = getVectors world.Particles
+        let entries = getVectors world.Atoms
         let world =
             entries
                 |> sortAttracted world
                 |> createBonds world
-        let particles =
-            Array.init world.Particles.Length (
-                stepParticle world entries)
-        { world with Particles = particles }
+        let atoms =
+            Array.init world.Atoms.Length (
+                stepAtom world entries)
+        { world with Atoms = atoms }

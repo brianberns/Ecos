@@ -10,60 +10,60 @@ module World =
     let tightness = 2.0
 
     let hydrogen =
-        ParticleType.brushMap.Keys
+        AtomType.brushMap.Keys
             |> Seq.where (fun typ -> typ.Valence = 1)
             |> Seq.exactlyOne
 
     let oxygen =
-        ParticleType.brushMap.Keys
+        AtomType.brushMap.Keys
             |> Seq.where (fun typ -> typ.Valence = 2)
             |> Seq.exactlyOne
 
-    /// Creates particles.
-    let createParticles random extent numParticles =
+    /// Creates atoms.
+    let createAtoms random extent numAtoms =
         let scale =
             let factor = (min extent.X extent.Y) / tightness
             Point.create factor factor
         [|
-            yield! Particle.makeParticles
+            yield! Atom.makeAtoms
                 random
                 hydrogen
-                (2 * numParticles / 3)
+                (2 * numAtoms / 3)
                 scale
                 Point.Zero
-            yield! Particle.makeParticles
+            yield! Atom.makeAtoms
                 random
                 oxygen
-                (numParticles / 3)
+                (numAtoms / 3)
                 scale
                 Point.Zero
         |]
 
     /// Creates a world.
-    let create random extentMin extentMax numParticles =
+    let create random extentMin extentMax numAtoms =
 
-            // create particles
-        let particles =
+            // create atoms
+        let atoms =
             let extent = extentMax - extentMin
-            createParticles random extent numParticles
+            createAtoms random extent numAtoms
 
             // create and animate world
-        World.create extentMin extentMax particles
+        World.create extentMin extentMax atoms
 
     /// Draws the given world.
     let draw ctx world =
 
-            // draw particles
+            // draw atoms
         Array.iter
-            (Particle.draw ctx)
-            world.Particles
+            (Atom.draw ctx)
+            world.Atoms
 
             // draw bonds
-        for i = 1 to world.Particles.Length - 1 do
+        for i = 1 to world.Atoms.Length - 1 do
             let bondRow = world.Bonds[i]
             for j = 0 to i - 1 do
                 assert(i > j)
                 if bondRow[j] then
-                    let a = world.Particles[i]
-                    let b = world.Particles[j]
-                    Particle.drawBond ctx a b
+                    let atomA = world.Atoms[i]
+                    let atomB = world.Atoms[j]
+                    Atom.drawBond ctx atomA atomB

@@ -2,60 +2,60 @@
 
 open System
 
-/// Particle type.
+/// Atom type.
 [<CustomComparison; CustomEquality>]
-type ParticleType =
+type AtomType =
     {
-        /// Number of bonds a particle of this type is capable
+        /// Number of bonds an atom of this type is capable
         /// of making.
         Valence : int
     }
 
     override this.Equals(other) =
-        this.Valence = (other :?> ParticleType).Valence
+        this.Valence = (other :?> AtomType).Valence
 
     override this.GetHashCode() = 
         this.Valence.GetHashCode()
 
-    interface IEquatable<ParticleType> with
+    interface IEquatable<AtomType> with
         member this.Equals(other) =
             this.Valence = other.Valence
 
     interface IComparable with
         member this.CompareTo(other) =
-            compare this.Valence (other :?> ParticleType).Valence
+            compare this.Valence (other :?> AtomType).Valence
 
-    interface IComparable<ParticleType> with
+    interface IComparable<AtomType> with
         member this.CompareTo(other) =
             compare this.Valence other.Valence
 
-module ParticleType =
+module AtomType =
 
-    /// Creates a particle type.
+    /// Creates an atom type.
     let create valence =
         {
             Valence = valence
         }
 
-/// A particle.
-type Particle =
+/// An atom.
+type Atom =
     {
-        /// Particle type.
-        Type : ParticleType
+        /// Atom type.
+        Type : AtomType
 
-        /// Number of bonds this particle currently has.
+        /// Number of bonds this atom currently has.
         NumBonds : int
 
-        /// Particle location.
+        /// Atom location.
         Location : Point
 
-        /// Particle velocity.
+        /// Atom velocity.
         Velocity : Point
     }
 
-module Particle =
+module Atom =
 
-    //// Creates a particle.
+    //// Creates an atom.
     let create typ location velocity =
         {
             Type = typ
@@ -64,14 +64,14 @@ module Particle =
             Velocity = velocity
         }
 
-    /// Resets a particle to have no bonds.
-    let resetBonds particle =
-        { particle with NumBonds = 0 }
+    /// Resets an atom to have no bonds.
+    let resetBonds atom =
+        { atom with NumBonds = 0 }
 
     /// Elasticity of bond collision.
     let private elasticity = 0.0
 
-    /// Bonds the given particles.
+    /// Bonds the given atoms.
     let bond a b radiate =
         assert(a.NumBonds < a.Type.Valence)
         assert(b.NumBonds < b.Type.Valence)

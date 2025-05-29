@@ -39,17 +39,17 @@ module Canvas =
         btn.onclick <- (fun _ -> reset <- true)
         btn
 
-    /// Number of particles input.
-    let txtNumParticles =
-        document.getElementById("numParticles")
+    /// Number of atoms input.
+    let txtNumAtoms =
+        document.getElementById("numAtoms")
             :?> HTMLInputElement
 
     /// Creates a world.
     let createWorld random =
-        let numParticles =
-            Int32.Parse txtNumParticles.value
+        let numAtoms =
+            Int32.Parse txtNumAtoms.value
         Ecos.Web.World.create
-            random extentMin extentMax numParticles
+            random extentMin extentMax numAtoms
 
     /// Animates one frame.
     let animateFrame world =
