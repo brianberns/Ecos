@@ -1,10 +1,14 @@
 ﻿namespace Ecos.Engine
 
-open System
-
 /// 2D point.
 type Point =
-    { X : float; Y : float }
+    {
+        /// X-coordinate.
+        X : float
+
+        /// Y-coordinate.
+        Y : float
+    }
 
     /// Origin.
     static member Zero = { X = 0; Y = 0 }
