@@ -74,3 +74,10 @@ module Particle =
         let color = ParticleType.colorMap[particle.Type]
         ctx.fillStyle <- !^color
         ctx.fill()
+
+    /// Draws a bond between the given particles.
+    let drawBond (ctx : CanvasRenderingContext2D) a b =
+        ctx.beginPath()
+        ctx.moveTo(a.Location.X, a.Location.Y)
+        ctx.lineTo(b.Location.X, b.Location.Y)
+        ctx.stroke()

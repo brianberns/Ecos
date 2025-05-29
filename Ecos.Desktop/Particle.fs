@@ -67,3 +67,10 @@ module Particle =
             brush, pen,
             particle.Location.ToAvalonia(),
             radius, radius)
+
+    /// Draws a bond between the given particles.
+    let drawBond (ctx : DrawingContext) a b =
+        ctx.DrawLine(
+            pen,
+            a.Location.ToAvalonia(),
+            b.Location.ToAvalonia())

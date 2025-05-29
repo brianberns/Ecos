@@ -50,14 +50,6 @@ module World =
             // create and animate world
         World.create extentMin extentMax particles
 
-    /// Draws a bond between the given particles.
-    let drawBond (ctx : DrawingContext) a b =
-        let pen = Pen(Brushes.Black, thickness = 0.05)
-        ctx.DrawLine(
-            pen,
-            a.Location.ToAvalonia(),
-            b.Location.ToAvalonia())
-
     /// Draws the given world.
     let draw ctx world =
 
@@ -68,9 +60,10 @@ module World =
 
             // draw bonds
         for i = 1 to world.Particles.Length - 1 do
+            let bondRow = world.Bonds[i]
             for j = 0 to i - 1 do
                 assert(i > j)
-                if world.Bonds[i][j] then
+                if bondRow[j] then
                     let a = world.Particles[i]
                     let b = world.Particles[j]
-                    drawBond ctx a b
+                    Particle.drawBond ctx a b

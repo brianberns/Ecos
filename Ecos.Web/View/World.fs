@@ -49,13 +49,6 @@ module World =
             // create and animate world
         World.create extentMin extentMax particles
 
-    /// Draws a bond between the given particles.
-    let drawBond (ctx : CanvasRenderingContext2D) a b =
-        ctx.beginPath()
-        ctx.moveTo(a.Location.X, a.Location.Y)
-        ctx.lineTo(b.Location.X, b.Location.Y)
-        ctx.stroke()
-
     /// Draws the given world.
     let draw ctx world =
 
@@ -66,9 +59,10 @@ module World =
 
             // draw bonds
         for i = 1 to world.Particles.Length - 1 do
+            let bondRow = world.Bonds[i]
             for j = 0 to i - 1 do
                 assert(i > j)
-                if world.Bonds[i][j] then
+                if bondRow[j] then
                     let a = world.Particles[i]
                     let b = world.Particles[j]
-                    drawBond ctx a b
+                    Particle.drawBond ctx a b
