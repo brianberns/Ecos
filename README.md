@@ -1,1 +1,1 @@
-Ecos would like to be artifical life, eventually.
+Ecos would like to be artificial life, eventually.
