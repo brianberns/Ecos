@@ -47,8 +47,3 @@ module Point =
     /// Creates a point.
     let create x y =
         { X = x; Y = y }
-
-module Math =
-
-    /// 2π.
-    let Tau = 2.0 * Math.PI
