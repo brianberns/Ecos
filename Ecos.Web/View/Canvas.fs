@@ -44,10 +44,17 @@ module Canvas =
         document.getElementById("numParticles")
             :?> HTMLInputElement
 
+    /// Creates a world.
+    let createWorld random =
+        let numParticles =
+            Int32.Parse txtNumParticles.value
+        Ecos.Web.World.create
+            random extentMin extentMax numParticles
+
     /// Animates one frame.
     let animateFrame world =
 
-            // move particles
+            // advance world
         let world =
             (world, [1 .. stepsPerFrame])
                 ||> Seq.fold (fun world _ ->
@@ -56,9 +63,9 @@ module Canvas =
             // prepare to draw
         ctx.clearRect(0, 0, canvas.width, canvas.height)
         ctx.translate(canvas.width / 2.0, canvas.height / 2.0)
-        let s = canvas.width / (extentMax.X - extentMin.X)
-        ctx.scale(s, s)
-        ctx.lineWidth <- 1.0 / s
+        let scale = canvas.width / (extentMax.X - extentMin.X)
+        ctx.scale(scale, scale)
+        ctx.lineWidth <- 1.0 / scale
 
             // draw the world
         World.draw ctx world
@@ -68,6 +75,12 @@ module Canvas =
 
         world
 
+    /// Random number generator.
+    let random =
+        let seed = DateTime.Now.Millisecond
+        console.log($"Random seed: {seed}")
+        Random(seed)
+
     /// Log framerate.
     let logFramerate check iFrame prev cur =
         if iFrame % check = 0 then
@@ -76,32 +89,28 @@ module Canvas =
             cur
         else prev
 
-    /// Animation loop.
+    /// Animates a world.
     let animate () =
 
-            // random number generator
-        let random =
-            let seed = DateTime.Now.Millisecond
-            console.log($"Random seed: {seed}")
-            Random(seed)
-
-        let createWorld () =
-            let numParticles =
-                System.Int32.Parse txtNumParticles.value
-            Ecos.Web.World.create
-                random extentMin extentMax numParticles
-
+        /// Animation loop.
         let rec loop iFrame prev world =
             window.requestAnimationFrame(fun timestamp ->
+
+                    // track framerate
                 let cur =
                     logFramerate 100 iFrame prev timestamp
+
+                    // reset world?
                 let world =
                     if reset then
                         reset <- false
-                        createWorld ()
+                        createWorld random
                     else world
+
+                    // animate a frame and then loop
                 animateFrame world
                     |> loop (iFrame + 1) cur)
+
                 |> ignore
 
-        loop 1 0.0 (createWorld ())
+        loop 1 0.0 (createWorld random)
