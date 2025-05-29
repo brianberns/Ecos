@@ -75,12 +75,8 @@ module Particle =
     let bond a b radiate =
         assert(a.NumBonds < a.Type.Valence)
         assert(b.NumBonds < b.Type.Valence)
-        let nBonds =
-            min
-                (a.Type.Valence - a.NumBonds)
-                (b.Type.Valence - b.NumBonds)
         { a with
-            NumBonds = a.NumBonds + nBonds
+            NumBonds = a.NumBonds + 1
             Velocity =
                 if radiate then
                     ((a.Velocity * (1.0 - elasticity))
@@ -88,7 +84,7 @@ module Particle =
                         / 2.0
                 else a.Velocity },
         { b with
-            NumBonds = b.NumBonds + nBonds
+            NumBonds = b.NumBonds + 1
             Velocity =
                 if radiate then
                     ((a.Velocity * (1.0 + elasticity))
