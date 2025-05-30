@@ -142,6 +142,20 @@ module World =
             |> Seq.sortBy fst
             |> Seq.map snd
 
+    /// Emits a photon for the given atoms.
+    let private emitPhoton (atomA : Atom) (atomB : Atom) =
+
+            // photon continues in same direction as atoms
+        let direction =
+            atomA.Velocity + atomB.Velocity
+
+            // initial location
+        let location =
+            (atomA.Location + atomB.Location) / 2.0
+                + direction   // prevent photon from being absorbed by these atoms
+
+        Photon.create location direction
+
     /// Creates bonds between closest atoms.
     let private createBonds world tuples =
 
@@ -176,14 +190,8 @@ module World =
 
                     // create photon?
                 if radiate then
-                    let location =
-                        (atomA.Location + atomB.Location)
-                             / 2.0
-                    let direction =
-                        atomA.Velocity + atomB.Velocity
-                    let photon =
-                        Photon.create location direction
-                    photons.Add(photon)
+                    emitPhoton atomA atomB
+                        |> photons.Add
 
         { world with
             Atoms = atoms
