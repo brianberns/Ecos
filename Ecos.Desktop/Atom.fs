@@ -1,17 +1,8 @@
 ﻿namespace Ecos.Desktop
 
 open System
-
-open Avalonia
 open Avalonia.Media
-
 open Ecos.Engine
-
-[<AutoOpen>]
-module PointExt =
-    type Ecos.Engine.Point with
-        member this.ToAvalonia() =
-            Point(this.X, this.Y)
 
 module AtomType =
 

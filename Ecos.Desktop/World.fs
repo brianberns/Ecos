@@ -53,3 +53,8 @@ module World =
                     let atomA = world.Atoms[i]
                     let atomB = world.Atoms[j]
                     Atom.drawBond ctx atomA atomB
+
+            // draw photons
+        Array.iter
+            (Photon.draw ctx)
+            world.Photons

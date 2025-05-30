@@ -258,6 +258,19 @@ module World =
             Location = location
             Velocity = velocity }
 
+    /// Moves a single photon one time step forward.
+    let private stepPhoton world (photon : Photon) =
+        let location =
+            photon.Location + photon.Velocity * dt
+        let valid =
+            location.X >= world.ExtentMin.X
+                && location.X <= world.ExtentMax.X
+                && location.Y >= world.ExtentMin.Y
+                && location.Y <= world.ExtentMax.Y
+        if valid then
+            Some { photon with Location = location }
+        else None
+
     /// Moves the atoms in the given world one time step
     /// forward.
     let step world =
@@ -269,4 +282,9 @@ module World =
         let atoms =
             Array.init world.Atoms.Length (
                 stepAtom world entries)
-        { world with Atoms = atoms }
+        let photons =
+            world.Photons
+                |> Array.choose (stepPhoton world)
+        { world with
+            Atoms = atoms
+            Photons = photons }
