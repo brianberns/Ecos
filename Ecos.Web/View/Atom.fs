@@ -27,7 +27,7 @@ module AtomType =
     let colorMap =
         Map [
             for id = minId to maxId do
-                let typ = AtomType.create id 2
+                let typ = AtomType.create id 1
                 let color = getColor id
                 typ, color
         ]
