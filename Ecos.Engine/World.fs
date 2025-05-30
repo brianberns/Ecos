@@ -1,6 +1,17 @@
 ﻿namespace Ecos.Engine
 
-/// World of objects to animate.
+type Photon =
+    {
+        /// Photon location.
+        Location : Point
+    }
+
+module Photon =
+
+    /// Constant speed of light.
+    let speed = 1.0
+
+/// World of interacting entities.
 type World =
     {
         /// Minimum extent point.
@@ -14,6 +25,9 @@ type World =
 
         /// Indexes of bound atoms.
         Bonds : bool[(*i*)][(*j*)]   // i > j
+
+        /// Photons in the world.
+        Photons : Photon[]
     }
 
 module World =
@@ -57,6 +71,7 @@ module World =
             ExtentMax = extentMax
             Atoms = atoms
             Bonds = initBonds atoms.Length
+            Photons = Array.empty
         }
 
     /// Relationship between two atoms.
@@ -106,7 +121,7 @@ module World =
     /// Calculates vector between every pair of atoms. The
     /// result is the lower half of a symmetric lookup table
     //// (up to sign).
-    let private getVectors (atoms : _[]) =
+    let private getVectors (atoms : Atom[]) =
         Array.init atoms.Length (fun i ->
             let atom = atoms[i]
             Array.init i (fun j ->
