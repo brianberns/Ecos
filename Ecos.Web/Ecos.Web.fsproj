@@ -14,6 +14,7 @@
     <Folder Include="Model\" />
     <Compile Include="..\Ecos.Engine\Point.fs" Link="Model\Point.fs" />
     <Compile Include="..\Ecos.Engine\Atom.fs" Link="Model\Atom.fs" />
+    <Compile Include="..\Ecos.Engine\Photon.fs" Link="Model\Photon.fs" />
     <Compile Include="..\Ecos.Engine\World.fs" Link="Model\World.fs" />
     <Compile Include="View\Atom.fs" />
     <Compile Include="View\World.fs" />

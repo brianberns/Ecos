@@ -1,7 +1,5 @@
 ﻿namespace Ecos.Desktop
 
-open Avalonia.Media
-
 open Ecos.Engine
 
 module World =
@@ -21,22 +19,10 @@ module World =
 
     /// Creates atoms.
     let createAtoms random extent numAtoms =
-        let scale =
-            let factor = (min extent.X extent.Y) / tightness
-            Point.create factor factor
         [|
-            yield! Atom.makeAtoms
-                random
-                hydrogen
-                (2 * numAtoms / 3)
-                scale
-                Point.Zero
-            yield! Atom.makeAtoms
-                random
-                oxygen
-                (numAtoms / 3)
-                scale
-                Point.Zero
+            Atom.create hydrogen (Point.create 0.0 0.0) (Point.create 1.0 0.0)
+            Atom.create hydrogen (Point.create 2.0 0.1) (Point.create 0.0 0.0)
+            Atom.create hydrogen (Point.create 4.0 0.2) (Point.create 0.0 0.0)
         |]
 
     /// Creates a world.

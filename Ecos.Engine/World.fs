@@ -1,16 +1,5 @@
 ﻿namespace Ecos.Engine
 
-type Photon =
-    {
-        /// Photon location.
-        Location : Point
-    }
-
-module Photon =
-
-    /// Constant speed of light.
-    let speed = 1.0
-
 /// World of interacting entities.
 type World =
     {
@@ -161,28 +150,49 @@ module World =
             world.Atoms
                 |> Array.map Atom.resetBonds
         let bonds = initBonds atoms.Length
+        let photons = ResizeArray()
 
+            // examine each candidate bound pair
         for i, j, bound in tuples do
 
-            let a = atoms[i]
-            let b = atoms[j]
+            let atomA = atoms[i]
+            let atomB = atoms[j]
 
             let canBond =
-                a.NumBonds < a.Type.Valence
-                    && b.NumBonds < b.Type.Valence
+                atomA.NumBonds < atomA.Type.Valence
+                    && atomB.NumBonds < atomB.Type.Valence
             if canBond then
 
-                let a, b = Atom.bond a b (not bound)
-                atoms[i] <- a
-                atoms[j] <- b
+                    // radiate a photon when creating a new bond
+                let radiate = not bound
+                let atomA, atomB =
+                    Atom.bond atomA atomB radiate
+                atoms[i] <- atomA
+                atoms[j] <- atomB
 
+                    // mark pair as bound
                 assert(i > j)
-                assert(not (bonds[i][j]))
                 bonds[i][j] <- true
+
+                    // create photon?
+                if radiate then
+                    let location =
+                        (atomA.Location + atomB.Location)
+                             / 2.0
+                    let direction =
+                        atomA.Velocity + atomB.Velocity
+                    let photon =
+                        Photon.create location direction
+                    photons.Add(photon)
 
         { world with
             Atoms = atoms
-            Bonds = bonds }
+            Bonds = bonds
+            Photons =
+                [|
+                    yield! world.Photons
+                    yield! photons
+                |] }
 
     /// Calculates the force between two atoms.
     let private getForce entry bound =

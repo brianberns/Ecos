@@ -49,7 +49,7 @@ type Atom =
         /// Atom location.
         Location : Point
 
-        /// Atom velocity.
+        /// Atom velocity vector.
         Velocity : Point
     }
 
