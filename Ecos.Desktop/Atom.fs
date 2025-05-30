@@ -1,27 +1,15 @@
 ﻿namespace Ecos.Desktop
 
-open System
 open Avalonia.Media
 open Ecos.Engine
 
 module AtomType =
 
-    let minValence = 1
-    let maxValence = 2
-
-    let private brushes =
-        [|
-            Brushes.Yellow
-            Brushes.Red
-        |]
-
     /// Brush map.
     let brushMap =
         Map [
-            for valence = minValence to maxValence do
-                let typ = AtomType.create valence
-                let brush = brushes[valence - 1]
-                typ, brush
+            AtomType.create 1 1, Brushes.Yellow
+            AtomType.create 2 1, Brushes.Red
         ]
 
 module Atom =

@@ -6,34 +6,38 @@ open System
 [<CustomComparison; CustomEquality>]
 type AtomType =
     {
+        /// Unique identifier.
+        Id : int
+
         /// Number of bonds an atom of this type is capable
         /// of making.
         Valence : int
     }
 
     override this.Equals(other) =
-        this.Valence = (other :?> AtomType).Valence
+        this.Id = (other :?> AtomType).Id
 
     override this.GetHashCode() = 
-        this.Valence.GetHashCode()
+        this.Id.GetHashCode()
 
     interface IEquatable<AtomType> with
         member this.Equals(other) =
-            this.Valence = other.Valence
+            this.Id = other.Id
 
     interface IComparable with
         member this.CompareTo(other) =
-            compare this.Valence (other :?> AtomType).Valence
+            compare this.Id (other :?> AtomType).Id
 
     interface IComparable<AtomType> with
         member this.CompareTo(other) =
-            compare this.Valence other.Valence
+            compare this.Id other.Id
 
 module AtomType =
 
     /// Creates an atom type.
-    let create valence =
+    let create id valence =
         {
+            Id = id
             Valence = valence
         }
 

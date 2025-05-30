@@ -10,12 +10,12 @@ module World =
 
     let hydrogen =
         AtomType.brushMap.Keys
-            |> Seq.where (fun typ -> typ.Valence = 1)
+            |> Seq.where (fun typ -> typ.Id = 1)
             |> Seq.exactlyOne
 
     let oxygen =
         AtomType.brushMap.Keys
-            |> Seq.where (fun typ -> typ.Valence = 2)
+            |> Seq.where (fun typ -> typ.Id = 2)
             |> Seq.exactlyOne
 
     /// Creates atoms.

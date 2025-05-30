@@ -9,26 +9,26 @@ open Ecos.Engine
 
 module AtomType =
 
-    let minValence = 1
-    let maxValence = 2
+    let minId = 1
+    let maxId = 2
 
     let minHue =  60   // yellow
     let maxHue = 360   // red
 
-    /// Gets a color representing the given valence.
-    let getColor valence =
+    /// Gets a color representing the given ID.
+    let getColor id =
         let hue =
             (maxHue - minHue)
-                * (valence - minValence)
-                / (maxValence - minValence) + minHue
+                * (id - minId)
+                / (maxId - minId) + minHue
         $"hsl({hue}, 100%%, 50%%)"
 
     /// Color map.
     let colorMap =
         Map [
-            for valence = minValence to maxValence do
-                let typ = AtomType.create valence
-                let color = getColor valence
+            for id = minId to maxId do
+                let typ = AtomType.create id 2
+                let color = getColor id
                 typ, color
         ]
 
