@@ -32,7 +32,7 @@ type WorldView() as this =
 
     let createWorld () =
         Ecos.Desktop.World.create
-            random extentMin extentMax 200
+            random extentMin extentMax
 
     let mutable world = createWorld ()
 

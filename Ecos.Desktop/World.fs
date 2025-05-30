@@ -1,5 +1,6 @@
 ﻿namespace Ecos.Desktop
 
+open System
 open Ecos.Engine
 
 module World =
@@ -18,32 +19,56 @@ module World =
             |> Seq.exactlyOne
 
     /// Creates atoms.
-    let createAtoms random extent numAtoms =
-        let scale =
-            let factor = (min extent.X extent.Y) / tightness
-            Point.create factor factor
+    let createAtoms (random : Random) extentMin extentMax =
+        let xDim = 2
+        let yDim = 6
+        let offset = Point.create (World.bondDistance / 2.0) 0.0
+
+        let createType typ extentMin extentMax =
+            let extentMin, extentMax =
+                let offset = ((extentMax : Point) - (extentMin : Point)) / 5.0
+                extentMin + offset, extentMax - offset
+            [|
+                for i = 0 to xDim do
+                    for j = 0 to yDim do
+                        let center =
+                            let x =
+                                (extentMax.X - extentMin.X)
+                                    * (float i / float xDim)
+                                    + extentMin.X
+                            let y =
+                                (extentMax.Y - extentMin.Y)
+                                    * (float j / float yDim)
+                                    + extentMin.Y
+                            Point.create x y
+                        let velocity =
+                            Point.create
+                                (random.NextDouble() - 0.5)
+                                (random.NextDouble() - 0.5)
+                        Atom.create typ (center + offset) velocity
+                        Atom.create typ (center - offset) velocity
+            |]
+
         [|
-            yield! Atom.makeAtoms
-                random
+            yield! createType
                 hydrogen
-                (2 * numAtoms / 3)
-                scale
-                Point.Zero
-            yield! Atom.makeAtoms
-                random
+                extentMin
+                (Point.create
+                    (extentMin.X + 0.5 * (extentMax.X - extentMin.X))
+                    extentMax.Y)
+            yield! createType
                 oxygen
-                (numAtoms / 3)
-                scale
-                Point.Zero
+                (Point.create
+                    (extentMin.X + 0.5 * (extentMax.X - extentMin.X))
+                    extentMin.Y)
+                extentMax
         |]
 
     /// Creates a world.
-    let create random extentMin extentMax numAtoms =
+    let create random extentMin extentMax =
 
             // create atoms
-        let atoms =
-            let extent = extentMax - extentMin
-            createAtoms random extent numAtoms
+        let atoms = createAtoms random extentMin extentMax
 
             // create and animate world
         World.create extentMin extentMax atoms
