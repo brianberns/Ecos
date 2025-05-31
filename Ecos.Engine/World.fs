@@ -32,7 +32,7 @@ module World =
     let attractionDistance = 1.2
 
     /// Attraction damping factor.
-    let attractionDamping = 0.3
+    let attractionDamping = 0.2
 
     /// Maximum distance at which bonding occurs.
     let bondDistance = 1.0
@@ -96,7 +96,7 @@ module World =
                     let velocity =
                         velocityA - (velocityA + velocityB) / 2.0
                     attractionDamping * velocity.Length
-                undamped + damping
+                undamped - damping
             else 0.0
 
         /// Creates a vector entry.
