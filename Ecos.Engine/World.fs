@@ -77,30 +77,31 @@ module World =
 
     module private VectorEntry =
 
+        /// Calculates repulsion for the given distance.
+        let getRepulsion distance =
+            if distance < repulsionDistance then
+                repulsionStrength
+                    * (repulsionDistance - distance)
+                    / repulsionDistance
+            else 0.0
+
+        /// Calculates attraction for the given distance.
+        let getAttraction distance =
+            if distance < attractionDistance then
+                attractionStrength
+                    * (attractionDistance - distance)
+                    / attractionDistance
+            else 0.0
+
         /// Creates a vector entry.
         let create (vector : Point) =
             let distance = vector.Length
             let norm = vector / distance
-
-            let repulsion =
-                if distance < repulsionDistance then
-                    repulsionStrength
-                        * (repulsionDistance - distance)
-                        / repulsionDistance
-                else 0.0
-
-            let attraction =
-                if distance < attractionDistance then
-                    attractionStrength
-                        * (attractionDistance - distance)
-                        / attractionDistance
-                else 0.0
-
             {
                 Distance = distance
                 Vector = norm
-                Repulsion = repulsion
-                Attraction = attraction
+                Repulsion = getRepulsion distance
+                Attraction = getAttraction distance
             }
 
     /// Calculates vector between every pair of atoms. The
