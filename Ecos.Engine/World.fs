@@ -65,19 +65,16 @@ module World =
             /// Distance between the atoms.
             Distance : float
 
-            /// Normalized vector between the atoms.
-            Vector : Point
-
             /// Repulsion between the atoms.
-            Repulsion : float
+            Repulsion : Point
 
             /// Possible attraction between the atoms.
-            Attraction : float
+            Attraction : Point
         }
 
     module private VectorEntry =
 
-        /// Calculates repulsion for the given distance.
+        /// Repulsion magnitude for the given distance.
         let getRepulsion distance =
             if distance < repulsionDistance then
                 repulsionStrength
@@ -85,7 +82,7 @@ module World =
                     / repulsionDistance
             else 0.0
 
-        /// Calculates attraction for the given distance.
+        /// Attraction magnitude for the given distance.
         let getAttraction distance =
             if distance < attractionDistance then
                 attractionStrength
@@ -99,9 +96,8 @@ module World =
             let norm = vector / distance
             {
                 Distance = distance
-                Vector = norm
-                Repulsion = getRepulsion distance
-                Attraction = getAttraction distance
+                Repulsion = norm * getRepulsion distance
+                Attraction = -norm * getAttraction distance
             }
 
     /// Calculates vector between every pair of atoms. The
@@ -175,17 +171,10 @@ module World =
 
     /// Calculates the force between two atoms.
     let private getForce entry bound =
-
-            // compute strength of force between the atoms
-        let strength =
-            if bound then
-                assert(entry.Attraction > 0.0)
-                entry.Repulsion - entry.Attraction
-            else
-                entry.Repulsion
-
-            // align to normalized vector
-        strength * entry.Vector
+        if bound then
+            entry.Repulsion + entry.Attraction
+        else
+            entry.Repulsion
 
     /// Calculates the forces acting on an atom.
     let private getForces world (entries : _[][]) i =
