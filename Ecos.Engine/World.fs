@@ -91,7 +91,8 @@ module World =
             else 0.0
 
         /// Creates a vector entry.
-        let create (vector : Point) =
+        let create atomA atomB =
+            let vector = atomA.Location - atomB.Location
             let distance = vector.Length
             let norm = vector / distance
             {
@@ -108,9 +109,7 @@ module World =
             let atom = atoms[i]
             Array.init i (fun j ->
                 assert(i >= j)   // lower half of table only
-                let other = atoms[j]
-                let vector = atom.Location - other.Location
-                VectorEntry.create vector))
+                VectorEntry.create atom atoms[j]))
 
     /// Sorts attracted atoms by distance.
     let private sortAttracted world (entries : _[][]) =
