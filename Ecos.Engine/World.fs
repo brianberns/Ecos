@@ -31,6 +31,9 @@ module World =
     /// for bound atoms.
     let attractionDistance = 1.2
 
+    /// Attraction damping factor.
+    let attractionDamping = 0.3
+
     /// Maximum distance at which bonding occurs.
     let bondDistance = 1.0
 
@@ -83,11 +86,17 @@ module World =
             else 0.0
 
         /// Attraction magnitude for the given distance.
-        let getAttraction distance =
+        let getAttraction distance (velocityA : Point) (velocityB : Point) =
             if distance < attractionDistance then
-                attractionStrength
-                    * (attractionDistance - distance)
-                    / attractionDistance
+                let undamped =
+                    attractionStrength
+                        * (attractionDistance - distance)
+                        / attractionDistance
+                let damping =
+                    let velocity =
+                        velocityA - (velocityA + velocityB) / 2.0
+                    attractionDamping * velocity.Length
+                undamped + damping
             else 0.0
 
         /// Creates a vector entry.
@@ -95,10 +104,16 @@ module World =
             let vector = atomA.Location - atomB.Location
             let distance = vector.Length
             let norm = vector / distance
+            let repulsion = norm * getRepulsion distance
+            let attraction =
+                -norm * (
+                    getAttraction
+                        distance
+                        atomA.Velocity atomB.Velocity)
             {
                 Distance = distance
-                Repulsion = norm * getRepulsion distance
-                Attraction = -norm * getAttraction distance
+                Repulsion = repulsion
+                Attraction = attraction
             }
 
     /// Calculates vector between every pair of atoms. The
