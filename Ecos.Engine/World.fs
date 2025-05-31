@@ -31,6 +31,9 @@ module World =
     /// for bound atoms.
     let attractionDistance = 1.2
 
+    /// Attraction damping factor.
+    let attractionDamping = 0.3
+
     /// Maximum distance at which bonding occurs.
     let bondDistance = 1.0
 
@@ -65,40 +68,50 @@ module World =
             /// Distance between the atoms.
             Distance : float
 
-            /// Normalized vector between the atoms.
-            Vector : Point
-
             /// Repulsion between the atoms.
-            Repulsion : float
+            Repulsion : Point
 
             /// Possible attraction between the atoms.
-            Attraction : float
+            Attraction : Point
         }
 
     module private VectorEntry =
 
-        /// Creates a vector entry.
-        let create (vector : Point) =
-            let distance = vector.Length
-            let norm = vector / distance
+        /// Repulsion magnitude for the given distance.
+        let getRepulsion distance =
+            if distance < repulsionDistance then
+                repulsionStrength
+                    * (repulsionDistance - distance)
+                    / repulsionDistance
+            else 0.0
 
-            let repulsion =
-                if distance < repulsionDistance then
-                    repulsionStrength
-                        * (repulsionDistance - distance)
-                        / repulsionDistance
-                else 0.0
-
-            let attraction =
-                if distance < attractionDistance then
+        /// Attraction magnitude for the given distance.
+        let getAttraction distance (velocityA : Point) (velocityB : Point) =
+            if distance < attractionDistance then
+                let undamped =
                     attractionStrength
                         * (attractionDistance - distance)
                         / attractionDistance
-                else 0.0
+                let damping =
+                    let velocity =
+                        velocityA - (velocityA + velocityB) / 2.0
+                    attractionDamping * velocity.Length
+                undamped + damping
+            else 0.0
 
+        /// Creates a vector entry.
+        let create atomA atomB =
+            let vector = atomA.Location - atomB.Location
+            let distance = vector.Length
+            let norm = vector / distance
+            let repulsion = norm * getRepulsion distance
+            let attraction =
+                -norm * (
+                    getAttraction
+                        distance
+                        atomA.Velocity atomB.Velocity)
             {
                 Distance = distance
-                Vector = norm
                 Repulsion = repulsion
                 Attraction = attraction
             }
@@ -111,9 +124,7 @@ module World =
             let atom = atoms[i]
             Array.init i (fun j ->
                 assert(i >= j)   // lower half of table only
-                let other = atoms[j]
-                let vector = atom.Location - other.Location
-                VectorEntry.create vector))
+                VectorEntry.create atom atoms[j]))
 
     /// Sorts attracted atoms by distance.
     let private sortAttracted world (entries : _[][]) =
@@ -174,17 +185,10 @@ module World =
 
     /// Calculates the force between two atoms.
     let private getForce entry bound =
-
-            // compute strength of force between the atoms
-        let strength =
-            if bound then
-                assert(entry.Attraction > 0.0)
-                entry.Repulsion - entry.Attraction
-            else
-                entry.Repulsion
-
-            // align to normalized vector
-        strength * entry.Vector
+        if bound then
+            entry.Repulsion + entry.Attraction
+        else
+            entry.Repulsion
 
     /// Calculates the forces acting on an atom.
     let private getForces world (entries : _[][]) i =
