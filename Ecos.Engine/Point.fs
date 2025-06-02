@@ -1,6 +1,7 @@
 ﻿namespace Ecos.Engine
 
 /// 2D point.
+[<StructuredFormatDisplay("{String}")>]
 type Point =
     {
         /// X-coordinate.
@@ -45,6 +46,14 @@ type Point =
     /// as a vector.
     member this.Length =
         sqrt (this.X * this.X + this.Y * this.Y)
+
+    /// Display string.
+    member this.String = 
+        $"(%0.3g{this.X}, %0.3g{this.Y})"
+
+    /// Display string.
+    override this.ToString() = 
+        this.ToString()
 
 module Point =
 
