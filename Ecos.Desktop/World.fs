@@ -5,20 +5,26 @@ open Ecos.Engine
 
 module World =
 
-    /// Initial cluster tightness.
-    let tightness = 2.0
+    let hydrogen =
+        AtomType.brushMap.Keys
+            |> Seq.where (fun typ -> typ.Valence = 1)
+            |> Seq.exactlyOne
+
+    let oxygen =
+        AtomType.brushMap.Keys
+            |> Seq.where (fun typ -> typ.Valence = 2)
+            |> Seq.exactlyOne
 
     /// Creates atoms.
     let createAtoms (random : Random) extentMin extentMax numAtoms =
-        let atomTypes = Seq.toArray AtomType.brushMap.Keys
         Array.init numAtoms (fun _ ->
             let pt =
                 Point.create
                     (random.NextDouble())
                     (random.NextDouble())
             let atomType =
-                if pt.X < 0.5 then atomTypes[0]
-                else atomTypes[1]
+                if pt.X < 2.0/3.0 then hydrogen
+                else oxygen
             let location =
                 (extentMax - extentMin) * pt + extentMin
             Atom.create atomType location Point.Zero)
