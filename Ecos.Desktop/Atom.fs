@@ -26,25 +26,6 @@ module AtomType =
 
 module Atom =
 
-    /// Answers a unit vector pointing in a random direction.
-    let randomUnitVector (random : Random) =
-        let theta = Math.Tau * random.NextDouble()
-        Point.create (cos theta) (sin theta)
-
-    /// Makes the given number of atoms.
-    let makeAtoms
-        (random : Random)
-        typ
-        numAtoms
-        (scale : Point)
-        offset =
-        Array.init numAtoms (fun _ ->
-            let r = random.NextDouble()
-            let location =
-                r * scale * randomUnitVector random + offset
-            let velocity = Point.Zero
-            Atom.create typ location velocity)
-
     /// Pen to use for atom border.
     let private pen = Pen(Brushes.Black, thickness = 0.05)
 
