@@ -37,12 +37,6 @@ module World =
     /// Maximum distance at which bonding occurs.
     let bondDistance = 1.0
 
-    /// Attraction/repulsion equilibrium distance.
-    let eqDistance =
-        (repulsionStrength - attractionStrength)
-            / ((repulsionStrength / repulsionDistance)
-                - (attractionStrength / attractionDistance))
-
     /// Time step.
     let dt = 0.05
 

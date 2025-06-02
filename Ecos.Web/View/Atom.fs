@@ -56,7 +56,7 @@ module Atom =
             Atom.create typ location velocity)
 
     /// Atom radius.
-    let radius = World.eqDistance / 2.0
+    let radius = World.repulsionDistance / 2.0
 
     /// Draws the given atom.
     let draw (ctx : DrawingContext) (atom : Atom) =
