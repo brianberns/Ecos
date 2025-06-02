@@ -96,7 +96,7 @@ module World =
                     let velocity =
                         velocityA - (velocityA + velocityB) / 2.0
                     attractionDamping * velocity.Length
-                undamped - damping
+                max (undamped - damping) 0.0
             else 0.0
 
         /// Creates a vector entry.
