@@ -48,12 +48,12 @@ type Point =
         sqrt (this.X * this.X + this.Y * this.Y)
 
     /// Display string.
-    member this.String = 
+    member this.String =
         $"(%0.3g{this.X}, %0.3g{this.Y})"
 
     /// Display string.
     override this.ToString() = 
-        this.ToString()
+        this.String
 
 module Point =
 
