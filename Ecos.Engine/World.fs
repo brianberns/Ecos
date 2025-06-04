@@ -28,7 +28,7 @@ module World =
     let bondDistance = 2.0 * sigma
 
     /// Time step.
-    let dt = 0.05
+    let dt = 0.01
 
     /// Initializes empty symmetrical bond array.
     let private initBonds numAtoms =
