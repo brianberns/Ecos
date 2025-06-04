@@ -18,8 +18,8 @@ module World =
     /// Creates atoms.
     let createAtoms (random : Random) extentMin extentMax numAtoms =
         [|
-            Atom.create hydrogen (Point.create -2.0 0.0) (Point.create 0.1 0.0)
-            Atom.create hydrogen (Point.create 2.0 0.0) (Point.create -0.1 0.0)
+            Atom.create hydrogen (Point.create -0.6 0.0) (Point.create 0.05 0.0)
+            Atom.create hydrogen (Point.create 0.6 0.0) (Point.create -0.05 0.0)
         |]
 
     /// Creates a world.

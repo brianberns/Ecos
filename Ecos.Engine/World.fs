@@ -18,11 +18,14 @@ type World =
 
 module World =
 
+    let epsilon = 1.0
+    let sigma = 1.0
+
     /// Maximum distance at which bonding occurs.
     let bondDistance = 2.0
 
     /// Time step.
-    let dt = 0.05
+    let dt = 0.005
 
     /// Initializes empty symmetrical bond array.
     let private initBonds numAtoms =
@@ -57,11 +60,11 @@ module World =
 
         /// Repulsion magnitude for the given distance.
         let getRepulsion distance =
-            (1.0 / distance) ** 12.0
+            48.0 * epsilon * pown sigma 12 / pown distance 13
 
         /// Attraction magnitude for the given distance.
-        let getAttraction distance (velocityA : Point) (velocityB : Point) =
-            (1.0 / distance) ** 6.0
+        let getAttraction distance =
+            24.0 * epsilon * pown sigma 6 / pown distance 7
 
         /// Creates a vector entry.
         let create atomA atomB =
@@ -69,11 +72,7 @@ module World =
             let distance = vector.Length
             let norm = vector / distance
             let repulsion = norm * getRepulsion distance
-            let attraction =
-                -norm * (
-                    getAttraction
-                        distance
-                        atomA.Velocity atomB.Velocity)
+            let attraction = -norm * (getAttraction distance)
             {
                 Distance = distance
                 Repulsion = repulsion
@@ -150,7 +149,7 @@ module World =
         if bound then
             entry.Repulsion + entry.Attraction
         else
-            entry.Repulsion
+            entry.Repulsion + entry.Attraction
 
     /// Calculates the forces acting on an atom.
     let private getForces world (entries : _[][]) i =
@@ -211,13 +210,6 @@ module World =
     /// forward.
     let step world =
 
-            // create bonds between atoms
-        let entries = getVectors world.Atoms
-        let world =
-             entries
-                |> sortAttracted world
-                |> createBonds world
-
             // update atom locations using half-step velocities
         let atoms =
             Array.map (
@@ -225,6 +217,13 @@ module World =
                     >> Atom.updateLocation dt)
                 world.Atoms
         let world = { world with Atoms = atoms }
+
+            // create bonds between atoms
+        let entries = getVectors world.Atoms
+        let world =
+             entries
+                |> sortAttracted world
+                |> createBonds world
 
             // update atom accelerations
         let atoms =
