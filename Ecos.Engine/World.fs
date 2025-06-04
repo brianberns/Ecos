@@ -25,7 +25,7 @@ module World =
     let bondDistance = 2.0
 
     /// Time step.
-    let dt = 0.005
+    let dt = 0.05
 
     /// Initializes empty symmetrical bond array.
     let private initBonds numAtoms =
@@ -149,7 +149,7 @@ module World =
         if bound then
             entry.Repulsion + entry.Attraction
         else
-            entry.Repulsion + entry.Attraction
+            entry.Repulsion
 
     /// Calculates the forces acting on an atom.
     let private getForces world (entries : _[][]) i =
