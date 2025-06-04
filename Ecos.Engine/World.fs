@@ -61,7 +61,10 @@ module World =
 
     module private VectorEntry =
 
+        /// Repulsion numerator.
         let private cRepulsion = 48.0 * epsilon * pown sigma 12
+
+        /// Attraction numerator.
         let private cAttraction = -24.0 * epsilon * pown sigma 6
 
         /// Repulsion and attraction magnitudes for the given
@@ -205,7 +208,14 @@ module World =
         let velocity = Point.create vx vy
         { atom with Velocity = velocity }
 
-    let private stepAtom world entries i =
+    /// Starts a half-step atom update.
+    let private startAtomUpdate atom =
+        atom
+            |> Atom.updateHalfStepVelocity dt
+            |> Atom.updateLocation dt
+
+    /// Finishes a half-step atom update.
+    let private finishAtomUpdate world entries i =
         let atom = world.Atoms[i]
         let force =
             Array.sum (getForces world entries i)
@@ -214,15 +224,12 @@ module World =
             |> bounce world
 
     /// Moves the atoms in the given world one time step
-    /// forward.
+    /// forward using the Velocity Verlet algorithm.
     let step world =
 
-            // update atom locations using half-step velocities
+            // start atom updates
         let atoms =
-            Array.map (
-                Atom.updateHalfStepVelocity dt
-                    >> Atom.updateLocation dt)
-                world.Atoms
+            Array.map startAtomUpdate world.Atoms
         let world = { world with Atoms = atoms }
 
             // create bonds between atoms
@@ -232,8 +239,8 @@ module World =
                 |> sortAttracted world
                 |> createBonds world
 
-            // update atom accelerations
+            // finish atom updates
         let atoms =
             Array.init world.Atoms.Length (
-                stepAtom world entries)
+                finishAtomUpdate world entries)
         { world with Atoms = atoms }
