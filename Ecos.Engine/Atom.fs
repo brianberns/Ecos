@@ -11,23 +11,29 @@ type AtomType =
         Valence : int
     }
 
+    member this.Equals(other) =
+        this.Valence = other.Valence
+
+    member this.CompareTo(other) =
+        compare this.Valence other.Valence
+
     override this.Equals(other) =
-        this.Valence = (other :?> AtomType).Valence
+        this.Equals(other :?> AtomType)
 
     override this.GetHashCode() = 
         this.Valence.GetHashCode()
 
     interface IEquatable<AtomType> with
         member this.Equals(other) =
-            this.Valence = other.Valence
+            this.Equals(other)
 
     interface IComparable with
         member this.CompareTo(other) =
-            compare this.Valence (other :?> AtomType).Valence
+            this.CompareTo(other :?> AtomType)
 
     interface IComparable<AtomType> with
         member this.CompareTo(other) =
-            compare this.Valence other.Valence
+            this.CompareTo(other)
 
 module AtomType =
 
@@ -76,29 +82,29 @@ module Atom =
     let private elasticity = 0.0
 
     /// Bonds the given atoms.
-    let bond a b radiate =
-        assert(a.NumBonds < a.Type.Valence)
-        assert(b.NumBonds < b.Type.Valence)
+    let bond atomA atomB radiate =
+        assert(atomA.NumBonds < atomA.Type.Valence)
+        assert(atomB.NumBonds < atomB.Type.Valence)
         let nBonds =
             min
-                (a.Type.Valence - a.NumBonds)
-                (b.Type.Valence - b.NumBonds)
-        { a with
-            NumBonds = a.NumBonds + nBonds
+                (atomA.Type.Valence - atomA.NumBonds)
+                (atomB.Type.Valence - atomB.NumBonds)
+        { atomA with
+            NumBonds = atomA.NumBonds + nBonds
             Velocity =
                 if radiate then
-                    ((a.Velocity * (1.0 - elasticity))
-                        + (b.Velocity * (1.0 + elasticity)))
+                    ((atomA.Velocity * (1.0 - elasticity))
+                        + (atomB.Velocity * (1.0 + elasticity)))
                         / 2.0
-                else a.Velocity },
-        { b with
-            NumBonds = b.NumBonds + nBonds
+                else atomA.Velocity },
+        { atomB with
+            NumBonds = atomB.NumBonds + nBonds
             Velocity =
                 if radiate then
-                    ((a.Velocity * (1.0 + elasticity))
-                        + (b.Velocity * (1.0 - elasticity)))
+                    ((atomA.Velocity * (1.0 + elasticity))
+                        + (atomB.Velocity * (1.0 - elasticity)))
                         / 2.0
-                else b.Velocity }
+                else atomB.Velocity }
 
     /// Updates an atom's velocity by a half-step.
     let updateHalfStepVelocity dt atom =
