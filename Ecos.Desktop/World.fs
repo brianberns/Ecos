@@ -25,10 +25,10 @@ module World =
                         if x < 2 * xDim / 3 then hydrogen
                         else oxygen
                     let velocity =
-                        Point.create
+                        (Point.create
                             (random.NextDouble())
                             (random.NextDouble())
-                            - mid
+                            - mid) * 4.0
                     Atom.create atomType location velocity
         |]
 
