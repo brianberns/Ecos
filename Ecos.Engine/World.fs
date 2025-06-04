@@ -61,15 +61,18 @@ module World =
 
     module private VectorEntry =
 
+        let private cRepulsion = 48.0 * epsilon * pown sigma 12
+        let private cAttraction = 24.0 * epsilon * pown sigma 6
+
         /// Repulsion magnitude for the given distance.
         /// (Lennard-Jones potential.)
         let getRepulsion distance =
-            48.0 * epsilon * pown sigma 12 / pown distance 13
+            cRepulsion / pown distance 13
 
         /// Attraction magnitude for the given distance.
         /// (Lennard-Jones potential.)
         let getAttraction distance =
-            24.0 * epsilon * pown sigma 6 / pown distance 7
+            cAttraction / pown distance 7
 
         /// Creates a vector entry.
         let create atomA atomB =
