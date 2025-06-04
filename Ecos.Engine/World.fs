@@ -18,11 +18,14 @@ type World =
 
 module World =
 
+    /// Depth of potential energy well.
     let epsilon = 1.0
+
+    /// Equilibrium distance.
     let sigma = 1.0
 
     /// Maximum distance at which bonding occurs.
-    let bondDistance = 2.0
+    let bondDistance = 2.0 * sigma
 
     /// Time step.
     let dt = 0.05
@@ -59,10 +62,12 @@ module World =
     module private VectorEntry =
 
         /// Repulsion magnitude for the given distance.
+        /// (Lennard-Jones potential.)
         let getRepulsion distance =
             48.0 * epsilon * pown sigma 12 / pown distance 13
 
         /// Attraction magnitude for the given distance.
+        /// (Lennard-Jones potential.)
         let getAttraction distance =
             24.0 * epsilon * pown sigma 6 / pown distance 7
 
