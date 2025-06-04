@@ -18,24 +18,8 @@ type World =
 
 module World =
 
-    /// Repulsion strength.
-    let repulsionStrength = 2.0
-
-    /// Maximum distance at which repulsion occurs.
-    let repulsionDistance = 0.9
-
-    /// Attraction strength.
-    let attractionStrength = 1.0
-
-    /// Maximum distance at which attraction occurs
-    /// for bound atoms.
-    let attractionDistance = 1.2
-
-    /// Attraction damping factor.
-    let attractionDamping = 0.2
-
     /// Maximum distance at which bonding occurs.
-    let bondDistance = 1.0
+    let bondDistance = 2.0
 
     /// Time step.
     let dt = 0.05
@@ -73,25 +57,11 @@ module World =
 
         /// Repulsion magnitude for the given distance.
         let getRepulsion distance =
-            if distance < repulsionDistance then
-                repulsionStrength
-                    * (repulsionDistance - distance)
-                    / repulsionDistance
-            else 0.0
+            (1.0 / distance) ** 12.0
 
         /// Attraction magnitude for the given distance.
         let getAttraction distance (velocityA : Point) (velocityB : Point) =
-            if distance < attractionDistance then
-                let undamped =
-                    attractionStrength
-                        * (attractionDistance - distance)
-                        / attractionDistance
-                let damping =
-                    let velocity =
-                        velocityA - (velocityA + velocityB) / 2.0
-                    attractionDamping * velocity.Length
-                max (undamped - damping) 0.0
-            else 0.0
+            (1.0 / distance) ** 6.0
 
         /// Creates a vector entry.
         let create atomA atomB =
@@ -134,17 +104,16 @@ module World =
                 for j = 0 to i - 1 do
                     let entry = entryRow[j]
                     let bound = bondRow[j]
-                    if (bound && entry.Distance <= attractionDistance)
-                        || entry.Distance <= bondDistance then
+                    if entry.Distance <= bondDistance then
                         let key =
                             (if bound then 0 else 1), entry.Distance
-                        key, (i, j, bound)
+                        key, (i, j)
         }
             |> Seq.sortBy fst
             |> Seq.map snd
 
     /// Creates bonds between closest atoms.
-    let private createBonds world tuples =
+    let private createBonds world pairs =
 
             // reset bonds to zero
         let atoms =
@@ -153,7 +122,7 @@ module World =
         let bonds = initBonds atoms.Length
 
             // examine each candidate bound pair
-        for i, j, bound in tuples do
+        for i, j in pairs do
 
             let atomA = atoms[i]
             let atomB = atoms[j]
@@ -164,8 +133,7 @@ module World =
             if canBond then
 
                     // bind atoms
-                let atomA, atomB =
-                    Atom.bond atomA atomB (not bound)
+                let atomA, atomB = Atom.bond atomA atomB
                 atoms[i] <- atomA
                 atoms[j] <- atomB
 
@@ -204,44 +172,61 @@ module World =
                 let bound = world.Bonds[j][i]
                 -getForce entry bound)
 
-    /// Bounces the given trajectory off a wall, if necessary.
-    let private bounce world location velocity =
+    /// Bounces the given atom off a wall, if necessary.
+    let private bounce world atom =
+
+        let extentMin = world.ExtentMin
+        let extentMax = world.ExtentMax
+        let location = atom.Location
+        let velocity = atom.Velocity
+
         let vx =
-            if location.X < world.ExtentMin.X then
+            if location.X < extentMin.X then
                 abs velocity.X
-            elif location.X > world.ExtentMax.X then
+            elif location.X > extentMax.X then
                 -abs velocity.X
             else
                 velocity.X
+
         let vy =
-            if location.Y < world.ExtentMin.Y then
+            if location.Y < extentMin.Y then
                 abs velocity.Y
-            elif location.Y > world.ExtentMax.Y then
+            elif location.Y > extentMax.Y then
                 -abs velocity.Y
             else
                 velocity.Y
-        Point.create vx vy
 
-    /// Moves a single atom one time step forward.
+        let velocity = Point.create vx vy
+        { atom with Velocity = velocity }
+
     let private stepAtom world entries i =
         let atom = world.Atoms[i]
         let force =
             Array.sum (getForces world entries i)
-        let velocity = atom.Velocity + force
-        let location = atom.Location + (velocity * dt)
-        let velocity = bounce world location velocity
-        { atom with
-            Location = location
-            Velocity = velocity }
+        { atom with Acceleration = force }   // assume mass of atom = 1.0
+            |> Atom.updateHalfStepVelocity dt
+            |> bounce world
 
     /// Moves the atoms in the given world one time step
     /// forward.
     let step world =
+
+            // create bonds between atoms
         let entries = getVectors world.Atoms
         let world =
-            entries
+             entries
                 |> sortAttracted world
                 |> createBonds world
+
+            // update atom locations using half-step velocities
+        let atoms =
+            Array.map (
+                Atom.updateHalfStepVelocity dt
+                    >> Atom.updateLocation dt)
+                world.Atoms
+        let world = { world with Atoms = atoms }
+
+            // update atom accelerations
         let atoms =
             Array.init world.Atoms.Length (
                 stepAtom world entries)

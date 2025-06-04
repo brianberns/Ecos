@@ -51,6 +51,9 @@ type Atom =
 
         /// Atom velocity vector.
         Velocity : Point
+
+        /// Atom acceleration vector.
+        Acceleration : Point
     }
 
 module Atom =
@@ -62,17 +65,15 @@ module Atom =
             NumBonds = 0
             Location = location
             Velocity = velocity
+            Acceleration = Point.Zero
         }
 
     /// Resets an atom to have no bonds.
     let resetBonds atom =
         { atom with NumBonds = 0 }
 
-    /// Elasticity of bond collision.
-    let private elasticity = 0.0
-
     /// Bonds the given atoms.
-    let bond a b radiate =
+    let bond a b =
         assert(a.NumBonds < a.Type.Valence)
         assert(b.NumBonds < b.Type.Valence)
         let nBonds =
@@ -80,18 +81,18 @@ module Atom =
                 (a.Type.Valence - a.NumBonds)
                 (b.Type.Valence - b.NumBonds)
         { a with
-            NumBonds = a.NumBonds + nBonds
-            Velocity =
-                if radiate then
-                    ((a.Velocity * (1.0 - elasticity))
-                        + (b.Velocity * (1.0 + elasticity)))
-                        / 2.0
-                else a.Velocity },
+            NumBonds = a.NumBonds + nBonds },
         { b with
-            NumBonds = b.NumBonds + nBonds
-            Velocity =
-                if radiate then
-                    ((a.Velocity * (1.0 + elasticity))
-                        + (b.Velocity * (1.0 - elasticity)))
-                        / 2.0
-                else b.Velocity }
+            NumBonds = b.NumBonds + nBonds }
+
+    /// Updates an atom's velocity by a half-step.
+    let updateHalfStepVelocity dt atom =
+        let velocity =
+            atom.Velocity + atom.Acceleration * (dt / 2.0)
+        { atom with Velocity = velocity }
+
+    /// Updates an atom's location based on its velocity.
+    let updateLocation (dt : float) atom =
+        let location =
+            atom.Location + atom.Velocity * dt
+        { atom with Location = location }

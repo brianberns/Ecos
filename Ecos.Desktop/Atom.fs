@@ -30,7 +30,7 @@ module Atom =
     let private pen = Pen(Brushes.Black, thickness = 0.05)
 
     /// Atom radius.
-    let radius = World.repulsionDistance / 2.0
+    let radius = World.bondDistance / 2.0
 
     /// Draws the given atom.
     let draw (ctx : DrawingContext) atom =

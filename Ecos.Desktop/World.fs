@@ -17,17 +17,10 @@ module World =
 
     /// Creates atoms.
     let createAtoms (random : Random) extentMin extentMax numAtoms =
-        Array.init numAtoms (fun _ ->
-            let pt =
-                Point.create
-                    (random.NextDouble())
-                    (random.NextDouble())
-            let atomType =
-                if pt.X < 2.0/3.0 then hydrogen
-                else oxygen
-            let location =
-                (extentMax - extentMin) * pt + extentMin
-            Atom.create atomType location Point.Zero)
+        [|
+            Atom.create hydrogen (Point.create -2.0 0.0) (Point.create 0.1 0.0)
+            Atom.create hydrogen (Point.create 2.0 0.0) (Point.create -0.1 0.0)
+        |]
 
     /// Creates a world.
     let create random extentMin extentMax numAtoms =
