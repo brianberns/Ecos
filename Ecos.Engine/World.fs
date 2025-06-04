@@ -62,29 +62,27 @@ module World =
     module private VectorEntry =
 
         let private cRepulsion = 48.0 * epsilon * pown sigma 12
-        let private cAttraction = 24.0 * epsilon * pown sigma 6
+        let private cAttraction = -24.0 * epsilon * pown sigma 6
 
-        /// Repulsion magnitude for the given distance.
-        /// (Lennard-Jones potential.)
-        let getRepulsion distance =
-            cRepulsion / pown distance 13
-
-        /// Attraction magnitude for the given distance.
-        /// (Lennard-Jones potential.)
-        let getAttraction distance =
-            cAttraction / pown distance 7
+        /// Repulsion and attraction magnitudes for the given
+        /// distance. (Lennard-Jones potential.)
+        let getForce distance =
+            let six = pown distance 6
+            let seven = distance * six
+            let thirteen = six * seven
+            cRepulsion / thirteen,
+            cAttraction / seven
 
         /// Creates a vector entry.
         let create atomA atomB =
             let vector = atomA.Location - atomB.Location
             let distance = vector.Length
             let norm = vector / distance
-            let repulsion = norm * getRepulsion distance
-            let attraction = -norm * (getAttraction distance)
+            let repulsion, attraction = getForce distance
             {
                 Distance = distance
-                Repulsion = repulsion
-                Attraction = attraction
+                Repulsion = norm * repulsion
+                Attraction = norm * attraction
             }
 
     /// Calculates vector between every pair of atoms. The
