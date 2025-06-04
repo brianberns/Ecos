@@ -1,6 +1,5 @@
 ﻿namespace Ecos.Desktop
 
-open System
 open Avalonia.Media
 open Ecos.Engine
 
