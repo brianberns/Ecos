@@ -13,6 +13,7 @@ module AtomType =
         [|
             Brushes.Yellow
             Brushes.Red
+            Brushes.Blue
         |]
 
     /// Brush map.
@@ -23,6 +24,10 @@ module AtomType =
                 let brush = brushes[valence - 1]
                 typ, brush
         ]
+
+    /// All atom types.
+    let all =
+        Seq.toArray brushMap.Keys
 
 module Atom =
 

@@ -5,15 +5,8 @@ open Ecos.Engine
 
 module World =
 
-    let hydrogen =
-        AtomType.brushMap.Keys
-            |> Seq.where (fun typ -> typ.Valence = 1)
-            |> Seq.exactlyOne
-
-    let oxygen =
-        AtomType.brushMap.Keys
-            |> Seq.where (fun typ -> typ.Valence = 2)
-            |> Seq.exactlyOne
+    let hydrogen = AtomType.all[0]
+    let oxygen = AtomType.all[1]
 
     /// Creates atoms.
     let createAtoms (random : Random) extentMin extentMax numAtoms =
@@ -29,7 +22,7 @@ module World =
                         let pt = Point.create (float x) (float y)
                         ((pt + mid) * box) + extentMin
                     let atomType =
-                        if location.X < 2.0/3.0 then hydrogen
+                        if x < 2 * xDim / 3 then hydrogen
                         else oxygen
                     let velocity =
                         Point.create
