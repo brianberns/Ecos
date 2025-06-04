@@ -114,13 +114,13 @@ module World =
                     if entry.Distance <= bondDistance then
                         let key =
                             (if bound then 0 else 1), entry.Distance
-                        key, (i, j)
+                        key, (i, j, bound)
         }
             |> Seq.sortBy fst
             |> Seq.map snd
 
     /// Creates bonds between closest atoms.
-    let private createBonds world pairs =
+    let private createBonds world tuples =
 
             // reset bonds to zero
         let atoms =
@@ -129,7 +129,7 @@ module World =
         let bonds = initBonds atoms.Length
 
             // examine each candidate bound pair
-        for i, j in pairs do
+        for i, j, bound in tuples do
 
             let atomA = atoms[i]
             let atomB = atoms[j]
@@ -140,7 +140,8 @@ module World =
             if canBond then
 
                     // bind atoms
-                let atomA, atomB = Atom.bond atomA atomB
+                let atomA, atomB =
+                    Atom.bond atomA atomB (not bound)
                 atoms[i] <- atomA
                 atoms[j] <- atomB
 

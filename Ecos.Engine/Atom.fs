@@ -72,8 +72,11 @@ module Atom =
     let resetBonds atom =
         { atom with NumBonds = 0 }
 
+    /// Elasticity of bond collision.
+    let private elasticity = 0.0
+
     /// Bonds the given atoms.
-    let bond a b =
+    let bond a b radiate =
         assert(a.NumBonds < a.Type.Valence)
         assert(b.NumBonds < b.Type.Valence)
         let nBonds =
@@ -81,9 +84,21 @@ module Atom =
                 (a.Type.Valence - a.NumBonds)
                 (b.Type.Valence - b.NumBonds)
         { a with
-            NumBonds = a.NumBonds + nBonds },
+            NumBonds = a.NumBonds + nBonds
+            Velocity =
+                if radiate then
+                    ((a.Velocity * (1.0 - elasticity))
+                        + (b.Velocity * (1.0 + elasticity)))
+                        / 2.0
+                else a.Velocity },
         { b with
-            NumBonds = b.NumBonds + nBonds }
+            NumBonds = b.NumBonds + nBonds
+            Velocity =
+                if radiate then
+                    ((a.Velocity * (1.0 + elasticity))
+                        + (b.Velocity * (1.0 - elasticity)))
+                        / 2.0
+                else b.Velocity }
 
     /// Updates an atom's velocity by a half-step.
     let updateHalfStepVelocity dt atom =
