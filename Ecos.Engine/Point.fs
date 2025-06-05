@@ -14,11 +14,18 @@ type Point =
     /// Constructor.
     new(x : float, y : float) = { X = x; Y = y }
 
+#if !FABLE_COMPILER
     /// Origin.
     static member val zero = Point(0, 0)
+#endif
 
     /// Origin.
-    static member Zero = Point.zero
+    static member Zero =
+#if FABLE_COMPILER
+        Point(0, 0)
+#else
+        Point.zero
+#endif
 
     /// Negates a point.
     static member inline (~-)(p : Point) =
@@ -66,3 +73,9 @@ module Point =
     /// Creates a point.
     let inline create x y =
         Point(x, y)
+
+#if FABLE_COMPILER
+    /// Origin.
+    let zero =
+        Point.Zero
+#endif
