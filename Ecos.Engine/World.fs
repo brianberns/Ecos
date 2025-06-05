@@ -50,17 +50,24 @@ module World =
         }
 
     /// Relationship between two atoms.
+    [<Struct>]
     type private VectorEntry =
-        {
-            /// Distance between the atoms.
-            Distance : float
 
-            /// Repulsion between the atoms.
-            Repulsion : Point
+        /// Distance between the atoms.
+        val Distance : float
 
-            /// Possible attraction between the atoms.
-            Attraction : Point
-        }
+        /// Repulsion between the atoms.
+        val Repulsion : Point
+
+        /// Possible attraction between the atoms.
+        val Attraction : Point
+
+        new(distance, repulsion, attraction) =
+            {
+                Distance = distance
+                Repulsion = repulsion
+                Attraction = attraction
+            }
 
     module private VectorEntry =
 
@@ -90,11 +97,7 @@ module World =
                     norm * magRep, norm * magAttr
                 else
                     Point.zero, Point.zero
-            {
-                Distance = distance
-                Repulsion = repulsion
-                Attraction = attraction
-            }
+            VectorEntry(distance, repulsion, attraction)
 
     /// Calculates vector between every pair of atoms. The
     /// result is the lower half of a symmetric lookup table
@@ -118,7 +121,7 @@ module World =
                 assert(bondRow.Length = i)
 
                 for j = 0 to i - 1 do
-                    let entry = entryRow[j]
+                    let entry : VectorEntry = entryRow[j]
                     let bound = bondRow[j]
                     if entry.Distance <= bondDistance then
                         let key =
@@ -163,7 +166,7 @@ module World =
             Bonds = bonds }
 
     /// Calculates the force between two atoms.
-    let private getForce entry bound =
+    let private getForce (entry : VectorEntry) bound =
         if bound then
             entry.Repulsion + entry.Attraction
         else
