@@ -18,7 +18,7 @@ module World =
             |> Seq.exactlyOne
 
     /// Creates atoms.
-    let createAtoms random extent numAtoms =
+    let createAtoms random (extent : Point) numAtoms =
         let scale =
             let factor = (min extent.X extent.Y) / tightness
             Point.create factor factor

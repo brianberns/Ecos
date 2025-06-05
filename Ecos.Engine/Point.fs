@@ -2,48 +2,51 @@
 
 /// 2D point.
 [<StructuredFormatDisplay("{String}")>]
+[<Struct>]
 type Point =
-    {
-        /// X-coordinate.
-        X : float
 
-        /// Y-coordinate.
-        Y : float
-    }
+    /// X-coordinate.
+    val X : float
+
+    /// Y-coordinate.
+    val Y : float
+
+    /// Constructor.
+    new (x : float, y : float) = { X = x; Y = y }
 
     /// Origin.
-    static member val zero = { X = 0; Y = 0 }
+    static member val zero = Point(0, 0)
 
     /// Origin.
     static member Zero = Point.zero
 
     /// Negates a point.
-    static member inline (~-)(a) =
-        { X = -a.X; Y = -a.Y }
+    static member inline (~-)(p : Point) =
+        Point(-p.X, -p.Y)
     
     /// Adds two points component-wise.
-    static member inline (+)(p1, p2) =
-        { X = p1.X + p2.X; Y = p1.Y + p2.Y }
+    static member inline (+)(p1 : Point, p2 : Point) =
+        Point(p1.X + p2.X, p1.Y + p2.Y)
     
     /// Subtracts one point from another component-wise.
-    static member inline (-)(p1, p2) =
-        { X = p1.X - p2.X; Y = p1.Y - p2.Y }
+    static member inline (-)(p1 : Point, p2 : Point) =
+        Point(p1.X - p2.X, p1.Y - p2.Y)
     
     /// Multiplies a point by a scalar.
-    static member inline (*)(p, a) =
-        { X = p.X * a; Y = p.Y * a }
+    static member inline (*)(p : Point, a) =
+        Point(p.X * a, p.Y * a)
     
     /// Multiplies a scalar by a point.
-    static member inline (*)(a, p) =
-        { X = a * p.X; Y = a * p.Y }
+    static member inline (*)(a, p : Point) =
+        Point(a * p.X, a * p.Y)
     
     /// Multiplies one point by another component-wise.
-    static member inline (*)(p1, p2) =
-        { X = p1.X * p2.X; Y = p1.Y * p2.Y }
+    static member inline (*)(p1 : Point, p2 : Point) =
+        Point(p1.X * p2.X, p1.Y * p2.Y)
     
     /// Divides a point by a scalar.
-    static member inline (/)(p, a) =
-        { X = p.X / a; Y = p.Y / a }
+    static member inline (/)(p : Point, a) =
+        Point(p.X / a, p.Y / a)
 
     /// Computes the length of a point when considered
     /// as a vector.
@@ -61,5 +64,5 @@ type Point =
 module Point =
 
     /// Creates a point.
-    let create x y =
-        { X = x; Y = y }
+    let inline create x y =
+        Point(x, y)

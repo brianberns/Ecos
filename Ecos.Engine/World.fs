@@ -36,7 +36,10 @@ module World =
             Array.replicate i false)
 
     /// Creates a world.
-    let create extentMin extentMax atoms =
+    let create
+        (extentMin : Point)
+        (extentMax : Point)
+        atoms =
         assert(extentMax.X >= extentMin.X)
         assert(extentMax.Y >= extentMin.Y)
         {

@@ -9,7 +9,11 @@ module World =
     let oxygen = AtomType.all[1]
 
     /// Creates atoms.
-    let createAtoms (random : Random) extentMin extentMax numAtoms =
+    let createAtoms
+        (random : Random)
+        (extentMin : Point)
+        (extentMax : Point)
+        numAtoms =
         let extent = extentMax - extentMin
         let numPairs = numAtoms / 2
         let yDim = (float numPairs / (extent.X / extent.Y)) |> sqrt |> int
