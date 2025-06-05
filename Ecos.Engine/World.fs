@@ -109,7 +109,7 @@ module World =
 
     /// Sorts attracted atoms by distance.
     let private sortAttracted world (entries : _[][]) =
-        seq {
+        [|
             for i = 0 to entries.Length - 1 do
 
                 let entryRow = entries[i]
@@ -120,14 +120,14 @@ module World =
 
                 for j = 0 to i - 1 do
                     let entry : VectorEntry = entryRow[j]
-                    let bound = bondRow[j]
                     if entry.Distance <= bondDistance then
+                        let bound = bondRow[j]
                         let key =
                             (if bound then 0 else 1), entry.Distance
                         key, (i, j, bound)
-        }
-            |> Seq.sortBy fst
-            |> Seq.map snd
+        |]
+            |> Array.sortBy fst
+            |> Array.map snd
 
     /// Creates bonds between closest atoms.
     let private createBonds world tuples =
