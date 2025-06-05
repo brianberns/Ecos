@@ -90,14 +90,12 @@ module World =
         let create atomA atomB =
             let vector = atomA.Location - atomB.Location
             let distance = vector.Length
-            let repulsion, attraction =
-                if distance <= bondDistance then
-                    let norm = vector / distance
-                    let magRep, magAttr = getForce distance
-                    norm * magRep, norm * magAttr
-                else
-                    Point.zero, Point.zero
-            VectorEntry(distance, repulsion, attraction)
+            if distance <= bondDistance then
+                let norm = vector / distance
+                let magRep, magAttr = getForce distance
+                VectorEntry(distance, norm * magRep, norm * magAttr)
+            else
+                VectorEntry(distance, Point.zero, Point.zero)
 
     /// Calculates vector between every pair of atoms. The
     /// result is the lower half of a symmetric lookup table
