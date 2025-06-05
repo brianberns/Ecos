@@ -28,13 +28,13 @@ module World =
                 hydrogen
                 (2 * numAtoms / 3)
                 scale
-                Point.Zero
+                Point.zero
             yield! Atom.makeAtoms
                 random
                 oxygen
                 (numAtoms / 3)
                 scale
-                Point.Zero
+                Point.zero
         |]
 
     /// Creates a world.

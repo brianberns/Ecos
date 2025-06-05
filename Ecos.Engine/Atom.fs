@@ -71,7 +71,7 @@ module Atom =
             NumBonds = 0
             Location = location
             Velocity = velocity
-            Acceleration = Point.Zero
+            Acceleration = Point.zero
         }
 
     /// Resets an atom to have no bonds.

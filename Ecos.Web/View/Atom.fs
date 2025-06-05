@@ -52,7 +52,7 @@ module Atom =
             let r = random.NextDouble()
             let location =
                 r * scale * randomUnitVector random + offset
-            let velocity = Point.Zero
+            let velocity = Point.zero
             Atom.create typ location velocity)
 
     /// Atom radius.

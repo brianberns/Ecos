@@ -12,7 +12,10 @@ type Point =
     }
 
     /// Origin.
-    static member Zero = { X = 0; Y = 0 }
+    static member val zero = { X = 0; Y = 0 }
+
+    /// Origin.
+    static member Zero = Point.zero
 
     /// Negates a point.
     static member inline (~-)(a) =

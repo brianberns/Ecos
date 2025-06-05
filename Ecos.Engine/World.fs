@@ -86,7 +86,7 @@ module World =
                     let magRep, marAttr = getForce distance
                     norm * magRep, norm * marAttr
                 else
-                    Point.Zero, Point.Zero
+                    Point.zero, Point.zero
             {
                 Distance = distance
                 Repulsion = repulsion
@@ -176,7 +176,7 @@ module World =
         assert(bondRow.Length = i)
 
         Array.init world.Atoms.Length (fun j ->
-            if i = j then Point.Zero
+            if i = j then Point.zero
             elif i > j then
                 let entry = entryRow[j]
                 let bound = bondRow[j]
