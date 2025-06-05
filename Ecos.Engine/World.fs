@@ -166,8 +166,8 @@ module World =
         else
             entry.Repulsion
 
-    /// Calculates the forces acting on an atom.
-    let private getForces world (entries : _[][]) i =
+    /// Calculates the total force acting on an atom.
+    let private getTotalForce world (entries : _[][]) i =
 
         let entryRow = entries[i]
         assert(entryRow.Length = i)
@@ -175,16 +175,20 @@ module World =
         let bondRow = world.Bonds[i]
         assert(bondRow.Length = i)
 
-        Array.init world.Atoms.Length (fun j ->
-            if i = j then Point.zero
-            elif i > j then
-                let entry = entryRow[j]
-                let bound = bondRow[j]
-                getForce entry bound
-            else
-                let entry = entries[j][i]
-                let bound = world.Bonds[j][i]
-                -getForce entry bound)
+        let mutable total = Point.zero
+        for j = 0 to world.Atoms.Length - 1 do
+            let force =
+                if i = j then Point.zero
+                elif i > j then
+                    let entry = entryRow[j]
+                    let bound = bondRow[j]
+                    getForce entry bound
+                else
+                    let entry = entries[j][i]
+                    let bound = world.Bonds[j][i]
+                    -getForce entry bound
+            total <- total + force
+        total
 
     /// Bounces the given atom off a wall, if necessary.
     let private bounce world atom =
@@ -222,8 +226,7 @@ module World =
     /// Finishes a half-step atom update.
     let private finishAtomUpdate world entries i =
         let atom = world.Atoms[i]
-        let force =
-            Array.sum (getForces world entries i)
+        let force = getTotalForce world entries i
         { atom with Acceleration = force }   // assume mass of atom = 1.0
             |> Atom.updateHalfStepVelocity dt
             |> bounce world
