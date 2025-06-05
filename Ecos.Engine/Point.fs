@@ -12,7 +12,7 @@ type Point =
     val Y : float
 
     /// Constructor.
-    new (x : float, y : float) = { X = x; Y = y }
+    new(x : float, y : float) = { X = x; Y = y }
 
     /// Origin.
     static member val zero = Point(0, 0)
