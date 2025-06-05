@@ -83,8 +83,8 @@ module World =
             let repulsion, attraction =
                 if distance <= bondDistance then
                     let norm = vector / distance
-                    let magRep, marAttr = getForce distance
-                    norm * magRep, norm * marAttr
+                    let magRep, magAttr = getForce distance
+                    norm * magRep, norm * magAttr
                 else
                     Point.zero, Point.zero
             {
