@@ -1,40 +1,42 @@
 ﻿namespace Ecos.Web
 
+open System
 open Ecos.Engine
 
 module World =
 
-    /// Initial cluster tightness.
-    let tightness = 2.0
-
-    let hydrogen =
-        AtomType.colorMap.Keys
-            |> Seq.where (fun typ -> typ.Valence = 1)
-            |> Seq.exactlyOne
-
-    let oxygen =
-        AtomType.colorMap.Keys
-            |> Seq.where (fun typ -> typ.Valence = 2)
-            |> Seq.exactlyOne
+    let hydrogen = AtomType.all[0]
+    let oxygen = AtomType.all[1]
 
     /// Creates atoms.
-    let createAtoms random (extent : Point) numAtoms =
-        let scale =
-            let factor = (min extent.X extent.Y) / tightness
-            Point.create factor factor
+    let createAtoms
+        (random : Random)
+        (extentMin : Point)
+        (extentMax : Point)
+        numAtoms =
+        let extent = extentMax - extentMin
+        let numPairs = numAtoms / 2
+        let yDim = (float numPairs / (extent.X / extent.Y)) |> sqrt |> int
+        let xDim = numPairs / yDim
+        let mid = Point.create 0.5 0.5
+        let box = Point.create (extent.X / float xDim) (extent.Y / float yDim)
+        let offset = Point.create 0.6 0.0
         [|
-            yield! Atom.makeAtoms
-                random
-                hydrogen
-                (2 * numAtoms / 3)
-                scale
-                Point.zero
-            yield! Atom.makeAtoms
-                random
-                oxygen
-                (numAtoms / 3)
-                scale
-                Point.zero
+            for x = 0 to xDim - 1 do
+                for y = 0 to yDim - 1 do
+                    let location =
+                        let pt = Point.create (float x) (float y)
+                        ((pt + mid) * box) + extentMin
+                    let atomType =
+                        if random.Next(3) = 0 then oxygen
+                        else hydrogen
+                    let velocity =
+                        Point.create
+                            (random.NextDouble())
+                            (random.NextDouble())
+                            - mid
+                    Atom.create atomType (location - offset) velocity
+                    Atom.create atomType (location + offset) velocity
         |]
 
     /// Creates a world.
@@ -42,8 +44,7 @@ module World =
 
             // create atoms
         let atoms =
-            let extent = extentMax - extentMin
-            createAtoms random extent numAtoms
+            createAtoms random extentMin extentMax numAtoms
 
             // create and animate world
         World.create extentMin extentMax atoms

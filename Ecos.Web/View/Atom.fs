@@ -32,28 +32,13 @@ module AtomType =
                 typ, color
         ]
 
+    /// All atom types.
+    let all =
+        Seq.toArray colorMap.Keys
+
 type DrawingContext = CanvasRenderingContext2D
 
 module Atom =
-
-    /// Answers a unit vector pointing in a random direction.
-    let randomUnitVector (random : Random) =
-        let theta = Math.Tau * random.NextDouble()
-        Point.create (cos theta) (sin theta)
-
-    /// Makes the given number of atoms.
-    let makeAtoms
-        (random : Random)
-        typ
-        numAtoms
-        (scale : Point)
-        offset =
-        Array.init numAtoms (fun _ ->
-            let r = random.NextDouble()
-            let location =
-                r * scale * randomUnitVector random + offset
-            let velocity = Point.zero
-            Atom.create typ location velocity)
 
     /// Atom radius.
     let radius = World.sigma / 2.0
