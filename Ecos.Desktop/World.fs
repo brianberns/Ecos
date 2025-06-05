@@ -11,10 +11,12 @@ module World =
     /// Creates atoms.
     let createAtoms (random : Random) extentMin extentMax numAtoms =
         let extent = extentMax - extentMin
-        let yDim = (float numAtoms / (extent.X / extent.Y)) |> sqrt |> int
-        let xDim = numAtoms / yDim
+        let numPairs = numAtoms / 2
+        let yDim = (float numPairs / (extent.X / extent.Y)) |> sqrt |> int
+        let xDim = numPairs / yDim
         let mid = Point.create 0.5 0.5
         let box = Point.create (extent.X / float xDim) (extent.Y / float yDim)
+        let offset = Point.create 0.6 0.0
         [|
             for x = 0 to xDim - 1 do
                 for y = 0 to yDim - 1 do
@@ -22,14 +24,15 @@ module World =
                         let pt = Point.create (float x) (float y)
                         ((pt + mid) * box) + extentMin
                     let atomType =
-                        if x < 2 * xDim / 3 then hydrogen
-                        else oxygen
+                        if random.Next(3) = 0 then oxygen
+                        else hydrogen
                     let velocity =
-                        (Point.create
+                        Point.create
                             (random.NextDouble())
                             (random.NextDouble())
-                            - mid) * 4.0
-                    Atom.create atomType location velocity
+                            - mid
+                    Atom.create atomType (location - offset) velocity
+                    Atom.create atomType (location + offset) velocity
         |]
 
     /// Creates a world.
