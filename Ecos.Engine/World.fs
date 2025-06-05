@@ -80,20 +80,18 @@ module World =
         let create atomA atomB =
             let vector = atomA.Location - atomB.Location
             let distance = vector.Length
-            if distance <= bondDistance then
-                let norm = vector / distance
-                let repulsion, attraction = getForce distance
-                {
-                    Distance = distance
-                    Repulsion = norm * repulsion
-                    Attraction = norm * attraction
-                }
-            else
-                {
-                    Distance = distance
-                    Repulsion = Point.Zero
-                    Attraction = Point.Zero
-                }
+            let repulsion, attraction =
+                if distance <= bondDistance then
+                    let norm = vector / distance
+                    let magRep, marAttr = getForce distance
+                    norm * magRep, norm * marAttr
+                else
+                    Point.Zero, Point.Zero
+            {
+                Distance = distance
+                Repulsion = repulsion
+                Attraction = attraction
+            }
 
     /// Calculates vector between every pair of atoms. The
     /// result is the lower half of a symmetric lookup table
