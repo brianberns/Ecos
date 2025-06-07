@@ -124,7 +124,7 @@ module World =
                         let bound = bondRow[j] > 0
                         let key =
                             (if bound then 0 else 1), entry.Distance
-                        key, (i, j, bound)
+                        key, struct (i, j, bound)
         |]
             |> Array.sortBy fst
             |> Array.map snd
@@ -139,7 +139,7 @@ module World =
         let bonds = initBonds atoms.Length
 
             // examine each candidate bound pair
-        for i, j, bound in tuples do
+        for struct (i, j, bound) in tuples do
 
             let atomA = atoms[i]
             let atomB = atoms[j]
