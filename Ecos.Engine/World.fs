@@ -100,7 +100,7 @@ module World =
     /// Calculates vector between every pair of atoms. The
     /// result is the lower half of a symmetric lookup table
     //// (up to sign).
-    let private getVectors (atoms : Atom[]) =
+    let private getVectors (atoms : _[]) =
         Array.init atoms.Length (fun i ->
             let atom = atoms[i]
             Array.init i (fun j ->

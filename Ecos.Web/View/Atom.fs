@@ -44,7 +44,7 @@ module Atom =
     let radius = World.sigma / 2.0
 
     /// Draws the given atom.
-    let draw (ctx : DrawingContext) (atom : Atom) =
+    let draw (ctx : DrawingContext) atom =
 
         ctx.beginPath()
 
@@ -64,10 +64,7 @@ module Atom =
         ctx.fill()
 
     /// Draws a bond between the given atoms.
-    let drawBond
-        (ctx : DrawingContext)
-        (atomA : Atom) (atomB : Atom)
-        nBonds =
+    let drawBond (ctx : DrawingContext) atomA atomB nBonds =
         ctx.beginPath()
         ctx.moveTo(atomA.Location.X, atomA.Location.Y)
         ctx.lineTo(atomB.Location.X, atomB.Location.Y)
