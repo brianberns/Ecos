@@ -104,7 +104,8 @@ module Atom =
                     ((atomA.Velocity * (1.0 + elasticity))
                         + (atomB.Velocity * (1.0 - elasticity)))
                         / 2.0
-                else atomB.Velocity }
+                else atomB.Velocity },
+        nBonds
 
     /// Updates an atom's velocity by a half-step.
     let updateHalfStepVelocity dt atom =

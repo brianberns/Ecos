@@ -65,7 +65,6 @@ module Canvas =
         ctx.translate(canvas.width / 2.0, canvas.height / 2.0)
         let scale = canvas.width / (extentMax.X - extentMin.X)
         ctx.scale(scale, scale)
-        ctx.lineWidth <- 1.0 / scale
 
             // draw the world
         World.draw ctx world

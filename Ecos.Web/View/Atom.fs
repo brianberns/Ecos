@@ -55,6 +55,7 @@ module Atom =
             radius, 0.0, Math.Tau)
 
             // draw the circle's border
+        ctx.lineWidth <- 0.05
         ctx.stroke()
 
             // fill the circle
@@ -64,8 +65,12 @@ module Atom =
 
     /// Draws a bond between the given atoms.
     let drawBond
-        (ctx : DrawingContext) (atomA : Atom) (atomB : Atom) =
+        (ctx : DrawingContext)
+        (atomA : Atom) (atomB : Atom)
+        nBonds =
         ctx.beginPath()
         ctx.moveTo(atomA.Location.X, atomA.Location.Y)
         ctx.lineTo(atomB.Location.X, atomB.Location.Y)
+        let thickness = float (2 * nBonds - 1) * 0.05
+        ctx.lineWidth <- thickness
         ctx.stroke()

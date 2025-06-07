@@ -62,7 +62,8 @@ module World =
             let bondRow = world.Bonds[i]
             for j = 0 to i - 1 do
                 assert(i > j)
-                if bondRow[j] then
+                let nBonds = bondRow[j]
+                if nBonds > 0 then
                     let atomA = world.Atoms[i]
                     let atomB = world.Atoms[j]
-                    Atom.drawBond ctx atomA atomB
+                    Atom.drawBond ctx atomA atomB nBonds

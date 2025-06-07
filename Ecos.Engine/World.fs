@@ -13,7 +13,7 @@ type World =
         Atoms : Atom[]
 
         /// Indexes of bound atoms.
-        Bonds : bool[(*i*)][(*j*)]   // i > j
+        Bonds : int[(*i*)][(*j*)]   // i > j
     }
 
 module World =
@@ -33,7 +33,7 @@ module World =
     /// Initializes empty symmetrical bond array.
     let private initBonds numAtoms =
         Array.init numAtoms (fun i ->
-            Array.replicate i false)
+            Array.replicate i 0)
 
     /// Creates a world.
     let create
@@ -121,7 +121,7 @@ module World =
                 for j = 0 to i - 1 do
                     let entry : VectorEntry = entryRow[j]
                     if entry.Distance <= bondDistance then
-                        let bound = bondRow[j]
+                        let bound = bondRow[j] > 0
                         let key =
                             (if bound then 0 else 1), entry.Distance
                         key, (i, j, bound)
@@ -150,14 +150,15 @@ module World =
             if canBond then
 
                     // bind atoms
-                let atomA, atomB =
+                let atomA, atomB, nBonds =
                     Atom.bond atomA atomB (not bound)
                 atoms[i] <- atomA
                 atoms[j] <- atomB
 
                     // mark pair as bound
                 assert(i > j)
-                bonds[i][j] <- true
+                assert(bonds[i][j] = 0)
+                bonds[i][j] <- nBonds
 
         { world with
             Atoms = atoms
@@ -185,11 +186,11 @@ module World =
                 if i = j then Point.zero
                 elif i > j then
                     let entry = entryRow[j]
-                    let bound = bondRow[j]
+                    let bound = bondRow[j] > 0
                     getForce entry bound
                 else
                     let entry = entries[j][i]
-                    let bound = world.Bonds[j][i]
+                    let bound = world.Bonds[j][i] > 0
                     -getForce entry bound
             total <- total + force
         total
