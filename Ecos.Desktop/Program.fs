@@ -18,7 +18,7 @@ type WorldView() as this =
     inherit Control()
 
     /// Number of engine time steps per frame.
-    let stepsPerFrame = 10
+    let stepsPerFrame = 13
 
     /// Extent of the world.
     let extentMin, extentMax =
