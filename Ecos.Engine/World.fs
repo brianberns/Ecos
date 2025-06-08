@@ -232,7 +232,8 @@ module World =
     let private finishAtomUpdate world entries i =
         let atom = world.Atoms[i]
         let force = getTotalForce world entries i
-        { atom with Acceleration = force }   // assume mass of atom = 1.0
+        { atom with
+            Acceleration = force / atom.Type.Mass }
             |> Atom.updateHalfStepVelocity dt
             |> bounce world
 

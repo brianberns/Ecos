@@ -6,6 +6,9 @@ open System
 [<CustomComparison; CustomEquality>]
 type AtomType =
     {
+        /// Mass of atoms of this type.
+        Mass : float
+
         /// Number of bonds an atom of this type is capable
         /// of making.
         Valence : int
@@ -40,6 +43,7 @@ module AtomType =
     /// Creates an atom type.
     let create valence =
         {
+            Mass = 1.0
             Valence = valence
         }
 
