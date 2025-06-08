@@ -34,7 +34,7 @@ module Atom =
     let private pen = Pen(Brushes.Black, thickness = 0.05)
 
     /// Atom radius.
-    let radius = World.sigma / 2.0
+    let radius = World.sigma / 1.5
 
     /// Draws the given atom.
     let draw (ctx : DrawingContext) atom =
