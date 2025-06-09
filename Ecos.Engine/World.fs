@@ -59,16 +59,6 @@ module World =
             atoms
             (initBonds atoms.Length)
 
-    /// Calculates interaction between every pair of atoms. The
-    /// result is the lower half of a symmetric lookup table
-    //// (up to sign).
-    let private getInteractions (atoms : Atom[]) =
-        Array.init atoms.Length (fun i ->
-            let atom = atoms[i]
-            Array.init i (fun j ->
-                assert(i >= j)   // lower half of table only
-                Interaction.create atom atoms[j]))
-
     /// Sorts attracted atoms.
     let private sortAttracted world (interactions : _[][]) =
         [|
@@ -252,7 +242,8 @@ module World =
         let world = { world with Atoms = atoms }
 
             // create bonds between atoms
-        let ias = getInteractions world.Atoms
+        let ias =
+            Interaction.getInteractions world.Atoms
         let world =
              ias
                 |> sortAttracted world

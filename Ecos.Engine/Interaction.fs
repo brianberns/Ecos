@@ -56,3 +56,13 @@ module Interaction =
             Interaction(distance, norm * magRep, norm * magAttr)
         else
             Interaction(distance, Point.zero, Point.zero)
+
+    /// Calculates interaction between every pair of the given
+    /// atoms. The result is the lower half of a symmetric lookup
+    /// table (up to sign).
+    let getInteractions (atoms : Atom[]) =
+        Array.init atoms.Length (fun i ->
+            let atom = atoms[i]
+            Array.init i (fun j ->
+                assert(i >= j)   // lower half of table only
+                create atom atoms[j]))
