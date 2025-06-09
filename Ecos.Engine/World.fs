@@ -126,7 +126,7 @@ module World =
                 assert(i >= j)   // lower half of table only
                 VectorEntry.create atom atoms[j]))
 
-    /// Sorts attracted atoms by distance.
+    /// Sorts attracted atoms.
     let private sortAttracted world (entries : _[][]) =
         [|
             for i = 0 to entries.Length - 1 do
@@ -178,15 +178,12 @@ module World =
             let atomA = atoms[i]
             let atomB = atoms[j]
 
-            let canBond =
-                atomA.NumBonds < atomA.Type.Valence
-                    && atomB.NumBonds < atomB.Type.Valence
-            if canBond then
+                // bind atoms?
+            let radiate = not bound
+            let atomA, atomB, nBonds =
+                Atom.tryBond atomA atomB radiate
+            if nBonds > 0 then
 
-                    // bind atoms
-                let radiate = not bound
-                let atomA, atomB, nBonds =
-                    Atom.bond atomA atomB radiate
                 atoms[i] <- atomA
                 atoms[j] <- atomB
 
