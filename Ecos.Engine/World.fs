@@ -107,7 +107,7 @@ module World =
                 assert(i >= j)   // lower half of table only
                 VectorEntry.create atom atoms[j]))
 
-    /// Sorts attracted atoms by distance.
+    /// Sorts attracted atoms.
     let private sortAttracted world (entries : _[][]) =
         [|
             for i = 0 to entries.Length - 1 do
