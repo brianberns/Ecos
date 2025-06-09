@@ -84,12 +84,11 @@ module Atom =
 
     /// Bonds the given atoms.
     let bond atomA atomB radiate =
-        assert(atomA.NumBonds < atomA.Type.Valence)
-        assert(atomB.NumBonds < atomB.Type.Valence)
         let nBonds =
             min
                 (atomA.Type.Valence - atomA.NumBonds)
                 (atomB.Type.Valence - atomB.NumBonds)
+        assert(nBonds > 0)
         if radiate then
             let velocity =
                 let massA = atomA.Type.Mass
