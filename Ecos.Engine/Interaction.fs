@@ -46,8 +46,8 @@ module Interaction =
         cRepulsion / thirteen,
         cAttraction / seven
 
-    /// Creates a vector entry.
-    let create (atomA : Atom) (atomB : Atom) =
+    /// Creates an interaction.
+    let create atomA atomB =
         let vector = atomA.Location - atomB.Location
         let distance = vector.Length
         if distance <= bondDistance then
@@ -60,7 +60,7 @@ module Interaction =
     /// Calculates interaction between every pair of the given
     /// atoms. The result is the lower half of a symmetric lookup
     /// table (up to sign).
-    let getInteractions (atoms : Atom[]) =
+    let getInteractions (atoms : _[]) =
         Array.init atoms.Length (fun i ->
             let atom = atoms[i]
             Array.init i (fun j ->
