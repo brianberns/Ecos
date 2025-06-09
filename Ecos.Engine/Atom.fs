@@ -82,33 +82,36 @@ module Atom =
     let resetBonds atom =
         { atom with NumBonds = 0 }
 
-    /// Bonds the given atoms.
-    let bond atomA atomB radiate =
+    /// Tries to bond the given atoms.
+    let tryBond atomA atomB radiate =
         let nBonds =
             min
                 (atomA.Type.Valence - atomA.NumBonds)
                 (atomB.Type.Valence - atomB.NumBonds)
-        assert(nBonds > 0)
-        if radiate then
-            let velocity =
-                let massA = atomA.Type.Mass
-                let massB = atomB.Type.Mass
-                ((massA * atomA.Velocity)
-                    + (massB * atomB.Velocity))
-                    / (massA + massB)
-            { atomA with
-                NumBonds = atomA.NumBonds + nBonds
-                Velocity = velocity },
-            { atomB with
-                NumBonds = atomB.NumBonds + nBonds
-                Velocity = velocity },
-            nBonds
-        else
-            { atomA with
-                NumBonds = atomA.NumBonds + nBonds },
-            { atomB with
-                NumBonds = atomB.NumBonds + nBonds },
-            nBonds
+        if nBonds > 0 then
+            if radiate then
+                let velocity =
+                    let massA = atomA.Type.Mass
+                    let massB = atomB.Type.Mass
+                    ((massA * atomA.Velocity)
+                        + (massB * atomB.Velocity))
+                        / (massA + massB)
+                Some (
+                    { atomA with
+                        NumBonds = atomA.NumBonds + nBonds
+                        Velocity = velocity },
+                    { atomB with
+                        NumBonds = atomB.NumBonds + nBonds
+                        Velocity = velocity },
+                    nBonds)
+            else
+                Some (
+                    { atomA with
+                        NumBonds = atomA.NumBonds + nBonds },
+                    { atomB with
+                        NumBonds = atomB.NumBonds + nBonds },
+                    nBonds)
+        else None
 
     /// Updates an atom's velocity by a half-step.
     let updateHalfStepVelocity dt atom =

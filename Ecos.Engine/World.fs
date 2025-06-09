@@ -140,25 +140,20 @@ module World =
 
             // examine each candidate bound pair
         for struct (i, j, bound) in tuples do
-
             let atomA = atoms[i]
             let atomB = atoms[j]
+            match Atom.tryBond atomA atomB (not bound) with
+                | Some (atomA, atomB, nBonds) ->
 
-            let canBond =
-                atomA.NumBonds < atomA.Type.Valence
-                    && atomB.NumBonds < atomB.Type.Valence
-            if canBond then
+                    atoms[i] <- atomA
+                    atoms[j] <- atomB
 
-                    // bind atoms
-                let atomA, atomB, nBonds =
-                    Atom.bond atomA atomB (not bound)
-                atoms[i] <- atomA
-                atoms[j] <- atomB
+                        // mark pair as bound
+                    assert(i > j)
+                    assert(bonds[i][j] = 0)
+                    bonds[i][j] <- nBonds
 
-                    // mark pair as bound
-                assert(i > j)
-                assert(bonds[i][j] = 0)
-                bonds[i][j] <- nBonds
+                | None -> ()
 
         { world with
             Atoms = atoms
