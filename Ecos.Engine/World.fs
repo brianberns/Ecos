@@ -21,15 +21,6 @@ type World =
 
 module World =
 
-    /// Depth of potential energy well.
-    let epsilon = 1.0
-
-    /// Equilibrium distance.
-    let sigma = 1.0
-
-    /// Maximum distance at which bonding occurs.
-    let bondDistance = 2.0 * sigma
-
     /// Time step.
     let dt = 0.01
 
@@ -68,81 +59,33 @@ module World =
             atoms
             (initBonds atoms.Length)
 
-    /// Relationship between two atoms.
-    [<Struct>]
-    type private VectorEntry =
-
-        /// Distance between the atoms.
-        val Distance : float
-
-        /// Repulsion between the atoms.
-        val Repulsion : Point
-
-        /// Possible attraction between the atoms.
-        val Attraction : Point
-
-        new(distance, repulsion, attraction) =
-            {
-                Distance = distance
-                Repulsion = repulsion
-                Attraction = attraction
-            }
-
-    module private VectorEntry =
-
-        /// Repulsion numerator.
-        let private cRepulsion = 48.0 * epsilon * pown sigma 12
-
-        /// Attraction numerator.
-        let private cAttraction = -24.0 * epsilon * pown sigma 6
-
-        /// Repulsion and attraction magnitudes for the given
-        /// distance. (Lennard-Jones potential.)
-        let getForce distance =
-            let six = pown distance 6
-            let seven = distance * six
-            let thirteen = six * seven
-            cRepulsion / thirteen,
-            cAttraction / seven
-
-        /// Creates a vector entry.
-        let create (atomA : Atom) (atomB : Atom) =
-            let vector = atomA.Location - atomB.Location
-            let distance = vector.Length
-            if distance <= bondDistance then
-                let norm = vector / distance
-                let magRep, magAttr = getForce distance
-                VectorEntry(distance, norm * magRep, norm * magAttr)
-            else
-                VectorEntry(distance, Point.zero, Point.zero)
-
-    /// Calculates vector between every pair of atoms. The
+    /// Calculates interaction between every pair of atoms. The
     /// result is the lower half of a symmetric lookup table
     //// (up to sign).
-    let private getVectors (atoms : Atom[]) =
+    let private getInteractions (atoms : Atom[]) =
         Array.init atoms.Length (fun i ->
             let atom = atoms[i]
             Array.init i (fun j ->
                 assert(i >= j)   // lower half of table only
-                VectorEntry.create atom atoms[j]))
+                Interaction.create atom atoms[j]))
 
     /// Sorts attracted atoms.
-    let private sortAttracted world (entries : _[][]) =
+    let private sortAttracted world (interactions : _[][]) =
         [|
-            for i = 0 to entries.Length - 1 do
+            for i = 0 to interactions.Length - 1 do
 
-                let entryRow = entries[i]
-                assert(entryRow.Length = i)
+                let iaRow = interactions[i]
+                assert(iaRow.Length = i)
 
                 let bondRow = world.Bonds[i]
                 assert(bondRow.Length = i)
 
                 for j = 0 to i - 1 do
-                    let entry : VectorEntry = entryRow[j]
-                    if entry.Distance <= bondDistance then
+                    let ia : Interaction = iaRow[j]
+                    if ia.Distance <= Interaction.bondDistance then
                         let bound = bondRow[j] > 0
                         let key =
-                            (if bound then 0 else 1), entry.Distance
+                            (if bound then 0 else 1), ia.Distance
                         key, struct (i, j, bound)
         |]
             |> Array.sortBy fst
@@ -206,17 +149,17 @@ module World =
                 |] }
 
     /// Calculates the force between two atoms.
-    let private getForce (entry : VectorEntry) bound =
+    let private getForce (interaction : Interaction) bound =
         if bound then
-            entry.Repulsion + entry.Attraction
+            interaction.Repulsion + interaction.Attraction
         else
-            entry.Repulsion
+            interaction.Repulsion
 
     /// Calculates the total force acting on an atom.
-    let private getTotalForce world (entries : _[][]) i =
+    let private getTotalForce world (interactions : _[][]) i =
 
-        let entryRow = entries[i]
-        assert(entryRow.Length = i)
+        let iaRow = interactions[i]
+        assert(iaRow.Length = i)
 
         let bondRow = world.Bonds[i]
         assert(bondRow.Length = i)
@@ -226,13 +169,13 @@ module World =
             let force =
                 if i = j then Point.zero
                 elif i > j then
-                    let entry = entryRow[j]
+                    let ia = iaRow[j]
                     let bound = bondRow[j] > 0
-                    getForce entry bound
+                    getForce ia bound
                 else
-                    let entry = entries[j][i]
+                    let ia = interactions[j][i]
                     let bound = world.Bonds[j][i] > 0
-                    -getForce entry bound
+                    -getForce ia bound
             total <- total + force
         total
 
@@ -276,9 +219,9 @@ module World =
                 |> Atom.updateLocation dt
 
         /// Finishes a half-step atom update.
-        let finishUpdate world entries i =
+        let finishUpdate world interactions i =
             let atom = world.Atoms[i]
-            let force = getTotalForce world entries i
+            let force = getTotalForce world interactions i
             { atom with
                 Acceleration = force / atom.Type.Mass }
                 |> Atom.updateHalfStepVelocity dt
@@ -309,16 +252,16 @@ module World =
         let world = { world with Atoms = atoms }
 
             // create bonds between atoms
-        let entries = getVectors world.Atoms
+        let ias = getInteractions world.Atoms
         let world =
-             entries
+             ias
                 |> sortAttracted world
                 |> createBonds world
 
             // finish atom updates
         let atoms =
             Array.init world.Atoms.Length (
-                Atom.finishUpdate world entries)
+                Atom.finishUpdate world ias)
 
         { world with Atoms = atoms }
 

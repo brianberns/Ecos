@@ -41,7 +41,7 @@ type DrawingContext = CanvasRenderingContext2D
 module Atom =
 
     /// Atom radius.
-    let radius = World.sigma / 1.5
+    let radius = Interaction.sigma / 1.5
 
     /// Draws the given atom.
     let draw (ctx : DrawingContext) (atom : Atom) =

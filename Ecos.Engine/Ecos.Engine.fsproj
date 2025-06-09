@@ -9,6 +9,7 @@
     <Compile Include="Point.fs" />
     <Compile Include="Atom.fs" />
     <Compile Include="Photon.fs" />
+    <Compile Include="Interaction.fs" />
     <Compile Include="World.fs" />
   </ItemGroup>
 
