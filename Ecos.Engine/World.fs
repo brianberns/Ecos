@@ -323,7 +323,7 @@ module World =
         { world with Atoms = atoms }
 
     /// Moves the photons in the given world one time step
-    /// forward. Atoms are updated using the Velocity Verlet
+    /// forward.
     let private stepPhotons world =
         let photons =
             world.Photons
