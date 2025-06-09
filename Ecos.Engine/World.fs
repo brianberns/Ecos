@@ -46,10 +46,7 @@ module World =
         }
 
     /// Creates a world.
-    let create
-        (extentMin : Point)
-        (extentMax : Point)
-        atoms =
+    let create extentMin extentMax atoms =
         assert(
             Array.forall (fun atom ->
                 atom.NumBonds = 0) atoms)
