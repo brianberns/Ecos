@@ -87,7 +87,7 @@ module World =
             cAttraction / seven
 
         /// Creates a vector entry.
-        let create atomA atomB =
+        let create (atomA : Atom) (atomB : Atom) =
             let vector = atomA.Location - atomB.Location
             let distance = vector.Length
             if distance <= bondDistance then
@@ -100,7 +100,7 @@ module World =
     /// Calculates vector between every pair of atoms. The
     /// result is the lower half of a symmetric lookup table
     //// (up to sign).
-    let private getVectors (atoms : _[]) =
+    let private getVectors (atoms : Atom[]) =
         Array.init atoms.Length (fun i ->
             let atom = atoms[i]
             Array.init i (fun j ->
@@ -196,7 +196,7 @@ module World =
         total
 
     /// Bounces the given atom off a wall, if necessary.
-    let private bounce world atom =
+    let private bounce world (atom : Atom) =
 
         let extentMin = world.ExtentMin
         let extentMax = world.ExtentMax

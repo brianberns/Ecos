@@ -45,7 +45,10 @@ module Atom =
             radius, radius)
 
     /// Draws a bond between the given atoms.
-    let drawBond (ctx : DrawingContext) atomA atomB nBonds =
+    let drawBond
+        (ctx : DrawingContext)
+        (atomA : Atom) (atomB : Atom)
+        nBonds =
         let thickness =
             float (2 * nBonds - 1) * 0.05
         let pen = Pen(Brushes.Black, thickness = thickness)
