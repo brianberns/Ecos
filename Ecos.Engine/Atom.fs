@@ -53,9 +53,6 @@ type Atom =
         /// Atom type.
         Type : AtomType
 
-        /// Number of bonds this atom currently has.
-        NumBonds : int
-
         /// Atom location.
         Location : Point
 
@@ -64,19 +61,27 @@ type Atom =
 
         /// Atom acceleration vector.
         Acceleration : Point
+
+        /// Number of bonds this atom currently has.
+        NumBonds : int
     }
 
 module Atom =
 
     //// Creates an atom.
-    let create typ location velocity =
+    let createBound typ location velocity numBonds =
+        assert(numBonds <= typ.Valence)
         {
             Type = typ
-            NumBonds = 0
             Location = location
             Velocity = velocity
             Acceleration = Point.zero
+            NumBonds = numBonds
         }
+
+    //// Creates an atom.
+    let create typ location velocity =
+        createBound typ location velocity 0
 
     /// Resets an atom to have no bonds.
     let resetBonds atom =

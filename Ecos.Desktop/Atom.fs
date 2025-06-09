@@ -31,7 +31,7 @@ module AtomType =
 module Atom =
 
     /// Pen to use for atom border.
-    let private pen = Pen(Brushes.Black, thickness = 0.05)
+    let pen = Pen(Brushes.Black, thickness = 0.05)
 
     /// Atom radius.
     let radius = World.sigma / 1.5

@@ -39,19 +39,34 @@ module World =
             Array.replicate i 0)
 
     /// Creates a world.
-    let create
+    let createBound
         (extentMin : Point)
         (extentMax : Point)
-        atoms =
+        atoms
+        bonds =
         assert(extentMax.X >= extentMin.X)
         assert(extentMax.Y >= extentMin.Y)
         {
             ExtentMin = extentMin
             ExtentMax = extentMax
             Atoms = atoms
-            Bonds = initBonds atoms.Length
+            Bonds = bonds
             Photons = Array.empty
         }
+
+    /// Creates a world.
+    let create
+        (extentMin : Point)
+        (extentMax : Point)
+        atoms =
+        assert(
+            Array.forall (fun atom ->
+                atom.NumBonds = 0) atoms)
+        createBound
+            extentMin
+            extentMax
+            atoms
+            (initBonds atoms.Length)
 
     /// Relationship between two atoms.
     [<Struct>]

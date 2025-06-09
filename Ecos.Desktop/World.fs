@@ -21,33 +21,41 @@ module World =
         let mid = Point.create 0.5 0.5
         let box = Point.create (extent.X / float xDim) (extent.Y / float yDim)
         let offset = Point.create 0.6 0.0
-        [|
-            for x = 0 to xDim - 1 do
-                for y = 0 to yDim - 1 do
-                    let location =
-                        let pt = Point.create (float x) (float y)
-                        ((pt + mid) * box) + extentMin
-                    let atomType =
-                        if random.Next(3) = 0 then oxygen
-                        else hydrogen
-                    let velocity =
-                        Point.create
-                            (random.NextDouble())
-                            (random.NextDouble())
-                            - mid
-                    Atom.create atomType (location - offset) velocity
-                    Atom.create atomType (location + offset) velocity
-        |]
+        let atoms =
+            [|
+                for x = 0 to xDim - 1 do
+                    for y = 0 to yDim - 1 do
+                        let location =
+                            let pt = Point.create (float x) (float y)
+                            ((pt + mid) * box) + extentMin
+                        let atomType =
+                            if random.Next(3) = 0 then oxygen
+                            else hydrogen
+                        let velocity =
+                            Point.create
+                                (random.NextDouble())
+                                (random.NextDouble())
+                                - mid
+                        Atom.createBound atomType (location - offset) velocity 1
+                        Atom.createBound atomType (location + offset) velocity 1
+            |]
+        let bonds =
+            Array.init atoms.Length (fun i ->
+                Array.init i (fun j ->
+                    assert(i >= j)
+                    if i = j + 1 then 1
+                    else 0))
+        atoms, bonds
 
     /// Creates a world.
     let create random extentMin extentMax numAtoms =
 
             // create atoms
-        let atoms =
+        let atoms, bonds =
             createAtoms random extentMin extentMax numAtoms
 
             // create and animate world
-        World.create extentMin extentMax atoms
+        World.createBound extentMin extentMax atoms bonds
 
     /// Draws the given world.
     let draw ctx world =
