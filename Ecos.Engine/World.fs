@@ -138,15 +138,8 @@ module World =
                     yield! newPhotons
                 |] }
 
-    /// Calculates the force between two atoms.
-    let private getForce (interaction : Interaction) bound =
-        if bound then
-            interaction.Repulsion + interaction.Attraction
-        else
-            interaction.Repulsion
-
     /// Calculates the total force acting on an atom.
-    let private getTotalForce world (interactions : _[][]) i =
+    let private getForce world (interactions : _[][]) i =
 
         let iaRow = interactions[i]
         assert(iaRow.Length = i)
@@ -161,11 +154,11 @@ module World =
                 elif i > j then
                     let ia = iaRow[j]
                     let bound = bondRow[j] > 0
-                    getForce ia bound
+                    Interaction.getForce ia bound
                 else
                     let ia = interactions[j][i]
                     let bound = world.Bonds[j][i] > 0
-                    -getForce ia bound
+                    -Interaction.getForce ia bound
             total <- total + force
         total
 
@@ -211,7 +204,7 @@ module World =
         /// Finishes a half-step atom update.
         let finishUpdate world interactions i =
             let atom = world.Atoms[i]
-            let force = getTotalForce world interactions i
+            let force = getForce world interactions i
             { atom with
                 Acceleration = force / atom.Type.Mass }
                 |> Atom.updateHalfStepVelocity dt

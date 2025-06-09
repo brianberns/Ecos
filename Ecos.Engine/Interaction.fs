@@ -7,10 +7,10 @@ type Interaction =
     /// Distance between the atoms.
     val Distance : float
 
-    /// Repulsion between the atoms.
+    /// Repulsive force between the atoms.
     val Repulsion : Point
 
-    /// Possible attraction between the atoms.
+    /// Attractive force possible between the atoms.
     val Attraction : Point
 
     new(distance, repulsion, attraction) =
@@ -39,7 +39,7 @@ module Interaction =
 
     /// Repulsion and attraction magnitudes for the given
     /// distance. (Lennard-Jones potential.)
-    let getForce distance =
+    let private getForceMagnitudes distance =
         let six = pown distance 6
         let seven = distance * six
         let thirteen = six * seven
@@ -52,8 +52,8 @@ module Interaction =
         let distance = vector.Length
         if distance <= bondDistance then
             let norm = vector / distance
-            let magRep, magAttr = getForce distance
-            Interaction(distance, norm * magRep, norm * magAttr)
+            let repulsion, attraction = getForceMagnitudes distance
+            Interaction(distance, norm * repulsion, norm * attraction)
         else
             Interaction(distance, Point.zero, Point.zero)
 
@@ -66,3 +66,10 @@ module Interaction =
             Array.init i (fun j ->
                 assert(i >= j)   // lower half of table only
                 create atom atoms[j]))
+
+    /// Calculates the force between two interacting atoms.
+    let getForce (interaction : Interaction) bound =
+        if bound then
+            interaction.Repulsion + interaction.Attraction
+        else
+            interaction.Repulsion
