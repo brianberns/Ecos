@@ -300,9 +300,8 @@ module World =
                 |> bounce world
 
     /// Moves the photons in the given world one time step
-    /// forward. Atoms are updated using the Velocity Verlet
-    /// algorithm.
-    let step world =
+    /// forward using the Velocity Verlet algorithm.
+    let private stepAtoms world =
 
             // start atom updates
         let atoms =
@@ -321,11 +320,19 @@ module World =
             Array.init world.Atoms.Length (
                 Atom.finishUpdate world entries)
 
-            // update photons
+        { world with Atoms = atoms }
+
+    /// Moves the photons in the given world one time step
+    /// forward. Atoms are updated using the Velocity Verlet
+    let private stepPhotons world =
         let photons =
             world.Photons
                 |> Array.map (Photon.step world)
+        { world with Photons = photons }
 
-        { world with
-            Atoms = atoms
-            Photons = photons }
+    /// Moves the objects in the given world one time step
+    /// forward.
+    let step world =
+        world
+            |> stepAtoms
+            |> stepPhotons
