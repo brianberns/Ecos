@@ -292,12 +292,12 @@ module World =
                 bounce world photon.Location photon.Velocity
             { photon with Velocity = velocity }
 
-    /// Moves a single photon one time step forward.
-    let private stepPhoton world (photon : Photon) =
-        let location =
-            photon.Location + photon.Velocity * dt
-        { photon with Location = location }
-            |> Photon.bounce world
+        /// Moves a single photon one time step forward.
+        let step world (photon : Photon) =
+            let location =
+                photon.Location + photon.Velocity * dt
+            { photon with Location = location }
+                |> bounce world
 
     /// Moves the photons in the given world one time step
     /// forward. Atoms are updated using the Velocity Verlet
@@ -324,7 +324,7 @@ module World =
             // update photons
         let photons =
             world.Photons
-                |> Array.map (stepPhoton world)
+                |> Array.map (Photon.step world)
 
         { world with
             Atoms = atoms
