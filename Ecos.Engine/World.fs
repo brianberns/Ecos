@@ -14,6 +14,9 @@ type World =
 
         /// Indexes of bound atoms.
         Bonds : int[(*i*)][(*j*)]   // i > j
+
+        /// Photons in the world.
+        Photons : Photon[]
     }
 
 module World =
@@ -47,6 +50,7 @@ module World =
             ExtentMax = extentMax
             Atoms = atoms
             Bonds = initBonds atoms.Length
+            Photons = Array.empty
         }
 
     /// Relationship between two atoms.
@@ -129,6 +133,20 @@ module World =
             |> Array.sortBy fst
             |> Array.map snd
 
+    /// Emits a photon for the given atoms.
+    let private emitPhoton (atomA : Atom) (atomB : Atom) =
+
+            // photon continues in same direction as atoms
+        let direction =
+            atomA.Velocity + atomB.Velocity
+
+            // initial location
+        let location =
+            (atomA.Location + atomB.Location) / 2.0
+                + direction   // prevent photon from being absorbed by these atoms
+
+        Photon.create location direction
+
     /// Creates bonds between closest atoms.
     let private createBonds world tuples =
 
@@ -137,6 +155,7 @@ module World =
             world.Atoms
                 |> Array.map Atom.resetBonds
         let bonds = initBonds atoms.Length
+        let photons = ResizeArray()
 
             // examine each candidate bound pair
         for struct (i, j, bound) in tuples do
@@ -150,8 +169,9 @@ module World =
             if canBond then
 
                     // bind atoms
+                let radiate = not bound
                 let atomA, atomB, nBonds =
-                    Atom.bond atomA atomB (not bound)
+                    Atom.bond atomA atomB radiate
                 atoms[i] <- atomA
                 atoms[j] <- atomB
 
@@ -160,9 +180,19 @@ module World =
                 assert(bonds[i][j] = 0)
                 bonds[i][j] <- nBonds
 
+                    // emit photon?
+                if radiate then
+                    emitPhoton atomA atomB
+                        |> photons.Add
+
         { world with
             Atoms = atoms
-            Bonds = bonds }
+            Bonds = bonds
+            Photons =
+                [|
+                    yield! world.Photons
+                    yield! photons
+                |] }
 
     /// Calculates the force between two atoms.
     let private getForce (entry : VectorEntry) bound =
@@ -237,8 +267,22 @@ module World =
             |> Atom.updateHalfStepVelocity dt
             |> bounce world
 
-    /// Moves the atoms in the given world one time step
-    /// forward using the Velocity Verlet algorithm.
+    /// Moves a single photon one time step forward.
+    let private stepPhoton world (photon : Photon) =
+        let location =
+            photon.Location + photon.Velocity * dt
+        let valid =
+            location.X >= world.ExtentMin.X
+                && location.X <= world.ExtentMax.X
+                && location.Y >= world.ExtentMin.Y
+                && location.Y <= world.ExtentMax.Y
+        if valid then
+            Some { photon with Location = location }
+        else None
+
+    /// Moves the photons in the given world one time step
+    /// forward. Atoms are updated using the Velocity Verlet
+    /// algorithm.
     let step world =
 
             // start atom updates
@@ -257,4 +301,12 @@ module World =
         let atoms =
             Array.init world.Atoms.Length (
                 finishAtomUpdate world entries)
-        { world with Atoms = atoms }
+
+            // update photons
+        let photons =
+            world.Photons
+                |> Array.choose (stepPhoton world)
+
+        { world with
+            Atoms = atoms
+            Photons = photons }
