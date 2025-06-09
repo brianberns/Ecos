@@ -261,7 +261,7 @@ module World =
 
         Point.create vx vy
 
-    module Atom =
+    module private Atom =
 
         /// Bounces the given atom off a wall, if necessary.
         let bounce world (atom : Atom) =
@@ -269,28 +269,28 @@ module World =
                 bounce world atom.Location atom.Velocity
             { atom with Velocity = velocity }
 
-    module Photon =
+        /// Starts a half-step atom update.
+        let startUpdate atom =
+            atom
+                |> Atom.updateHalfStepVelocity dt
+                |> Atom.updateLocation dt
+
+        /// Finishes a half-step atom update.
+        let finishUpdate world entries i =
+            let atom = world.Atoms[i]
+            let force = getTotalForce world entries i
+            { atom with
+                Acceleration = force / atom.Type.Mass }
+                |> Atom.updateHalfStepVelocity dt
+                |> bounce world
+
+    module private Photon =
 
         /// Bounces the given photon off a wall, if necessary.
         let bounce world (photon : Photon) =
             let velocity =
                 bounce world photon.Location photon.Velocity
             { photon with Velocity = velocity }
-
-    /// Starts a half-step atom update.
-    let private startAtomUpdate atom =
-        atom
-            |> Atom.updateHalfStepVelocity dt
-            |> Atom.updateLocation dt
-
-    /// Finishes a half-step atom update.
-    let private finishAtomUpdate world entries i =
-        let atom = world.Atoms[i]
-        let force = getTotalForce world entries i
-        { atom with
-            Acceleration = force / atom.Type.Mass }
-            |> Atom.updateHalfStepVelocity dt
-            |> Atom.bounce world
 
     /// Moves a single photon one time step forward.
     let private stepPhoton world (photon : Photon) =
@@ -306,7 +306,7 @@ module World =
 
             // start atom updates
         let atoms =
-            Array.map startAtomUpdate world.Atoms
+            Array.map Atom.startUpdate world.Atoms
         let world = { world with Atoms = atoms }
 
             // create bonds between atoms
@@ -319,7 +319,7 @@ module World =
             // finish atom updates
         let atoms =
             Array.init world.Atoms.Length (
-                finishAtomUpdate world entries)
+                Atom.finishUpdate world entries)
 
             // update photons
         let photons =
