@@ -142,18 +142,17 @@ module World =
         for struct (i, j, bound) in tuples do
             let atomA = atoms[i]
             let atomB = atoms[j]
-            match Atom.tryBond atomA atomB (not bound) with
-                | Some (atomA, atomB, nBonds) ->
+            let atomA, atomB, nBonds =
+                Atom.tryBond atomA atomB (not bound)
+            if nBonds > 0 then
 
-                    atoms[i] <- atomA
-                    atoms[j] <- atomB
+                atoms[i] <- atomA
+                atoms[j] <- atomB
 
-                        // mark pair as bound
-                    assert(i > j)
-                    assert(bonds[i][j] = 0)
-                    bonds[i][j] <- nBonds
-
-                | None -> ()
+                    // mark pair as bound
+                assert(i > j)
+                assert(bonds[i][j] = 0)
+                bonds[i][j] <- nBonds
 
         { world with
             Atoms = atoms

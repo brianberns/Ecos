@@ -96,22 +96,20 @@ module Atom =
                     ((massA * atomA.Velocity)
                         + (massB * atomB.Velocity))
                         / (massA + massB)
-                Some (
-                    { atomA with
-                        NumBonds = atomA.NumBonds + nBonds
-                        Velocity = velocity },
-                    { atomB with
-                        NumBonds = atomB.NumBonds + nBonds
-                        Velocity = velocity },
-                    nBonds)
+                { atomA with
+                    NumBonds = atomA.NumBonds + nBonds
+                    Velocity = velocity },
+                { atomB with
+                    NumBonds = atomB.NumBonds + nBonds
+                    Velocity = velocity },
+                nBonds
             else
-                Some (
-                    { atomA with
-                        NumBonds = atomA.NumBonds + nBonds },
-                    { atomB with
-                        NumBonds = atomB.NumBonds + nBonds },
-                    nBonds)
-        else None
+                { atomA with
+                    NumBonds = atomA.NumBonds + nBonds },
+                { atomB with
+                    NumBonds = atomB.NumBonds + nBonds },
+                nBonds
+        else atomA, atomB, nBonds
 
     /// Updates an atom's velocity by a half-step.
     let updateHalfStepVelocity dt atom =
