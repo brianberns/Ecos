@@ -170,7 +170,7 @@ module World =
             world.Atoms
                 |> Array.map Atom.resetBonds
         let bonds = initBonds atoms.Length
-        let photons = ResizeArray()
+        let newPhotons = ResizeArray()
 
             // examine each candidate bound pair
         for struct (i, j, bound) in tuples do
@@ -183,7 +183,6 @@ module World =
             let atomA, atomB, nBonds =
                 Atom.tryBond atomA atomB radiate
             if nBonds > 0 then
-
                 atoms[i] <- atomA
                 atoms[j] <- atomB
 
@@ -195,7 +194,7 @@ module World =
                     // emit photon?
                 if radiate then
                     emitPhoton atomA atomB
-                        |> photons.Add
+                        |> newPhotons.Add
 
         { world with
             Atoms = atoms
@@ -203,7 +202,7 @@ module World =
             Photons =
                 [|
                     yield! world.Photons
-                    yield! photons
+                    yield! newPhotons
                 |] }
 
     /// Calculates the force between two atoms.
@@ -237,13 +236,12 @@ module World =
             total <- total + force
         total
 
-    /// Bounces the given atom off a wall, if necessary.
-    let private bounce world (atom : Atom) =
+    /// Bounces the given trajectory off a wall, if necessary.
+    let private bounce
+        world (location : Point) (velocity : Point) =
 
         let extentMin = world.ExtentMin
         let extentMax = world.ExtentMax
-        let location = atom.Location
-        let velocity = atom.Velocity
 
         let vx =
             if location.X < extentMin.X then
@@ -261,8 +259,23 @@ module World =
             else
                 velocity.Y
 
-        let velocity = Point.create vx vy
-        { atom with Velocity = velocity }
+        Point.create vx vy
+
+    module Atom =
+
+        /// Bounces the given atom off a wall, if necessary.
+        let bounce world (atom : Atom) =
+            let velocity =
+                bounce world atom.Location atom.Velocity
+            { atom with Velocity = velocity }
+
+    module Photon =
+
+        /// Bounces the given photon off a wall, if necessary.
+        let bounce world (photon : Photon) =
+            let velocity =
+                bounce world photon.Location photon.Velocity
+            { photon with Velocity = velocity }
 
     /// Starts a half-step atom update.
     let private startAtomUpdate atom =
@@ -277,20 +290,14 @@ module World =
         { atom with
             Acceleration = force / atom.Type.Mass }
             |> Atom.updateHalfStepVelocity dt
-            |> bounce world
+            |> Atom.bounce world
 
     /// Moves a single photon one time step forward.
     let private stepPhoton world (photon : Photon) =
         let location =
             photon.Location + photon.Velocity * dt
-        let valid =
-            location.X >= world.ExtentMin.X
-                && location.X <= world.ExtentMax.X
-                && location.Y >= world.ExtentMin.Y
-                && location.Y <= world.ExtentMax.Y
-        if valid then
-            Some { photon with Location = location }
-        else None
+        { photon with Location = location }
+            |> Photon.bounce world
 
     /// Moves the photons in the given world one time step
     /// forward. Atoms are updated using the Velocity Verlet
@@ -317,7 +324,7 @@ module World =
             // update photons
         let photons =
             world.Photons
-                |> Array.choose (stepPhoton world)
+                |> Array.map (stepPhoton world)
 
         { world with
             Atoms = atoms
