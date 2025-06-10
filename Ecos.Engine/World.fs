@@ -259,9 +259,24 @@ module World =
                 |> Array.map (Photon.step world)
         { world with Photons = photons }
 
+    let private absorbPhotons world =
+        let radius = Interaction.sigma / 1.5
+        let photons =
+            world.Photons
+                |> Array.where (fun photon ->
+                    let atomOpt =
+                        world.Atoms
+                            |> Array.tryFind (fun atom ->
+                                let distance =
+                                    (photon.Location - atom.Location).Length
+                                distance <= radius)
+                    atomOpt.IsNone)
+        { world with Photons = photons }
+
     /// Moves the objects in the given world one time step
     /// forward.
     let step world =
         world
             |> stepAtoms
             |> stepPhotons
+            |> absorbPhotons
