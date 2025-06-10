@@ -88,7 +88,7 @@ module World =
             // initial location
         let location =
             (atomA.Location + atomB.Location) / 2.0
-                + direction   // prevent photon from being absorbed by these atoms
+                + direction   // try to avoid photon being absorbed by these atoms
 
         Photon.create location direction energy
 
@@ -259,19 +259,53 @@ module World =
                 |> Array.map (Photon.step world)
         { world with Photons = photons }
 
+    module Choice =
+
+        /// Unzips an array of choices.
+        let unzip choices =
+            let opts =
+                choices
+                    |> Array.map (function
+                        | Choice1Of2 ch -> Some ch, None
+                        | Choice2Of2 ch -> None, Some ch)
+            Array.choose fst opts,
+            Array.choose snd opts
+
     let private absorbPhotons world =
+
         let radius = Interaction.sigma / 1.5
-        let photons =
+        let pairs, photons =
             world.Photons
-                |> Array.where (fun photon ->
-                    let atomOpt =
+                |> Array.map (fun photon ->
+                    let iAtomOpt =
                         world.Atoms
-                            |> Array.tryFind (fun atom ->
+                            |> Array.tryFindIndex (fun atom ->
                                 let distance =
                                     (photon.Location - atom.Location).Length
                                 distance <= radius)
-                    atomOpt.IsNone)
-        { world with Photons = photons }
+                    match iAtomOpt with
+                        | Some iAtom -> Choice1Of2 (iAtom, photon)
+                        | None -> Choice2Of2 photon)
+                |> Choice.unzip
+
+        let atomMap =
+            pairs
+                |> Seq.groupBy fst
+                |> Seq.map (fun (iAtom, group) ->
+                    let atom = world.Atoms[iAtom]
+                    let photons = Seq.map snd group
+                    iAtom, atom)
+                |> Map
+
+        let atoms =
+            Array.init world.Atoms.Length (fun iAtom ->
+                atomMap
+                    |> Map.tryFind iAtom
+                    |> Option.defaultValue world.Atoms[iAtom])
+
+        { world with
+            Atoms = atoms
+            Photons = photons }
 
     /// Moves the objects in the given world one time step
     /// forward.
