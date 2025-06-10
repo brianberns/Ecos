@@ -33,8 +33,7 @@ module World =
     let createBound
         (extentMin : Point)
         (extentMax : Point)
-        atoms
-        bonds =
+        atoms bonds =
         assert(extentMax.X >= extentMin.X)
         assert(extentMax.Y >= extentMin.Y)
         {
@@ -79,7 +78,8 @@ module World =
             |> Array.map snd
 
     /// Emits a photon for the given atoms.
-    let private emitPhoton (atomA : Atom) (atomB : Atom) =
+    let private emitPhoton
+        (atomA : Atom) (atomB : Atom) energy =
 
             // photon continues in same direction as atoms
         let direction =
@@ -90,7 +90,7 @@ module World =
             (atomA.Location + atomB.Location) / 2.0
                 + direction   // prevent photon from being absorbed by these atoms
 
-        Photon.create location direction
+        Photon.create location direction energy
 
     /// Creates bonds between closest atoms.
     let private createBonds world tuples =
@@ -109,10 +109,20 @@ module World =
             let atomB = atoms[j]
 
                 // bind atoms?
-            let radiate = not bound
             let atomA, atomB, nBonds =
-                Atom.tryBond atomA atomB radiate
+                Atom.tryBond atomA atomB
             if nBonds > 0 then
+
+                    // emit photon?
+                let atomA, atomB =
+                    if bound then atomA, atomB
+                    else
+                        let atomA, atomB, energy =
+                            Atom.radiate atomA atomB
+                        emitPhoton atomA atomB energy
+                            |> newPhotons.Add
+                        atomA, atomB
+
                 atoms[i] <- atomA
                 atoms[j] <- atomB
 
@@ -120,11 +130,6 @@ module World =
                 assert(i > j)
                 assert(bonds[i][j] = 0)
                 bonds[i][j] <- nBonds
-
-                    // emit photon?
-                if radiate then
-                    emitPhoton atomA atomB
-                        |> newPhotons.Add
 
         { world with
             Atoms = atoms

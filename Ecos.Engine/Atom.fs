@@ -88,33 +88,35 @@ module Atom =
         { atom with NumBonds = 0 }
 
     /// Tries to bond the given atoms.
-    let tryBond atomA atomB radiate =
+    let tryBond atomA atomB =
         let nBonds =
             min
                 (atomA.Type.Valence - atomA.NumBonds)
                 (atomB.Type.Valence - atomB.NumBonds)
         if nBonds > 0 then
-            if radiate then
-                let velocity =
-                    let massA = atomA.Type.Mass
-                    let massB = atomB.Type.Mass
-                    ((massA * atomA.Velocity)
-                        + (massB * atomB.Velocity))
-                        / (massA + massB)
-                { atomA with
-                    NumBonds = atomA.NumBonds + nBonds
-                    Velocity = velocity },
-                { atomB with
-                    NumBonds = atomB.NumBonds + nBonds
-                    Velocity = velocity },
-                nBonds
-            else
-                { atomA with
-                    NumBonds = atomA.NumBonds + nBonds },
-                { atomB with
-                    NumBonds = atomB.NumBonds + nBonds },
-                nBonds
+            { atomA with
+                NumBonds = atomA.NumBonds + nBonds },
+            { atomB with
+                NumBonds = atomB.NumBonds + nBonds },
+            nBonds
         else atomA, atomB, nBonds
+
+    /// Radiates engergy from the given bound atoms via
+    /// an inelastic collision.
+    let radiate atomA atomB =
+        let massA = atomA.Type.Mass
+        let massB = atomB.Type.Mass
+        let massTotal = massA + massB
+        let velocity =
+            ((massA * atomA.Velocity)
+                + (massB * atomB.Velocity))
+                / massTotal
+        let energy =
+            let relative = atomA.Velocity - atomB.Velocity
+            0.5 * ((massA * massB) / massTotal) * (relative *. relative)
+        { atomA with Velocity = velocity },
+        { atomB with Velocity = velocity },
+        energy
 
     /// Updates an atom's velocity by a half-step.
     let updateHalfStepVelocity dt atom =

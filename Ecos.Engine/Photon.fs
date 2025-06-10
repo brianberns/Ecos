@@ -7,6 +7,9 @@ type Photon =
 
         /// Photon velocity vector.
         Velocity : Point
+
+        /// Photon energy.
+        Energy : float
     }
 
 module Photon =
@@ -15,10 +18,11 @@ module Photon =
     let speed = 1.0
 
     /// Creates a photon.
-    let create location (direction : Point) =
+    let create location (direction : Point) energy =
         {
             Location = location
             Velocity =
                 (direction / direction.Length)
                     * speed
+            Energy = energy
         }

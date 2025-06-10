@@ -55,10 +55,14 @@ type Point =
     static member inline (/)(p : Point, a) =
         Point(p.X / a, p.Y / a)
 
+    /// Dot product.
+    static member ( *.)(p1 : Point, p2 : Point) =
+        p1.X * p2.X + p1.Y * p2.Y
+
     /// Computes the length of a point when considered
     /// as a vector.
     member this.Length =
-        sqrt (this.X * this.X + this.Y * this.Y)
+        sqrt (this *. this)
 
     /// Display string.
     member this.String =
