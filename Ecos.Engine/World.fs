@@ -267,7 +267,7 @@ module World =
                 |> Array.map (Photon.step world)
         { world with Photons = photons }
 
-    module Choice =
+    module private Choice =
 
         /// Unzips an array of choices.
         let unzip choices =
@@ -279,23 +279,34 @@ module World =
             Array.choose fst opts,
             Array.choose snd opts
 
+    let private absorptionRadius = Interaction.sigma / 1.5
+
+    /// Tries to find an atom near the given location.
+    let private tryFindAtom radius world location =
+        world.Atoms
+            |> Array.tryFindIndex (fun atom ->
+                let distance =
+                    (location - atom.Location).Length
+                distance <= radius)
+
+    /// Absorbs photons in the given world.
     let private absorbPhotons world =
 
-        let radius = Interaction.sigma / 1.5
+            // find atoms absorbing photons
         let pairs, photons =
             world.Photons
                 |> Array.map (fun photon ->
                     let iAtomOpt =
-                        world.Atoms
-                            |> Array.tryFindIndex (fun atom ->
-                                let distance =
-                                    (photon.Location - atom.Location).Length
-                                distance <= radius)
+                        tryFindAtom
+                            absorptionRadius
+                            world
+                            photon.Location
                     match iAtomOpt with
                         | Some iAtom -> Choice1Of2 (iAtom, photon)
                         | None -> Choice2Of2 photon)
                 |> Choice.unzip
 
+            // absorb photons
         let atomMap =
             pairs
                 |> Seq.groupBy fst
@@ -306,12 +317,12 @@ module World =
                     iAtom, atom)
                 |> Map
 
+            // update world
         let atoms =
             Array.init world.Atoms.Length (fun iAtom ->
                 atomMap
                     |> Map.tryFind iAtom
                     |> Option.defaultValue world.Atoms[iAtom])
-
         { world with
             Atoms = atoms
             Photons = photons }

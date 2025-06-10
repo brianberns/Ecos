@@ -1,5 +1,6 @@
 ﻿namespace Ecos.Engine
 
+/// A photon.
 type Photon =
     {
         /// Photon location.
