@@ -13,6 +13,7 @@ type Interaction =
     /// Attractive force possible between the atoms.
     val Attraction : Point
 
+    /// Creates an interaction.
     new(distance, repulsion, attraction) =
         {
             Distance = distance
