@@ -212,6 +212,14 @@ module World =
                 |> Atom.updateHalfStepVelocity dt
                 |> bounce world
 
+        /// The given atom absorbs the given photon.
+        let absorb atom photon =
+            let momentum =
+                (photon.Energy / Photon.speed)
+                    * (photon.Velocity / photon.Velocity.Length)
+            let dVel = momentum / atom.Type.Mass
+            { atom with Velocity = atom.Velocity + dVel }
+
     module private Photon =
 
         /// Bounces the given photon off a wall, if necessary.
@@ -294,6 +302,7 @@ module World =
                 |> Seq.map (fun (iAtom, group) ->
                     let atom = world.Atoms[iAtom]
                     let photons = Seq.map snd group
+                    let atom = Seq.fold Atom.absorb atom photons
                     iAtom, atom)
                 |> Map
 
