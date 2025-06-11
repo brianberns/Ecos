@@ -93,13 +93,10 @@ module World =
                 Atom.tryBond atomA atomB
             if nBonds > 0 then
 
-                    // radiate energy?
+                    // reduce energy?
                 let atomA, atomB =
                     if bound then atomA, atomB
-                    else
-                        let atomA, atomB, _ =
-                            Atom.radiate atomA atomB
-                        atomA, atomB
+                    else Atom.reduce atomA atomB
 
                 atoms[i] <- atomA
                 atoms[j] <- atomB

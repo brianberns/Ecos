@@ -101,22 +101,17 @@ module Atom =
             nBonds
         else atomA, atomB, nBonds
 
-    /// Radiates engergy from the given bound atoms via
-    /// an inelastic collision.
-    let radiate atomA atomB =
+    /// Reduces energy in the given bound atoms via an
+    /// inelastic collision.
+    let reduce atomA atomB =
         let massA = atomA.Type.Mass
         let massB = atomB.Type.Mass
-        let massTotal = massA + massB
         let velocity =
             ((massA * atomA.Velocity)
                 + (massB * atomB.Velocity))
-                / massTotal
-        let energy =
-            let relative = atomA.Velocity - atomB.Velocity
-            0.5 * ((massA * massB) / massTotal) * (relative *. relative)
+                / (massA + massB)
         { atomA with Velocity = velocity },
-        { atomB with Velocity = velocity },
-        energy
+        { atomB with Velocity = velocity }
 
     /// Updates an atom's velocity by a half-step.
     let updateHalfStepVelocity dt atom =
