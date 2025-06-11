@@ -65,9 +65,8 @@ module World =
                 for j = 0 to i - 1 do
                     let ia : Interaction = iaRow[j]
                     if ia.Distance <= Interaction.bondDistance then
+                        let key = ia.Distance
                         let bound = bondRow[j] > 0
-                        let key =
-                            (if bound then 0 else 1), ia.Distance
                         key, struct (i, j, bound)
         |]
             |> Array.sortBy fst
