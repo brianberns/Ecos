@@ -81,7 +81,6 @@ module World =
             world.Atoms
                 |> Array.map Atom.resetBonds
         let bonds = initBonds atoms.Length
-        let newPhotons = ResizeArray()
 
             // examine each candidate bound pair
         for struct (i, j, bound) in tuples do
