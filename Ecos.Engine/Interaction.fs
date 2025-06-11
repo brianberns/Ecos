@@ -51,12 +51,9 @@ module Interaction =
     let create atomA atomB =
         let vector = atomA.Location - atomB.Location
         let distance = vector.Length
-        if distance <= bondDistance then
-            let norm = vector / distance
-            let repulsion, attraction = getForceMagnitudes distance
-            Interaction(distance, norm * repulsion, norm * attraction)
-        else
-            Interaction(distance, Point.zero, Point.zero)
+        let norm = vector / distance
+        let repulsion, attraction = getForceMagnitudes distance
+        Interaction(distance, norm * repulsion, norm * attraction)
 
     /// Calculates interaction between every pair of the given
     /// atoms. The result is the lower half of a symmetric lookup
