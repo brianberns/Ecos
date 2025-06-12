@@ -174,7 +174,7 @@ module World =
 
     /// Moves the atoms in the given world one time step
     /// forward using the Velocity Verlet algorithm.
-    let step world =
+    let stepAtoms world =
 
             // start atom updates
         let atoms =
@@ -195,3 +195,41 @@ module World =
                 Atom.finishUpdate world ias)
 
         { world with Atoms = atoms }
+
+    /// Boltzmann constant.
+    let private boltzmann = 1.0
+
+    /// Target temperature.
+    let private targetTemperature = 0.075
+
+    /// Coupling constant, determines how quickly temperature
+    /// is corrected.
+    let private tau = 1.0
+
+    /// Applies Berendsen thermostat.
+    let private applyThermostat world =
+        let kineticEnergy =
+            world.Atoms
+                |> Array.sumBy (fun atom ->
+                    0.5
+                        * atom.Type.Mass
+                        * (atom.Velocity *. atom.Velocity))
+        let temperature =
+            (2.0 * kineticEnergy)
+                / (3.0 * float world.Atoms.Length * boltzmann)
+        let scale =
+            sqrt (1.0 +
+                (dt / tau)
+                    * ((targetTemperature / temperature) - 1.0))
+        let atoms =
+            world.Atoms
+                |> Array.map (fun atom ->
+                    let velocity = scale * atom.Velocity
+                    { atom with Velocity = velocity })
+        { world with Atoms = atoms }
+
+    /// Moves the given world one time step forward.
+    let step world =
+        world
+            |> stepAtoms
+            |> applyThermostat

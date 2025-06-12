@@ -20,7 +20,7 @@ module World =
         let xDim = numPairs / yDim
         let mid = Point.create 0.5 0.5
         let box = Point.create (extent.X / float xDim) (extent.Y / float yDim)
-        let offset = Point.create 0.5 0.0
+        let offset = Point.create 0.6 0.0
         let atoms =
             [|
                 for x = 0 to xDim - 1 do
