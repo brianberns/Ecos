@@ -27,36 +27,13 @@ module Interaction =
     /// squared distance. (Lennard-Jones potential.)
     // https://gemini.google.com/app/910afad4050eac2b
     let private getForceScalars sigma epsilon rSquared =
-
-            // calculate the inverse of rSquared once to replace future divisions
         let invRSquared = 1.0 / rSquared
-
-            // calculate the ratio of squared sigmas to squared radii
         let s2OverR2 = sigma * sigma * invRSquared
-
-        (* Power Calculations from the squared ratio *)
-
-            // (sigma/r)^6 = (sigma^2/r^2)^3
-        let s6OverR6 = s2OverR2 * s2OverR2 * s2OverR2
-
-            // (sigma/r)^12 = ((sigma/r)^6)^2
-        let s12OverR12 = s6OverR6 * s6OverR6
-
-        (*
-         * Force Scalar (F/r) Component Calculations:
-         * The original force is F(r) = (48*eps/r)*(sigma/r)^12 - (24*eps/r)*(sigma/r)^6
-         * The scalar F/r is F(r)/r = (48*eps/r^2)*(sigma/r)^12 - (24*eps/r^2)*(sigma/r)^6
-         *)
-
-            // common factor for both terms for efficiency
+        let s6OverR6 = s2OverR2 * s2OverR2 * s2OverR2           // (sigma/r)^6 = (sigma^2/r^2)^3
+        let s12OverR12 = s6OverR6 * s6OverR6                    // (sigma/r)^12 = ((sigma/r)^6)^2
         let commonFactor = 24.0 * epsilon * invRSquared
-
-            // repulsive scalar: (48*eps/r^2)*(sigma/r)^12
-        let repulsiveScalar = 2.0 * commonFactor * s12OverR12
-
-            // attractive scalar: (24*eps/r^2)*(sigma/r)^6
-        let attractiveScalar = commonFactor * s6OverR6
-
+        let repulsiveScalar = 2.0 * commonFactor * s12OverR12   // (48*epsilon/r^2)*(sigma/r)^12
+        let attractiveScalar = commonFactor * s6OverR6          // (24*epsilon/r^2)*(sigma/r)^6
         repulsiveScalar, attractiveScalar
 
     /// Depth of potential energy well.
