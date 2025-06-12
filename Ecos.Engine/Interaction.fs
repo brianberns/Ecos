@@ -46,7 +46,7 @@ module Interaction =
     let bondDistance = 2.0 * sigma
 
     /// Square of the bond distance.
-    let bondDistanceSqured = bondDistance * bondDistance
+    let bondDistanceSquared = bondDistance * bondDistance
 
     /// Creates an interaction.
     let create atomA atomB =

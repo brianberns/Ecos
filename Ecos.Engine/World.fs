@@ -64,7 +64,7 @@ module World =
 
                 for j = 0 to i - 1 do
                     let ia : Interaction = iaRow[j]
-                    if ia.DistanceSquared <= Interaction.bondDistanceSqured then
+                    if ia.DistanceSquared <= Interaction.bondDistanceSquared then
                         let key = ia.DistanceSquared
                         let bound = bondRow[j] > 0
                         key, struct (i, j, bound)
