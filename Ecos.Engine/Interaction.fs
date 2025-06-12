@@ -16,6 +16,13 @@ type Potential =
 
 module Potential =
 
+    /// Creates a potential.
+    let create epsilon sigma =
+        {
+            Epsilon = epsilon
+            Sigma = sigma
+        }
+
     /// Gets the potential for the given atom type indexes.
     let getPotential (potentials : Potential[][]) i j =
         if i >= j then potentials[i][j]

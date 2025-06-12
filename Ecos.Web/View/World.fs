@@ -42,12 +42,23 @@ module World =
     /// Creates a world.
     let create random extentMin extentMax numAtoms =
 
+            // create potentials
+        let potentials =
+            Array.init AtomType.all.Length (fun i ->
+                Array.init (i + 1) (fun j ->
+                    assert(i >= j)
+                    let epsilon, sigma =
+                        if i = j then 1.0, 1.0
+                        else 2.0, 1.0
+                    Potential.create epsilon sigma))
+
             // create atoms
         let atoms =
             createAtoms random extentMin extentMax numAtoms
 
             // create and animate world
-        World.create extentMin extentMax atoms
+        World.create
+            extentMin extentMax potentials atoms
 
     /// Draws the given world.
     let draw ctx world =
