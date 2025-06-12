@@ -9,6 +9,9 @@ type World =
         /// Maximum extent point.
         ExtentMax : Point
 
+        /// Bond potentials, indexed by atom type.
+        Potentials : Potential[(*i*)][(*j*)]   // i > j
+
         /// Atoms in the world.
         Atoms : Atom[]
 
@@ -30,24 +33,26 @@ module World =
     let createBound
         (extentMin : Point)
         (extentMax : Point)
-        atoms bonds =
+        potentials atoms bonds =
         assert(extentMax.X >= extentMin.X)
         assert(extentMax.Y >= extentMin.Y)
         {
             ExtentMin = extentMin
             ExtentMax = extentMax
+            Potentials = potentials
             Atoms = atoms
             Bonds = bonds
         }
 
     /// Creates a world.
-    let create extentMin extentMax atoms =
+    let create extentMin extentMax potentials atoms =
         assert(
             Array.forall (fun atom ->
                 atom.NumBonds = 0) atoms)
         createBound
             extentMin
             extentMax
+            potentials
             atoms
             (initBonds atoms.Length)
 
@@ -64,7 +69,9 @@ module World =
 
                 for j = 0 to i - 1 do
                     let ia : Interaction = iaRow[j]
-                    if ia.DistanceSquared <= Interaction.bondDistanceSquared then
+                    let bondDistSquared =
+                        pown ia.Potential.BondDistance 2
+                    if ia.DistanceSquared <= bondDistSquared then
                         let key = ia.DistanceSquared
                         let bound = bondRow[j] > 0
                         key, struct (i, j, bound)
@@ -192,7 +199,9 @@ module World =
 
             // create bonds between atoms
         let ias =
-            Interaction.getInteractions world.Atoms
+            Interaction.getInteractions
+                world.Potentials
+                world.Atoms
         let world =
              ias
                 |> sortAttracted world
