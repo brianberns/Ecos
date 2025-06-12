@@ -53,7 +53,8 @@ type Point =
     
     /// Divides a point by a scalar.
     static member inline (/)(p : Point, a) =
-        Point(p.X / a, p.Y / a)
+        if a = 0.0 then failwith "Division by zero"
+        else Point(p.X / a, p.Y / a)
 
     /// Dot product.
     static member ( *.)(p1 : Point, p2 : Point) =

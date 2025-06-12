@@ -27,14 +27,17 @@ module Interaction =
     /// squared distance. (Lennard-Jones potential.)
     // https://gemini.google.com/app/910afad4050eac2b
     let private getForceScalars sigma epsilon rSquared =
-        let invRSquared = 1.0 / rSquared
-        let s2OverR2 = sigma * sigma * invRSquared
-        let s6OverR6 = s2OverR2 * s2OverR2 * s2OverR2           // (sigma/r)^6 = (sigma^2/r^2)^3
-        let s12OverR12 = s6OverR6 * s6OverR6                    // (sigma/r)^12 = ((sigma/r)^6)^2
-        let commonFactor = 24.0 * epsilon * invRSquared
-        let repulsiveScalar = 2.0 * commonFactor * s12OverR12   // (48*epsilon/r^2)*(sigma/r)^12
-        let attractiveScalar = commonFactor * s6OverR6          // (24*epsilon/r^2)*(sigma/r)^6
-        repulsiveScalar, attractiveScalar
+        if rSquared = 0.0 then
+            failwith "Division by zero"
+        else
+            let invRSquared = 1.0 / rSquared
+            let s2OverR2 = sigma * sigma * invRSquared
+            let s6OverR6 = s2OverR2 * s2OverR2 * s2OverR2           // (sigma/r)^6 = (sigma^2/r^2)^3
+            let s12OverR12 = s6OverR6 * s6OverR6                    // (sigma/r)^12 = ((sigma/r)^6)^2
+            let commonFactor = 24.0 * epsilon * invRSquared
+            let repulsiveScalar = 2.0 * commonFactor * s12OverR12   // (48*epsilon/r^2)*(sigma/r)^12
+            let attractiveScalar = commonFactor * s6OverR6          // (24*epsilon/r^2)*(sigma/r)^6
+            repulsiveScalar, attractiveScalar
 
     /// Depth of potential energy well.
     let epsilon = 1.0
