@@ -57,15 +57,12 @@ module World =
             (initBonds atoms.Length)
 
     /// Sorts attracted atoms.
-    let private sortAttracted world (interactions : _[][]) =
+    let private sortAttracted (interactions : _[][]) =
         [|
             for i = 0 to interactions.Length - 1 do
 
                 let iaRow = interactions[i]
                 assert(iaRow.Length = i)
-
-                let bondRow = world.Bonds[i]
-                assert(bondRow.Length = i)
 
                 for j = 0 to i - 1 do
                     let ia : Interaction = iaRow[j]
@@ -73,14 +70,13 @@ module World =
                         pown ia.Potential.BondDistance 2
                     if ia.DistanceSquared <= bondDistSquared then
                         let key = ia.DistanceSquared
-                        let bound = bondRow[j] > 0
-                        key, struct (i, j, bound)
+                        key, struct (i, j)
         |]
             |> Array.sortBy fst
             |> Array.map snd
 
     /// Creates bonds between closest atoms.
-    let private createBonds world tuples =
+    let private createBonds world pairs =
 
             // reset bonds to zero
         let atoms =
@@ -89,7 +85,7 @@ module World =
         let bonds = initBonds atoms.Length
 
             // examine each candidate bound pair
-        for struct (i, j, bound) in tuples do
+        for struct (i, j) in pairs do
 
             let atomA = atoms[i]
             let atomB = atoms[j]
@@ -98,11 +94,6 @@ module World =
             let atomA, atomB, nBonds =
                 Atom.tryBond atomA atomB
             if nBonds > 0 then
-
-                    // reduce energy?
-                let atomA, atomB =
-                    if bound then atomA, atomB
-                    else Atom.reduce atomA atomB
 
                 atoms[i] <- atomA
                 atoms[j] <- atomB
@@ -190,7 +181,7 @@ module World =
 
     /// Moves the atoms in the given world one time step
     /// forward using the Velocity Verlet algorithm.
-    let step world =
+    let stepAtoms world =
 
             // start atom updates
         let atoms =
@@ -204,7 +195,7 @@ module World =
                 world.Atoms
         let world =
              ias
-                |> sortAttracted world
+                |> sortAttracted
                 |> createBonds world
 
             // finish atom updates
@@ -213,3 +204,41 @@ module World =
                 Atom.finishUpdate world ias)
 
         { world with Atoms = atoms }
+
+    /// Boltzmann constant.
+    let private boltzmann = 1.0
+
+    /// Target temperature.
+    let private targetTemperature = 0.075
+
+    /// Coupling constant, determines how quickly temperature
+    /// is corrected.
+    let private tau = 1.0
+
+    /// Applies Berendsen thermostat.
+    let private applyThermostat world =
+        let kineticEnergy =
+            world.Atoms
+                |> Array.sumBy (fun atom ->
+                    0.5
+                        * atom.Type.Mass
+                        * (atom.Velocity *. atom.Velocity))
+        let temperature =
+            (2.0 * kineticEnergy)
+                / (3.0 * float world.Atoms.Length * boltzmann)
+        let scale =
+            sqrt (1.0 +
+                (dt / tau)
+                    * ((targetTemperature / temperature) - 1.0))
+        let atoms =
+            world.Atoms
+                |> Array.map (fun atom ->
+                    let velocity = scale * atom.Velocity
+                    { atom with Velocity = velocity })
+        { world with Atoms = atoms }
+
+    /// Moves the given world one time step forward.
+    let step world =
+        world
+            |> stepAtoms
+            |> applyThermostat
