@@ -6,6 +6,9 @@ open System
 [<CustomComparison; CustomEquality>]
 type AtomType =
     {
+        /// Unique 0-based index.
+        Index : int
+
         /// Mass of atoms of this type.
         Mass : float
 
@@ -14,17 +17,19 @@ type AtomType =
         Valence : int
     }
 
+    (* An atom type is identified by its unique index *)
+
     member this.Equals(other) =
-        this.Valence = other.Valence
+        this.Index = other.Index
 
     member this.CompareTo(other) =
-        compare this.Valence other.Valence
+        compare this.Index other.Index
 
     override this.Equals(other) =
         this.Equals(other :?> AtomType)
 
     override this.GetHashCode() = 
-        this.Valence.GetHashCode()
+        this.Index.GetHashCode()
 
     interface IEquatable<AtomType> with
         member this.Equals(other) =
@@ -41,8 +46,9 @@ type AtomType =
 module AtomType =
 
     /// Creates an atom type.
-    let create valence =
+    let create index valence =
         {
+            Index = index
             Mass = 1.0
             Valence = valence
         }

@@ -27,7 +27,9 @@ module AtomType =
     let colorMap =
         Map [
             for valence = minValence to maxValence do
-                let typ = AtomType.create valence
+                let typ =
+                    let index = valence - minValence
+                    AtomType.create index valence
                 let color = getColor valence
                 typ, color
         ]

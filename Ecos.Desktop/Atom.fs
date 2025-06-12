@@ -19,7 +19,9 @@ module AtomType =
     let brushMap =
         Map [
             for valence = minValence to maxValence do
-                let typ = AtomType.create valence
+                let typ =
+                    let index = valence - minValence
+                    AtomType.create index valence
                 let brush = brushes[valence - 1]
                 typ, brush
         ]
