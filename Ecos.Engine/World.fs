@@ -52,28 +52,24 @@ module World =
             (initBonds atoms.Length)
 
     /// Sorts attracted atoms.
-    let private sortAttracted world (interactions : _[][]) =
+    let private sortAttracted (interactions : _[][]) =
         [|
             for i = 0 to interactions.Length - 1 do
 
                 let iaRow = interactions[i]
                 assert(iaRow.Length = i)
 
-                let bondRow = world.Bonds[i]
-                assert(bondRow.Length = i)
-
                 for j = 0 to i - 1 do
                     let ia : Interaction = iaRow[j]
                     if ia.DistanceSquared <= Interaction.bondDistanceSquared then
                         let key = ia.DistanceSquared
-                        let bound = bondRow[j] > 0
-                        key, struct (i, j, bound)
+                        key, struct (i, j)
         |]
             |> Array.sortBy fst
             |> Array.map snd
 
     /// Creates bonds between closest atoms.
-    let private createBonds world tuples =
+    let private createBonds world pairs =
 
             // reset bonds to zero
         let atoms =
@@ -82,7 +78,7 @@ module World =
         let bonds = initBonds atoms.Length
 
             // examine each candidate bound pair
-        for struct (i, j, bound) in tuples do
+        for struct (i, j) in pairs do
 
             let atomA = atoms[i]
             let atomB = atoms[j]
@@ -91,11 +87,6 @@ module World =
             let atomA, atomB, nBonds =
                 Atom.tryBond atomA atomB
             if nBonds > 0 then
-
-                    // reduce energy?
-                let atomA, atomB =
-                    if bound then atomA, atomB
-                    else Atom.reduce atomA atomB
 
                 atoms[i] <- atomA
                 atoms[j] <- atomB
@@ -195,7 +186,7 @@ module World =
             Interaction.getInteractions world.Atoms
         let world =
              ias
-                |> sortAttracted world
+                |> sortAttracted
                 |> createBonds world
 
             // finish atom updates

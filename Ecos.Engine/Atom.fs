@@ -107,18 +107,6 @@ module Atom =
             nBonds
         else atomA, atomB, nBonds
 
-    /// Reduces energy in the given bound atoms via an
-    /// inelastic collision.
-    let reduce atomA atomB =
-        let massA = atomA.Type.Mass
-        let massB = atomB.Type.Mass
-        let velocity =
-            ((massA * atomA.Velocity)
-                + (massB * atomB.Velocity))
-                / (massA + massB)
-        { atomA with Velocity = velocity },
-        { atomB with Velocity = velocity }
-
     /// Updates an atom's velocity by a half-step.
     let updateHalfStepVelocity dt atom =
         let velocity =
