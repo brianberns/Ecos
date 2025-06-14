@@ -287,7 +287,7 @@ module World =
             Array.choose fst opts,
             Array.choose snd opts
 
-    let private absorptionRadius = 1.0
+    let private absorptionRadius = 2.0 / 3.0
 
     /// Tries to find an atom near the given location.
     let private tryFindAtom radius world location =
