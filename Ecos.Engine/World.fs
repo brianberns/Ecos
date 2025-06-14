@@ -17,7 +17,9 @@ type World =
 
         /// Indexes of bound atoms.
         Bonds : int[(*i*)][(*j*)]   // i > j
-    }
+
+        /// Photons in the world.
+        Photons : Photon[]    }
 
 module World =
 
@@ -42,6 +44,7 @@ module World =
             Potentials = potentials
             Atoms = atoms
             Bonds = bonds
+            Photons = Array.empty
         }
 
     /// Creates a world.
@@ -79,6 +82,21 @@ module World =
             |> Array.sortBy fst
             |> Array.map snd
 
+    /// Emits a photon for the given atoms.Add commentMore actions
+    let private emitPhoton
+        (atomA : Atom) (atomB : Atom) energy =
+
+            // photon continues in same direction as atoms
+        let direction =
+            atomA.Velocity + atomB.Velocity
+
+            // initial location
+        let location =
+            (atomA.Location + atomB.Location) / 2.0
+                + direction   // try to avoid photon being absorbed by these atoms
+
+        Photon.create location direction energy
+
     /// Creates bonds between closest atoms.
     let private createBonds world tuples =
 
@@ -87,6 +105,7 @@ module World =
             world.Atoms
                 |> Array.map Atom.resetBonds
         let bonds = initBonds atoms.Length
+        let newPhotons = ResizeArray()
 
             // examine each candidate bound pair
         for struct (i, j, bound) in tuples do
@@ -99,10 +118,15 @@ module World =
                 Atom.tryBond atomA atomB
             if nBonds > 0 then
 
-                    // reduce energy?
+                    // emit photon?
                 let atomA, atomB =
                     if bound then atomA, atomB
-                    else Atom.reduce atomA atomB
+                    else
+                        let atomA, atomB, energy =
+                            Atom.radiate atomA atomB
+                        emitPhoton atomA atomB energy
+                            |> newPhotons.Add
+                        atomA, atomB
 
                 atoms[i] <- atomA
                 atoms[j] <- atomB
@@ -114,7 +138,12 @@ module World =
 
         { world with
             Atoms = atoms
-            Bonds = bonds }
+            Bonds = bonds
+            Photons =
+                [|
+                    yield! world.Photons
+                    yield! newPhotons
+                |] }
 
     /// Calculates the total force acting on an atom.
     let private getForce world (interactions : _[][]) i =
@@ -188,9 +217,33 @@ module World =
                 |> Atom.updateHalfStepVelocity dt
                 |> bounce world
 
+        /// The given atom absorbs the given photon.
+        let absorb atom photon =
+            let momentum =
+                (photon.Energy / Photon.speed)
+                    * (photon.Velocity / photon.Velocity.Length)
+            let dVel = momentum / atom.Type.Mass
+            { atom with Velocity = atom.Velocity + dVel }
+
+
+    module private Photon =
+
+        /// Bounces the given photon off a wall, if necessary.
+        let bounce world (photon : Photon) =
+            let velocity =
+                bounce world photon.Location photon.Velocity
+            { photon with Velocity = velocity }
+
+        /// Moves a single photon one time step forward.
+        let step world (photon : Photon) =
+            let location =
+                photon.Location + photon.Velocity * dt
+            { photon with Location = location }
+                |> bounce world
+
     /// Moves the atoms in the given world one time step
     /// forward using the Velocity Verlet algorithm.
-    let step world =
+    let stepAtoms world =
 
             // start atom updates
         let atoms =
@@ -213,3 +266,79 @@ module World =
                 Atom.finishUpdate world ias)
 
         { world with Atoms = atoms }
+
+    /// Moves the photons in the given world one time step
+    /// forward.
+    let private stepPhotons world =
+        let photons =
+            world.Photons
+                |> Array.map (Photon.step world)
+        { world with Photons = photons }
+
+    module private Choice =
+
+        /// Unzips an array of choices.
+        let unzip choices =
+            let opts =
+                choices
+                    |> Array.map (function
+                        | Choice1Of2 ch -> Some ch, None
+                        | Choice2Of2 ch -> None, Some ch)
+            Array.choose fst opts,
+            Array.choose snd opts
+
+    let private absorptionRadius = 1.0
+
+    /// Tries to find an atom near the given location.
+    let private tryFindAtom radius world location =
+        world.Atoms
+            |> Array.tryFindIndex (fun atom ->
+                let distance =
+                    (location - atom.Location).Length
+                distance <= radius)
+
+    /// Absorbs photons in the given world.
+    let private absorbPhotons world =
+
+            // find atoms absorbing photons
+        let pairs, photons =
+            world.Photons
+                |> Array.map (fun photon ->
+                    let iAtomOpt =
+                        tryFindAtom
+                            absorptionRadius
+                            world
+                            photon.Location
+                    match iAtomOpt with
+                        | Some iAtom -> Choice1Of2 (iAtom, photon)
+                        | None -> Choice2Of2 photon)
+                |> Choice.unzip
+
+            // absorb photons
+        let atomMap =
+            pairs
+                |> Seq.groupBy fst
+                |> Seq.map (fun (iAtom, group) ->
+                    let atom = world.Atoms[iAtom]
+                    let photons = Seq.map snd group
+                    let atom = Seq.fold Atom.absorb atom photons
+                    iAtom, atom)
+                |> Map
+
+            // update world
+        let atoms =
+            Array.init world.Atoms.Length (fun iAtom ->
+                atomMap
+                    |> Map.tryFind iAtom
+                    |> Option.defaultValue world.Atoms[iAtom])
+        { world with
+            Atoms = atoms
+            Photons = photons }
+
+    /// Moves the objects in the given world one time step
+    /// forward.
+    let step world =
+        world
+            |> stepAtoms
+            |> stepPhotons
+            |> absorbPhotons
