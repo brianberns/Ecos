@@ -6,6 +6,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="BondFluctuationModel.fs" />
     <Compile Include="Counter.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>

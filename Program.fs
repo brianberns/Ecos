@@ -1,4 +1,4 @@
-﻿namespace Examples.CounterApp
+﻿namespace Ecos
 
 open Elmish
 
@@ -8,16 +8,42 @@ open Avalonia.FuncUI.Hosts
 open Avalonia.FuncUI.Elmish
 open Avalonia.Controls.ApplicationLifetimes
 
+module Model =
+
+    open Avalonia.FuncUI.DSL
+    open Avalonia.Controls
+    open Avalonia.Input
+    open Avalonia.Layout
+
+    let init () =
+        [
+            0, 0
+            2, 0
+            4, 1
+        ]
+            |> Seq.map (Point.ofTuple >> Atom.create)
+            |> World.initialize
+            |> World.addBond 0 1
+            |> World.addBond 1 2    
+
+    let update () world =
+        world
+
+    let view world dispatch =
+        Window.create [
+            Window.title "Ecos"
+            Window.width 400.0
+            Window.height 400.0
+            Window.child (DockPanel.create [])
+        ]
+
 type MainWindow() as this =
     inherit HostWindow()
     do
-        // window properties (title, size, key bindings, etc.) are set by Counter.view
-        //this.VisualRoot.VisualRoot.Renderer.DrawFps <- true
-        //this.VisualRoot.VisualRoot.Renderer.DrawDirtyRects <- true
-        Elmish.Program.mkSimple Counter.init Counter.update Counter.view
-        |> Program.withHost this
-        |> Program.withConsoleTrace
-        |> Program.run
+        Elmish.Program.mkSimple Model.init Model.update Model.view
+            |> Program.withHost this
+            |> Program.withConsoleTrace
+            |> Program.run
 
 type App() =
     inherit Application()
