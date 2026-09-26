@@ -35,12 +35,18 @@ module Model =
     let private windowWidth = 400.0
     let private windowHeight = 400.0
     let private scale = 30.0
+
     let brushes =
         [
             Brushes.Red
             Brushes.Blue
             Brushes.Green
         ]
+
+    let private transform (pt : Ecos.Point) =
+        let x = scale * float pt.X + windowWidth / 2.0
+        let y = scale * float pt.Y + windowHeight / 2.0
+        Point(x, y)
 
     let view world dispatch =
         Window.create [
@@ -50,13 +56,23 @@ module Model =
             Window.child (
                 Canvas.create [
                     Canvas.children [
+
                         for i, atom in Seq.indexed world.Atoms do
                             Rectangle.create [
                                 Rectangle.width (scale * 2.0)
                                 Rectangle.height (scale * 2.0)
-                                Rectangle.left (scale * float atom.Location.X + windowWidth / 2.0)
-                                Rectangle.top (scale * float atom.Location.Y + windowHeight / 2.0)
+                                let pt = transform (atom.Location - Point.create 1 1)
+                                Rectangle.left pt.X
+                                Rectangle.top pt.Y
                                 Rectangle.fill brushes[i % brushes.Length]
+                            ]
+
+                        for a, b in World.getBonds world do
+                            Line.create [
+                                Line.startPoint (transform a.Location)
+                                Line.endPoint (transform b.Location)
+                                Line.stroke Brushes.Black
+                                Line.strokeThickness 2.0
                             ]
                     ]
                 ]

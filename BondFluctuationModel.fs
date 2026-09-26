@@ -82,3 +82,9 @@ module World =
         match tryAddBond idxA idxB world with
             | Some world -> world
             | None -> failwith "Invalid bond"
+
+    let getBonds world =
+        world.Bonds
+            |> Map.toSeq
+            |> Seq.map (fun (idxA, idxB) ->
+                world.Atoms[idxA], world.Atoms[idxB])
