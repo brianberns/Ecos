@@ -14,6 +14,9 @@ module Model =
     open Avalonia.Controls
     open Avalonia.Input
     open Avalonia.Layout
+    open Avalonia.Controls.Shapes
+    open Avalonia.FuncUI.DSL
+    open Avalonia.Media
 
     let init () =
         [
@@ -29,12 +32,35 @@ module Model =
     let update () world =
         world
 
+    let private windowWidth = 400.0
+    let private windowHeight = 400.0
+    let private scale = 30.0
+    let brushes =
+        [
+            Brushes.Red
+            Brushes.Blue
+            Brushes.Green
+        ]
+
     let view world dispatch =
         Window.create [
             Window.title "Ecos"
-            Window.width 400.0
-            Window.height 400.0
-            Window.child (DockPanel.create [])
+            Window.width windowWidth
+            Window.height windowHeight
+            Window.child (
+                Canvas.create [
+                    Canvas.children [
+                        for i, atom in Seq.indexed world.Atoms do
+                            Rectangle.create [
+                                Rectangle.width (scale * 2.0)
+                                Rectangle.height (scale * 2.0)
+                                Rectangle.left (scale * float atom.Location.X + windowWidth / 2.0)
+                                Rectangle.top (scale * float atom.Location.Y + windowHeight / 2.0)
+                                Rectangle.fill brushes[i % brushes.Length]
+                            ]
+                    ]
+                ]
+            )
         ]
 
 type MainWindow() as this =
