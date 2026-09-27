@@ -36,6 +36,16 @@ module Model =
     let private windowHeight = 400.0
     let private scale = 30.0
 
+    let transformGroup =
+        let group = TransformGroup()
+        group.Children.Add(
+            ScaleTransform(scale, scale))
+        group.Children.Add(
+            TranslateTransform(
+                windowWidth / 2.0,
+                windowHeight / 2.0))
+        group
+
     let brushes =
         [
             Brushes.Red
@@ -43,10 +53,8 @@ module Model =
             Brushes.Green
         ]
 
-    let private transform (pt : Ecos.Point) =
-        let x = scale * float pt.X + windowWidth / 2.0
-        let y = scale * float pt.Y + windowHeight / 2.0
-        Point(x, y)
+    let private (~~)(ecosPt : Ecos.Point) =
+        Avalonia.Point(ecosPt.X, ecosPt.Y)
 
     let view world dispatch =
         Window.create [
@@ -55,24 +63,27 @@ module Model =
             Window.height windowHeight
             Window.child (
                 Canvas.create [
+                    Canvas.renderTransform transformGroup
+                    Canvas.renderTransformOrigin RelativePoint.TopLeft   // use world origin as transform origin
                     Canvas.children [
 
                         for i, atom in Seq.indexed world.Atoms do
                             Rectangle.create [
-                                Rectangle.width (scale * 2.0)
-                                Rectangle.height (scale * 2.0)
-                                let pt = transform (atom.Location - Point.create 1 1)
+                                Rectangle.width 2.0
+                                Rectangle.height 2.0
+                                let pt = atom.Location - Point.create 1 1
                                 Rectangle.left pt.X
                                 Rectangle.top pt.Y
                                 Rectangle.fill brushes[i % brushes.Length]
+                                Rectangle.useLayoutRounding false   // don't snap to pixels before scaling
                             ]
 
                         for a, b in World.getBonds world do
                             Line.create [
-                                Line.startPoint (transform a.Location)
-                                Line.endPoint (transform b.Location)
+                                Line.startPoint ~~a.Location
+                                Line.endPoint ~~b.Location
                                 Line.stroke Brushes.Black
-                                Line.strokeThickness 2.0
+                                Line.strokeThickness (2.0 / scale)   // undo transform
                             ]
                     ]
                 ]
