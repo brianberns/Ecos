@@ -61,6 +61,7 @@ module Model =
             Window.title "Ecos"
             Window.width windowWidth
             Window.height windowHeight
+            Window.background Brushes.WhiteSmoke
             Window.child (
                 Canvas.create [
                     Canvas.renderTransform transformGroup
@@ -95,7 +96,7 @@ type MainWindow() as this =
     do
         Elmish.Program.mkSimple Model.init Model.update Model.view
             |> Program.withHost this
-            |> Program.withConsoleTrace
+            // |> Program.withConsoleTrace
             |> Program.run
 
 type App() =
@@ -103,7 +104,6 @@ type App() =
 
     override this.Initialize() =
         this.Styles.Add (FluentTheme())
-        this.RequestedThemeVariant <- Styling.ThemeVariant.Dark
 
     override this.OnFrameworkInitializationCompleted() =
         match this.ApplicationLifetime with
