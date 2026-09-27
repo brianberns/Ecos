@@ -6,6 +6,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="Point.fs" />
     <Compile Include="BondFluctuationModel.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>

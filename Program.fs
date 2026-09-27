@@ -24,7 +24,7 @@ module Model =
             2, 0
             4, 1
         ]
-            |> Seq.map (Point.ofTuple >> Atom.create)
+            |> Seq.map (Point.create >> Atom.create)
             |> World.initialize
             |> World.addBond 0 1
             |> World.addBond 1 2    
@@ -72,7 +72,7 @@ module Model =
                             Rectangle.create [
                                 Rectangle.width 2.0
                                 Rectangle.height 2.0
-                                let pt = atom.Location - Point.create 1 1
+                                let pt = atom.Location - Point.create (1, 1)
                                 Rectangle.left pt.X
                                 Rectangle.top pt.Y
                                 Rectangle.fill brushes[i % brushes.Length]

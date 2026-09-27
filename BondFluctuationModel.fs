@@ -2,39 +2,6 @@ namespace Ecos
 
 type AtomId = int
 
-[<Struct>]
-type Point =
-    {
-        X : int
-        Y : int
-    }
-
-    static member (+)(a, b) =
-        {
-            X = a.X + b.X
-            Y = a.Y + b.Y
-        }
-
-    static member (-)(a, b) =
-        {
-            X = a.X - b.X
-            Y = a.Y - b.Y
-        }
-
-    static member Abs(pt) =
-        {
-            X = abs pt.X
-            Y = abs pt.Y
-        }
-
-module Point =
-
-    let create x y =
-        { X = x; Y = y }
-
-    let ofTuple (x, y) =
-        create x y
-
 type Atom =
     {
         Location : Point
@@ -71,9 +38,9 @@ module World =
                 let a = world.Atoms[iAtomA]
                 let b = world.Atoms[iAtomB]
                 abs (a.Location - b.Location)
-            Point.create
-                (max diff.X diff.Y)
-                (min diff.X diff.Y)
+            Point.create(
+                max diff.X diff.Y,
+                min diff.X diff.Y)
         match diff.X, diff.Y with
             | 2,0
             | 2,1
@@ -127,7 +94,7 @@ module World =
                 | 6 ->  0, -1
                 | 7 ->  1, -1
                 | _ -> failwith "Unexpected"
-                |> Point.ofTuple
+                |> Point.create
         let atom' =
             { atom with
                 Location = atom.Location + delta }
