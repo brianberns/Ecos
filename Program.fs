@@ -17,13 +17,15 @@ type Message = Tick
 module Model =
 
     let init () =
-        [
-            0, 0
-            2, 0
-            4, 1
-        ]
-            |> Seq.map (Point.create >> Atom.create)
-            |> World.initialize
+        let atoms =
+            [
+                0, 0
+                2, 0
+                4, 1
+            ]
+                |> Seq.map (Point.create >> Atom.create)
+        (atoms, World.empty)
+            ||> Seq.foldBack World.addAtom
             |> World.addBond 0 1
             |> World.addBond 1 2    
 

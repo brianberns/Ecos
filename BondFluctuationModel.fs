@@ -26,11 +26,41 @@ module World =
 
     open System
 
-    let initialize (atoms : seq<_>) =
+    let empty =
         {
-            Atoms = ImmutableArray.ToImmutableArray(atoms)
+            Atoms = ImmutableArray.Empty
             Bonds = Map.empty
         }
+
+    let private testLocation iAtomA iAtomB world =
+        let diff =
+            let diff =
+                let a = world.Atoms[iAtomA]
+                let b = world.Atoms[iAtomB]
+                abs (a.Location - b.Location)
+            Point.create(
+                max diff.X diff.Y,
+                min diff.X diff.Y)
+        match diff.X, diff.Y with
+            | 0, 0
+            | 1, 0
+            | 1, 1 -> false
+            | _ -> true
+
+    let tryAddAtom atom world =
+        let iAtomA = world.Atoms.Length
+        let world' = { world with Atoms = world.Atoms.Add(atom) }
+        let isValid =
+            [ 0 .. world.Atoms.Length - 1 ]
+                |> Seq.forall (fun iAtomB ->
+                    testLocation iAtomA iAtomB world')
+        if isValid then Some world'
+        else None
+
+    let addAtom atom world =
+        match tryAddAtom atom world with
+            | Some world -> world
+            | None -> failwith "Invalid location"
 
     let private testBond iAtomA iAtomB world =
         let diff =
@@ -47,21 +77,6 @@ module World =
             | 2, 2
             | 3, 0 -> true
             | _ -> false
-
-    let private testLocation iAtomA iAtomB world =
-        let diff =
-            let diff =
-                let a = world.Atoms[iAtomA]
-                let b = world.Atoms[iAtomB]
-                abs (a.Location - b.Location)
-            Point.create(
-                max diff.X diff.Y,
-                min diff.X diff.Y)
-        match diff.X, diff.Y with
-            | 0, 0
-            | 1, 0
-            | 1, 1 -> false
-            | _ -> true
 
     let private setBond iAtomA iAtomB bonds =
         let idxs =
