@@ -1,0 +1,69 @@
+namespace Ecos
+
+open Avalonia
+open Avalonia.Controls
+open Avalonia.Controls.Shapes
+open Avalonia.Media
+
+open Avalonia.FuncUI.DSL
+
+module View =
+
+    let private windowWidth = 400.0
+    let private windowHeight = 400.0
+    let private scale = 30.0
+
+    let transformGroup =
+        let group = TransformGroup()
+        group.Children.Add(
+            ScaleTransform(scale, scale))
+        group.Children.Add(
+            TranslateTransform(
+                windowWidth / 2.0,
+                windowHeight / 2.0))
+        group
+
+    let brushes =
+        [
+            Brushes.Red
+            Brushes.Blue
+            Brushes.Green
+        ]
+
+    let private (~~)(ecosPt : Ecos.Point) =
+        Avalonia.Point(ecosPt.X, ecosPt.Y)
+
+    let render world dispatch =
+        Window.create [
+            Window.title "Ecos"
+            Window.width windowWidth
+            Window.height windowHeight
+            Window.background Brushes.WhiteSmoke
+            Window.child (
+                Canvas.create [
+                    Canvas.renderTransform transformGroup
+                    Canvas.renderTransformOrigin RelativePoint.TopLeft   // use world origin as transform origin
+                    Canvas.children [
+
+                        for i, atom in Seq.indexed world.Atoms do
+                            Rectangle.create [
+                                Rectangle.width 2.0
+                                Rectangle.height 2.0
+                                let pt = atom.Location - Point.create (1, 1)
+                                Rectangle.left pt.X
+                                Rectangle.top pt.Y
+                                Rectangle.fill brushes[i % brushes.Length]
+                                Rectangle.useLayoutRounding false   // don't snap to pixels before scaling
+                            ]
+
+                        for a, b in World.getBonds world do
+                            Line.create [
+                                Line.startPoint ~~a.Location
+                                Line.endPoint ~~b.Location
+                                Line.stroke Brushes.Black
+                                Line.strokeThickness (2.0 / scale)   // undo transform
+                            ]
+                    ]
+                ]
+            )
+        ]
