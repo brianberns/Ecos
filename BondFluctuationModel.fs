@@ -42,11 +42,26 @@ module World =
                 max diff.X diff.Y,
                 min diff.X diff.Y)
         match diff.X, diff.Y with
-            | 2,0
-            | 2,1
-            | 2,2
-            | 3,0 -> true
+            | 2, 0
+            | 2, 1
+            | 2, 2
+            | 3, 0 -> true
             | _ -> false
+
+    let private testLocation iAtomA iAtomB world =
+        let diff =
+            let diff =
+                let a = world.Atoms[iAtomA]
+                let b = world.Atoms[iAtomB]
+                abs (a.Location - b.Location)
+            Point.create(
+                max diff.X diff.Y,
+                min diff.X diff.Y)
+        match diff.X, diff.Y with
+            | 0, 0
+            | 1, 0
+            | 1, 1 -> false
+            | _ -> true
 
     let private setBond iAtomA iAtomB bonds =
         let idxs =
@@ -80,9 +95,14 @@ module World =
                     world.Atoms[iAtomA], world.Atoms[iAtomB])
                     idxs)
 
+    /// Allows one atom in the given world to move.
     let update (rng : Random) world =
+
+            // pick atom to move
         let iAtomA = rng.Next(world.Atoms.Length)
         let atom = world.Atoms[iAtomA]
+
+            // pick direction to move in
         let delta =
             match rng.Next(8) with
                 | 0 ->  1,  0
@@ -95,15 +115,28 @@ module World =
                 | 7 ->  1, -1
                 | _ -> failwith "Unexpected"
                 |> Point.create
+
+            // move atom in that direction
         let atom' =
             { atom with
                 Location = atom.Location + delta }
         let world' =
             { world with
                 Atoms = world.Atoms.SetItem(iAtomA, atom') }
-        let isValid =
+
+            // avoids overlap with other atoms?
+        let isValidLocation =
+            [ 0 .. world.Atoms.Length - 1 ]
+                |> Seq.forall (fun iAtomB ->
+                    if iAtomB = iAtomA then true
+                    else
+                        testLocation iAtomA iAtomB world')
+
+            // all bonds are still valid?
+        let isValidBond =
             world'.Bonds[iAtomA]
                 |> Seq.forall (fun iAtomB ->
                     testBond iAtomA iAtomB world')
-        if isValid then world'
+
+        if isValidLocation && isValidBond then world'
         else world
