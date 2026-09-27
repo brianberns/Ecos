@@ -18,16 +18,14 @@ module Model =
 
     let init () =
         let atoms =
-            [
-                0, 0
-                2, 0
-                4, 1
-            ]
-                |> Seq.map (Point.create >> Atom.create)
+            Seq.init 5 (fun i ->
+                Atom.create (Point.create (2 * i, 0)))
         (atoms, World.empty)
             ||> Seq.foldBack World.addAtom
             |> World.addBond 0 1
-            |> World.addBond 1 2    
+            |> World.addBond 1 2
+            |> World.addBond 2 3
+            |> World.addBond 3 4
 
     let rng = System.Random(0)
 
