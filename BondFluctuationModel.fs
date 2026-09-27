@@ -1,5 +1,8 @@
 namespace Ecos
 
+open System
+open System.Collections.Immutable
+
 type AtomId = int
 
 type Atom =
@@ -14,8 +17,6 @@ module Atom =
             Location = location
         }
 
-open System.Collections.Immutable
-
 type World =
     {
         Atoms : ImmutableArray<Atom>
@@ -23,8 +24,6 @@ type World =
     }
 
 module World =
-
-    open System
 
     let empty =
         {
