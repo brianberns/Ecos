@@ -9,6 +9,12 @@ type Point =
         Y : int
     }
 
+    static member (+)(a, b) =
+        {
+            X = a.X + b.X
+            Y = a.Y + b.Y
+        }
+
     static member (-)(a, b) =
         {
             X = a.X - b.X
@@ -41,25 +47,29 @@ module Atom =
             Location = location
         }
 
+open System.Collections.Immutable
+
 type World =
     {
-        Atoms : Atom[]
-        Bonds : Map<AtomId, AtomId>
+        Atoms : ImmutableArray<Atom>
+        Bonds : Map<AtomId, Set<AtomId>>
     }
 
 module World =
 
-    let initialize atoms =
+    open System
+
+    let initialize (atoms : seq<_>) =
         {
-            Atoms = Seq.toArray atoms
+            Atoms = ImmutableArray.ToImmutableArray(atoms)
             Bonds = Map.empty
         }
 
-    let tryAddBond idxA idxB world =
+    let private testBond iAtomA iAtomB world =
         let diff =
             let diff =
-                let a = world.Atoms[idxA]
-                let b = world.Atoms[idxB]
+                let a = world.Atoms[iAtomA]
+                let b = world.Atoms[iAtomB]
                 abs (a.Location - b.Location)
             Point.create
                 (max diff.X diff.Y)
@@ -68,23 +78,65 @@ module World =
             | 2,0
             | 2,1
             | 2,2
-            | 3,0 ->
-                Some {
-                    world with
-                        Bonds =
-                            world.Bonds
-                                |> Map.add idxA idxB
-                                |> Map.add idxB idxA
-                }
-            | _ -> None
+            | 3,0 -> true
+            | _ -> false
 
-    let addBond idxA idxB world =
-        match tryAddBond idxA idxB world with
+    let private setBond iAtomA iAtomB bonds =
+        let idxs =
+            match Map.tryFind iAtomA bonds with
+                | Some idxs -> idxs
+                | None -> Set.empty
+                |> Set.add iAtomB
+        Map.add iAtomA idxs bonds
+
+    let tryAddBond iAtomA iAtomB world =
+        if testBond iAtomA iAtomB world then
+            Some {
+                world with
+                    Bonds =
+                        world.Bonds
+                            |> setBond iAtomA iAtomB
+                            |> setBond iAtomB iAtomA
+            }
+        else None
+
+    let addBond iAtomA iAtomB world =
+        match tryAddBond iAtomA iAtomB world with
             | Some world -> world
             | None -> failwith "Invalid bond"
 
     let getBonds world =
         world.Bonds
             |> Map.toSeq
-            |> Seq.map (fun (idxA, idxB) ->
-                world.Atoms[idxA], world.Atoms[idxB])
+            |> Seq.collect (fun (iAtomA, idxs) ->
+                Seq.map (fun iAtomB ->
+                    world.Atoms[iAtomA], world.Atoms[iAtomB])
+                    idxs)
+
+    let update (rng : Random) world =
+        let iAtomA = rng.Next(world.Atoms.Length)
+        let atom = world.Atoms[iAtomA]
+        let delta =
+            match rng.Next(8) with
+                | 0 ->  1,  0
+                | 1 ->  1,  1
+                | 2 ->  0,  1
+                | 3 -> -1,  1
+                | 4 -> -1,  0
+                | 5 -> -1, -1
+                | 6 ->  0, -1
+                | 7 ->  1, -1
+                | _ -> failwith "Unexpected"
+                |> Point.ofTuple
+        let atom' =
+            { atom with
+                Location = atom.Location + delta }
+        let world' =
+            { world with
+                Atoms = world.Atoms.SetItem(iAtomA, atom') }
+        let isValid =
+            world'.Bonds[iAtomA]
+                |> Seq.forall (fun iAtomB ->
+                    testBond iAtomA iAtomB world')
+        if isValid then world'
+        else world
