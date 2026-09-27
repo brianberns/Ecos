@@ -16,16 +16,21 @@ type Message = Tick
 
 module Model =
 
+    let addAtom (x, y) world =
+        let atom = Atom.create (Point.create (x, y))
+        World.addAtom atom world
+
     let init () =
-        let atoms =
-            Seq.init 5 (fun i ->
-                Atom.create (Point.create (2 * i, 0)))
-        (atoms, World.empty)
-            ||> Seq.foldBack World.addAtom
+        World.empty
+            |> addAtom (0, 0)   // 0
+            |> addAtom (2, 0)   // 1
             |> World.addBond 0 1
+            |> addAtom (4, 0)   // 2
             |> World.addBond 1 2
+            |> addAtom (6, 0)   // 3
             |> World.addBond 2 3
-            |> World.addBond 3 4
+            |> addAtom (4, 2)   // 4
+            |> World.addBond 2 4
 
     let rng = System.Random(0)
 
@@ -35,7 +40,7 @@ module Model =
     let timer onTick =
         let timerSub (dispatch: Message -> unit) =
             let timer = new DispatcherTimer(
-                TimeSpan.FromMilliseconds(10.0),
+                TimeSpan.FromMilliseconds(1.0),
                 DispatcherPriority.Normal,
                 EventHandler(fun _ _ ->
                     dispatch Tick))
