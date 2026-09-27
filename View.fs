@@ -11,7 +11,8 @@ module View =
 
     let private windowWidth = 400.0
     let private windowHeight = 400.0
-    let private scale = 30.0
+    let private scale = 10.0
+    let private bondThickness = 1.0
 
     let transformGroup =
         let group = TransformGroup()
@@ -61,7 +62,7 @@ module View =
                                 Line.startPoint ~~a.Location
                                 Line.endPoint ~~b.Location
                                 Line.stroke Brushes.Black
-                                Line.strokeThickness (2.0 / scale)   // undo transform
+                                Line.strokeThickness (bondThickness / scale)   // undo transform
                             ]
                     ]
                 ]
