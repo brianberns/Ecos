@@ -42,28 +42,18 @@ module World =
         }
 
     /// Gets a normalized point representing the difference
-    /// in position of the given atoms.
-    let private getDiff iAtomA iAtomB world =
-
-            // get position difference
-        let diff =
-            let a = world.Atoms[iAtomA]
-            let b = world.Atoms[iAtomB]
-            a.Location - b.Location
-
-            // normalize so both coords are non-negative
-        let diff = abs diff
-
-            // normalize so first coord is not smaller
-        Point.create(
+    /// in position of the given atom locations.
+    let private getDiff (locA : Point) (locB : Point) =
+        let diff = abs (locA - locB)   // get non-negative position difference
+        Point.create(                  // normalize so first coord is not smaller
             max diff.X diff.Y,
             min diff.X diff.Y)
 
-    /// Determines whether the locations of the given atoms are
-    /// valid. Overlaps are not allowed.
-    let private testLocation iAtomA iAtomB world =
+    /// Determines whether the given atom locations are valid.
+    /// Overlaps are not allowed.
+    let private testLocation locA locB =
 
-        let diff = getDiff iAtomA iAtomB world
+        let diff = getDiff locA locB
 
             // each atom is 2x2, so smaller diffs than that are invalid
         match diff.X, diff.Y with
@@ -74,14 +64,12 @@ module World =
 
     /// Adds the given atom to the given world if it is valid.
     let tryAddAtom atom world =
-        let iAtomA = world.Atoms.Length
-        let world' =
-            { world with Atoms = world.Atoms.Add(atom) }
         let isValid =
-            [ 0 .. world.Atoms.Length - 1 ]
-                |> Seq.forall (fun iAtomB ->
-                    testLocation iAtomA iAtomB world')
-        if isValid then Some world'
+            world.Atoms
+                |> Seq.forall (fun atomB ->
+                    testLocation atom.Location atomB.Location)
+        if isValid then
+            Some  { world with Atoms = world.Atoms.Add(atom) }
         else None
 
     /// Adds the given atom to the given world.
@@ -90,10 +78,10 @@ module World =
             | Some world -> world
             | None -> failwith "Invalid location"
 
-    /// Determines whether a bond between the given atoms is
-    /// valid.
-    let private testBond iAtomA iAtomB world =
-        let diff = getDiff iAtomA iAtomB world
+    /// Determines whether a bond between the given atom locations
+    /// is valid.
+    let private testBond locA locB =
+        let diff = getDiff locA locB
         match diff.X, diff.Y with
             | 2, 0
             | 2, 1
@@ -112,9 +100,13 @@ module World =
         Map.add iAtomA idxs bonds
    
     /// Adds a bond between the given atoms in the given world
-    /// if it is valid.
-    let tryAddBond iAtomA iAtomB world =   // to-do: test for crossed bonds
-        if testBond iAtomA iAtomB world then
+    /// if it is valid. Note that this currently allows crossed
+    /// bonds (which should never occur if the initial state
+    /// contains no crossed bonds).
+    let tryAddBond iAtomA iAtomB world =
+        let atomA = world.Atoms[iAtomA]
+        let atomB = world.Atoms[iAtomB]
+        if testBond atomA.Location atomB.Location then
             Some {
                 world with
                     Bonds =
@@ -148,20 +140,17 @@ module World =
                     | _ -> failwith "Unexpected"
 
             // move atom in that direction
-        let atom' =
+        let atom =
             { atom with
                 Location = atom.Location + delta }
-        let world' =
-            { world with
-                Atoms = world.Atoms.SetItem(iAtomA, atom') }
 
             // avoids overlap with other atoms?
         let isValid =
-            [ 0 .. world.Atoms.Length - 1 ]
-                |> Seq.forall (fun iAtomB ->
+            Seq.indexed world.Atoms
+                |> Seq.forall (fun (iAtomB, atomB) ->
                     if iAtomB = iAtomA then true
                     else
-                        testLocation iAtomA iAtomB world')
+                        testLocation atom.Location atomB.Location)
 
             // all bonds are still valid?
         if isValid then
@@ -170,7 +159,10 @@ module World =
                     |> Map.tryFind iAtomA
                     |> Option.defaultValue Set.empty
                     |> Seq.forall (fun iAtomB ->
-                        testBond iAtomA iAtomB world')
-            if isValid then world'
+                        let atomB = world.Atoms[iAtomB]
+                        testBond atom.Location atomB.Location)
+            if isValid then
+                { world with
+                    Atoms = world.Atoms.SetItem(iAtomA, atom) }
             else world
         else world
