@@ -69,7 +69,7 @@ module World =
                 |> Seq.forall (fun atomB ->
                     testLocation atom.Location atomB.Location)
         if isValid then
-            Some  { world with Atoms = world.Atoms.Add(atom) }
+            Some { world with Atoms = world.Atoms.Add(atom) }
         else None
 
     /// Adds the given atom to the given world.
@@ -101,8 +101,8 @@ module World =
    
     /// Adds a bond between the given atoms in the given world
     /// if it is valid. Note that this currently allows crossed
-    /// bonds (which should never occur if the initial state
-    /// contains no crossed bonds).
+    /// bonds. (Moves cannot create crossings, so a world
+    /// created without bonds will stay that way.)
     let tryAddBond iAtomA iAtomB world =
         let atomA = world.Atoms[iAtomA]
         let atomB = world.Atoms[iAtomB]
