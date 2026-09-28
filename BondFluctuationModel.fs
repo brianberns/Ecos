@@ -3,45 +3,69 @@ namespace Ecos
 open System
 open System.Collections.Immutable
 
-type AtomId = int
+/// Unique index of an atom in a world.
+type AtomIndex = int
 
+/// An indivisbile atom.
 type Atom =
     {
+        /// Location of the atom in the world.
         Location : Point
     }
 
 module Atom =
 
+    /// Creates an atom.
     let create location =
         {
             Location = location
         }
 
+/// A lattice world containing atoms bonded into molecules.
+/// Every atom occupies a 2x2 square.
 type World =
     {
+        /// Atoms in the world.
         Atoms : ImmutableArray<Atom>
-        Bonds : Map<AtomId, Set<AtomId>>
+
+        /// Undirected bonds between atoms in the world.
+        Bonds : Map<AtomIndex, Set<AtomIndex>>
     }
 
 module World =
 
+    /// An empty world.
     let empty =
         {
             Atoms = ImmutableArray.Empty
             Bonds = Map.empty
         }
 
+    /// Gets a normalized point representing the difference
+    /// in position of the given atoms.
     let private getDiff iAtomA iAtomB world =
+
+            // get position difference
         let diff =
             let a = world.Atoms[iAtomA]
             let b = world.Atoms[iAtomB]
-            abs (a.Location - b.Location)
+            a.Location - b.Location
+
+            // normalize so both coords are non-negative
+        let diff = abs diff
+
+            // normalize so first coord is not smaller
         Point.create(
             max diff.X diff.Y,
             min diff.X diff.Y)
 
+    /// Are the locations of the given atoms valid? Overlaps are
+    /// not allowed.
     let private testLocation iAtomA iAtomB world =
+
         let diff = getDiff iAtomA iAtomB world
+
+            // each atom is 2x2, so smaller diffs than that are invalid
         match diff.X, diff.Y with
             | 0, 0
             | 1, 0
