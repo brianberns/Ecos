@@ -148,7 +148,9 @@ module World =
 
             // all bonds are still valid?
         let isValidBond =
-            world'.Bonds[iAtomA]
+            world.Bonds
+                |> Map.tryFind iAtomA
+                |> Option.defaultValue Set.empty
                 |> Seq.forall (fun iAtomB ->
                     testBond iAtomA iAtomB world')
 
