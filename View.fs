@@ -57,7 +57,17 @@ module View =
                                 Rectangle.useLayoutRounding false   // don't snap to pixels before scaling
                             ]
 
-                        for a, b in World.getBonds world do
+                        let bonds =
+                            world.Bonds
+                                |> Map.toSeq
+                                |> Seq.collect (fun (iAtomA, idxs) ->
+                                    Seq.choose (fun iAtomB ->
+                                        if iAtomA < iAtomB then
+                                            Some (world.Atoms[iAtomA], world.Atoms[iAtomB])
+                                        else None)
+                                        idxs)
+
+                        for a, b in bonds do
                             Line.create [
                                 Line.startPoint ~~a.Location
                                 Line.endPoint ~~b.Location

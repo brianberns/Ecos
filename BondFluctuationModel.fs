@@ -101,14 +101,6 @@ module World =
             | Some world -> world
             | None -> failwith "Invalid bond"
 
-    let getBonds world =
-        world.Bonds
-            |> Map.toSeq
-            |> Seq.collect (fun (iAtomA, idxs) ->
-                Seq.map (fun iAtomB ->
-                    world.Atoms[iAtomA], world.Atoms[iAtomB])
-                    idxs)
-
     /// Allows one atom in the given world to move.
     let update (rng : Random) world =
 
