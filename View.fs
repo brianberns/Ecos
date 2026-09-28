@@ -47,14 +47,14 @@ module View =
                     Canvas.children [
 
                         for i, atom in Seq.indexed world.Atoms do
-                            Rectangle.create [
-                                Rectangle.width 2.0
-                                Rectangle.height 2.0
+                            Ellipse.create [
+                                Ellipse.width 2.0
+                                Ellipse.height 2.0
                                 let pt = atom.Location - Point.create (1, 1)
-                                Rectangle.left pt.X
-                                Rectangle.top pt.Y
-                                Rectangle.fill brushes[i % brushes.Length]
-                                Rectangle.useLayoutRounding false   // don't snap to pixels before scaling
+                                Ellipse.left pt.X
+                                Ellipse.top pt.Y
+                                Ellipse.fill brushes[i % brushes.Length]
+                                Ellipse.useLayoutRounding false   // don't snap to pixels before scaling
                             ]
 
                         let bonds =
