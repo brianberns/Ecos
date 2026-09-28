@@ -69,7 +69,9 @@ module World =
             | 2, 0
             | 2, 1
             | 2, 2
-            | 3, 0 -> true
+            | 3, 0
+            | 3, 1
+            | 3, 2 -> true
             | _ -> false
 
     let private setBond iAtomA iAtomB bonds =
@@ -78,8 +80,8 @@ module World =
                 |> Option.defaultValue Set.empty
                 |> Set.add iAtomB
         Map.add iAtomA idxs bonds
-
-    let tryAddBond iAtomA iAtomB world =
+    
+    let tryAddBond iAtomA iAtomB world =   // to-do: test for crossed bonds
         if testBond iAtomA iAtomB world then
             Some {
                 world with
