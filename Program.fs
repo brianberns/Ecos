@@ -34,13 +34,15 @@ module Model =
 
     let rng = System.Random(0)
 
+    /// Attempts to move each atom once.
     let update Tick world =
-        World.update rng world
+        (world, [ 1 .. world.Atoms.Length ])
+            ||> Seq.fold (fun world _ -> World.update rng world)
 
     let timer onTick =
         let timerSub (dispatch: Message -> unit) =
             let timer = new DispatcherTimer(
-                TimeSpan.FromMilliseconds(1.0),
+                TimeSpan.FromSeconds(1.0 / 24.0),
                 DispatcherPriority.Normal,
                 EventHandler(fun _ _ ->
                     dispatch Tick))
