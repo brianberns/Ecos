@@ -31,15 +31,17 @@ module World =
             Bonds = Map.empty
         }
 
-    let private testLocation iAtomA iAtomB world =
+    let private getDiff iAtomA iAtomB world =
         let diff =
-            let diff =
-                let a = world.Atoms[iAtomA]
-                let b = world.Atoms[iAtomB]
-                abs (a.Location - b.Location)
-            Point.create(
-                max diff.X diff.Y,
-                min diff.X diff.Y)
+            let a = world.Atoms[iAtomA]
+            let b = world.Atoms[iAtomB]
+            abs (a.Location - b.Location)
+        Point.create(
+            max diff.X diff.Y,
+            min diff.X diff.Y)
+
+    let private testLocation iAtomA iAtomB world =
+        let diff = getDiff iAtomA iAtomB world
         match diff.X, diff.Y with
             | 0, 0
             | 1, 0
@@ -62,14 +64,7 @@ module World =
             | None -> failwith "Invalid location"
 
     let private testBond iAtomA iAtomB world =
-        let diff =
-            let diff =
-                let a = world.Atoms[iAtomA]
-                let b = world.Atoms[iAtomB]
-                abs (a.Location - b.Location)
-            Point.create(
-                max diff.X diff.Y,
-                min diff.X diff.Y)
+        let diff = getDiff iAtomA iAtomB world
         match diff.X, diff.Y with
             | 2, 0
             | 2, 1
