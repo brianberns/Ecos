@@ -14,7 +14,7 @@ module View =
     let private scale = 10.0
     let private bondThickness = 1.0
 
-    let transformGroup =
+    let private transformGroup =
         let group = TransformGroup()
         group.Children.Add(
             ScaleTransform(scale, scale))
@@ -24,7 +24,7 @@ module View =
                 windowHeight / 2.0))
         group
 
-    let brushes =
+    let private brushes =
         [
             Brushes.Red
             Brushes.Blue
