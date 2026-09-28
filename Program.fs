@@ -34,7 +34,8 @@ module Model =
 
     let rng = System.Random(0)
 
-    /// Attempts to move each atom once.
+    /// Moves N random atoms per tick. Duplicates or omissions are
+    /// possible.
     let update Tick world =
         (world, [ 1 .. world.Atoms.Length ])
             ||> Seq.fold (fun world _ -> World.update rng world)
