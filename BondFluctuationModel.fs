@@ -118,15 +118,11 @@ module World =
 
             // pick direction to move in
         let delta =
-            match rng.Next(8) with
+            match rng.Next(4) with
                 | 0 ->  1,  0
-                | 1 ->  1,  1
-                | 2 ->  0,  1
-                | 3 -> -1,  1
-                | 4 -> -1,  0
-                | 5 -> -1, -1
-                | 6 ->  0, -1
-                | 7 ->  1, -1
+                | 1 ->  0, -1
+                | 2 -> -1,  0
+                | 3 ->  0,  1
                 | _ -> failwith "Unexpected"
                 |> Point.create
 
