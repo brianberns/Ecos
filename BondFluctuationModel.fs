@@ -74,9 +74,8 @@ module World =
 
     let private setBond iAtomA iAtomB bonds =
         let idxs =
-            match Map.tryFind iAtomA bonds with
-                | Some idxs -> idxs
-                | None -> Set.empty
+            Map.tryFind iAtomA bonds
+                |> Option.defaultValue Set.empty
                 |> Set.add iAtomB
         Map.add iAtomA idxs bonds
 
@@ -105,13 +104,13 @@ module World =
 
             // pick direction to move in
         let delta =
-            match rng.Next(4) with
-                | 0 ->  1,  0
-                | 1 ->  0, -1
-                | 2 -> -1,  0
-                | 3 ->  0,  1
-                | _ -> failwith "Unexpected"
-                |> Point.create
+            Point.create <|
+                match rng.Next(4) with
+                    | 0 ->  1,  0
+                    | 1 ->  0, -1
+                    | 2 -> -1,  0
+                    | 3 ->  0,  1
+                    | _ -> failwith "Unexpected"
 
             // move atom in that direction
         let atom' =
