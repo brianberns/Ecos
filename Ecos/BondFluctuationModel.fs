@@ -2,6 +2,11 @@ namespace Ecos
 
 open System
 
+(*
+ * 2D bond fluctuation model.
+ * https://en.wikipedia.org/wiki/Bond_fluctuation_model
+ *)
+
 /// Unique ID of an atom in a world.
 type AtomId = int
 
