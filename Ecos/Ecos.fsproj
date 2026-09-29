@@ -18,8 +18,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="Avalonia.FuncUI\src\Avalonia.FuncUI\Avalonia.FuncUI.fsproj" />
-    <ProjectReference Include="Avalonia.FuncUI\src\Avalonia.FuncUI.Elmish\Avalonia.FuncUI.Elmish.fsproj" />
+    <ProjectReference Include="..\Avalonia.FuncUI\src\Avalonia.FuncUI\Avalonia.FuncUI.fsproj" />
+    <ProjectReference Include="..\Avalonia.FuncUI\src\Avalonia.FuncUI.Elmish\Avalonia.FuncUI.Elmish.fsproj" />
   </ItemGroup>
 
 </Project>
