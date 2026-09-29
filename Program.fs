@@ -20,17 +20,22 @@ module Model =
         let atom = Atom.create (Point.create (x, y))
         World.addAtom atom world
 
+    let private addMolecule y world =
+        let n = world.AtomMap.Count
+        world
+            |> addAtom (0, y)       // 0
+            |> addAtom (2, y)       // 1
+            |> World.addBond (n + 0) (n + 1)
+            |> addAtom (4, y)       // 2
+            |> World.addBond (n + 1) (n + 2)
+            |> addAtom (6, y)       // 3
+            |> World.addBond (n + 2) (n + 3)
+            |> addAtom (4, y + 2)   // 4
+            |> World.addBond (n + 2) (n + 4)
+
     let init () =
-        World.empty
-            |> addAtom (0, 0)   // 0
-            |> addAtom (2, 0)   // 1
-            |> World.addBond 0 1
-            |> addAtom (4, 0)   // 2
-            |> World.addBond 1 2
-            |> addAtom (6, 0)   // 3
-            |> World.addBond 2 3
-            |> addAtom (4, 2)   // 4
-            |> World.addBond 2 4
+        ([ -12 .. 4 .. 12 ], World.empty)
+            ||> Seq.foldBack addMolecule
 
     let rng = System.Random(0)
 
