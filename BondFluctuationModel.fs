@@ -46,10 +46,10 @@ module World =
         }
 
     /// Gets a normalized point representing the difference
-    /// in position of the given atom locations.
-    let private getDiff (locA : Point) (locB : Point) =
-        let diff = abs (locA - locB)   // get non-negative position difference
-        Point.create(                  // normalize so first coord is not smaller
+    /// in location of the given atoms.
+    let private getDiff atomA atomB =
+        let diff = abs (atomA.Location - atomB.Location)   // get non-negative location difference
+        Point.create(                                      // normalize so first coord is not smaller
             max diff.X diff.Y,
             min diff.X diff.Y)
 
@@ -86,10 +86,10 @@ module World =
             | Some world -> world
             | None -> failwith "Invalid location"
 
-    /// Determines whether a bond between the given atom locations
+    /// Determines whether a bond between the given atoms
     /// is valid.
-    let private testBond locA locB =
-        let diff = getDiff locA locB
+    let private testBond atomA atomB =
+        let diff = getDiff atomA atomB
         match diff.X, diff.Y with
             | 2, 0
             | 2, 1
@@ -114,7 +114,7 @@ module World =
     let tryAddBond idA idB world =
         let atomA = world.AtomMap[idA]
         let atomB = world.AtomMap[idB]
-        if testBond atomA.Location atomB.Location then
+        if testBond atomA atomB then
             Some {
                 world with
                     BondMap =
@@ -162,7 +162,7 @@ module World =
                     |> Option.defaultValue Set.empty
                     |> Seq.forall (fun idB ->
                         let atomB = world.AtomMap[idB]
-                        testBond atom'.Location atomB.Location)
+                        testBond atom' atomB)
             if isValid then
                 assert(world.OccupancyMap[atom.Location] = idA)
                 {
