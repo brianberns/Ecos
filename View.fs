@@ -60,14 +60,14 @@ module View =
                         let bonds =
                             world.BondMap
                                 |> Map.toSeq
-                                |> Seq.collect (fun (iAtomA, idxs) ->
-                                    Seq.choose (fun iAtomB ->
-                                        if iAtomA < iAtomB then
+                                |> Seq.collect (fun (idA, ids) ->
+                                    Seq.choose (fun idB ->
+                                        if idA < idB then
                                             Some (
-                                                world.AtomMap[iAtomA],
-                                                world.AtomMap[iAtomB])
+                                                world.AtomMap[idA],
+                                                world.AtomMap[idB])
                                         else None)
-                                        idxs)
+                                        ids)
 
                         for a, b in bonds do
                             Line.create [

@@ -31,7 +31,7 @@ type World =
         /// Undirected bonds between atoms in the world.
         BondMap : Map<AtomId, Set<AtomId>>
 
-        /// Maps each atom's location to its index.
+        /// Maps each atom's location to its ID.
         OccupancyMap : Map<Point, AtomId>
     }
 
