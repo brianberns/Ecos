@@ -46,7 +46,7 @@ module View =
                     Canvas.renderTransformOrigin RelativePoint.TopLeft   // use world origin as transform origin
                     Canvas.children [
 
-                        for i, atom in Seq.indexed world.Atoms do
+                        for i, atom in Map.toSeq world.AtomMap do
                             Ellipse.create [
                                 Ellipse.width 2.0
                                 Ellipse.height 2.0
@@ -58,12 +58,14 @@ module View =
                             ]
 
                         let bonds =
-                            world.Bonds
+                            world.BondMap
                                 |> Map.toSeq
                                 |> Seq.collect (fun (iAtomA, idxs) ->
                                     Seq.choose (fun iAtomB ->
                                         if iAtomA < iAtomB then
-                                            Some (world.Atoms[iAtomA], world.Atoms[iAtomB])
+                                            Some (
+                                                world.AtomMap[iAtomA],
+                                                world.AtomMap[iAtomB])
                                         else None)
                                         idxs)
 

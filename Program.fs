@@ -37,7 +37,7 @@ module Model =
     /// Moves N random atoms per tick. Duplicates or omissions are
     /// possible.
     let update Tick world =
-        (world, [ 1 .. world.Atoms.Length ])
+        (world, [ 1 .. world.AtomMap.Count ])
             ||> Seq.fold (fun world _ -> World.update rng world)
 
     let timer onTick =

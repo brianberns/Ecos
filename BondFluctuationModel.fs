@@ -1,10 +1,9 @@
 namespace Ecos
 
 open System
-open System.Collections.Immutable
 
-/// Unique index of an atom in a world.
-type AtomIndex = int
+/// Unique ID of an atom in a world.
+type AtomId = int
 
 /// An indivisible atom.
 type Atom =
@@ -26,14 +25,14 @@ module Atom =
 /// location on the lattice.
 type World =
     {
-        /// Atoms in the world.
-        Atoms : ImmutableArray<Atom>
+        /// Atoms in the world, mapped by their IDs.
+        AtomMap : Map<AtomId, Atom>
 
         /// Undirected bonds between atoms in the world.
-        Bonds : Map<AtomIndex, Set<AtomIndex>>
+        BondMap : Map<AtomId, Set<AtomId>>
 
         /// Maps each atom's location to its index.
-        OccupancyMap : Map<Point, AtomIndex>
+        OccupancyMap : Map<Point, AtomId>
     }
 
 module World =
@@ -41,8 +40,8 @@ module World =
     /// An empty world.
     let empty =
         {
-            Atoms = ImmutableArray.Empty
-            Bonds = Map.empty
+            AtomMap = Map.empty
+            BondMap = Map.empty
             OccupancyMap = Map.empty
         }
 
@@ -55,7 +54,8 @@ module World =
             min diff.X diff.Y)
 
     /// Determines whether the given location is available.
-    let private isAvailable (loc : Point) iAtomOpt world =
+    let private isAvailable
+        (loc : Point) (idOpt : Option<AtomId>) world =
         seq {
             for dx = -1 to 1 do
                 for dy = -1 to 1 do
@@ -64,23 +64,19 @@ module World =
             |> Seq.forall (fun neighbor ->
                 world.OccupancyMap
                     |> Map.tryFind neighbor
-                    |> Option.map (fun iAtom -> Some iAtom = iAtomOpt)   // an atom can occupy its own location
+                    |> Option.map (fun id -> Some id = idOpt)   // an atom can occupy its own location
                     |> Option.defaultValue true)
 
     /// Adds the given atom to the given world if it is valid.
     let tryAddAtom atom world =
         if isAvailable atom.Location None world then
-            assert(
-                world.OccupancyMap
-                    |> Map.tryFind atom.Location
-                    |> Option.isNone)
-            let iAtom = world.Atoms.Length
+            let id = world.AtomMap.Count
             Some {
                 world with
-                    Atoms = world.Atoms.Add(atom)
+                    AtomMap =
+                        Map.add id atom world.AtomMap
                     OccupancyMap =
-                        world.OccupancyMap
-                            |> Map.add atom.Location iAtom
+                        Map.add atom.Location id world.OccupancyMap
             }
         else None
 
@@ -104,33 +100,33 @@ module World =
             | _ -> false
 
     /// Creates a unidirectional bond between the given atoms.
-    let private createBond iAtomA iAtomB bonds =
-        let idxs =
-            Map.tryFind iAtomA bonds
+    let private createBond idA idB bonds =
+        let ids =
+            Map.tryFind idA bonds
                 |> Option.defaultValue Set.empty
-                |> Set.add iAtomB
-        Map.add iAtomA idxs bonds
+                |> Set.add idB
+        Map.add idA ids bonds
    
     /// Adds a bond between the given atoms in the given world
     /// if it is valid. Note that this currently allows crossed
     /// bonds. (Moves cannot create crossings, so a world
     /// created without crossed bonds will stay that way.)
-    let tryAddBond iAtomA iAtomB world =
-        let atomA = world.Atoms[iAtomA]
-        let atomB = world.Atoms[iAtomB]
+    let tryAddBond idA idB world =
+        let atomA = world.AtomMap[idA]
+        let atomB = world.AtomMap[idB]
         if testBond atomA.Location atomB.Location then
             Some {
                 world with
-                    Bonds =
-                        world.Bonds
-                            |> createBond iAtomA iAtomB
-                            |> createBond iAtomB iAtomA
+                    BondMap =
+                        world.BondMap
+                            |> createBond idA idB
+                            |> createBond idB idA
             }
         else None
 
     /// Adds a bond between the given atoms in the given world.
-    let addBond iAtomA iAtomB world =
-        match tryAddBond iAtomA iAtomB world with
+    let addBond idA idB world =
+        match tryAddBond idA idB world with
             | Some world -> world
             | None -> failwith "Invalid bond"
 
@@ -138,8 +134,8 @@ module World =
     let update (rng : Random) world =
 
             // pick atom to move
-        let iAtomA = rng.Next(world.Atoms.Length)
-        let atom = world.Atoms[iAtomA]
+        let idA = rng.Next(world.AtomMap.Count)
+        let atom = world.AtomMap[idA]
 
             // pick direction to move in
         let delta =
@@ -157,25 +153,27 @@ module World =
                 Location = atom.Location + delta }
 
             // avoids overlap with other atoms? (to-do: check only the leading edge)
-        if isAvailable atom'.Location (Some iAtomA) world then
+        if isAvailable atom'.Location (Some idA) world then
 
                 // all bonds are still valid?
             let isValid =
-                world.Bonds
-                    |> Map.tryFind iAtomA
+                world.BondMap
+                    |> Map.tryFind idA
                     |> Option.defaultValue Set.empty
-                    |> Seq.forall (fun iAtomB ->
-                        let atomB = world.Atoms[iAtomB]
+                    |> Seq.forall (fun idB ->
+                        let atomB = world.AtomMap[idB]
                         testBond atom'.Location atomB.Location)
             if isValid then
-                assert(world.OccupancyMap[atom.Location] = iAtomA)
+                assert(world.OccupancyMap[atom.Location] = idA)
                 {
                     world with
-                        Atoms = world.Atoms.SetItem(iAtomA, atom')
+                        AtomMap =
+                            world.AtomMap
+                                |> Map.add idA atom'
                         OccupancyMap =
                             world.OccupancyMap
                                 |> Map.remove atom.Location
-                                |> Map.add atom'.Location iAtomA
+                                |> Map.add atom'.Location idA
                 }
             else world
         else world
