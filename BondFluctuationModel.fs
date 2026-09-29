@@ -70,7 +70,7 @@ module World =
     /// Adds the given atom to the given world if it is valid.
     let tryAddAtom atom world =
         if isAvailable atom.Location None world then
-            let id = world.AtomMap.Count
+            let id = world.AtomMap.Count   // assume for now that atoms are never removed
             Some {
                 world with
                     AtomMap =
@@ -134,7 +134,7 @@ module World =
     let update (rng : Random) world =
 
             // pick atom to move
-        let idA = rng.Next(world.AtomMap.Count)
+        let idA = rng.Next(world.AtomMap.Count)   // assume for now that atoms are never removed
         let atom = world.AtomMap[idA]
 
             // pick direction to move in
