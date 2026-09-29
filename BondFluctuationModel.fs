@@ -6,7 +6,7 @@ open System.Collections.Immutable
 /// Unique index of an atom in a world.
 type AtomIndex = int
 
-/// An indivisbile atom.
+/// An indivisble atom.
 type Atom =
     {
         /// Location of the atom in the world.
@@ -32,7 +32,7 @@ type World =
         /// Undirected bonds between atoms in the world.
         Bonds : Map<AtomIndex, Set<AtomIndex>>
 
-        /// Map of occupied lattice locations.
+        /// Maps each atom's location to its index.
         OccupancyMap : Map<Point, AtomIndex>
     }
 
@@ -118,7 +118,7 @@ module World =
     /// Adds a bond between the given atoms in the given world
     /// if it is valid. Note that this currently allows crossed
     /// bonds. (Moves cannot create crossings, so a world
-    /// created without bonds will stay that way.)
+    /// created without crossed bonds will stay that way.)
     let tryAddBond iAtomA iAtomB world =
         let atomA = world.Atoms[iAtomA]
         let atomB = world.Atoms[iAtomB]
