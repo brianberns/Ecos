@@ -11,7 +11,7 @@ module View =
 
     let private windowWidth = 400.0
     let private windowHeight = 400.0
-    let private scale = 10.0
+    let private scale = 5.0
     let private bondThickness = 1.0
 
     let private transformGroup =

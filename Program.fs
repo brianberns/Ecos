@@ -23,14 +23,14 @@ module Model =
     let private addMolecule y world =
         let n = world.AtomMap.Count
         world
-            |> addAtom (0, y)       // 0
-            |> addAtom (2, y)       // 1
+            |> addAtom (-4, y)       // 0
+            |> addAtom (-2, y)       // 1
             |> World.addBond (n + 0) (n + 1)
-            |> addAtom (4, y)       // 2
+            |> addAtom (0, y)        // 2
             |> World.addBond (n + 1) (n + 2)
-            |> addAtom (6, y)       // 3
+            |> addAtom (2, y)        // 3
             |> World.addBond (n + 2) (n + 3)
-            |> addAtom (4, y + 2)   // 4
+            |> addAtom (0, y + 2)    // 4
             |> World.addBond (n + 2) (n + 4)
 
     let init () =
