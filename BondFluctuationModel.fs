@@ -162,11 +162,11 @@ module World =
 
             // avoids overlap with other atoms? (to-do: check only the leading edge)
         let isValid =
-            [
+            seq {
                 for dx in [ -1 .. 1 ] do
                     for dy in [ -1 .. 1 ] do
                         atom'.Location + Point.create (dx, dy)
-            ]
+            }
                 |> Seq.forall (fun loc ->
                     world.OccupancyMap
                         |> Map.tryFind loc
