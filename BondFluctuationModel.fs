@@ -6,7 +6,7 @@ open System.Collections.Immutable
 /// Unique index of an atom in a world.
 type AtomIndex = int
 
-/// An indivisble atom.
+/// An indivisible atom.
 type Atom =
     {
         /// Location of the atom in the world.
@@ -54,26 +54,22 @@ module World =
             max diff.X diff.Y,
             min diff.X diff.Y)
 
-    /// Determines whether the given atom locations are valid.
-    /// Overlaps are not allowed.
-    let private testLocation locA locB =
-
-        let diff = getDiff locA locB
-
-            // each atom is 2x2, so smaller diffs than that are invalid
-        match diff.X, diff.Y with
-            | 0, 0
-            | 1, 0
-            | 1, 1 -> false
-            | _ -> true
+    /// Determines whether the given location is available.
+    let private isAvailable (loc : Point) iAtomOpt world =
+        seq {
+            for dx = -1 to 1 do
+                for dy = -1 to 1 do
+                    loc + Point.create (dx, dy)
+        }
+            |> Seq.forall (fun neighbor ->
+                world.OccupancyMap
+                    |> Map.tryFind neighbor
+                    |> Option.map (fun iAtom -> Some iAtom = iAtomOpt)   // an atom can occupy its own location
+                    |> Option.defaultValue true)
 
     /// Adds the given atom to the given world if it is valid.
     let tryAddAtom atom world =
-        let isValid =
-            world.Atoms
-                |> Seq.forall (fun atomB ->
-                    testLocation atom.Location atomB.Location)                    
-        if isValid then
+        if isAvailable atom.Location None world then
             assert(
                 world.OccupancyMap
                     |> Map.tryFind atom.Location
@@ -161,27 +157,9 @@ module World =
                 Location = atom.Location + delta }
 
             // avoids overlap with other atoms? (to-do: check only the leading edge)
-        let isValid =
-            seq {
-                for dx in [ -1 .. 1 ] do
-                    for dy in [ -1 .. 1 ] do
-                        atom'.Location + Point.create (dx, dy)
-            }
-                |> Seq.forall (fun loc ->
-                    world.OccupancyMap
-                        |> Map.tryFind loc
-                        |> Option.map ((=) iAtomA)
-                        |> Option.defaultValue true)
-        assert(
-            Seq.indexed world.Atoms
-                |> Seq.forall (fun (iAtomB, atomB) ->
-                    if iAtomB = iAtomA then true
-                    else
-                        testLocation atom'.Location atomB.Location)
-                = isValid)
+        if isAvailable atom'.Location (Some iAtomA) world then
 
-            // all bonds are still valid?
-        if isValid then
+                // all bonds are still valid?
             let isValid =
                 world.Bonds
                     |> Map.tryFind iAtomA
