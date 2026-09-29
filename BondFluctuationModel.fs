@@ -22,7 +22,8 @@ module Atom =
         }
 
 /// A lattice world containing atoms bonded into molecules.
-/// Every atom occupies a 2x2 square.
+/// Every atom occupies a 2x2 square around its central
+/// location on the lattice.
 type World =
     {
         /// Atoms in the world.
@@ -30,6 +31,9 @@ type World =
 
         /// Undirected bonds between atoms in the world.
         Bonds : Map<AtomIndex, Set<AtomIndex>>
+
+        /// Map of occupied lattice locations.
+        OccupancyMap : Map<Point, AtomIndex>
     }
 
 module World =
@@ -39,6 +43,7 @@ module World =
         {
             Atoms = ImmutableArray.Empty
             Bonds = Map.empty
+            OccupancyMap = Map.empty
         }
 
     /// Gets a normalized point representing the difference
@@ -67,9 +72,20 @@ module World =
         let isValid =
             world.Atoms
                 |> Seq.forall (fun atomB ->
-                    testLocation atom.Location atomB.Location)
+                    testLocation atom.Location atomB.Location)                    
         if isValid then
-            Some { world with Atoms = world.Atoms.Add(atom) }
+            assert(
+                world.OccupancyMap
+                    |> Map.tryFind atom.Location
+                    |> Option.isNone)
+            let iAtom = world.Atoms.Length
+            Some {
+                world with
+                    Atoms = world.Atoms.Add(atom)
+                    OccupancyMap =
+                        world.OccupancyMap
+                            |> Map.add atom.Location iAtom
+            }
         else None
 
     /// Adds the given atom to the given world.
@@ -139,18 +155,30 @@ module World =
                     | 3 ->  0,  1
                     | _ -> failwith "Unexpected"
 
-            // move atom in that direction
-        let atom =
+            // move atom in that direction provisionally
+        let atom' =
             { atom with
                 Location = atom.Location + delta }
 
-            // avoids overlap with other atoms?
+            // avoids overlap with other atoms? (to-do: check only the leading edge)
         let isValid =
+            [
+                for dx in [ -1 .. 1 ] do
+                    for dy in [ -1 .. 1 ] do
+                        atom'.Location + Point.create (dx, dy)
+            ]
+                |> Seq.forall (fun loc ->
+                    world.OccupancyMap
+                        |> Map.tryFind loc
+                        |> Option.map ((=) iAtomA)
+                        |> Option.defaultValue true)
+        assert(
             Seq.indexed world.Atoms
                 |> Seq.forall (fun (iAtomB, atomB) ->
                     if iAtomB = iAtomA then true
                     else
-                        testLocation atom.Location atomB.Location)
+                        testLocation atom'.Location atomB.Location)
+                = isValid)
 
             // all bonds are still valid?
         if isValid then
@@ -160,9 +188,16 @@ module World =
                     |> Option.defaultValue Set.empty
                     |> Seq.forall (fun iAtomB ->
                         let atomB = world.Atoms[iAtomB]
-                        testBond atom.Location atomB.Location)
+                        testBond atom'.Location atomB.Location)
             if isValid then
-                { world with
-                    Atoms = world.Atoms.SetItem(iAtomA, atom) }
+                assert(world.OccupancyMap[atom.Location] = iAtomA)
+                {
+                    world with
+                        Atoms = world.Atoms.SetItem(iAtomA, atom')
+                        OccupancyMap =
+                            world.OccupancyMap
+                                |> Map.remove atom.Location
+                                |> Map.add atom'.Location iAtomA
+                }
             else world
         else world
