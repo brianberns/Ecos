@@ -51,12 +51,13 @@ module Model =
 
     /// Subscribable timer.
     let timer Tick : Subscribe<_> =
-        let timerSub (dispatch: Message -> unit) =
-            let timer = new DispatcherTimer(
-                TimeSpan.FromSeconds(1.0 / 24.0),
-                DispatcherPriority.Normal,
-                EventHandler(fun _ _ ->
-                    dispatch Tick))
+        let timerSub dispatch =
+            let timer =
+                new DispatcherTimer(
+                    TimeSpan.FromSeconds(1.0 / 24.0),
+                    DispatcherPriority.Normal,
+                    EventHandler(fun _ _ ->
+                        dispatch Tick))
             timer.Start()
             { new IDisposable with
                 member _.Dispose() = timer.Stop() }
