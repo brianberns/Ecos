@@ -3,6 +3,7 @@ namespace Ecos
 open Avalonia
 open Avalonia.Controls
 open Avalonia.Controls.Shapes
+open Avalonia.Layout
 open Avalonia.Media
 
 open Avalonia.FuncUI.DSL
@@ -73,12 +74,25 @@ module View =
         ]
 
     let renderTemperature kT dispatch =
-        Slider.create [
-            Slider.minimum 0.0
-            Slider.maximum 5.0
-            Slider.value kT
-            Slider.onValueChanged (fun value ->
-                SetTemperature value |> dispatch)
+        DockPanel.create [
+            DockPanel.dock Dock.Bottom
+            DockPanel.children [
+                TextBlock.create [
+                    TextBlock.dock Dock.Left
+                    TextBlock.text $"Temperature: %0.3f{kT}"
+                    TextBlock.foreground Colors.Black
+                    TextBlock.verticalAlignment VerticalAlignment.Center
+                    TextBlock.padding 20
+                ]
+                Slider.create [
+                    Slider.dock Dock.Left
+                    Slider.minimum 0.0
+                    Slider.maximum 5.0
+                    Slider.value kT
+                    Slider.onValueChanged (fun value ->
+                        SetTemperature value |> dispatch)
+                ]
+            ]
         ]
 
     let render model dispatch =
@@ -89,10 +103,10 @@ module View =
             Window.height windowHeight
             Window.background Brushes.WhiteSmoke
             Window.child (
-                StackPanel.create [
-                    StackPanel.children [
-                        renderWorld model.World
+                DockPanel.create [
+                    DockPanel.children [
                         renderTemperature model.Temperature dispatch
+                        renderWorld model.World   // last child fills
                     ]
                 ])
         ]

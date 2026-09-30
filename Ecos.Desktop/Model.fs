@@ -28,10 +28,10 @@ module Model =
     let init () =
         let rng = Random(0)
         let world =
-            let n = 60
+            let n = 45
             (World.empty, [ 0 .. n - 1 ])
                 ||> Seq.fold (fun world id ->
-                    let loc = Point.create (2 * id - n / 2, 0)
+                    let loc = Point.create (2 * id - n, 0)
                     let atomType =
                         match rng.Next(2) with
                             | 0 -> Hydrophobic
@@ -50,7 +50,7 @@ module Model =
 
     let updateTick model =
         let world =
-            let n = 20 * model.World.AtomMap.Count
+            let n = 25 * model.World.AtomMap.Count
             (model.World, [ 1 .. n ])
                 ||> Seq.fold (fun world _ ->
                     World.update
