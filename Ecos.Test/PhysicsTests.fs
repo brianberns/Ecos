@@ -21,6 +21,12 @@ module PhysicsTests =
     /// self-avoiding walk, whose size scales as R ~ N^nu, where
     /// nu = 3/4 exactly in 2D. (A random walk that can cross itself
     /// would give 1/2, and a rigid rod 1.)
+    ///
+    /// Note that chains are grown already in equilibrium, and the
+    /// sweeps below are far shorter than a long chain's relaxation
+    /// time. So this mainly checks the excluded-volume and bond rules
+    /// (via Chain.grow), not World.update. The trimer test below checks
+    /// that World.update itself reaches equilibrium.
     [<Fact>]
     let ``Chain size scales with the 2D Flory exponent`` () =
 
@@ -44,6 +50,68 @@ module PhysicsTests =
             // that push the estimate slightly above 3/4, hence the tolerance.
         let nu = Stats.logLogSlope points / 2.0
         Assert.InRange(nu, 0.70, 0.80)
+
+    /// Equilibrium: update's moves are symmetric and are accepted only
+    /// when valid, so in the long run every valid conformation is
+    /// equally likely. For a three-atom chain we can enumerate all
+    /// conformations exactly, and compare that against simulations
+    /// started far from equilibrium (a straight rod).
+    [<Fact>]
+    let ``Trimer samples all conformations uniformly`` () =
+
+            // exact number of conformations for each end-to-end vector
+        let exact =
+            [
+                for b1 in Chain.bondVectors do
+                    for b2 in Chain.bondVectors do
+                        let e = b1 + b2
+                        if abs e.X >= 2 || abs e.Y >= 2 then   // end atoms don't overlap
+                            e
+            ]
+                |> List.countBy id
+                |> Map.ofList
+        let nConformations = exact.Values |> Seq.sum
+
+            // sample end-to-end vectors from independent simulations
+        let nRuns, nSamples = 8, 5000
+        let burnIn, sampleInterval = 200, 50   // sweeps; the interval keeps samples roughly uncorrelated
+        let samples =
+            Array.Parallel.init nRuns (fun iRun ->
+                let rng = Random(iRun)
+                let mutable world =
+                    World.empty
+                        |> World.addAtom (Atom.create (Point.create (0, 0)))
+                        |> World.addAtom (Atom.create (Point.create (3, 0)))
+                        |> World.addAtom (Atom.create (Point.create (6, 0)))
+                        |> World.addBond 0 1
+                        |> World.addBond 1 2
+                world <- Chain.sweeps rng burnIn world
+                Array.init nSamples (fun _ ->
+                    world <- Chain.sweeps rng sampleInterval world
+                    world.AtomMap[2].Location - world.AtomMap[0].Location))
+                |> Array.concat
+        let observed = samples |> Array.countBy id |> Map.ofArray
+
+            // every sample is a valid conformation
+        for e in observed.Keys do
+            Assert.True(exact.ContainsKey e, $"Invalid end-to-end vector {e}")
+
+            // chi-squared goodness of fit against the uniform distribution
+        let chi2 =
+            exact
+                |> Map.toSeq
+                |> Seq.sumBy (fun (e, count) ->
+                    let expected =
+                        float samples.Length * float count / float nConformations
+                    let obs =
+                        observed
+                            |> Map.tryFind e
+                            |> Option.defaultValue 0
+                            |> float
+                    (obs - expected) ** 2.0 / expected)
+        let df = float (exact.Count - 1)
+        let limit = df + 5.0 * sqrt (2.0 * df)   // mean + 5 standard deviations
+        Assert.True(chi2 < limit, $"chi^2 = {chi2:F1}, limit {limit:F1} (df = {df})")
 
     /// Centre-of-mass mean squared displacement (MSD) at various lags,
     /// for each chain length. Shared by the diffusion tests.

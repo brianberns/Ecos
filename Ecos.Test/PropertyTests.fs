@@ -3,6 +3,7 @@ namespace Ecos.Test
 open System
 open FsCheck.FSharp
 open FsCheck.Xunit
+open Xunit
 open Ecos
 
 /// Fuzz tests of the model's rules, checked against independent
@@ -50,6 +51,73 @@ module PropertyTests =
 
         noOverlaps && bondsValid && occupancyConsistent
 
+    /// Unit steps an atom can attempt.
+    let private directions =
+        [ 1, 0; 0, -1; -1, 0; 0, 1 ]
+            |> List.map Point.create
+
+    /// Oracle: all valid moves in the given world, as (atom ID, step)
+    /// pairs. A move is valid if the moved atom overlaps no other atom
+    /// and all of its bonds remain allowed.
+    let private validMoves (world : World) =
+        [
+            for KeyValue(id, atom) in world.AtomMap do
+                for delta in directions do
+                    let loc = atom.Location + delta
+                    let clear =
+                        world.AtomMap
+                            |> Map.forall (fun idB atomB ->
+                                idB = id || not (overlaps loc atomB.Location))
+                    let bondsOk =
+                        world.BondMap
+                            |> Map.tryFind id
+                            |> Option.defaultValue Set.empty
+                            |> Set.forall (fun idB ->
+                                isBondVector (world.AtomMap[idB].Location - loc))
+                    if clear && bondsOk then
+                        id, delta
+        ]
+
+    /// Sign of the cross product (b - a) x (c - a).
+    let private orientation (a : Point) (b : Point) (c : Point) =
+        sign ((b.X - a.X) * (c.Y - a.Y) - (b.Y - a.Y) * (c.X - a.X))
+
+    /// Is point p within the bounding box of segment ab?
+    let private inBox (a : Point) (b : Point) (p : Point) =
+        min a.X b.X <= p.X && p.X <= max a.X b.X
+            && min a.Y b.Y <= p.Y && p.Y <= max a.Y b.Y
+
+    /// Oracle: do closed segments ab and cd intersect (including
+    /// touching)?
+    let private segmentsIntersect a b c d =
+        let o1 = orientation a b c
+        let o2 = orientation a b d
+        let o3 = orientation c d a
+        let o4 = orientation c d b
+        (o1 * o2 < 0 && o3 * o4 < 0)
+            || (o1 = 0 && inBox a b c)
+            || (o2 = 0 && inBox a b d)
+            || (o3 = 0 && inBox c d a)
+            || (o4 = 0 && inBox c d b)
+
+    /// All pairs of bonds that intersect, excluding pairs that share
+    /// an atom.
+    let private crossings (world : World) =
+        let bonds =
+            [
+                for KeyValue(idA, ids) in world.BondMap do
+                    for idB in ids do
+                        if idA < idB then idA, idB
+            ]
+        let loc id = world.AtomMap[id].Location
+        set [
+            for i, (a, b) in List.indexed bonds do
+                for c, d in List.skip (i + 1) bonds do
+                    if a <> c && a <> d && b <> c && b <> d
+                        && segmentsIntersect (loc a) (loc b) (loc c) (loc d) then
+                        (a, b), (c, d)
+        ]
+
     /// Adding atoms one by one: each is accepted if and only if it
     /// doesn't overlap any atom already present.
     [<Property>]
@@ -83,8 +151,15 @@ module PropertyTests =
                     |> World.addAtom (Atom.create v)
             (World.tryAddBond 0 1 world).IsSome = isBondVector v)
 
-    /// Each update moves at most one atom, by a single lattice step
-    /// along an axis, and leaves the world valid.
+    /// Moves made by a single update, as (atom ID, step) pairs.
+    let private movesBetween (world : World) (world' : World) =
+        Map.toList world.AtomMap
+            |> List.choose (fun (id, atom) ->
+                let d = world'.AtomMap[id].Location - atom.Location
+                if d = Point.create (0, 0) then None else Some (id, d))
+
+    /// Each update makes at most one move, which must be valid, and
+    /// leaves the world valid.
     [<Property>]
     let ``update makes a single valid step`` (length : int) (seed : int) (nSteps : int) =
         let length = 2 + abs (length % 20)
@@ -94,16 +169,99 @@ module PropertyTests =
         let mutable ok = isValid world
         for _ in 1 .. abs (nSteps % 500) do
             let world' = World.update rng world
-            let moved =
-                Map.toList world.AtomMap
-                    |> List.choose (fun (id, atom) ->
-                        let d = world'.AtomMap[id].Location - atom.Location
-                        if d = Point.create (0, 0) then None else Some d)
             let stepOk =
-                match moved with
+                match movesBetween world world' with
                     | [] -> true
-                    | [ d ] -> abs d.X + abs d.Y = 1
+                    | [ move ] -> List.contains move (validMoves world)
                     | _ -> false
             ok <- ok && stepOk && world'.BondMap = bonds && isValid world'
             world <- world'
+        ok
+
+    /// Valid moves are actually made: an update picks an atom and a
+    /// direction uniformly, so it should move with probability
+    /// (number of valid moves) / (4 N). Over many updates, the number
+    /// of moves made must match the sum of those probabilities. This
+    /// catches an update that wrongly rejects valid moves, which the
+    /// test above cannot.
+    [<Fact>]
+    let ``update makes valid moves at the expected rate`` () =
+        for length in [ 1; 2; 5; 20 ] do
+            let rng = Random(length)
+            let mutable world = Chain.grow rng length
+            let mutable expected, variance, actual = 0.0, 0.0, 0
+            for _ in 1 .. 20000 do
+                let p =
+                    float (validMoves world).Length / float (4 * length)
+                expected <- expected + p
+                variance <- variance + p * (1.0 - p)
+                let world' = World.update rng world
+                if not (List.isEmpty (movesBetween world world')) then
+                    actual <- actual + 1
+                world <- world'
+            let tolerance = 5.0 * sqrt variance + 0.5   // 5 standard deviations
+            Assert.True(
+                abs (float actual - expected) <= tolerance,
+                $"N = {length}: {actual} moves, expected {expected:F1} ± {tolerance:F1}")
+
+    /// Topology, exhaustively: atom A (at the origin) is bonded to B
+    /// and steps to A'; C and D are bonded to each other. For every
+    /// such local configuration that the model accepts both before and
+    /// after the step, bond AB must intersect bond CD before the step
+    /// if and only if A'B intersects CD after it.
+    ///
+    /// A single-atom move is valid exactly when the resulting world is
+    /// valid, so the model's own tryAddAtom and tryAddBond decide which
+    /// configurations count. C ranges over every location from which
+    /// bond CD could reach the region swept by the moving bond.
+    [<Fact>]
+    let ``No single move can carry one bond across another`` () =
+
+            // world with bond A-B and bond C-D, if the model allows it
+        let tryBuild a b c d =
+            Some World.empty
+                |> Option.bind (World.tryAddAtom (Atom.create a))
+                |> Option.bind (World.tryAddAtom (Atom.create b))
+                |> Option.bind (World.tryAddAtom (Atom.create c))
+                |> Option.bind (World.tryAddAtom (Atom.create d))
+                |> Option.bind (World.tryAddBond 0 1)
+                |> Option.bind (World.tryAddBond 2 3)
+
+        let a = Point.create (0, 0)
+        let mutable nChecked, nCrossed = 0, 0
+        for bondAB in Chain.bondVectors do
+            let b = a + bondAB
+            for cx in -7 .. 7 do
+                for cy in -7 .. 7 do
+                    let c = Point.create (cx, cy)
+                    for bondCD in Chain.bondVectors do
+                        let d = c + bondCD
+                        if (tryBuild a b c d).IsSome then
+                            let before = segmentsIntersect a b c d
+                            for delta in directions do
+                                let a' = a + delta
+                                if (tryBuild a' b c d).IsSome then
+                                    nChecked <- nChecked + 1
+                                    if before then nCrossed <- nCrossed + 1
+                                    if segmentsIntersect a' b c d <> before then
+                                        Assert.Fail(
+                                            $"A {a} -> {a'}, B {b}, C {c}, D {d}: crossing changed")
+
+            // make sure the check isn't vacuous
+        Assert.True(nChecked > 100000, $"Only {nChecked} configurations checked")
+        Assert.True(nCrossed > 0, "No crossed configurations checked")
+
+    /// Topology: a single step can never carry one bond across another,
+    /// so updates must leave the set of intersecting bond pairs
+    /// unchanged (including any crossings present at the start).
+    [<Property>]
+    let ``update never changes which bonds cross`` (length : int) (seed : int) (nSteps : int) =
+        let length = 4 + abs (length % 30)
+        let rng = Random(seed)
+        let mutable world = Chain.grow rng length
+        let initial = crossings world
+        let mutable ok = true
+        for _ in 1 .. abs (nSteps % 1000) do
+            world <- World.update rng world
+            ok <- ok && crossings world = initial
         ok
