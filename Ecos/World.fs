@@ -48,8 +48,7 @@ module World =
         |]
 
     /// Determines whether the given location is available.
-    let private isAvailable
-        (loc : Point) (idOpt : Option<AtomId>) world =
+    let private isAvailable (loc : Point) idOpt world =
         neighborhood
             |> Seq.forall (fun delta ->
                 world.OccupancyMap
