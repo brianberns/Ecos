@@ -168,7 +168,7 @@ module PropertyTests =
         let bonds = world.BondMap
         let mutable ok = isValid world
         for _ in 1 .. abs (nSteps % 500) do
-            let world' = World.update rng world
+            let world' = World.update Chain.athermalKT rng world
             let stepOk =
                 match movesBetween world world' with
                     | [] -> true
@@ -195,7 +195,7 @@ module PropertyTests =
                     float (validMoves world).Length / float (4 * length)
                 expected <- expected + p
                 variance <- variance + p * (1.0 - p)
-                let world' = World.update rng world
+                let world' = World.update Chain.athermalKT rng world
                 if not (List.isEmpty (movesBetween world world')) then
                     actual <- actual + 1
                 world <- world'
@@ -262,6 +262,6 @@ module PropertyTests =
         let initial = crossings world
         let mutable ok = true
         for _ in 1 .. abs (nSteps % 1000) do
-            world <- World.update rng world
+            world <- World.update Chain.athermalKT rng world
             ok <- ok && crossings world = initial
         ok

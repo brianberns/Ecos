@@ -41,7 +41,7 @@ module PhysicsTests =
                             let rng = Random(1000 * n + iChain)
                             let mutable world = Chain.grow rng n
                             Array.init nSamples (fun _ ->
-                                world <- Chain.sweeps rng sampleInterval world
+                                world <- Chain.sweeps Chain.athermalKT rng sampleInterval world
                                 Chain.radiusOfGyrationSquared world))
                     float n, Array.average (Array.concat rg2s)
             ]
@@ -51,15 +51,30 @@ module PhysicsTests =
         let nu = Stats.logLogSlope points / 2.0
         Assert.InRange(nu, 0.70, 0.80)
 
-    /// Equilibrium: update's moves are symmetric and are accepted only
-    /// when valid, so in the long run every valid conformation is
-    /// equally likely. For a three-atom chain we can enumerate all
-    /// conformations exactly, and compare that against simulations
-    /// started far from equilibrium (a straight rod).
-    [<Fact>]
-    let ``Trimer samples all conformations uniformly`` () =
+    /// Oracle: contact energy between atoms of the given types. This
+    /// is an independent statement of World's interaction table:
+    /// hydrophobic atoms attract each other, and nothing else
+    /// interacts.
+    let private contactEnergy typeA typeB =
+        match typeA, typeB with
+            | Hydrophobic, Hydrophobic -> -1.0
+            | _ -> 0.0
 
-            // exact number of conformations for each end-to-end vector
+    /// Equilibrium: update's moves are symmetric, and are accepted
+    /// only when valid and then with the Metropolis probability, so in
+    /// the long run each conformation's probability is proportional to
+    /// its Boltzmann factor exp(-E/kT).
+    ///
+    /// For a three-atom chain we can enumerate all conformations
+    /// exactly. The only possible contact is between the two end atoms
+    /// (the middle atom is bonded to both), and they are in contact
+    /// when their separation is (2, 0), (2, 1), or (2, 2), i.e. when
+    /// |e|^2 <= 8 for end-to-end vector e. We compare the exact
+    /// distribution of e against simulations started far from
+    /// equilibrium (a straight rod).
+    let private checkTrimer (typeA, typeB, typeC) kT =
+
+            // exact Boltzmann weight of each end-to-end vector
         let exact =
             [
                 for b1 in Chain.bondVectors do
@@ -69,8 +84,14 @@ module PhysicsTests =
                             e
             ]
                 |> List.countBy id
+                |> List.map (fun (e, count) ->
+                    let energy =
+                        if e.X * e.X + e.Y * e.Y <= 8 then
+                            contactEnergy typeA typeC
+                        else 0.0
+                    e, float count * exp (-energy / kT))
                 |> Map.ofList
-        let nConformations = exact.Values |> Seq.sum
+        let totalWeight = exact.Values |> Seq.sum
 
             // sample end-to-end vectors from independent simulations
         let nRuns, nSamples = 8, 5000
@@ -78,16 +99,18 @@ module PhysicsTests =
         let samples =
             Array.Parallel.init nRuns (fun iRun ->
                 let rng = Random(iRun)
+                let atom typ (x, y) =
+                    { Type = typ; Location = Point.create (x, y) }
                 let mutable world =
                     World.empty
-                        |> World.addAtom (Atom.create (Point.create (0, 0)))
-                        |> World.addAtom (Atom.create (Point.create (3, 0)))
-                        |> World.addAtom (Atom.create (Point.create (6, 0)))
+                        |> World.addAtom (atom typeA (0, 0))
+                        |> World.addAtom (atom typeB (3, 0))
+                        |> World.addAtom (atom typeC (6, 0))
                         |> World.addBond 0 1
                         |> World.addBond 1 2
-                world <- Chain.sweeps rng burnIn world
+                world <- Chain.sweeps kT rng burnIn world
                 Array.init nSamples (fun _ ->
-                    world <- Chain.sweeps rng sampleInterval world
+                    world <- Chain.sweeps kT rng sampleInterval world
                     world.AtomMap[2].Location - world.AtomMap[0].Location))
                 |> Array.concat
         let observed = samples |> Array.countBy id |> Map.ofArray
@@ -96,13 +119,13 @@ module PhysicsTests =
         for e in observed.Keys do
             Assert.True(exact.ContainsKey e, $"Invalid end-to-end vector {e}")
 
-            // chi-squared goodness of fit against the uniform distribution
+            // chi-squared goodness of fit against the Boltzmann distribution
         let chi2 =
             exact
                 |> Map.toSeq
-                |> Seq.sumBy (fun (e, count) ->
+                |> Seq.sumBy (fun (e, weight) ->
                     let expected =
-                        float samples.Length * float count / float nConformations
+                        float samples.Length * weight / totalWeight
                     let obs =
                         observed
                             |> Map.tryFind e
@@ -112,6 +135,26 @@ module PhysicsTests =
         let df = float (exact.Count - 1)
         let limit = df + 5.0 * sqrt (2.0 * df)   // mean + 5 standard deviations
         Assert.True(chi2 < limit, $"chi^2 = {chi2:F1}, limit {limit:F1} (df = {df})")
+
+    /// Athermal limit: with no interactions, every valid conformation
+    /// is equally likely.
+    [<Fact>]
+    let ``Trimer samples all conformations uniformly`` () =
+        checkTrimer (Polar, Polar, Polar) Chain.athermalKT
+
+    /// Attraction: sticky ends spend more time in contact, by exactly
+    /// the Boltzmann factor.
+    [<Fact>]
+    let ``Trimer with sticky ends follows the Boltzmann distribution`` () =
+        checkTrimer (Hydrophobic, Polar, Hydrophobic) 0.5
+
+    /// Consistency: a hydrophobic end and a polar end don't interact,
+    /// so the ends must sample uniformly, even though a hydrophobic
+    /// atom is moving. This fails if a contact's energy depends on
+    /// which of the two atoms moves.
+    [<Fact>]
+    let ``Trimer with one sticky end samples uniformly`` () =
+        checkTrimer (Hydrophobic, Hydrophobic, Polar) 0.5
 
     /// Centre-of-mass mean squared displacement (MSD) at various lags,
     /// for each chain length. Shared by the diffusion tests.
@@ -129,7 +172,7 @@ module PhysicsTests =
                             let mutable world = Chain.grow rng n
                             Array.init (nFrames + 1) (fun iFrame ->
                                 if iFrame > 0 then
-                                    world <- Chain.sweeps rng frameInterval world
+                                    world <- Chain.sweeps Chain.athermalKT rng frameInterval world
                                 Chain.centerOfMass world))
 
                         // MSD averaged over chains and over all time origins

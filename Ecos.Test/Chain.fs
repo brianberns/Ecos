@@ -80,18 +80,25 @@ module Chain =
                 | Some world -> world
                 | None -> grow rng n
 
-    /// Performs one Monte Carlo sweep: N attempted moves for N atoms.
-    let sweep rng (world : World) =
+    /// Temperature for tests of the athermal model. Atoms created by
+    /// the Atom.create helper above are Polar, and Polar atoms
+    /// interact with nothing, so every move has zero energy change
+    /// and the value doesn't matter.
+    let athermalKT = 1.0
+
+    /// Performs one Monte Carlo sweep at the given temperature: N
+    /// attempted moves for N atoms.
+    let sweep kT rng (world : World) =
         let mutable world = world
         for _ in 1 .. world.AtomMap.Count do
-            world <- World.update rng world
+            world <- World.update kT rng world
         world
 
-    /// Performs the given number of sweeps.
-    let sweeps rng count world =
+    /// Performs the given number of sweeps at the given temperature.
+    let sweeps kT rng count world =
         let mutable world = world
         for _ in 1 .. count do
-            world <- sweep rng world
+            world <- sweep kT rng world
         world
 
     /// Atom locations as floating-point (x, y) pairs, in ID order.
