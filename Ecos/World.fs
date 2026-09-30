@@ -7,12 +7,15 @@ open System
  * https://en.wikipedia.org/wiki/Bond_fluctuation_model
  *)
 
-/// Unique ID of an atom in a world.
-type AtomId = int
+/// Atom type.
+type AtomType = H
 
 /// An indivisible atom.
 type Atom =
     {
+        /// Atom type.
+        Type : AtomType
+
         /// Location of the atom in the world.
         Location : Point
     }
@@ -22,8 +25,12 @@ module Atom =
     /// Creates an atom.
     let create location =
         {
+            Type = H
             Location = location
         }
+
+/// Unique ID of an atom in a world.
+type AtomId = int
 
 /// A lattice world containing atoms bonded into molecules.
 /// Every atom occupies a 2x2 square around its central
@@ -49,14 +56,6 @@ module World =
             BondMap = Map.empty
             OccupancyMap = Map.empty
         }
-
-    /// Gets a normalized point representing the difference
-    /// in location of the given atoms.
-    let private getDiff atomA atomB =
-        let diff = abs (atomA.Location - atomB.Location)   // get non-negative location difference
-        Point.create(                                      // normalize so first coord is not smaller
-            max diff.X diff.Y,
-            min diff.X diff.Y)
 
     /// Determines whether the given location is available.
     let private isAvailable
@@ -94,8 +93,8 @@ module World =
     /// Determines whether a bond between the given atoms
     /// is valid.
     let private testBond atomA atomB =
-        let diff = getDiff atomA atomB
-        match diff.X, diff.Y with
+        let diff = abs (atomA.Location - atomB.Location)   // get non-negative location difference
+        match max diff.X diff.Y, min diff.X diff.Y with
             | 2, 0
             | 2, 1
             | 2, 2
