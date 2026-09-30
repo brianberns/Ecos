@@ -1,6 +1,7 @@
 <Solution>
   <Project Path="Avalonia.FuncUI/src/Avalonia.FuncUI.Elmish/Avalonia.FuncUI.Elmish.fsproj" />
   <Project Path="Avalonia.FuncUI/src/Avalonia.FuncUI/Avalonia.FuncUI.fsproj" />
-  <Project Path="Ecos/Ecos.fsproj" />
+  <Project Path="Ecos.Desktop/Ecos.Desktop.fsproj" />
   <Project Path="Ecos.Test/Ecos.Test.fsproj" />
+  <Project Path="Ecos/Ecos.fsproj" />
 </Solution>
