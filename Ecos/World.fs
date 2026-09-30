@@ -12,7 +12,11 @@ type AtomId = int
 
 /// A lattice world containing atoms bonded into molecules.
 /// Every atom occupies a 2x2 square around its central
-/// location on the lattice.
+/// location on the lattice, so in the drawing below, the
+/// ╋ symbol indicates the location of the atom:
+///    ┏━┳━┓
+///    ┣━╋━┫
+///    ┗━┻━┛
 type World =
     {
         /// Atoms in the world, mapped by their IDs.
@@ -112,6 +116,68 @@ module World =
             | Some world -> world
             | None -> failwith "Invalid bond"
 
+    /// Chooses a random cardinal direction.
+    let private getRandomDirection (rng : Random) =
+        Point.create <|
+            match rng.Next(4) with
+                | 0 ->  1,  0
+                | 1 ->  0, -1
+                | 2 -> -1,  0
+                | 3 ->  0,  1
+                | _ -> failwith "Unexpected"
+
+    /// Answers the IDs of all atoms bonded with the given atom.
+    let private getBonds id world =
+        let ids =
+            world.BondMap
+                |> Map.tryFind id
+                |> Option.defaultValue Set.empty
+        assert(
+            Seq.forall (fun idB ->
+                world.BondMap[idB].Contains(id))
+                ids)
+        ids
+
+    /// Determines whether the given atoms are in contact (but not
+    /// bonded).
+    let private testContact idA idB world =
+
+        let impl idA idB =
+            let ids = getBonds idA world
+            if ids.Contains(idB) then false
+            else
+                let atomA = world.AtomMap[idA]
+                let atomB = world.AtomMap[idB]
+                let diff = abs (atomA.Location - atomB.Location)
+                diff.X * diff.X + diff.Y * diff.Y <= 8   // separation (2, 0), (2, 1), or (2, 2)
+
+        let result = impl idA idB
+        assert(impl idB idA = result)
+        result
+
+    /// Interactions between atom types.
+    /// * Negative: attraction
+    /// * Positive: repulsion
+    /// * Zero: no interaction
+    let private interactionTable =
+        Map [
+            (Hydrophobic, Hydrophobic), -1
+            (Hydrophobic, Polar), 0
+            (Polar, Hydrophobic), 0
+            (Polar, Polar), 0
+        ]
+
+    /// Computes the total energy of the given world.
+    let private getEnergy world =
+        let pairs = Map.toSeq world.AtomMap
+        seq {
+            for idA, atomA in pairs do
+                for idB, atomB in pairs do
+                    if idB > idA then
+                        if testContact idA idB world then
+                            interactionTable[atomA.Type, atomB.Type]
+        } |> Seq.sum
+
     /// Allows one atom in the given world to move.
     let update (rng : Random) world =
 
@@ -120,14 +186,7 @@ module World =
         let atom = world.AtomMap[idA]
 
             // pick direction to move in
-        let delta =
-            Point.create <|
-                match rng.Next(4) with
-                    | 0 ->  1,  0
-                    | 1 ->  0, -1
-                    | 2 -> -1,  0
-                    | 3 ->  0,  1
-                    | _ -> failwith "Unexpected"
+        let delta = getRandomDirection rng
 
             // move atom in that direction provisionally
         let atom' =
@@ -139,13 +198,14 @@ module World =
 
                 // all bonds are still valid?
             let isValid =
-                world.BondMap
-                    |> Map.tryFind idA
-                    |> Option.defaultValue Set.empty
+                world
+                    |> getBonds idA
                     |> Seq.forall (fun idB ->
                         let atomB = world.AtomMap[idB]
                         testBond atom' atomB)
             if isValid then
+
+                    // move the atom permanently
                 assert(world.OccupancyMap[atom.Location] = idA)
                 {
                     world with
@@ -157,5 +217,6 @@ module World =
                                 |> Map.remove atom.Location
                                 |> Map.add atom'.Location idA
                 }
+
             else world
         else world
