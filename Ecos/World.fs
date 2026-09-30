@@ -39,17 +39,21 @@ module World =
             OccupancyMap = Map.empty
         }
 
+    /// Moore neighborhood, including center.
+    let private neighborhood =
+        [|
+            for dx = -1 to 1 do
+                for dy = -1 to 1 do
+                    Point.create (dx, dy)
+        |]
+
     /// Determines whether the given location is available.
     let private isAvailable
         (loc : Point) (idOpt : Option<AtomId>) world =
-        seq {
-            for dx = -1 to 1 do
-                for dy = -1 to 1 do
-                    loc + Point.create (dx, dy)
-        }
-            |> Seq.forall (fun neighbor ->
+        neighborhood
+            |> Seq.forall (fun delta ->
                 world.OccupancyMap
-                    |> Map.tryFind neighbor
+                    |> Map.tryFind (loc + delta)
                     |> Option.map (fun id -> Some id = idOpt)   // an atom can occupy its own location
                     |> Option.defaultValue true)
 
