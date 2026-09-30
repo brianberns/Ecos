@@ -181,6 +181,14 @@ module World =
                         else interactionTable[atom.Type, atomB.Type])
                     |> Option.defaultValue 0)
 
+    /// Gets the energy level of the given world.
+    let getEnergy world =
+        world.AtomMap
+            |> Map.toSeq
+            |> Seq.sumBy (fun (id, atom) ->
+                getLocalEnergy id atom world)
+            |> fun energy -> energy / 2   // local energy counts each contact twice
+
     /// Applies the Metropolis rule to the given atom:
     /// * A move that lowers the energy, or leaves it unchanged,
     ///   is always accepted.

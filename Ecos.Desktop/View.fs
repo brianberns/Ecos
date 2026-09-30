@@ -82,7 +82,7 @@ module View =
                     TextBlock.text $"Temperature: %0.3f{kT}"
                     TextBlock.foreground Colors.Black
                     TextBlock.verticalAlignment VerticalAlignment.Center
-                    TextBlock.padding 20
+                    TextBlock.padding 10
                 ]
                 Slider.create [
                     Slider.dock Dock.Left
@@ -95,6 +95,14 @@ module View =
             ]
         ]
 
+    let renderEnergy world =
+        TextBlock.create [
+            TextBlock.dock Dock.Bottom
+            TextBlock.text $"Energy: {World.getEnergy world}"
+            TextBlock.foreground Colors.Black
+            TextBlock.padding 10
+        ]
+
     let render model dispatch =
         let world = model.World
         Window.create [
@@ -105,6 +113,7 @@ module View =
             Window.child (
                 DockPanel.create [
                     DockPanel.children [
+                        renderEnergy model.World
                         renderTemperature model.Temperature dispatch
                         renderWorld model.World   // last child fills
                     ]
