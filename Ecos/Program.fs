@@ -34,7 +34,8 @@ module Model =
             |> World.addBond (n + 2) (n + 4)
 
     let init () =
-        ([ -12 .. 4 .. 12 ], World.empty)
+        let n = 8
+        ([ -4 * n .. 4 .. 4 * n ], World.empty)
             ||> Seq.foldBack addMolecule
 
     let rng = System.Random(0)
