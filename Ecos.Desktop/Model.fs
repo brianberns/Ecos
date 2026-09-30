@@ -8,6 +8,7 @@ type Model =
     {
         World : World
         Temperature : float   // kT
+        EnergyAvg : float
         Random : Random
     }
 
@@ -39,6 +40,7 @@ module Model =
         {
             World = world
             Temperature = 1.0
+            EnergyAvg = World.getEnergy world
             Random = rng
         }
 
@@ -51,7 +53,16 @@ module Model =
                         model.Temperature
                         model.Random
                         world)
-        { model with World = world }
+        let energyAvg =
+            model.EnergyAvg
+                + 0.01 * (
+                    float (World.getEnergy world)
+                        - model.EnergyAvg)
+        {
+            model with
+                World = world
+                EnergyAvg = energyAvg
+        }
 
     /// Moves N random atoms per tick. Duplicates or omissions are
     /// possible.

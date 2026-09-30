@@ -95,10 +95,10 @@ module View =
             ]
         ]
 
-    let renderEnergy world =
+    let renderEnergy energy =
         TextBlock.create [
             TextBlock.dock Dock.Bottom
-            TextBlock.text $"Energy: {World.getEnergy world}"
+            TextBlock.text $"Avg. energy: %0.1f{energy}"
             TextBlock.foreground Colors.Black
             TextBlock.padding 10
         ]
@@ -113,7 +113,7 @@ module View =
             Window.child (
                 DockPanel.create [
                     DockPanel.children [
-                        renderEnergy model.World
+                        renderEnergy model.EnergyAvg
                         renderTemperature model.Temperature dispatch
                         renderWorld model.World   // last child fills
                     ]
