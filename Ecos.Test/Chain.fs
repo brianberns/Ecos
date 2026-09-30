@@ -1,3 +1,11 @@
+namespace Ecos
+
+module Atom =
+
+    /// Helper for creating monotype atoms.
+    let create loc =
+        Ecos.Atom.create Polar loc
+
 namespace Ecos.Test
 
 open System

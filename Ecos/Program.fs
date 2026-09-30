@@ -17,7 +17,7 @@ type Message = Tick
 module Model =
 
     let addAtom (x, y) world =
-        let atom = Atom.create (Point.create (x, y))
+        let atom = Atom.create Hydrophobic (Point.create (x, y))
         World.addAtom atom world
 
     let private addMolecule y world =

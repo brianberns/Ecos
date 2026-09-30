@@ -7,28 +7,6 @@ open System
  * https://en.wikipedia.org/wiki/Bond_fluctuation_model
  *)
 
-/// Atom type.
-type AtomType = H
-
-/// An indivisible atom.
-type Atom =
-    {
-        /// Atom type.
-        Type : AtomType
-
-        /// Location of the atom in the world.
-        Location : Point
-    }
-
-module Atom =
-
-    /// Creates an atom.
-    let create location =
-        {
-            Type = H
-            Location = location
-        }
-
 /// Unique ID of an atom in a world.
 type AtomId = int
 
