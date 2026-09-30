@@ -34,6 +34,45 @@ module View =
     let private (~~)(ecosPt : Ecos.Point) =
         Avalonia.Point(ecosPt.X, ecosPt.Y)
 
+    let renderWorld world =
+        Canvas.create [
+            Canvas.renderTransform transformGroup
+            Canvas.renderTransformOrigin RelativePoint.TopLeft   // use world origin as transform origin
+            Canvas.children [
+
+                for i, atom in Map.toSeq world.AtomMap do
+                    Ellipse.create [
+                        Ellipse.width 2.0
+                        Ellipse.height 2.0
+                        let pt = atom.Location - Point.create (1, 1)
+                        Ellipse.left pt.X
+                        Ellipse.top pt.Y
+                        Ellipse.fill brushes[i % brushes.Length]
+                        Ellipse.useLayoutRounding false   // don't snap to pixels before scaling
+                    ]
+
+                let bonds =
+                    world.BondMap
+                        |> Map.toSeq
+                        |> Seq.collect (fun (idA, ids) ->
+                            Seq.choose (fun idB ->
+                                if idA < idB then
+                                    Some (
+                                        world.AtomMap[idA],
+                                        world.AtomMap[idB])
+                                else None)
+                                ids)
+
+                for a, b in bonds do
+                    Line.create [
+                        Line.startPoint ~~a.Location
+                        Line.endPoint ~~b.Location
+                        Line.stroke Brushes.Black
+                        Line.strokeThickness (bondThickness / scale)   // undo transform
+                    ]
+            ]
+        ]
+
     let render model dispatch =
         let world = model.World
         Window.create [
@@ -41,43 +80,5 @@ module View =
             Window.width windowWidth
             Window.height windowHeight
             Window.background Brushes.WhiteSmoke
-            Window.child (
-                Canvas.create [
-                    Canvas.renderTransform transformGroup
-                    Canvas.renderTransformOrigin RelativePoint.TopLeft   // use world origin as transform origin
-                    Canvas.children [
-
-                        for i, atom in Map.toSeq world.AtomMap do
-                            Ellipse.create [
-                                Ellipse.width 2.0
-                                Ellipse.height 2.0
-                                let pt = atom.Location - Point.create (1, 1)
-                                Ellipse.left pt.X
-                                Ellipse.top pt.Y
-                                Ellipse.fill brushes[i % brushes.Length]
-                                Ellipse.useLayoutRounding false   // don't snap to pixels before scaling
-                            ]
-
-                        let bonds =
-                            world.BondMap
-                                |> Map.toSeq
-                                |> Seq.collect (fun (idA, ids) ->
-                                    Seq.choose (fun idB ->
-                                        if idA < idB then
-                                            Some (
-                                                world.AtomMap[idA],
-                                                world.AtomMap[idB])
-                                        else None)
-                                        ids)
-
-                        for a, b in bonds do
-                            Line.create [
-                                Line.startPoint ~~a.Location
-                                Line.endPoint ~~b.Location
-                                Line.stroke Brushes.Black
-                                Line.strokeThickness (bondThickness / scale)   // undo transform
-                            ]
-                    ]
-                ]
-            )
+            Window.child (renderWorld model.World)
         ]
