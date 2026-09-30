@@ -21,10 +21,6 @@ type Message =
 
 module Model =
 
-    let addAtom (x, y) world =
-        let atom = Atom.create Hydrophobic (Point.create (x, y))
-        World.addAtom atom world
-
     let init () =
         let rng = Random(0)
         let world =
