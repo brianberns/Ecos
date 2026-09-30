@@ -178,6 +178,22 @@ module World =
                             interactionTable[atomA.Type, atomB.Type]
         } |> Seq.sum
 
+    /// Updates the given atom's location in the given
+    /// world.
+    let private moveAtom id atomBefore atomAfter world =
+        assert(world.AtomMap[id] = atomBefore)
+        assert(world.OccupancyMap[atomBefore.Location] = id)
+        {
+            world with
+                AtomMap =
+                    world.AtomMap
+                        |> Map.add id atomAfter   // replaces `atomBefore`
+                OccupancyMap =
+                    world.OccupancyMap
+                        |> Map.remove atomBefore.Location
+                        |> Map.add atomAfter.Location id
+        }
+
     /// Allows one atom in the given world to move.
     let update (rng : Random) world =
 
@@ -196,27 +212,16 @@ module World =
             // avoids overlap with other atoms? (to-do: check only the leading edge)
         if isAvailable atom'.Location (Some idA) world then
 
-                // all bonds are still valid?
+                // all of the atom's bonds are still valid?
             let isValid =
-                world
-                    |> getBonds idA
+                getBonds idA world
                     |> Seq.forall (fun idB ->
                         let atomB = world.AtomMap[idB]
                         testBond atom' atomB)
             if isValid then
 
                     // move the atom permanently
-                assert(world.OccupancyMap[atom.Location] = idA)
-                {
-                    world with
-                        AtomMap =
-                            world.AtomMap
-                                |> Map.add idA atom'
-                        OccupancyMap =
-                            world.OccupancyMap
-                                |> Map.remove atom.Location
-                                |> Map.add atom'.Location idA
-                }
+                moveAtom idA atom atom' world
 
             else world
         else world
