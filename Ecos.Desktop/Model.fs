@@ -8,9 +8,16 @@ type Model =
     {
         World : World
         Temperature : float   // kT
+        Random : Random
     }
 
-type Message = Tick
+type Message =
+
+    /// Timer tick.
+    | Tick
+
+    /// Sets temperature.
+    | SetTemperature of float
 
 module Model =
 
@@ -18,42 +25,49 @@ module Model =
         let atom = Atom.create Hydrophobic (Point.create (x, y))
         World.addAtom atom world
 
-    let private addMolecule y world =
-        let n = world.AtomMap.Count
-        world
-            |> addAtom (-4, y)       // 0
-            |> addAtom (-2, y)       // 1
-            |> World.addBond (n + 0) (n + 1)
-            |> addAtom (0, y)        // 2
-            |> World.addBond (n + 1) (n + 2)
-            |> addAtom (2, y)        // 3
-            |> World.addBond (n + 2) (n + 3)
-            |> addAtom (0, y + 2)    // 4
-            |> World.addBond (n + 2) (n + 4)
-
     let init () =
+        let rng = Random(0)
         let world =
-            let n = 8
-            ([ -4 * n .. 4 .. 4 * n ], World.empty)
-                ||> Seq.foldBack addMolecule
+            let n = 60
+            (World.empty, [ 0 .. n - 1 ])
+                ||> Seq.fold (fun world id ->
+                    let loc = Point.create (2 * id - n / 2, 0)
+                    let atomType =
+                        match rng.Next(2) with
+                            | 0 -> Hydrophobic
+                            | 1 -> Polar
+                            | _ -> failwith "Unexpected"
+                    let atom = Atom.create atomType loc
+                    let world = World.addAtom atom world
+                    if id > 0 then
+                        World.addBond (id - 1) id world
+                    else world)
         {
             World = world
             Temperature = 1.0
+            Random = rng
         }
 
-    let rng = System.Random(0)
+    let updateTick model =
+        let world =
+            let n = 20 * model.World.AtomMap.Count
+            (model.World, [ 1 .. n ])
+                ||> Seq.fold (fun world _ ->
+                    World.update
+                        model.Temperature
+                        model.Random
+                        world)
+        { model with World = world }
 
     /// Moves N random atoms per tick. Duplicates or omissions are
     /// possible.
-    let update Tick model =
-        let world =
-            (model.World, [ 1 .. model.World.AtomMap.Count ])
-                ||> Seq.fold (fun world _ ->
-                    World.update model.Temperature rng world)
-        { model with World = world }
+    let update msg model =
+        match msg with
+            | Tick -> updateTick model
+            | SetTemperature kT -> { model with Temperature = kT }
 
     /// Subscribable timer.
-    let timer Tick : Subscribe<_> =
+    let timer : Subscribe<_> =
         let timerSub dispatch =
             let timer =
                 new DispatcherTimer(
@@ -68,4 +82,4 @@ module Model =
 
     /// Timer subscription.
     let subscribe world : Sub<_> =
-        [ ["timer"], timer Tick ]
+        [ ["timer"], timer ]

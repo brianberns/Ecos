@@ -9,8 +9,8 @@ open Avalonia.FuncUI.DSL
 
 module View =
 
-    let private windowWidth = 800.0
-    let private windowHeight = 800.0
+    let private windowWidth = 1000.0
+    let private windowHeight = 400.0
     let private scale = 5.0
     let private bondThickness = 1.0
 
@@ -24,11 +24,10 @@ module View =
                 windowHeight / 2.0))
         group
 
-    let private brushes =
-        [
-            Brushes.Red
-            Brushes.Blue
-            Brushes.Green
+    let private brushMap =
+        Map [
+            Hydrophobic, Brushes.Red
+            Polar, Brushes.Blue
         ]
 
     let private (~~)(ecosPt : Ecos.Point) =
@@ -47,7 +46,7 @@ module View =
                         let pt = atom.Location - Point.create (1, 1)
                         Ellipse.left pt.X
                         Ellipse.top pt.Y
-                        Ellipse.fill brushes[i % brushes.Length]
+                        Ellipse.fill brushMap[atom.Type]
                         Ellipse.useLayoutRounding false   // don't snap to pixels before scaling
                     ]
 
@@ -73,6 +72,15 @@ module View =
             ]
         ]
 
+    let renderTemperature kT dispatch =
+        Slider.create [
+            Slider.minimum 0.0
+            Slider.maximum 5.0
+            Slider.value kT
+            Slider.onValueChanged (fun value ->
+                SetTemperature value |> dispatch)
+        ]
+
     let render model dispatch =
         let world = model.World
         Window.create [
@@ -80,5 +88,11 @@ module View =
             Window.width windowWidth
             Window.height windowHeight
             Window.background Brushes.WhiteSmoke
-            Window.child (renderWorld model.World)
+            Window.child (
+                StackPanel.create [
+                    StackPanel.children [
+                        renderWorld model.World
+                        renderTemperature model.Temperature dispatch
+                    ]
+                ])
         ]
