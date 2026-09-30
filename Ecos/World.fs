@@ -39,17 +39,13 @@ module World =
             OccupancyMap = Map.empty
         }
 
-    /// Moore neighborhood, including center.
-    let private neighborhood =
-        [|
+    /// Determines whether the given location is available.
+    let private isAvailable loc idOpt world =
+        seq {
             for dx = -1 to 1 do
                 for dy = -1 to 1 do
                     Point.create (dx, dy)
-        |]
-
-    /// Determines whether the given location is available.
-    let private isAvailable loc idOpt world =
-        neighborhood
+        }
             |> Seq.forall (fun delta ->
                 world.OccupancyMap
                     |> Map.tryFind (loc + delta)
@@ -141,23 +137,6 @@ module World =
                 ids)
         ids
 
-    /// Determines whether the given atoms are in contact (but not
-    /// bonded).
-    let private testContact idA idB world =
-
-        let impl idA idB =
-            let ids = getBonds idA world
-            if ids.Contains(idB) then false
-            else
-                let atomA = world.AtomMap[idA]
-                let atomB = world.AtomMap[idB]
-                let diff = abs (atomA.Location - atomB.Location)
-                diff.X * diff.X + diff.Y * diff.Y <= 8   // separation (2, 0), (2, 1), or (2, 2)
-
-        let result = impl idA idB
-        assert(impl idB idA = result)
-        result
-
     /// Interactions between atom types.
     /// * Negative: attraction
     /// * Positive: repulsion
@@ -170,16 +149,48 @@ module World =
             (Polar, Polar), 0
         ]
 
-    /// Computes the total energy of the given world.
-    let private getEnergy world =
-        let pairs = Map.toSeq world.AtomMap
-        seq {
-            for idA, atomA in pairs do
-                for idB, atomB in pairs do
-                    if idB > idA then
-                        if testContact idA idB world then
-                            interactionTable[atomA.Type, atomB.Type]
-        } |> Seq.sum
+    /// Computes the local energy for the given atom. This is
+    /// determined by interactions with other atoms that are
+    /// in contact (i.e. nearby, but not bonded).
+    let private getLocalEnergy id atom world =
+
+        let ids = getBonds id world
+
+        seq { (2, 0); (2, 1); (2, 2) }
+            |> Seq.collect (fun (a, b) ->
+                seq {
+                    (a, b)                            // e.g.  2,  1
+                    if a <> 0 then (-a, b)            // e.g. -2,  1
+                    if b <> 0 then
+                        (a, -b)                       // e.g.  2, -1
+                        if a <> 0 then (-a, -b)       // e.g. -2, -1
+                    if a <> b then
+                        (b, a)                        // e.g.  1,  2
+                        if b <> 0 then (-b, a)        // e.g. -1,  2
+                        if a <> 0 then
+                            (b, -a)                   // e.g.  1, -2
+                            if b <> 0 then (-b, -a)   // e.g. -1, -2
+                })
+            |> Seq.map Point.create
+            |> Seq.sumBy (fun delta ->
+                world.OccupancyMap
+                    |> Map.tryFind (atom.Location + delta)
+                    |> Option.map (fun idB ->
+                        let atomB = world.AtomMap[idB]
+                        if ids.Contains(idB) then 0   // exclude bonded neighbors
+                        else interactionTable[atom.Type, atomB.Type])
+                    |> Option.defaultValue 0)
+
+    /// Applies the Metropolis rule to the given atom:
+    /// * A move that lowers the energy, or leaves it unchanged,
+    ///   is always accepted.
+    /// * An uphill move is accepted with probability exp(−ΔE/kT).
+    let private testMetropolis
+        kT (rng : Random) id atomBefore atomAfter world =
+        let energyBefore = getLocalEnergy id atomBefore world
+        let energyAfter = getLocalEnergy id atomAfter world
+        let delta = energyAfter - energyBefore
+        delta <= 0 || rng.NextDouble() < exp (-float delta / kT)   // kT: temperature scaled by Boltzmann's constant.
 
     /// Updates the given atom's location in the given
     /// world.
@@ -198,7 +209,7 @@ module World =
         }
 
     /// Allows one atom in the given world to move.
-    let update (rng : Random) world =
+    let update kT (rng : Random) world =
 
             // pick atom to move
         let idA = rng.Next(world.AtomMap.Count)   // assume for now that atoms are never removed
@@ -223,8 +234,12 @@ module World =
                         testBond atom' atomB)
             if isValid then
 
-                    // move the atom permanently
-                moveAtom idA atom atom' world
+                    // check energy
+                if testMetropolis kT rng idA atom atom' world then
 
+                        // move the atom permanently
+                    moveAtom idA atom atom' world
+
+                else world
             else world
         else world

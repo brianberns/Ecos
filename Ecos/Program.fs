@@ -47,7 +47,7 @@ module Model =
     let update Tick world =
         (world, [ 1 .. world.AtomMap.Count ])
             ||> Seq.fold (fun world _ ->
-                World.update rng world)
+                World.update 1.0 rng world)
 
     /// Subscribable timer.
     let timer Tick : Subscribe<_> =
