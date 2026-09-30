@@ -4,6 +4,12 @@ open System
 open Elmish
 open Avalonia.Threading
 
+type Model =
+    {
+        World : World
+        Temperature : float   // kT
+    }
+
 type Message = Tick
 
 module Model =
@@ -26,18 +32,25 @@ module Model =
             |> World.addBond (n + 2) (n + 4)
 
     let init () =
-        let n = 8
-        ([ -4 * n .. 4 .. 4 * n ], World.empty)
-            ||> Seq.foldBack addMolecule
+        let world =
+            let n = 8
+            ([ -4 * n .. 4 .. 4 * n ], World.empty)
+                ||> Seq.foldBack addMolecule
+        {
+            World = world
+            Temperature = 1.0
+        }
 
     let rng = System.Random(0)
 
     /// Moves N random atoms per tick. Duplicates or omissions are
     /// possible.
-    let update Tick world =
-        (world, [ 1 .. world.AtomMap.Count ])
-            ||> Seq.fold (fun world _ ->
-                World.update 1.0 rng world)
+    let update Tick model =
+        let world =
+            (model.World, [ 1 .. model.World.AtomMap.Count ])
+                ||> Seq.fold (fun world _ ->
+                    World.update model.Temperature rng world)
+        { model with World = world }
 
     /// Subscribable timer.
     let timer Tick : Subscribe<_> =

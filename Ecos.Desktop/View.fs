@@ -34,7 +34,8 @@ module View =
     let private (~~)(ecosPt : Ecos.Point) =
         Avalonia.Point(ecosPt.X, ecosPt.Y)
 
-    let render world dispatch =
+    let render model dispatch =
+        let world = model.World
         Window.create [
             Window.title "Ecos"
             Window.width windowWidth
