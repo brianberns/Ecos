@@ -20,23 +20,25 @@ module Model =
         let atom = Atom.create Hydrophobic (Point.create (x, y))
         World.addAtom atom world
 
-    let private addMolecule y world =
-        let n = world.AtomMap.Count
-        world
-            |> addAtom (-4, y)       // 0
-            |> addAtom (-2, y)       // 1
-            |> World.addBond (n + 0) (n + 1)
-            |> addAtom (0, y)        // 2
-            |> World.addBond (n + 1) (n + 2)
-            |> addAtom (2, y)        // 3
-            |> World.addBond (n + 2) (n + 3)
-            |> addAtom (0, y + 2)    // 4
-            |> World.addBond (n + 2) (n + 4)
+    module Demo1 =
 
-    let init () =
-        let n = 8
-        ([ -4 * n .. 4 .. 4 * n ], World.empty)
-            ||> Seq.foldBack addMolecule
+        let private addMolecule y world =
+            let n = world.AtomMap.Count
+            world
+                |> addAtom (-4, y)       // 0
+                |> addAtom (-2, y)       // 1
+                |> World.addBond (n + 0) (n + 1)
+                |> addAtom (0, y)        // 2
+                |> World.addBond (n + 1) (n + 2)
+                |> addAtom (2, y)        // 3
+                |> World.addBond (n + 2) (n + 3)
+                |> addAtom (0, y + 2)    // 4
+                |> World.addBond (n + 2) (n + 4)
+
+        let init () =
+            let n = 8
+            ([ -4 * n .. 4 .. 4 * n ], World.empty)
+                ||> Seq.foldBack addMolecule
 
     let rng = System.Random(0)
 
@@ -44,9 +46,11 @@ module Model =
     /// possible.
     let update Tick world =
         (world, [ 1 .. world.AtomMap.Count ])
-            ||> Seq.fold (fun world _ -> World.update rng world)
+            ||> Seq.fold (fun world _ ->
+                World.update rng world)
 
-    let timer onTick =
+    /// Subscribable timer.
+    let timer Tick : Subscribe<_> =
         let timerSub (dispatch: Message -> unit) =
             let timer = new DispatcherTimer(
                 TimeSpan.FromSeconds(1.0 / 24.0),
@@ -58,13 +62,14 @@ module Model =
                 member _.Dispose() = timer.Stop() }
         timerSub
 
-    let subscribe world =
+    /// Timer subscription.
+    let subscribe world : Sub<_> =
         [ ["timer"], timer Tick ]
 
 type MainWindow() as this =
     inherit HostWindow()
     do
-        Elmish.Program.mkSimple Model.init Model.update View.render
+        Elmish.Program.mkSimple Model.Demo1.init Model.update View.render
             |> Program.withSubscription Model.subscribe
             |> Program.withHost this
             // |> Program.withConsoleTrace
