@@ -29,10 +29,8 @@ module Model =
                 ||> Seq.fold (fun world id ->
                     let loc = Point.create (2 * id - n, 0)
                     let atomType =
-                        match rng.Next(2) with
-                            | 0 -> Hydrophobic
-                            | 1 -> Polar
-                            | _ -> failwith "Unexpected"
+                        if rng.NextDouble() <= 0.7 then Hydrophobic
+                        else Polar
                     let atom = Atom.create atomType loc
                     let world = World.addAtom atom world
                     if id > 0 then
