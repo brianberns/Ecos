@@ -51,30 +51,24 @@ module PhysicsTests =
         let nu = Stats.logLogSlope points / 2.0
         Assert.InRange(nu, 0.70, 0.80)
 
-    /// Oracle: contact energy between atoms of the given types. This
-    /// is an independent statement of World's interaction table:
-    /// hydrophobic atoms attract each other, and nothing else
-    /// interacts.
-    let private contactEnergy typeA typeB =
-        match typeA, typeB with
-            | Hydrophobic, Hydrophobic -> -1.0
-            | _ -> 0.0
-
-    /// Equilibrium: update's moves are symmetric, and are accepted
-    /// only when valid and then with the Metropolis probability, so in
-    /// the long run each conformation's probability is proportional to
-    /// its Boltzmann factor exp(-E/kT).
+    /// Equilibrium: update's events (hops and weak bond toggles) are
+    /// proposed symmetrically, and are accepted only when valid and
+    /// then with the Metropolis probability, so in the long run each
+    /// state's probability is proportional to its Boltzmann factor
+    /// exp(-E/kT).
     ///
-    /// For a three-atom chain we can enumerate all conformations
-    /// exactly. The only possible contact is between the two end atoms
-    /// (the middle atom is bonded to both), and they are in contact
-    /// when their separation is (2, 0), (2, 1), or (2, 2), i.e. when
-    /// |e|^2 <= 8 for end-to-end vector e. We compare the exact
-    /// distribution of e against simulations started far from
-    /// equilibrium (a straight rod).
+    /// For a three-atom chain we can enumerate all states exactly. A
+    /// state is a conformation, identified by end-to-end vector e,
+    /// plus whether the ends are weakly bonded. The middle atom is
+    /// strongly bonded to both ends, so it can never pair with either
+    /// of them. The ends can pair only if their types are complementary
+    /// and e is an allowed weak bond vector, in which case that
+    /// conformation has two states: unpaired (E = 0) and paired
+    /// (E = weakBondEnergy). We compare the exact distribution against
+    /// simulations started far from equilibrium (a straight rod).
     let private checkTrimer (typeA, typeB, typeC) kT =
 
-            // exact Boltzmann weight of each end-to-end vector
+            // exact Boltzmann weight of each state
         let exact =
             [
                 for b1 in Chain.bondVectors do
@@ -84,16 +78,17 @@ module PhysicsTests =
                             e
             ]
                 |> List.countBy id
-                |> List.map (fun (e, count) ->
-                    let energy =
-                        if e.X * e.X + e.Y * e.Y <= 8 then
-                            contactEnergy typeA typeC
-                        else 0.0
-                    e, float count * exp (-energy / kT))
+                |> List.collect (fun (e, count) ->
+                    [
+                        (e, false), float count
+                        if Chain.canPair typeA typeC
+                            && Array.contains e Chain.weakBondVectors then
+                            (e, true), float count * exp (-Chain.weakBondEnergy / kT)
+                    ])
                 |> Map.ofList
         let totalWeight = exact.Values |> Seq.sum
 
-            // sample end-to-end vectors from independent simulations
+            // sample states from independent simulations
         let nRuns, nSamples = 8, 5000
         let burnIn, sampleInterval = 200, 50   // sweeps; the interval keeps samples roughly uncorrelated
         let samples =
@@ -106,29 +101,31 @@ module PhysicsTests =
                         |> World.addAtom (atom typeA (0, 0))
                         |> World.addAtom (atom typeB (3, 0))
                         |> World.addAtom (atom typeC (6, 0))
-                        |> World.addBond 0 1
-                        |> World.addBond 1 2
+                        |> World.addStrongBond 0 1
+                        |> World.addStrongBond 1 2
                 world <- Chain.sweeps kT rng burnIn world
                 Array.init nSamples (fun _ ->
                     world <- Chain.sweeps kT rng sampleInterval world
-                    world.AtomMap[2].Location - world.AtomMap[0].Location))
+                    let e = world.AtomMap[2].Location - world.AtomMap[0].Location
+                    let paired = world.WeakBondMap.TryFind 0 = Some 2
+                    e, paired))
                 |> Array.concat
         let observed = samples |> Array.countBy id |> Map.ofArray
 
-            // every sample is a valid conformation
-        for e in observed.Keys do
-            Assert.True(exact.ContainsKey e, $"Invalid end-to-end vector {e}")
+            // every sample is a valid state
+        for state in observed.Keys do
+            Assert.True(exact.ContainsKey state, $"Invalid state {state}")
 
             // chi-squared goodness of fit against the Boltzmann distribution
         let chi2 =
             exact
                 |> Map.toSeq
-                |> Seq.sumBy (fun (e, weight) ->
+                |> Seq.sumBy (fun (state, weight) ->
                     let expected =
                         float samples.Length * weight / totalWeight
                     let obs =
                         observed
-                            |> Map.tryFind e
+                            |> Map.tryFind state
                             |> Option.defaultValue 0
                             |> float
                     (obs - expected) ** 2.0 / expected)
@@ -136,25 +133,26 @@ module PhysicsTests =
         let limit = df + 5.0 * sqrt (2.0 * df)   // mean + 5 standard deviations
         Assert.True(chi2 < limit, $"chi^2 = {chi2:F1}, limit {limit:F1} (df = {df})")
 
-    /// Athermal limit: with no interactions, every valid conformation
-    /// is equally likely.
+    /// Athermal limit: with no possible weak bonds, every valid
+    /// conformation is equally likely.
     [<Fact>]
     let ``Trimer samples all conformations uniformly`` () =
-        checkTrimer (Polar, Polar, Polar) Chain.athermalKT
+        checkTrimer (AtomType.A, AtomType.A, AtomType.A) Chain.athermalKT
 
-    /// Attraction: sticky ends spend more time in contact, by exactly
-    /// the Boltzmann factor.
+    /// Pairing: complementary ends spend time weakly bonded, with
+    /// paired and unpaired states weighted by exactly the Boltzmann
+    /// factor.
     [<Fact>]
-    let ``Trimer with sticky ends follows the Boltzmann distribution`` () =
-        checkTrimer (Hydrophobic, Polar, Hydrophobic) 0.5
+    let ``Trimer with complementary ends follows the Boltzmann distribution`` () =
+        checkTrimer (AtomType.A, AtomType.C, AtomType.B) 0.5
 
-    /// Consistency: a hydrophobic end and a polar end don't interact,
-    /// so the ends must sample uniformly, even though a hydrophobic
-    /// atom is moving. This fails if a contact's energy depends on
-    /// which of the two atoms moves.
+    /// Selectivity: the ends aren't complementary, and the middle atom
+    /// is complementary to one end but strongly bonded to it, so no
+    /// weak bond can ever form and every conformation is equally
+    /// likely.
     [<Fact>]
-    let ``Trimer with one sticky end samples uniformly`` () =
-        checkTrimer (Hydrophobic, Hydrophobic, Polar) 0.5
+    let ``Trimer with no allowed pairs samples uniformly`` () =
+        checkTrimer (AtomType.A, AtomType.B, AtomType.C) 0.5
 
     /// Centre-of-mass mean squared displacement (MSD) at various lags,
     /// for each chain length. Shared by the diffusion tests.

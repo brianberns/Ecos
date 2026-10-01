@@ -2,9 +2,10 @@ namespace Ecos
 
 module Atom =
 
-    /// Helper for creating monotype atoms.
+    /// Helper for creating monotype atoms. Type A can't pair with
+    /// itself, so worlds built from these atoms never form weak bonds.
     let create loc =
-        Ecos.Atom.create Polar loc
+        Ecos.Atom.create AtomType.A loc
 
 namespace Ecos.Test
 
@@ -17,7 +18,7 @@ module Chain =
     /// All allowed bond vectors in the 2D bond fluctuation model
     /// (Carmesin & Kremer 1988): integer vectors b with 4 <= |b|^2 <= 13.
     /// This is an independent statement of the rule that
-    /// World.tryAddBond enforces, so tests can use it as an oracle.
+    /// World.tryAddStrongBond enforces, so tests can use it as an oracle.
     let bondVectors =
         [|
             for x in -3 .. 3 do
@@ -26,6 +27,41 @@ module Chain =
                     if d2 >= 4 && d2 <= 13 then
                         Point.create (x, y)
         |]
+
+    /// Allowed weak bond vectors: the closest separations at which two
+    /// atoms don't overlap, i.e. 4 <= |b|^2 <= 8. An independent
+    /// statement of the range World.tryAddWeakBond enforces.
+    let weakBondVectors =
+        bondVectors
+            |> Array.filter (fun v -> v.X * v.X + v.Y * v.Y <= 8)
+
+    /// Oracle: can atoms of the given types form a weak bond?
+    let canPair typeA typeB =
+        match typeA, typeB with
+            | AtomType.A, AtomType.B | AtomType.B, AtomType.A
+            | AtomType.C, AtomType.D | AtomType.D, AtomType.C -> true
+            | _ -> false
+
+    /// Oracle: energy of one weak bond.
+    let weakBondEnergy = -1.0
+
+    /// Oracle: probability that World.update attempts a hop rather
+    /// than a weak bond toggle.
+    let hopProbability = 0.5
+
+    /// Gives every atom in the given world a random type. Only valid
+    /// for a world without weak bonds, since types determine which
+    /// weak bonds are allowed.
+    let withRandomTypes (rng : Random) (world : World) =
+        assert world.WeakBondMap.IsEmpty
+        let types = [| AtomType.A; AtomType.B; AtomType.C; AtomType.D |]
+        {
+            world with
+                AtomMap =
+                    world.AtomMap
+                        |> Map.map (fun _ atom ->
+                            { atom with Type = types[rng.Next types.Length] })
+        }
 
     /// Tries to append atoms at the given locations to the end of the
     /// chain in the given world, bonding each to its predecessor.
@@ -37,7 +73,7 @@ module Chain =
                     |> Option.bind (World.tryAddAtom (Atom.create loc))
                     |> Option.map (fun world ->
                         let id = n0 + i
-                        if id > 0 then World.addBond (id - 1) id world
+                        if id > 0 then World.addStrongBond (id - 1) id world
                         else world))
 
     /// Atom locations in ID order.
@@ -80,10 +116,27 @@ module Chain =
                 | Some world -> world
                 | None -> grow rng n
 
+    /// Adds n free (unbonded) atoms of random types at random
+    /// locations near the origin, packed closely enough that weak
+    /// bonds form and break often.
+    let addSoup (rng : Random) n (world : World) =
+        let types = [| AtomType.A; AtomType.B; AtomType.C; AtomType.D |]
+        let size = 2 + int (ceil (1.5 * sqrt (float n)))   // half-width of the box
+        let rec loop count attempts world =
+            if count = 0 then world
+            elif attempts > 100000 then failwith "Soup box is too full"
+            else
+                let loc = Point.create (rng.Next(-size, size + 1), rng.Next(-size, size + 1))
+                let atom = { Type = types[rng.Next types.Length]; Location = loc }
+                match World.tryAddAtom atom world with
+                    | Some world -> loop (count - 1) (attempts + 1) world
+                    | None -> loop count (attempts + 1) world
+        loop n 0 world
+
     /// Temperature for tests of the athermal model. Atoms created by
-    /// the Atom.create helper above are Polar, and Polar atoms
-    /// interact with nothing, so every move has zero energy change
-    /// and the value doesn't matter.
+    /// the Atom.create helper above are all type A, which can't form
+    /// weak bonds, so every event has zero energy change and the value
+    /// doesn't matter.
     let athermalKT = 1.0
 
     /// Performs one Monte Carlo sweep at the given temperature: N
