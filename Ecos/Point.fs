@@ -1,7 +1,7 @@
 namespace Ecos
 
 /// Lattice point.
-[<Struct>]
+[<Struct; StructuredFormatDisplay("{String}")>]
 type Point =
     {
         /// X-coordinate.
@@ -10,6 +10,12 @@ type Point =
         /// Y-coordinate.
         Y : int
     }
+
+    /// Display string.
+    member this.String = $"({this.X}, {this.Y})"
+
+    /// Display string.
+    override this.ToString() = this.String
 
     /// Adds two points.
     static member (+)(a, b) =
