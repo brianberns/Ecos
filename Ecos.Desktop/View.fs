@@ -10,12 +10,12 @@ open Avalonia.FuncUI.DSL
 
 module View =
 
-    let private windowWidth = 1000.0
-    let private windowHeight = 400.0
-    let private scale = 5.0
-    let private strongBondThickness = 2.0
+    let private windowWidth = 1000
+    let private windowHeight = 400
+    let private scale = 5
+    let private strongBondThickness = 0.25
     let private strongBondBrush = Brushes.Black
-    let private weakBondThickness = 10.0
+    let private weakBondThickness = 1.5
     let private weakBondBrush = Brushes.HotPink
 
     let private transformGroup =
@@ -24,8 +24,8 @@ module View =
             ScaleTransform(scale, scale))
         group.Children.Add(
             TranslateTransform(
-                windowWidth / 2.0,
-                windowHeight / 2.0))
+                float windowWidth / 2.0,
+                float windowHeight / 2.0))
         group
 
     let private brushMap =
@@ -47,9 +47,9 @@ module View =
 
                 for i, atom in Map.toSeq world.AtomMap do
                     Ellipse.create [
-                        Ellipse.width 2.0
-                        Ellipse.height 2.0
-                        let pt = atom.Location - Point.create (1, 1)
+                        Ellipse.width 2
+                        Ellipse.height 2
+                        let pt = atom.Location - Point.create (1, 1)   // every atom is 2x2 centered on its location
                         Ellipse.left pt.X
                         Ellipse.top pt.Y
                         Ellipse.fill brushMap[atom.Type]
@@ -73,7 +73,7 @@ module View =
                         Line.startPoint ~~a.Location
                         Line.endPoint ~~b.Location
                         Line.stroke strongBondBrush
-                        Line.strokeThickness (strongBondThickness / scale)   // undo transform
+                        Line.strokeThickness strongBondThickness
                     ]
 
                 let weakBonds =
@@ -91,7 +91,7 @@ module View =
                         Line.startPoint ~~a.Location
                         Line.endPoint ~~b.Location
                         Line.stroke weakBondBrush
-                        Line.strokeThickness (weakBondThickness / scale)   // undo transform
+                        Line.strokeThickness weakBondThickness
                     ]
             ]
         ]
