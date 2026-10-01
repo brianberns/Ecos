@@ -335,9 +335,9 @@ module World =
                 Some (breakWeakBond idA idB world)
             else None
         else
-            if testMetropolis kT rng -weakBondEnergy then
-                Some (addWeakBond idA idB world)
-            else None
+            tryAddWeakBond idA idB world
+                |> Option.filter (fun _ ->
+                    testMetropolis kT rng -weakBondEnergy)
 
     /// Attempts to toggle a weak bond in the given world.
     let private updateWeakBond kT (rng : Random) world =

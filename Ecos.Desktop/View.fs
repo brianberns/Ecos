@@ -14,7 +14,9 @@ module View =
     let private windowHeight = 400.0
     let private scale = 5.0
     let private strongBondThickness = 2.0
-    let private weakBondThickness = 1.0
+    let private strongBondBrush = Brushes.Black
+    let private weakBondThickness = 10.0
+    let private weakBondBrush = Brushes.HotPink
 
     let private transformGroup =
         let group = TransformGroup()
@@ -70,7 +72,7 @@ module View =
                     Line.create [
                         Line.startPoint ~~a.Location
                         Line.endPoint ~~b.Location
-                        Line.stroke Brushes.Black
+                        Line.stroke strongBondBrush
                         Line.strokeThickness (strongBondThickness / scale)   // undo transform
                     ]
 
@@ -88,7 +90,7 @@ module View =
                     Line.create [
                         Line.startPoint ~~a.Location
                         Line.endPoint ~~b.Location
-                        Line.stroke Brushes.Gray
+                        Line.stroke weakBondBrush
                         Line.strokeThickness (weakBondThickness / scale)   // undo transform
                     ]
             ]
