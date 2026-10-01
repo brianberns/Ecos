@@ -21,25 +21,34 @@ type Message =
 
 module Model =
 
+    let private addAtom (rng : Random) x y id bond world =
+        let loc = Point.create (x, y)
+        let atomType =
+            match rng.Next(4) with
+                | 0 -> AtomType.A
+                | 1 -> AtomType.B
+                | 2 -> AtomType.C
+                | 3 -> AtomType.D
+                | _ -> failwith "Unexpected"
+        let atom = Atom.create atomType loc
+        let world = World.addAtom atom world
+        if bond then
+            World.addStrongBond (id - 1) id world
+        else world
+
     let init () =
         let rng = Random(0)
+        let n = 45
         let world =
-            let n = 45
             (World.empty, [ 0 .. n - 1 ])
-                ||> Seq.fold (fun world id ->
-                    let loc = Point.create (2 * id - n, 0)
-                    let atomType =
-                        match rng.Next(4) with
-                            | 0 -> AtomType.A
-                            | 1 -> AtomType.B
-                            | 2 -> AtomType.C
-                            | 3 -> AtomType.D
-                            | _ -> failwith "Unexpected"
-                    let atom = Atom.create atomType loc
-                    let world = World.addAtom atom world
-                    if id > 0 then
-                        World.addStrongBond (id - 1) id world
-                    else world)
+                ||> Seq.fold (fun world i ->
+                    let x = 2 * i - n
+                    addAtom rng x -6 i (i > 0) world)
+        let world =
+            (world, [ 0 .. n - 1 ])
+                ||> Seq.fold (fun world i ->
+                    let x = 2 * i - n
+                    addAtom rng x 6 (n + i) (i > 0) world)
         {
             World = world
             Temperature = 1.0
