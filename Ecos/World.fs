@@ -92,12 +92,23 @@ module World =
                 ids)
         ids
 
-    /// Maximum number of strong bonds an atom can have.
-    let private strongBondValence = 2
+    /// Answers the IDs of all atoms weakly bonded with the
+    /// given atom.
+    let private getWeakBonds id world =
+        let ids =
+            world.WeakBondMap
+                |> Map.tryFind id
+                |> Option.toArray
+                |> set
+        assert(
+            Seq.forall (fun idB ->
+                world.WeakBondMap[idB] = id)
+                ids)
+        ids
 
-    /// Determines whether a strong bond between the atoms
-    /// with the given IDs is valid.
-    let private testStrongBond idA atomA idB atomB world =
+    /// Determines whether a strong bond between the given atoms
+    /// is valid.
+    let private testStrongBond atomA atomB =
         let diff = abs (atomA.Location - atomB.Location)
         match max diff.X diff.Y, min diff.X diff.Y with
             | 2, 0
@@ -105,10 +116,23 @@ module World =
             | 2, 2
             | 3, 0
             | 3, 1
-            | 3, 2 ->
-                (getStrongBonds idA world).Count <= strongBondValence
-                    && (getStrongBonds idB world).Count <= strongBondValence
+            | 3, 2 -> true
             | _ -> false
+
+    /// Maximum number of strong bonds an atom can have.
+    let private strongBondValence = 2
+
+    /// Indicates whether the atoms with the given IDs are already
+    /// bonded in the given world.
+    let private areBonded idA idB world =
+        assert(
+            (getStrongBonds idA world).Contains(idB) =
+                (getStrongBonds idB world).Contains(idA))
+        assert(
+            (getWeakBonds idA world).Contains(idB) =
+                (getWeakBonds idB world).Contains(idA))
+        (getStrongBonds idA world).Contains(idB)
+            || (getWeakBonds idA world).Contains(idB)
 
     /// Creates a unidirectional strong bond between the given
     /// atoms.
@@ -126,7 +150,12 @@ module World =
     let tryAddStrongBond idA idB world =
         let atomA = world.AtomMap[idA]
         let atomB = world.AtomMap[idB]
-        if testStrongBond idA atomA idB atomB world then
+        let canAdd =
+            testStrongBond atomA atomB
+                && (getStrongBonds idA world).Count < strongBondValence
+                && (getStrongBonds idB world).Count < strongBondValence
+                && not (areBonded idA idB world)
+        if canAdd then
             Some {
                 world with
                     StrongBondMap =
@@ -143,54 +172,31 @@ module World =
             | Some world -> world
             | None -> failwith "Invalid bond"
 
-    /// Tests validity of the given atom's strong bonds.
-    let private testStrongBonds id atom world =
-        getStrongBonds id world
-            |> Seq.forall (fun idB ->
-                let atomB = world.AtomMap[idB]
-                testStrongBond id atom idB atomB world)
-
-    /// Answers the IDs of all atoms weakly bonded with the
-    /// given atom.
-    let private getWeakBonds id world =
-        let ids =
-            world.WeakBondMap
-                |> Map.tryFind id
-                |> Option.toArray
-                |> set
-        assert(
-            Seq.forall (fun idB ->
-                world.WeakBondMap[idB] = id)
-                ids)
-        ids
+    /// Determines whether a weak bond between the given atoms
+    /// is valid.
+    let private testWeakBond atomA atomB =
+        let diff = abs (atomA.Location - atomB.Location)
+        match max diff.X diff.Y, min diff.X diff.Y with
+            | 2, 0
+            | 2, 1
+            | 2, 2 -> true
+            | _ -> false
 
     /// Maximum number of weak bonds an atom can have.
     let private weakBondValence = 1
 
-    /// Determines whether a weak bond between the atoms
-    /// with the given IDs is valid.
-    let private testWeakBond idA atomA idB atomB world =
-        if AtomType.canPair atomA.Type atomB.Type then
-            let diff = abs (atomA.Location - atomB.Location)
-            match max diff.X diff.Y, min diff.X diff.Y with
-                | 2, 0
-                | 2, 1
-                | 2, 2 ->
-                    assert(
-                        (getStrongBonds idA world).Contains(idB) =
-                            (getStrongBonds idB world).Contains(idA))
-                    not ((getStrongBonds idA world).Contains(idB))
-                        && (getWeakBonds idA world).Count <= weakBondValence
-                        && (getWeakBonds idB world).Count <= weakBondValence
-                | _ -> false
-        else false
-   
     /// Adds a weak bond between the given atoms in the given
     /// world if it is valid.
     let tryAddWeakBond idA idB world =   // to-do: prevent bond crossing
         let atomA = world.AtomMap[idA]
         let atomB = world.AtomMap[idB]
-        if testWeakBond idA atomA idB atomB world then
+        let canAdd =
+            AtomType.canPair atomA.Type atomB.Type
+                && testWeakBond atomA atomB
+                && (getWeakBonds idA world).Count < weakBondValence
+                && (getWeakBonds idB world).Count < weakBondValence
+                && not (areBonded idA idB world)
+        if canAdd then
             Some {
                 world with
                     WeakBondMap =
@@ -207,13 +213,6 @@ module World =
             | Some world -> world
             | None -> failwith "Invalid bond"
 
-    /// Tests validity of the given atom's weak bonds.
-    let private testWeakBonds id atom world =
-        getWeakBonds id world
-            |> Seq.forall (fun idB ->
-                let atomB = world.AtomMap[idB]
-                testWeakBond id atom idB atomB world)
-
     /// Chooses a random cardinal direction.
     let private getRandomDirection (rng : Random) =
         Point.create <|
@@ -224,24 +223,19 @@ module World =
                 | 3 ->  0,  1
                 | _ -> failwith "Unexpected"
 
-    /// Short-range contact neighborhood.
-    let private contactNeighborhood =
-        [| (2, 0); (2, 1); (2, 2) |]
-            |> Array.collect (fun (a, b) ->
-                [|
-                    (a, b)                            // e.g.  2,  1
-                    if a <> 0 then (-a, b)            // e.g. -2,  1
-                    if b <> 0 then
-                        (a, -b)                       // e.g.  2, -1
-                        if a <> 0 then (-a, -b)       // e.g. -2, -1
-                    if a <> b then
-                        (b, a)                        // e.g.  1,  2
-                        if b <> 0 then (-b, a)        // e.g. -1,  2
-                        if a <> 0 then
-                            (b, -a)                   // e.g.  1, -2
-                            if b <> 0 then (-b, -a)   // e.g. -1, -2
-                |])
-            |> Array.map Point.create
+    /// Tests validity of the given atom's strong bonds.
+    let private testStrongBonds id atom world =
+        getStrongBonds id world
+            |> Seq.forall (fun idB ->
+                let atomB = world.AtomMap[idB]
+                testStrongBond atom atomB)
+
+    /// Tests validity of the given atom's weak bonds.
+    let private testWeakBonds id atom world =
+        getWeakBonds id world
+            |> Seq.forall (fun idB ->
+                let atomB = world.AtomMap[idB]
+                testWeakBond atom atomB)
 
     /// Applies the Metropolis rule:
     /// * A move that lowers the energy, or leaves it unchanged,
@@ -291,6 +285,25 @@ module World =
         if isValid then
             moveAtom idA atom atom' world
         else world
+
+    /// Short-range contact neighborhood.
+    let private contactNeighborhood =
+        [| (2, 0); (2, 1); (2, 2) |]
+            |> Array.collect (fun (a, b) ->
+                [|
+                    (a, b)                            // e.g.  2,  1
+                    if a <> 0 then (-a, b)            // e.g. -2,  1
+                    if b <> 0 then
+                        (a, -b)                       // e.g.  2, -1
+                        if a <> 0 then (-a, -b)       // e.g. -2, -1
+                    if a <> b then
+                        (b, a)                        // e.g.  1,  2
+                        if b <> 0 then (-b, a)        // e.g. -1,  2
+                        if a <> 0 then
+                            (b, -a)                   // e.g.  1, -2
+                            if b <> 0 then (-b, -a)   // e.g. -1, -2
+                |])
+            |> Array.map Point.create
 
     let private updateWeakBond kT (rng : Random) world =
         world
