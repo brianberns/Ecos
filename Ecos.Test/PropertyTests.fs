@@ -25,11 +25,55 @@ module PropertyTests =
     let private typedAtom typ loc : Atom =
         { Type = typ; Location = loc }
 
+    /// Sign of the cross product (b - a) x (c - a).
+    let private orientation (a : Point) (b : Point) (c : Point) =
+        sign ((b.X - a.X) * (c.Y - a.Y) - (b.Y - a.Y) * (c.X - a.X))
+
+    /// Is point p within the bounding box of segment ab?
+    let private inBox (a : Point) (b : Point) (p : Point) =
+        min a.X b.X <= p.X && p.X <= max a.X b.X
+            && min a.Y b.Y <= p.Y && p.Y <= max a.Y b.Y
+
+    /// Oracle: do closed segments ab and cd intersect (including
+    /// touching)?
+    let private segmentsIntersect a b c d =
+        let o1 = orientation a b c
+        let o2 = orientation a b d
+        let o3 = orientation c d a
+        let o4 = orientation c d b
+        (o1 * o2 < 0 && o3 * o4 < 0)
+            || (o1 = 0 && inBox a b c)
+            || (o2 = 0 && inBox a b d)
+            || (o3 = 0 && inBox c d a)
+            || (o4 = 0 && inBox c d b)
+
     /// Are the given atoms strongly bonded?
     let private isStronglyBonded (world : World) idA idB =
         world.StrongBondMap
             |> Map.tryFind idA
             |> Option.exists (Set.contains idB)
+
+    /// All bonds in the given world, strong and weak, as
+    /// (smaller ID, larger ID) pairs.
+    let private allBonds (world : World) =
+        [
+            for KeyValue(idA, ids) in world.StrongBondMap do
+                for idB in ids do
+                    if idA < idB then idA, idB
+            for KeyValue(idA, idB) in world.WeakBondMap do
+                if idA < idB then idA, idB
+        ]
+
+    /// Oracle: would a bond between the given atoms cross any bond in
+    /// the given world? Bonds that share an atom with it can't cross
+    /// it. This checks every bond in the world, so it doesn't depend on
+    /// World's assumption that only nearby bonds need checking.
+    let private crossesAnyBond (world : World) idA idB =
+        let loc id = world.AtomMap[id].Location
+        allBonds world
+            |> List.exists (fun (idC, idD) ->
+                idC <> idA && idC <> idB && idD <> idA && idD <> idB
+                    && segmentsIntersect (loc idA) (loc idB) (loc idC) (loc idD))
 
     /// Checks all of a world's invariants.
     let private isValid (world : World) =
@@ -56,8 +100,9 @@ module PropertyTests =
                                     && world.StrongBondMap[idB].Contains idA))
 
             // every weak bond is symmetric (which also limits each atom
-            // to one), in range, between complementary types, and
-            // between atoms that aren't also strongly bonded
+            // to one), in range, between complementary types, between
+            // atoms that aren't also strongly bonded, and doesn't cross
+            // any other bond
         let weakBondsValid =
             world.WeakBondMap
                 |> Map.forall (fun idA idB ->
@@ -68,7 +113,8 @@ module PropertyTests =
                             (atomB.Location - atomA.Location)
                             Chain.weakBondVectors
                         && Chain.canPair atomA.Type atomB.Type
-                        && not (isStronglyBonded world idA idB))
+                        && not (isStronglyBonded world idA idB)
+                        && not (crossesAnyBond world idA idB))
 
             // the occupancy map is exactly the atoms' locations
         let occupancyConsistent =
@@ -122,8 +168,7 @@ module PropertyTests =
 
     /// Oracle: can the given atoms form a new weak bond? They must be
     /// complementary, in range, both unpaired, and not strongly
-    /// bonded. (World doesn't yet prevent weak bonds that cross other
-    /// bonds; when it does, this oracle must too.)
+    /// bonded, and the new bond must not cross any existing bond.
     let private canFormWeakBond (world : World) idA idB =
         let atomA = world.AtomMap[idA]
         let atomB = world.AtomMap[idB]
@@ -132,6 +177,7 @@ module PropertyTests =
             && not (world.WeakBondMap.ContainsKey idA)
             && not (world.WeakBondMap.ContainsKey idB)
             && not (isStronglyBonded world idA idB)
+            && not (crossesAnyBond world idA idB)
 
     /// Oracle: probabilities that a weak bond toggle forms a bond, and
     /// that it breaks one, in the given world. A toggle picks an atom
@@ -152,37 +198,10 @@ module PropertyTests =
         let n = float (world.AtomMap.Count * Chain.weakBondVectors.Length)
         form / n, brk / n
 
-    /// Sign of the cross product (b - a) x (c - a).
-    let private orientation (a : Point) (b : Point) (c : Point) =
-        sign ((b.X - a.X) * (c.Y - a.Y) - (b.Y - a.Y) * (c.X - a.X))
-
-    /// Is point p within the bounding box of segment ab?
-    let private inBox (a : Point) (b : Point) (p : Point) =
-        min a.X b.X <= p.X && p.X <= max a.X b.X
-            && min a.Y b.Y <= p.Y && p.Y <= max a.Y b.Y
-
-    /// Oracle: do closed segments ab and cd intersect (including
-    /// touching)?
-    let private segmentsIntersect a b c d =
-        let o1 = orientation a b c
-        let o2 = orientation a b d
-        let o3 = orientation c d a
-        let o4 = orientation c d b
-        (o1 * o2 < 0 && o3 * o4 < 0)
-            || (o1 = 0 && inBox a b c)
-            || (o2 = 0 && inBox a b d)
-            || (o3 = 0 && inBox c d a)
-            || (o4 = 0 && inBox c d b)
-
     /// All pairs of bonds that intersect, excluding pairs that share
     /// an atom.
     let private crossings (world : World) =
-        let bonds =
-            [
-                for KeyValue(idA, ids) in world.StrongBondMap do
-                    for idB in ids do
-                        if idA < idB then idA, idB
-            ]
+        let bonds = allBonds world
         let loc id = world.AtomMap[id].Location
         set [
             for i, (a, b) in List.indexed bonds do
@@ -289,6 +308,46 @@ module PropertyTests =
         let world = World.addWeakBond 0 4 world
         Assert.True((World.tryAddStrongBond 4 0 world).IsNone, "Strong bond accepted between weakly bonded atoms")
         Assert.True((World.tryAddWeakBond 4 0 world).IsNone, "Duplicate weak bond accepted")
+
+    /// Topology, exhaustively: atoms P (type A, at the origin) and Q
+    /// (type B) are in weak bond range, and atoms X (type C) and Y
+    /// (type D) are bonded to each other, strongly or weakly. For every
+    /// such local configuration, a weak bond P-Q must be accepted if
+    /// and only if it doesn't cross bond X-Y. X ranges over every
+    /// location from which bond X-Y could reach bond P-Q.
+    [<Fact>]
+    let ``tryAddWeakBond rejects exactly the bonds that would cross`` () =
+        let p = Point.create (0, 0)
+        let mutable nChecked, nCrossed = 0, 0
+        for bondPQ in Chain.weakBondVectors do
+            let q = p + bondPQ
+            for cx in -6 .. 6 do
+                for cy in -6 .. 6 do
+                    let x = Point.create (cx, cy)
+                    for bondXY in Chain.bondVectors do
+                        let y = x + bondXY
+                        let atomsOpt =
+                            Some World.empty
+                                |> Option.bind (World.tryAddAtom (typedAtom AtomType.A p))
+                                |> Option.bind (World.tryAddAtom (typedAtom AtomType.B q))
+                                |> Option.bind (World.tryAddAtom (typedAtom AtomType.C x))
+                                |> Option.bind (World.tryAddAtom (typedAtom AtomType.D y))
+                        let worlds =
+                            [
+                                atomsOpt |> Option.bind (World.tryAddStrongBond 2 3)
+                                atomsOpt |> Option.bind (World.tryAddWeakBond 2 3)   // only if X-Y is in weak bond range
+                            ] |> List.choose id
+                        for world in worlds do
+                            nChecked <- nChecked + 1
+                            let crosses = segmentsIntersect p q x y
+                            if crosses then nCrossed <- nCrossed + 1
+                            if (World.tryAddWeakBond 0 1 world).IsSome = crosses then
+                                Assert.Fail(
+                                    $"P {p}, Q {q}, X {x}, Y {y}: crosses = {crosses}, but accepted = {not crosses}")
+
+            // make sure the check isn't vacuous
+        Assert.True(nChecked > 10000, $"Only {nChecked} configurations checked")
+        Assert.True(nCrossed > 0, "No crossed configurations checked")
 
     /// Moves made by a single update, as (atom ID, step) pairs.
     let private movesBetween (world : World) (world' : World) =
@@ -435,16 +494,18 @@ module PropertyTests =
         Assert.True(nCrossed > 0, "No crossed configurations checked")
 
     /// Topology: a single step can never carry one bond across another,
-    /// so updates must leave the set of intersecting bond pairs
-    /// unchanged (including any crossings present at the start).
+    /// and a weak bond can't form across another bond, so updates must
+    /// leave the set of intersecting bond pairs (strong and weak)
+    /// unchanged. Grown chains may start with crossed strong bonds,
+    /// which must persist; no other crossing may ever appear.
     [<Property>]
     let ``update never changes which bonds cross`` (length : int) (seed : int) (nSteps : int) =
-        let length = 4 + abs (length % 30)
+        let length = 4 + abs (length % 20)
         let rng = Random(seed)
-        let mutable world = Chain.grow rng length
+        let mutable world = Chain.grow rng length |> Chain.withRandomTypes rng |> Chain.addSoup rng 10
         let initial = crossings world
         let mutable ok = true
-        for _ in 1 .. abs (nSteps % 1000) do
-            world <- World.update Chain.athermalKT rng world
+        for _ in 1 .. 500 + abs (nSteps % 500) do
+            world <- World.update 1.0 rng world
             ok <- ok && crossings world = initial
         ok
