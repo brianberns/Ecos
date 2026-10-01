@@ -256,7 +256,9 @@ module World =
 
     /// Indicates whether a bond between the given atoms
     /// crosses any other bonds. This only needs to check the
-    /// local neighborhood of one of the atoms.
+    /// local neighborhood of one of the atoms. (In fact, Claude
+    /// says, for weak bonds, it would suffice to check only
+    /// four deltas: (±2, 0) and (0, ±2).
     let private isCrossBond idA atomA idB atomB world =
         weakBondNeighborhood
             |> Seq.exists (fun delta ->
