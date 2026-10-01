@@ -106,6 +106,12 @@ module World =
                 ids)
         ids
 
+    /// Answers the IDs of all atoms bonded with the given atom.
+    let private getAllBonds id world =
+        Seq.append
+            (getStrongBonds id world)
+            (getWeakBonds id world)
+
     /// Determines whether a strong bond between the given atoms
     /// is valid.
     let private testStrongBond atomA atomB =
@@ -202,6 +208,74 @@ module World =
     /// Maximum number of weak bonds an atom can have.
     let private weakBondValence = 1
 
+    /// Weak bond neighborhood. These are neighbors that
+    /// are in short-range contact.
+    let private weakBondNeighborhood =
+        let points =
+            [| (2, 0); (2, 1); (2, 2) |]
+                |> Array.collect (fun (a, b) ->
+                    [|
+                        (a, b)                            // e.g.  2,  1
+                        if a <> 0 then (-a, b)            // e.g. -2,  1
+                        if b <> 0 then
+                            (a, -b)                       // e.g.  2, -1
+                            if a <> 0 then (-a, -b)       // e.g. -2, -1
+                        if a <> b then
+                            (b, a)                        // e.g.  1,  2
+                            if b <> 0 then (-b, a)        // e.g. -1,  2
+                            if a <> 0 then
+                                (b, -a)                   // e.g.  1, -2
+                                if b <> 0 then (-b, -a)   // e.g. -1, -2
+                    |])
+                |> Array.map Point.create
+        assert(
+            Seq.forall
+                (testWeakBondLocation Point.zero)
+                points)
+        points
+
+    /// Determines orientation of the path connecting
+    /// the given points (a-b-c):
+    /// * Positive: left turn
+    /// * Negative: right turn
+    let private orient (a : Point) (b : Point) (c : Point) =
+        sign ((b - a) .* (c - a))
+
+    /// Indicates whether bonds between the given pairs of atoms
+    /// cross.
+    let private testCrossBond (atomA, atomB) (atomC, atomD) =
+        let locA = atomA.Location
+        let locB = atomB.Location
+        let locC = atomC.Location
+        let locD = atomD.Location
+        let cdOpp =   // C and D are on opposite sides of line AB
+            orient locA locB locC * orient locA locB locD < 0
+        let abOpp =   // A and B are on opposite sides of line CD
+            orient locC locD locA * orient locC locD locB < 0
+        cdOpp && abOpp
+
+    /// Indicates whether a bond between the given atoms
+    /// crosses any other bonds. This only needs to check the
+    /// local neighborhood of one of the atoms.
+    let private isCrossBond idA atomA idB atomB world =
+        weakBondNeighborhood
+            |> Seq.exists (fun delta ->
+                world.OccupancyMap
+                    |> Map.tryFind (atomA.Location + delta)   // check A's neighborhood
+                    |> Option.map (fun idC ->
+                        if idC = idA || idC = idB then false
+                        else
+                            let atomC = world.AtomMap[idC]
+                            getAllBonds idC world
+                                |> Seq.exists (fun idD ->
+                                    if idD = idA || idD = idB then false
+                                    else
+                                        let atomD = world.AtomMap[idD]
+                                        testCrossBond
+                                            (atomA, atomB)
+                                            (atomC, atomD)))
+                    |> Option.defaultValue false)
+
     /// Adds a weak bond between the given atoms in the given
     /// world if it is valid.
     let tryAddWeakBond idA idB world =   // to-do: prevent bond crossing
@@ -213,6 +287,7 @@ module World =
                 && (getWeakBonds idA world).Count < weakBondValence
                 && (getWeakBonds idB world).Count < weakBondValence
                 && not (areBonded idA idB world)
+                && not (isCrossBond idA atomA idB atomB world)
         if canAdd then
             Some {
                 world with
@@ -302,32 +377,6 @@ module World =
         if isValid then
             moveAtom idA atom atom' world
         else world
-
-    /// Weak bond neighborhood. These are neighbors that
-    /// are in short-range contact.
-    let private weakBondNeighborhood =
-        let points =
-            [| (2, 0); (2, 1); (2, 2) |]
-                |> Array.collect (fun (a, b) ->
-                    [|
-                        (a, b)                            // e.g.  2,  1
-                        if a <> 0 then (-a, b)            // e.g. -2,  1
-                        if b <> 0 then
-                            (a, -b)                       // e.g.  2, -1
-                            if a <> 0 then (-a, -b)       // e.g. -2, -1
-                        if a <> b then
-                            (b, a)                        // e.g.  1,  2
-                            if b <> 0 then (-b, a)        // e.g. -1,  2
-                            if a <> 0 then
-                                (b, -a)                   // e.g.  1, -2
-                                if b <> 0 then (-b, -a)   // e.g. -1, -2
-                    |])
-                |> Array.map Point.create
-        assert(
-            Seq.forall
-                (testWeakBondLocation Point.zero)
-                points)
-        points
 
     /// Energy delta of a weak bond.
     let private weakBondEnergy = 1
