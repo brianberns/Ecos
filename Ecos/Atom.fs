@@ -3,13 +3,8 @@ namespace Ecos
 open System
 
 /// Atom type.
-type AtomType =
-
-    /// Atoms that stick together.
-    | Hydrophobic
-
-    /// Non-sticky atoms.
-    | Polar
+[<RequireQualifiedAccess>]
+type AtomType = A | B | C | D
 
 /// An indivisible atom.
 type Atom =

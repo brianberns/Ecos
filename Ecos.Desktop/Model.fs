@@ -8,7 +8,6 @@ type Model =
     {
         World : World
         Temperature : float   // kT
-        EnergyAvg : float
         Random : Random
     }
 
@@ -30,17 +29,20 @@ module Model =
                 ||> Seq.fold (fun world id ->
                     let loc = Point.create (2 * id - n, 0)
                     let atomType =
-                        if rng.NextDouble() <= 0.7 then Hydrophobic
-                        else Polar
+                        match rng.Next(4) with
+                            | 0 -> AtomType.A
+                            | 1 -> AtomType.B
+                            | 2 -> AtomType.C
+                            | 3 -> AtomType.D
+                            | _ -> failwith "Unexpected"
                     let atom = Atom.create atomType loc
                     let world = World.addAtom atom world
                     if id > 0 then
-                        World.addBond (id - 1) id world
+                        World.addStrongBond (id - 1) id world
                     else world)
         {
             World = world
             Temperature = 1.0
-            EnergyAvg = World.getEnergy world
             Random = rng
         }
 
@@ -53,16 +55,7 @@ module Model =
                         model.Temperature
                         model.Random
                         world)
-        let energyAvg =
-            model.EnergyAvg
-                + 0.01 * (
-                    float (World.getEnergy world)
-                        - model.EnergyAvg)
-        {
-            model with
-                World = world
-                EnergyAvg = energyAvg
-        }
+        { model with World = world }
 
     /// Moves N random atoms per tick. Duplicates or omissions are
     /// possible.

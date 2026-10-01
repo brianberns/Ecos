@@ -27,8 +27,10 @@ module View =
 
     let private brushMap =
         Map [
-            Hydrophobic, Brushes.Red
-            Polar, Brushes.Blue
+            AtomType.A, Brushes.Red
+            AtomType.B, Brushes.Blue
+            AtomType.C, Brushes.Green
+            AtomType.D, Brushes.Brown
         ]
 
     let private (~~)(ecosPt : Ecos.Point) =
@@ -51,8 +53,8 @@ module View =
                         Ellipse.useLayoutRounding false   // don't snap to pixels before scaling
                     ]
 
-                let bonds =
-                    world.BondMap
+                let strongBonds =
+                    world.StrongBondMap
                         |> Map.toSeq
                         |> Seq.collect (fun (idA, ids) ->
                             Seq.choose (fun idB ->
@@ -63,7 +65,7 @@ module View =
                                 else None)
                                 ids)
 
-                for a, b in bonds do
+                for a, b in strongBonds do
                     Line.create [
                         Line.startPoint ~~a.Location
                         Line.endPoint ~~b.Location
@@ -95,14 +97,6 @@ module View =
             ]
         ]
 
-    let renderEnergy energy =
-        TextBlock.create [
-            TextBlock.dock Dock.Bottom
-            TextBlock.text $"Avg. energy: %0.1f{energy}"
-            TextBlock.foreground Colors.Black
-            TextBlock.padding 10
-        ]
-
     let render model dispatch =
         let world = model.World
         Window.create [
@@ -113,7 +107,6 @@ module View =
             Window.child (
                 DockPanel.create [
                     DockPanel.children [
-                        renderEnergy model.EnergyAvg
                         renderTemperature model.Temperature dispatch
                         renderWorld model.World   // last child fills
                     ]
