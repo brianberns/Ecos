@@ -278,7 +278,7 @@ module World =
 
     /// Adds a weak bond between the given atoms in the given
     /// world if it is valid.
-    let tryAddWeakBond idA idB world =   // to-do: prevent bond crossing
+    let tryAddWeakBond idA idB world =
         let atomA = world.AtomMap[idA]
         let atomB = world.AtomMap[idB]
         let canAdd =
