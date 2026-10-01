@@ -13,7 +13,8 @@ module View =
     let private windowWidth = 1000.0
     let private windowHeight = 400.0
     let private scale = 5.0
-    let private bondThickness = 1.0
+    let private strongBondThickness = 2.0
+    let private weakBondThickness = 1.0
 
     let private transformGroup =
         let group = TransformGroup()
@@ -70,7 +71,25 @@ module View =
                         Line.startPoint ~~a.Location
                         Line.endPoint ~~b.Location
                         Line.stroke Brushes.Black
-                        Line.strokeThickness (bondThickness / scale)   // undo transform
+                        Line.strokeThickness (strongBondThickness / scale)   // undo transform
+                    ]
+
+                let weakBonds =
+                    world.WeakBondMap
+                        |> Map.toSeq
+                        |> Seq.choose (fun (idA, idB) ->
+                            if idA < idB then
+                                Some (
+                                    world.AtomMap[idA],
+                                    world.AtomMap[idB])
+                            else None)
+
+                for a, b in weakBonds do
+                    Line.create [
+                        Line.startPoint ~~a.Location
+                        Line.endPoint ~~b.Location
+                        Line.stroke Brushes.Gray
+                        Line.strokeThickness (weakBondThickness / scale)   // undo transform
                     ]
             ]
         ]
