@@ -182,15 +182,22 @@ module World =
             | Some world -> world
             | None -> failwith "Invalid bond"
 
-    /// Determines whether a weak bond between the given atoms
+    /// Determines whether a weak bond between the given locations
     /// is valid.
-    let private testWeakBond atomA atomB =
-        let diff = abs (atomA.Location - atomB.Location)
+    let private testWeakBondLocation locA locB =
+        let diff = abs (locA - locB)
         match max diff.X diff.Y, min diff.X diff.Y with
             | 2, 0
             | 2, 1
             | 2, 2 -> true
             | _ -> false
+
+    /// Determines whether a weak bond between the given atoms
+    /// is valid.
+    let private testWeakBond atomA atomB =
+        testWeakBondLocation
+            atomA.Location
+            atomB.Location
 
     /// Maximum number of weak bonds an atom can have.
     let private weakBondValence = 1
@@ -296,24 +303,31 @@ module World =
             moveAtom idA atom atom' world
         else world
 
-    /// Short-range contact neighborhood.
-    let private contactNeighborhood =
-        [| (2, 0); (2, 1); (2, 2) |]
-            |> Array.collect (fun (a, b) ->
-                [|
-                    (a, b)                            // e.g.  2,  1
-                    if a <> 0 then (-a, b)            // e.g. -2,  1
-                    if b <> 0 then
-                        (a, -b)                       // e.g.  2, -1
-                        if a <> 0 then (-a, -b)       // e.g. -2, -1
-                    if a <> b then
-                        (b, a)                        // e.g.  1,  2
-                        if b <> 0 then (-b, a)        // e.g. -1,  2
-                        if a <> 0 then
-                            (b, -a)                   // e.g.  1, -2
-                            if b <> 0 then (-b, -a)   // e.g. -1, -2
-                |])
-            |> Array.map Point.create
+    /// Weak bond neighborhood. These are neighbors that
+    /// are in short-range contact.
+    let private weakBondNeighborhood =
+        let points =
+            [| (2, 0); (2, 1); (2, 2) |]
+                |> Array.collect (fun (a, b) ->
+                    [|
+                        (a, b)                            // e.g.  2,  1
+                        if a <> 0 then (-a, b)            // e.g. -2,  1
+                        if b <> 0 then
+                            (a, -b)                       // e.g.  2, -1
+                            if a <> 0 then (-a, -b)       // e.g. -2, -1
+                        if a <> b then
+                            (b, a)                        // e.g.  1,  2
+                            if b <> 0 then (-b, a)        // e.g. -1,  2
+                            if a <> 0 then
+                                (b, -a)                   // e.g.  1, -2
+                                if b <> 0 then (-b, -a)   // e.g. -1, -2
+                    |])
+                |> Array.map Point.create
+        assert(
+            Seq.forall
+                (testWeakBondLocation Point.zero)
+                points)
+        points
 
     /// Energy delta of a weak bond.
     let private weakBondEnergy = 1
@@ -348,8 +362,8 @@ module World =
 
             // pick a direction to bond in
         let delta =
-            contactNeighborhood[
-                rng.Next(contactNeighborhood.Length)]
+            weakBondNeighborhood[
+                rng.Next(weakBondNeighborhood.Length)]
 
             // toggle bond with atom at that location?
         world.OccupancyMap

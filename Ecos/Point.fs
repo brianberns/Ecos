@@ -17,6 +17,12 @@ type Point =
     /// Display string.
     override this.ToString() = this.String
 
+    /// Origin.
+    static member val zero = { X = 0; Y = 0 }
+
+    /// Origin.
+    static member Zero = Point.zero
+
     /// Adds two points.
     static member (+)(a, b) =
         {
