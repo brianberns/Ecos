@@ -123,16 +123,26 @@ module World =
     let private strongBondValence = 2
 
     /// Indicates whether the atoms with the given IDs are already
-    /// bonded in the given world.
-    let private areBonded idA idB world =
+    /// strongly bonded in the given world.
+    let private areStronglyBonded idA idB world =
         assert(
             (getStrongBonds idA world).Contains(idB) =
                 (getStrongBonds idB world).Contains(idA))
+        (getStrongBonds idA world).Contains(idB)
+
+    /// Indicates whether the atoms with the given IDs are already
+    /// weakly bonded in the given world.
+    let private areWeaklyBonded idA idB world =
         assert(
             (getWeakBonds idA world).Contains(idB) =
                 (getWeakBonds idB world).Contains(idA))
-        (getStrongBonds idA world).Contains(idB)
-            || (getWeakBonds idA world).Contains(idB)
+        (getWeakBonds idA world).Contains(idB)
+
+    /// Indicates whether the atoms with the given IDs are already
+    /// bonded in the given world.
+    let private areBonded idA idB world =
+        areStronglyBonded idA idB world
+            || areWeaklyBonded idA idB world
 
     /// Creates a unidirectional strong bond between the given
     /// atoms.
@@ -305,8 +315,48 @@ module World =
                 |])
             |> Array.map Point.create
 
+    /// Energy delta of a weak bond.
+    let private weakBondEnergy = 1
+
+    /// Breaks a weak bond between the atoms with the given IDs
+    /// in the given world.
+    let private breakWeakBond idA idB world =
+        let weakBondMap =
+            world.WeakBondMap
+                |> Map.remove idA
+                |> Map.remove idB
+        { world with WeakBondMap = weakBondMap }
+
+    /// Attempts to toggle a weak bond between the atoms with the
+    /// given IDs in the given world.
+    let private tryToggleWeakBond kT rng idA idB world =
+        if areWeaklyBonded idA idB world then
+            if testMetropolis kT rng weakBondEnergy then
+                Some (breakWeakBond idA idB world)
+            else None
+        else
+            if testMetropolis kT rng -weakBondEnergy then
+                Some (addWeakBond idA idB world)
+            else None
+
+    /// Attempts to toggle a weak bond in the given world.
     let private updateWeakBond kT (rng : Random) world =
-        world
+
+            // pick atom to bond
+        let idA = rng.Next(world.AtomMap.Count)   // assume for now that atoms are never removed
+        let atom = world.AtomMap[idA]
+
+            // pick a direction to bond in
+        let delta =
+            contactNeighborhood[
+                rng.Next(contactNeighborhood.Length)]
+
+            // toggle bond with atom at that location?
+        world.OccupancyMap
+            |> Map.tryFind (atom.Location + delta)
+            |> Option.bind (fun idB ->
+                tryToggleWeakBond kT rng idA idB world)
+            |> Option.defaultValue world
 
     /// Attempts to cause an event in the given world.
     let update kT (rng : Random) world =
