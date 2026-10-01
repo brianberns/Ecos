@@ -43,7 +43,6 @@ module World =
             OccupancyMap = Map.empty
         }
 
-
     /// Moore neighborhood, including center.
     let private mooreNeighborhood =
         [|
@@ -80,27 +79,45 @@ module World =
             | Some world -> world
             | None -> failwith "Invalid location"
 
-    /// Determines whether a strong bond between the given
-    /// atoms is valid.
-    let private testStrongBond atomA atomB =
-        let diff = abs (atomA.Location - atomB.Location)   // get non-negative location difference
+    /// Answers the IDs of all atoms strongly bonded with the
+    /// given atom.
+    let private getStrongBonds id world =
+        let ids =
+            world.StrongBondMap
+                |> Map.tryFind id
+                |> Option.defaultValue Set.empty
+        assert(
+            Seq.forall (fun idB ->
+                world.StrongBondMap[idB].Contains(id))
+                ids)
+        ids
+
+    /// Maximum number of strong bonds an atom can have.
+    let private strongBondValence = 2
+
+    /// Determines whether a strong bond between the atoms
+    /// with the given IDs is valid.
+    let private testStrongBond idA atomA idB atomB world =
+        let diff = abs (atomA.Location - atomB.Location)
         match max diff.X diff.Y, min diff.X diff.Y with
             | 2, 0
             | 2, 1
             | 2, 2
             | 3, 0
             | 3, 1
-            | 3, 2 -> true
+            | 3, 2 ->
+                (getStrongBonds idA world).Count <= strongBondValence
+                    && (getStrongBonds idB world).Count <= strongBondValence
             | _ -> false
 
     /// Creates a unidirectional strong bond between the given
     /// atoms.
-    let private createStrongBond idA idB bonds =
+    let private createStrongBond idA idB bondMap =
         let ids =
-            Map.tryFind idA bonds
+            Map.tryFind idA bondMap
                 |> Option.defaultValue Set.empty
                 |> Set.add idB
-        Map.add idA ids bonds
+        Map.add idA ids bondMap
    
     /// Adds a strong bond between the given atoms in the given
     /// world if it is valid. Note that this currently allows
@@ -109,7 +126,7 @@ module World =
     let tryAddStrongBond idA idB world =
         let atomA = world.AtomMap[idA]
         let atomB = world.AtomMap[idB]
-        if testStrongBond atomA atomB then
+        if testStrongBond idA atomA idB atomB world then
             Some {
                 world with
                     StrongBondMap =
@@ -126,6 +143,77 @@ module World =
             | Some world -> world
             | None -> failwith "Invalid bond"
 
+    /// Tests validity of the given atom's strong bonds.
+    let private testStrongBonds id atom world =
+        getStrongBonds id world
+            |> Seq.forall (fun idB ->
+                let atomB = world.AtomMap[idB]
+                testStrongBond id atom idB atomB world)
+
+    /// Answers the IDs of all atoms weakly bonded with the
+    /// given atom.
+    let private getWeakBonds id world =
+        let ids =
+            world.WeakBondMap
+                |> Map.tryFind id
+                |> Option.toArray
+                |> set
+        assert(
+            Seq.forall (fun idB ->
+                world.WeakBondMap[idB] = id)
+                ids)
+        ids
+
+    /// Maximum number of weak bonds an atom can have.
+    let private weakBondValence = 1
+
+    /// Determines whether a weak bond between the atoms
+    /// with the given IDs is valid.
+    let private testWeakBond idA atomA idB atomB world =
+        if AtomType.canPair atomA.Type atomB.Type then
+            let diff = abs (atomA.Location - atomB.Location)
+            match max diff.X diff.Y, min diff.X diff.Y with
+                | 2, 0
+                | 2, 1
+                | 2, 2 ->
+                    assert(
+                        (getStrongBonds idA world).Contains(idB) =
+                            (getStrongBonds idB world).Contains(idA))
+                    not ((getStrongBonds idA world).Contains(idB))
+                        && (getWeakBonds idA world).Count <= weakBondValence
+                        && (getWeakBonds idB world).Count <= weakBondValence
+                | _ -> false
+        else false
+   
+    /// Adds a weak bond between the given atoms in the given
+    /// world if it is valid.
+    let tryAddWeakBond idA idB world =   // to-do: prevent bond crossing
+        let atomA = world.AtomMap[idA]
+        let atomB = world.AtomMap[idB]
+        if testWeakBond idA atomA idB atomB world then
+            Some {
+                world with
+                    WeakBondMap =
+                        world.WeakBondMap
+                            |> Map.add idA idB
+                            |> Map.add idB idA
+            }
+        else None
+
+    /// Adds a weak bond between the given atoms in the given
+    /// world.
+    let addWeakBond idA idB world =
+        match tryAddWeakBond idA idB world with
+            | Some world -> world
+            | None -> failwith "Invalid bond"
+
+    /// Tests validity of the given atom's weak bonds.
+    let private testWeakBonds id atom world =
+        getWeakBonds id world
+            |> Seq.forall (fun idB ->
+                let atomB = world.AtomMap[idB]
+                testWeakBond id atom idB atomB world)
+
     /// Chooses a random cardinal direction.
     let private getRandomDirection (rng : Random) =
         Point.create <|
@@ -135,39 +223,6 @@ module World =
                 | 2 -> -1,  0
                 | 3 ->  0,  1
                 | _ -> failwith "Unexpected"
-
-    /// Answers the IDs of all atoms strongly bonded with the
-    /// given atom.
-    let private getStrongBonds id world =
-        let ids =
-            world.StrongBondMap
-                |> Map.tryFind id
-                |> Option.defaultValue Set.empty
-        assert(
-            Seq.forall (fun idB ->
-                world.StrongBondMap[idB].Contains(id))
-                ids)
-        ids
-
-    /// Tests validity of the given atom's strong bonds.
-    let private testStrongBonds id atom world =
-        getStrongBonds id world
-            |> Seq.forall (fun idB ->
-                let atomB = world.AtomMap[idB]
-                testStrongBond atom atomB)
-
-    /// Answers the IDs of all atoms weakly bonded with the
-    /// given atom.
-    let private getWeakBonds id world =
-        let ids =
-            world.WeakBondMap
-                |> Map.tryFind id
-                |> Option.toArray
-        assert(
-            Seq.forall (fun idB ->
-                world.StrongBondMap[idB].Contains(id))
-                ids)
-        ids
 
     /// Short-range contact neighborhood.
     let private contactNeighborhood =
@@ -187,23 +242,6 @@ module World =
                             if b <> 0 then (-b, -a)   // e.g. -1, -2
                 |])
             |> Array.map Point.create
-
-    /// Determines whether a weak bond between the given
-    /// atoms is valid.
-    let private testWeakBond atomA atomB =
-        let diff = abs (atomA.Location - atomB.Location)   // get non-negative location difference
-        match max diff.X diff.Y, min diff.X diff.Y with
-            | 2, 0
-            | 2, 1
-            | 2, 2 -> true
-            | _ -> false
-
-    /// Tests validity of the given atom's weak bonds.
-    let private testWeakBonds id atom world =
-        getWeakBonds id world
-            |> Seq.forall (fun idB ->
-                let atomB = world.AtomMap[idB]
-                testWeakBond atom atomB)
 
     /// Applies the Metropolis rule:
     /// * A move that lowers the energy, or leaves it unchanged,
