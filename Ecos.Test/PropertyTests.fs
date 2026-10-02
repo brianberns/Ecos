@@ -5,6 +5,7 @@ open FsCheck.FSharp
 open FsCheck.Xunit
 open Xunit
 open Ecos
+open Ecos.Test.Geometry
 
 /// Fuzz tests of the model's rules, checked against independent
 /// statements of those rules.
@@ -24,28 +25,6 @@ module PropertyTests =
     /// the single-type helper in Chain.fs.)
     let private typedAtom typ loc : Atom =
         { Type = typ; Location = loc }
-
-    /// Sign of the cross product (b - a) x (c - a).
-    let private orientation (a : Point) (b : Point) (c : Point) =
-        sign ((b.X - a.X) * (c.Y - a.Y) - (b.Y - a.Y) * (c.X - a.X))
-
-    /// Is point p within the bounding box of segment ab?
-    let private inBox (a : Point) (b : Point) (p : Point) =
-        min a.X b.X <= p.X && p.X <= max a.X b.X
-            && min a.Y b.Y <= p.Y && p.Y <= max a.Y b.Y
-
-    /// Oracle: do closed segments ab and cd intersect (including
-    /// touching)?
-    let private segmentsIntersect a b c d =
-        let o1 = orientation a b c
-        let o2 = orientation a b d
-        let o3 = orientation c d a
-        let o4 = orientation c d b
-        (o1 * o2 < 0 && o3 * o4 < 0)
-            || (o1 = 0 && inBox a b c)
-            || (o2 = 0 && inBox a b d)
-            || (o3 = 0 && inBox c d a)
-            || (o4 = 0 && inBox c d b)
 
     /// Are the given atoms strongly bonded?
     let private isStronglyBonded (world : World) idA idB =
@@ -189,19 +168,36 @@ module PropertyTests =
             && not (isStronglyBonded world idA idB)
             && not (crossesAnyBond world idA idB)
 
+    /// Oracle: number of stacks that a weak bond between the given
+    /// atoms takes part in (or would, if formed): weak bonds A'-B'
+    /// other than A-B itself, where A' is strongly bonded to A, and B'
+    /// to B. Found by scanning every weak bond in the world, rather
+    /// than by walking out from A as World does.
+    let private countStacks (world : World) idA idB =
+        weakBonds world
+            |> Seq.filter (fun (idC, idD) ->
+                set [ idC; idD ] <> set [ idA; idB ]
+                    && (isStronglyBonded world idA idC && isStronglyBonded world idB idD
+                        || isStronglyBonded world idA idD && isStronglyBonded world idB idC))
+            |> Seq.length
+
     /// Oracle: probabilities that a weak bond toggle forms a bond, and
     /// that it breaks one, in the given world. A toggle picks an atom
     /// uniformly, then one of the weak bond vectors uniformly. If that
     /// finds an atom that can pair, the bond always forms (since that
     /// lowers the energy); if it finds the atom's partner, the bond
-    /// breaks with probability exp(weakBondEnergy / kT).
+    /// breaks with probability exp(E / kT), where E is the energy of
+    /// the bond and of the stacks it takes part in.
     let private toggleProbabilities kT (world : World) =
         let mutable form, brk = 0.0, 0.0
         for KeyValue(idA, atomA) in world.AtomMap do
             for v in Chain.weakBondVectors do
                 match world.OccupancyMap.TryFind (atomA.Location + v) with
                     | Some idB when world.WeakBondMap.TryFind idA = Some idB ->
-                        brk <- brk + exp (Chain.weakBondEnergy / kT)
+                        let energy =
+                            Chain.weakBondEnergy
+                                + Chain.stackEnergy * float (countStacks world idA idB)
+                        brk <- brk + exp (energy / kT)
                     | Some idB when canFormWeakBond world idA idB ->
                         form <- form + 1.0
                     | _ -> ()
@@ -263,7 +259,7 @@ module PropertyTests =
     /// every nearby separation.
     [<Fact>]
     let ``tryAddWeakBond accepts exactly complementary atoms in range`` () =
-        let types = [ AtomType.A; AtomType.B; AtomType.C; AtomType.D ]
+        let types = [ AtomType.W; AtomType.X; AtomType.Y; AtomType.Z ]
         let origin = Point.create (0, 0)
         for typeA in types do
             for typeB in types do
@@ -288,15 +284,15 @@ module PropertyTests =
     [<Fact>]
     let ``Bond limits are enforced`` () =
 
-            // A1 in the middle, with A0 and A2 on either side, and
-            // B3 and B4 above and below it, all in range of A1
+            // W1 in the middle, with W0 and W2 on either side, and
+            // X3 and X4 above and below it, all in range of W1
         let world =
             World.empty
-                |> World.addAtom (typedAtom AtomType.A (Point.create (-2, 0)))   // 0
-                |> World.addAtom (typedAtom AtomType.A (Point.create (0, 0)))    // 1
-                |> World.addAtom (typedAtom AtomType.A (Point.create (2, 0)))    // 2
-                |> World.addAtom (typedAtom AtomType.B (Point.create (0, 2)))    // 3
-                |> World.addAtom (typedAtom AtomType.B (Point.create (0, -2)))   // 4
+                |> World.addAtom (typedAtom AtomType.W (Point.create (-2, 0)))   // 0
+                |> World.addAtom (typedAtom AtomType.W (Point.create (0, 0)))    // 1
+                |> World.addAtom (typedAtom AtomType.W (Point.create (2, 0)))    // 2
+                |> World.addAtom (typedAtom AtomType.X (Point.create (0, 2)))    // 3
+                |> World.addAtom (typedAtom AtomType.X (Point.create (0, -2)))   // 4
 
             // strong bonds: a third one is rejected
         let world =
@@ -316,47 +312,47 @@ module PropertyTests =
         Assert.True((World.tryAddWeakBond 4 1 world).IsNone, "Second weak bond accepted")
 
             // a weakly bonded pair can't also bond strongly, even with
-            // spare strong valence (A0 has one strong bond, B4 none),
+            // spare strong valence (W0 has one strong bond, X4 none),
             // and the same weak bond can't be added twice
         let world = World.addWeakBond 0 4 world
         Assert.True((World.tryAddStrongBond 4 0 world).IsNone, "Strong bond accepted between weakly bonded atoms")
         Assert.True((World.tryAddWeakBond 4 0 world).IsNone, "Duplicate weak bond accepted")
 
-    /// Topology, exhaustively: atoms P (type A, at the origin) and Q
-    /// (type B) are in weak bond range, and atoms X (type C) and Y
-    /// (type D) are bonded to each other, strongly or weakly. For every
-    /// such local configuration, a weak bond P-Q must be accepted if
-    /// and only if it doesn't cross bond X-Y. X ranges over every
-    /// location from which bond X-Y could reach bond P-Q.
+    /// Topology, exhaustively: atoms A (type W, at the origin) and B
+    /// (type X) are in weak bond range, and atoms C (type Y) and D
+    /// (type Z) are bonded to each other, strongly or weakly. For every
+    /// such local configuration, a weak bond A-B must be accepted if
+    /// and only if it doesn't cross bond C-D. C ranges over every
+    /// location from which bond C-D could reach bond A-B.
     [<Fact>]
     let ``tryAddWeakBond rejects exactly the bonds that would cross`` () =
-        let p = Point.create (0, 0)
+        let a = Point.create (0, 0)
         let mutable nChecked, nCrossed = 0, 0
-        for bondPQ in Chain.weakBondVectors do
-            let q = p + bondPQ
+        for bondAB in Chain.weakBondVectors do
+            let b = a + bondAB
             for cx in -6 .. 6 do
                 for cy in -6 .. 6 do
-                    let x = Point.create (cx, cy)
-                    for bondXY in Chain.bondVectors do
-                        let y = x + bondXY
+                    let c = Point.create (cx, cy)
+                    for bondCD in Chain.bondVectors do
+                        let d = c + bondCD
                         let atomsOpt =
                             Some World.empty
-                                |> Option.bind (World.tryAddAtom (typedAtom AtomType.A p))
-                                |> Option.bind (World.tryAddAtom (typedAtom AtomType.B q))
-                                |> Option.bind (World.tryAddAtom (typedAtom AtomType.C x))
-                                |> Option.bind (World.tryAddAtom (typedAtom AtomType.D y))
+                                |> Option.bind (World.tryAddAtom (typedAtom AtomType.W a))
+                                |> Option.bind (World.tryAddAtom (typedAtom AtomType.X b))
+                                |> Option.bind (World.tryAddAtom (typedAtom AtomType.Y c))
+                                |> Option.bind (World.tryAddAtom (typedAtom AtomType.Z d))
                         let worlds =
                             [
                                 atomsOpt |> Option.bind (World.tryAddStrongBond 2 3)
-                                atomsOpt |> Option.bind (World.tryAddWeakBond 2 3)   // only if X-Y is in weak bond range
+                                atomsOpt |> Option.bind (World.tryAddWeakBond 2 3)   // only if C-D is in weak bond range
                             ] |> List.choose id
                         for world in worlds do
                             nChecked <- nChecked + 1
-                            let crosses = segmentsIntersect p q x y
+                            let crosses = segmentsIntersect a b c d
                             if crosses then nCrossed <- nCrossed + 1
                             if (World.tryAddWeakBond 0 1 world).IsSome = crosses then
                                 Assert.Fail(
-                                    $"P {p}, Q {q}, X {x}, Y {y}: crosses = {crosses}, but accepted = {not crosses}")
+                                    $"A {a}, B {b}, C {c}, D {d}: crosses = {crosses}, but accepted = {not crosses}")
 
             // make sure the check isn't vacuous
         Assert.True(nChecked > 10000, $"Only {nChecked} configurations checked")
@@ -387,7 +383,7 @@ module PropertyTests =
         let length = 2 + abs (length % 20)
         let kT = temperatures[abs (iKT % temperatures.Length)]
         let rng = Random(seed)
-        let mutable world = Chain.grow rng length |> Chain.withRandomTypes rng |> Chain.addSoup rng 10 |> Chain.addObstacles rng 10
+        let mutable world = Chain.grow rng length |> Chain.withRandomTypes rng |> Chain.addSoup rng 10 |> Chain.addDimers rng 5 |> Chain.addObstacles rng 10
         let strongBonds = world.StrongBondMap
         let mutable ok = isValid world
         for _ in 1 .. 500 + abs (nSteps % 1000) do
@@ -412,52 +408,95 @@ module PropertyTests =
             world <- world'
         ok
 
-    /// Valid events are actually made, at the right rates. An update
-    /// hops with probability hopProbability, picking an atom and a
-    /// direction uniformly and accepting any valid move (no hop changes
-    /// the energy yet); otherwise it toggles a weak bond (see
-    /// toggleProbability). Over many updates, the number of events
-    /// made must match the sum of those probabilities. This catches an
-    /// update that wrongly rejects valid events, or accepts them at the
-    /// wrong rate, which the test above cannot.
+    /// Runs the given number of updates on the given world, and checks
+    /// that each kind of event (move, weak bond formed, weak bond
+    /// broken) happens as often as expected.
+    ///
+    /// An update hops with probability hopProbability, picking an atom
+    /// and a direction uniformly and accepting any valid move (no hop
+    /// changes the energy yet); otherwise it toggles a weak bond (see
+    /// toggleProbabilities). Over many updates, the number of events
+    /// of each kind must match the sum of its probabilities.
+    let private checkEventRates label kT nSteps (rng : Random) (world : World) =
+        let mutable world = world
+
+            // expected and actual counts of each kind of event
+        let kinds = [| "moves"; "bonds formed"; "bonds broken" |]
+        let expected = Array.zeroCreate<float> kinds.Length
+        let variance = Array.zeroCreate<float> kinds.Length
+        let actual = Array.zeroCreate<int> kinds.Length
+
+        for _ in 1 .. nSteps do
+            let pForm, pBreak = toggleProbabilities kT world
+            let ps =
+                [|
+                    Chain.hopProbability
+                        * float (validMoves world).Length / float (4 * world.AtomMap.Count)
+                    (1.0 - Chain.hopProbability) * pForm
+                    (1.0 - Chain.hopProbability) * pBreak
+                |]
+            for i, p in Array.indexed ps do
+                expected[i] <- expected[i] + p
+                variance[i] <- variance[i] + p * (1.0 - p)
+            let world' = World.update kT rng world
+            let nBefore, nAfter = world.WeakBondMap.Count, world'.WeakBondMap.Count
+            if world'.AtomMap <> world.AtomMap then
+                actual[0] <- actual[0] + 1
+            if nAfter > nBefore then actual[1] <- actual[1] + 1
+            if nAfter < nBefore then actual[2] <- actual[2] + 1
+            world <- world'
+
+        for i, kind in Array.indexed kinds do
+            let tolerance = 5.0 * sqrt variance[i] + 0.5   // 5 standard deviations
+            Assert.True(
+                abs (float actual[i] - expected[i]) <= tolerance,
+                $"{label}, kT = {kT}: {actual[i]} {kind}, expected {expected[i]:F1} ± {tolerance:F1}")
+
+    /// Valid events are actually made, at the right rates, in crowded
+    /// worlds of chains, free atoms, and walls. This catches an update
+    /// that wrongly rejects valid events, or accepts them at the wrong
+    /// rate, which the test above cannot.
     [<Fact>]
     let ``update makes valid events at the expected rate`` () =
         for kT in temperatures do
             for length in [ 1; 2; 5; 20 ] do
                 let rng = Random(length)
-                let mutable world = Chain.grow rng length |> Chain.withRandomTypes rng |> Chain.addSoup rng 10 |> Chain.addObstacles rng 10
+                Chain.grow rng length
+                    |> Chain.withRandomTypes rng
+                    |> Chain.addSoup rng 10
+                    |> Chain.addObstacles rng 10
+                    |> checkEventRates $"N = {length}" kT 20000 rng
 
-                    // expected and actual counts of each kind of event
-                let kinds = [| "moves"; "bonds formed"; "bonds broken" |]
-                let expected = Array.zeroCreate<float> kinds.Length
-                let variance = Array.zeroCreate<float> kinds.Length
-                let actual = Array.zeroCreate<int> kinds.Length
-
-                for _ in 1 .. 20000 do
-                    let pForm, pBreak = toggleProbabilities kT world
-                    let ps =
-                        [|
-                            Chain.hopProbability
-                                * float (validMoves world).Length / float (4 * world.AtomMap.Count)
-                            (1.0 - Chain.hopProbability) * pForm
-                            (1.0 - Chain.hopProbability) * pBreak
-                        |]
-                    for i, p in Array.indexed ps do
-                        expected[i] <- expected[i] + p
-                        variance[i] <- variance[i] + p * (1.0 - p)
-                    let world' = World.update kT rng world
-                    let nBefore, nAfter = world.WeakBondMap.Count, world'.WeakBondMap.Count
-                    if world'.AtomMap <> world.AtomMap then
-                        actual[0] <- actual[0] + 1
-                    if nAfter > nBefore then actual[1] <- actual[1] + 1
-                    if nAfter < nBefore then actual[2] <- actual[2] + 1
-                    world <- world'
-
-                for i, kind in Array.indexed kinds do
-                    let tolerance = 5.0 * sqrt variance[i] + 0.5   // 5 standard deviations
-                    Assert.True(
-                        abs (float actual[i] - expected[i]) <= tolerance,
-                        $"kT = {kT}, N = {length}: {actual[i]} {kind}, expected {expected[i]:F1} ± {tolerance:F1}")
+    /// Stacking, at the right rates: four atoms are confined to a small
+    /// box, so that weak bonds between them form and break constantly.
+    ///
+    /// * Ladder: W0-W1 and X2-X3 are both strongly bonded. When both
+    ///   rungs (0-2 and 1-3, or 0-3 and 1-2) exist, they form a stack,
+    ///   so each is harder to break.
+    /// * Near miss: W0-W1 is strongly bonded, but X2 and X3 are free.
+    ///   The same two rungs can exist, but they never form a stack,
+    ///   since X2 and X3 aren't strongly bonded.
+    ///
+    /// The oracle counts stacks independently of World, so bonds must
+    /// break at the rates it predicts in both cases.
+    [<Fact>]
+    let ``Stacked weak bonds break at the expected rate`` () =
+        let atoms =
+            World.empty
+                |> World.addAtom (typedAtom AtomType.W (Point.create (-1, -1)))   // 0
+                |> World.addAtom (typedAtom AtomType.W (Point.create (1, -1)))    // 1
+                |> World.addAtom (typedAtom AtomType.X (Point.create (-1, 1)))    // 2
+                |> World.addAtom (typedAtom AtomType.X (Point.create (1, 1)))     // 3
+                |> World.addStrongBond 0 1
+                |> Chain.addBox 2
+        let worlds =
+            [
+                "Ladder", World.addStrongBond 2 3 atoms
+                "Near miss", atoms
+            ]
+        for label, world in worlds do
+            let kT = 0.7   // cold enough that a stack clearly changes how often bonds break
+            checkEventRates label kT 200000 (Random(0)) world
 
     /// Topology, exhaustively: atom A (at the origin) is bonded to B
     /// and steps to A'; C and D are bonded to each other. For every
@@ -515,7 +554,7 @@ module PropertyTests =
     let ``update never changes which bonds cross`` (length : int) (seed : int) (nSteps : int) =
         let length = 4 + abs (length % 20)
         let rng = Random(seed)
-        let mutable world = Chain.grow rng length |> Chain.withRandomTypes rng |> Chain.addSoup rng 10 |> Chain.addObstacles rng 10
+        let mutable world = Chain.grow rng length |> Chain.withRandomTypes rng |> Chain.addSoup rng 10 |> Chain.addDimers rng 5 |> Chain.addObstacles rng 10
         let initial = crossings world
         let mutable ok = true
         for _ in 1 .. 500 + abs (nSteps % 500) do

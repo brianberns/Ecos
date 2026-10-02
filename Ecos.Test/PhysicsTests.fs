@@ -137,14 +137,14 @@ module PhysicsTests =
     /// conformation is equally likely.
     [<Fact>]
     let ``Trimer samples all conformations uniformly`` () =
-        checkTrimer (AtomType.A, AtomType.A, AtomType.A) Chain.athermalKT
+        checkTrimer (AtomType.W, AtomType.W, AtomType.W) Chain.athermalKT
 
     /// Pairing: complementary ends spend time weakly bonded, with
     /// paired and unpaired states weighted by exactly the Boltzmann
     /// factor.
     [<Fact>]
     let ``Trimer with complementary ends follows the Boltzmann distribution`` () =
-        checkTrimer (AtomType.A, AtomType.C, AtomType.B) 0.5
+        checkTrimer (AtomType.W, AtomType.Y, AtomType.X) 0.5
 
     /// Selectivity: the ends aren't complementary, and the middle atom
     /// is complementary to one end but strongly bonded to it, so no
@@ -152,9 +152,169 @@ module PhysicsTests =
     /// likely.
     [<Fact>]
     let ``Trimer with no allowed pairs samples uniformly`` () =
-        checkTrimer (AtomType.A, AtomType.B, AtomType.C) 0.5
+        checkTrimer (AtomType.W, AtomType.X, AtomType.Y) 0.5
 
-    /// Walls and free atoms: two complementary atoms (types A and B),
+    /// Chi-squared goodness of fit of observed counts against exact
+    /// weights. Bins expected to hold fewer than 5 samples are merged
+    /// into one. Fails if any observed state has no exact weight.
+    let private checkFit name (exact : Map<'state, float>) (samples : 'state[]) =
+        let observed = samples |> Array.countBy id |> Map.ofArray
+        for state in observed.Keys do
+            Assert.True(exact.ContainsKey state, $"{name}: invalid state {state}")
+        let totalWeight = exact.Values |> Seq.sum
+        let bins =
+            exact
+                |> Map.toArray
+                |> Array.map (fun (state, weight) ->
+                    let expected = float samples.Length * weight / totalWeight
+                    let obs =
+                        observed
+                            |> Map.tryFind state
+                            |> Option.defaultValue 0
+                            |> float
+                    expected, obs)
+        let large, small = bins |> Array.partition (fun (expected, _) -> expected >= 5.0)
+        let bins =
+            if small.Length = 0 then large
+            else Array.append large [| Array.sumBy fst small, Array.sumBy snd small |]
+        let chi2 =
+            bins |> Array.sumBy (fun (expected, obs) -> (obs - expected) ** 2.0 / expected)
+        let df = float (bins.Length - 1)
+        let limit = df + 5.0 * sqrt (2.0 * df)   // mean + 5 standard deviations
+        Assert.True(chi2 < limit, $"{name}: chi^2 = {chi2:F1}, limit {limit:F1} (df = {df})")
+
+    /// Stacking: a five-atom chain with types W-W-Y-X-X can fold into
+    /// a hairpin. Either W can pair with either X (the Y in the middle
+    /// pairs with nothing), so there are four possible weak bonds:
+    /// 0-3, 0-4, 1-3, and 1-4. Two of them can exist at once, and then
+    /// they always form a stack, since atoms 0 and 1 are strongly
+    /// bonded, and so are atoms 3 and 4.
+    ///
+    /// We enumerate every state exactly: each conformation of the chain
+    /// without overlaps or crossed strong bonds (which hops can't
+    /// create), with each set of weak bonds that are in range and cross
+    /// nothing. A state's energy is weakBondEnergy per weak bond plus
+    /// stackEnergy per stack. The simulation must match the exact
+    /// distribution of both the set of weak bonds and the end-to-end
+    /// vector.
+    [<Fact>]
+    let ``Hairpin with stacked pairs follows the Boltzmann distribution`` () =
+        let kT = 0.8
+        let n = 5
+        let types = [| AtomType.W; AtomType.W; AtomType.Y; AtomType.X; AtomType.X |]
+        let overlaps (a : Point) (b : Point) =
+            abs (a.X - b.X) < 2 && abs (a.Y - b.Y) < 2
+        let strongBonds = [ for i in 0 .. n - 2 -> i, i + 1 ]
+        let isStrong (i, j) = abs (i - j) = 1
+        let sharesAtom (i, j) (k, l) = i = k || i = l || j = k || j = l
+
+            // weak bonds that the types allow
+        let candidates =
+            [
+                for i in 0 .. n - 1 do
+                    for j in i + 1 .. n - 1 do
+                        if Chain.canPair types[i] types[j] && not (isStrong (i, j)) then
+                            i, j
+            ]
+
+            // number of stacks formed by the given weak bonds
+        let countStacks (bonds : list<int * int>) =
+            List.sum [
+                for iBond, (a, b) in List.indexed bonds do
+                    for c, d in List.skip (iBond + 1) bonds do
+                        if (isStrong (a, c) && isStrong (b, d))
+                            || (isStrong (a, d) && isStrong (b, c)) then 1
+            ]
+
+            // exact Boltzmann weights of weak bond sets and of end-to-end vectors
+        let bondSetWeights = Collections.Generic.Dictionary<list<int * int>, float>()
+        let endToEndWeights = Collections.Generic.Dictionary<Point, float>()
+        let add (dict : Collections.Generic.Dictionary<_, float>) key weight =
+            dict[key] <- (match dict.TryGetValue key with | true, w -> w + weight | _ -> weight)
+        let locs = Array.zeroCreate<Point> n
+        let rec enumerate i =
+            if i = n then
+                let crosses (a, b) (c, d) =
+                    not (sharesAtom (a, b) (c, d))
+                        && Geometry.segmentsIntersect locs[a] locs[b] locs[c] locs[d]
+                let anyStrongCrossing =
+                    strongBonds
+                        |> List.exists (fun bondA ->
+                            strongBonds |> List.exists (crosses bondA))
+                if not anyStrongCrossing then
+
+                        // weak bonds that are in range and cross no strong bond
+                    let feasible =
+                        candidates
+                            |> List.filter (fun (i, j) ->
+                                Array.contains (locs[j] - locs[i]) Chain.weakBondVectors
+                                    && not (strongBonds |> List.exists (crosses (i, j))))
+
+                        // every set of feasible weak bonds: none, one, or two that
+                        // share no atom and don't cross each other
+                    let bondSets =
+                        [
+                            []
+                            for bond in feasible do [ bond ]
+                            for iBond, bondA in List.indexed feasible do
+                                for bondB in List.skip (iBond + 1) feasible do
+                                    if not (sharesAtom bondA bondB) && not (crosses bondA bondB) then
+                                        [ bondA; bondB ]
+                        ]
+                    for bonds in bondSets do
+                        let energy =
+                            Chain.weakBondEnergy * float bonds.Length
+                                + Chain.stackEnergy * float (countStacks bonds)
+                        let weight = exp (-energy / kT)
+                        add bondSetWeights bonds weight
+                        add endToEndWeights (locs[n - 1] - locs[0]) weight
+            else
+                for v in Chain.bondVectors do
+                    let loc = locs[i - 1] + v
+                    if Seq.forall (fun j -> not (overlaps loc locs[j])) (seq { 0 .. i - 1 }) then
+                        locs[i] <- loc
+                        enumerate (i + 1)
+        locs[0] <- Point.create (0, 0)
+        enumerate 1
+        let toMap (dict : Collections.Generic.Dictionary<_, float>) =
+            dict |> Seq.map (fun (KeyValue(key, weight)) -> key, weight) |> Map.ofSeq
+
+            // make sure stacked states are actually part of the test
+        Assert.True(
+            bondSetWeights.Keys |> Seq.exists (fun bonds -> countStacks bonds > 0),
+            "No stacked states enumerated")
+
+            // sample states from independent simulations
+        let nRuns, nSamples = 8, 3000
+        let burnIn, sampleInterval = 500, 60   // sweeps; the interval keeps samples roughly uncorrelated
+        let samples =
+            Array.Parallel.init nRuns (fun iRun ->
+                let rng = Random(iRun)
+                let mutable world =
+                    (World.empty, Array.indexed types)
+                        ||> Array.fold (fun world (i, typ) ->
+                            let world =
+                                World.addAtom
+                                    { Type = typ; Location = Point.create (3 * i, 0) }
+                                    world
+                            if i > 0 then World.addStrongBond (i - 1) i world
+                            else world)
+                world <- Chain.sweeps kT rng burnIn world
+                Array.init nSamples (fun _ ->
+                    world <- Chain.sweeps kT rng sampleInterval world
+                    let bonds =
+                        world.WeakBondMap
+                            |> Map.toList
+                            |> List.filter (fun (i, j) -> i < j)
+                    let endToEnd =
+                        world.AtomMap[n - 1].Location - world.AtomMap[0].Location
+                    bonds, endToEnd))
+                |> Array.concat
+
+        checkFit "Weak bonds" (toMap bondSetWeights) (Array.map fst samples)
+        checkFit "End-to-end vector" (toMap endToEndWeights) (Array.map snd samples)
+
+    /// Walls and free atoms: two complementary atoms (types W and X),
     /// not strongly bonded, are confined to a small box of walls. We
     /// can enumerate every state exactly: each placement of the two
     /// atoms in the box without overlap, unpaired (E = 0) or, when
@@ -201,8 +361,8 @@ module PhysicsTests =
                 let rng = Random(iRun)
                 let mutable world =
                     World.empty
-                        |> World.addAtom { Type = AtomType.A; Location = Point.create (-size, -size) }
-                        |> World.addAtom { Type = AtomType.B; Location = Point.create (size, size) }
+                        |> World.addAtom { Type = AtomType.W; Location = Point.create (-size, -size) }
+                        |> World.addAtom { Type = AtomType.X; Location = Point.create (size, size) }
                         |> Chain.addBox size
                 world <- Chain.sweeps kT rng burnIn world
                 Array.init nSamples (fun _ ->

@@ -2,15 +2,40 @@ namespace Ecos
 
 module Atom =
 
-    /// Helper for creating monotype atoms. Type A can't pair with
+    /// Helper for creating monotype atoms. Type W can't pair with
     /// itself, so worlds built from these atoms never form weak bonds.
     let create loc =
-        Ecos.Atom.create AtomType.A loc
+        Ecos.Atom.create AtomType.W loc
 
 namespace Ecos.Test
 
 open System
 open Ecos
+
+/// Geometry helpers.
+module Geometry =
+
+    /// Sign of the cross product (b - a) x (c - a).
+    let private orientation (a : Point) (b : Point) (c : Point) =
+        sign ((b.X - a.X) * (c.Y - a.Y) - (b.Y - a.Y) * (c.X - a.X))
+
+    /// Is point p within the bounding box of segment ab?
+    let private inBox (a : Point) (b : Point) (p : Point) =
+        min a.X b.X <= p.X && p.X <= max a.X b.X
+            && min a.Y b.Y <= p.Y && p.Y <= max a.Y b.Y
+
+    /// Oracle: do closed segments ab and cd intersect (including
+    /// touching)?
+    let segmentsIntersect a b c d =
+        let o1 = orientation a b c
+        let o2 = orientation a b d
+        let o3 = orientation c d a
+        let o4 = orientation c d b
+        (o1 * o2 < 0 && o3 * o4 < 0)
+            || (o1 = 0 && inBox a b c)
+            || (o2 = 0 && inBox a b d)
+            || (o3 = 0 && inBox c d a)
+            || (o4 = 0 && inBox c d b)
 
 /// Helpers for simulating and measuring a single linear chain.
 module Chain =
@@ -38,12 +63,16 @@ module Chain =
     /// Oracle: can atoms of the given types form a weak bond?
     let canPair typeA typeB =
         match typeA, typeB with
-            | AtomType.A, AtomType.B | AtomType.B, AtomType.A
-            | AtomType.C, AtomType.D | AtomType.D, AtomType.C -> true
+            | AtomType.W, AtomType.X | AtomType.X, AtomType.W
+            | AtomType.Y, AtomType.Z | AtomType.Z, AtomType.Y -> true
             | _ -> false
 
     /// Oracle: energy of one weak bond.
     let weakBondEnergy = -1.0
+
+    /// Oracle: energy of one stack, i.e. two weak bonds A-B and A'-B'
+    /// where A and A' are strongly bonded, and so are B and B'.
+    let stackEnergy = -1.0
 
     /// Oracle: probability that World.update attempts a hop rather
     /// than a weak bond toggle.
@@ -54,7 +83,7 @@ module Chain =
     /// weak bonds are allowed.
     let withRandomTypes (rng : Random) (world : World) =
         assert world.WeakBondMap.IsEmpty
-        let types = [| AtomType.A; AtomType.B; AtomType.C; AtomType.D |]
+        let types = [| AtomType.W; AtomType.X; AtomType.Y; AtomType.Z |]
         {
             world with
                 AtomMap =
@@ -120,7 +149,7 @@ module Chain =
     /// locations near the origin, packed closely enough that weak
     /// bonds form and break often.
     let addSoup (rng : Random) n (world : World) =
-        let types = [| AtomType.A; AtomType.B; AtomType.C; AtomType.D |]
+        let types = [| AtomType.W; AtomType.X; AtomType.Y; AtomType.Z |]
         let size = 2 + int (ceil (1.5 * sqrt (float n)))   // half-width of the box
         let rec loop count attempts world =
             if count = 0 then world
@@ -129,6 +158,31 @@ module Chain =
                 let loc = Point.create (rng.Next(-size, size + 1), rng.Next(-size, size + 1))
                 let atom = { Type = types[rng.Next types.Length]; Location = loc }
                 match World.tryAddAtom atom world with
+                    | Some world -> loop (count - 1) (attempts + 1) world
+                    | None -> loop count (attempts + 1) world
+        loop n 0 world
+
+    /// Adds n dimers (two strongly bonded atoms) of random types at
+    /// random locations near the origin. Dimers that pair with each
+    /// other form stacks, while a dimer whose atoms pair with two
+    /// unrelated atoms doesn't, so these exercise both cases.
+    let addDimers (rng : Random) n (world : World) =
+        let types = [| AtomType.W; AtomType.X; AtomType.Y; AtomType.Z |]
+        let size = 4 + int (ceil (2.0 * sqrt (float n)))   // half-width of the box
+        let rec loop count attempts world =
+            if count = 0 then world
+            elif attempts > 100000 then failwith "Dimer box is too full"
+            else
+                let locA = Point.create (rng.Next(-size, size + 1), rng.Next(-size, size + 1))
+                let locB = locA + bondVectors[rng.Next bondVectors.Length]
+                let atom loc = { Type = types[rng.Next types.Length]; Location = loc }
+                let idA = world.AtomMap.Count
+                let worldOpt =
+                    Some world
+                        |> Option.bind (World.tryAddAtom (atom locA))
+                        |> Option.bind (World.tryAddAtom (atom locB))
+                        |> Option.map (World.addStrongBond idA (idA + 1))
+                match worldOpt with
                     | Some world -> loop (count - 1) (attempts + 1) world
                     | None -> loop count (attempts + 1) world
         loop n 0 world
@@ -157,7 +211,7 @@ module Chain =
                             |> Option.defaultValue world))
 
     /// Temperature for tests of the athermal model. Atoms created by
-    /// the Atom.create helper above are all type A, which can't form
+    /// the Atom.create helper above are all type W, which can't form
     /// weak bonds, so every event has zero energy change and the value
     /// doesn't matter.
     let athermalKT = 1.0
