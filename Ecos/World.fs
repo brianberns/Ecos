@@ -15,7 +15,7 @@ type AtomId = int
 /// Bidirectional bonds between atoms.
 type BondMap = Map<AtomId, Set<AtomId>>
 
-module BondMap =
+module private BondMap =
 
     /// Answers the IDs of all atoms bonded with the given atom.
     let getBonds id bondMap =
@@ -36,6 +36,17 @@ module BondMap =
             (getBonds idA bondMap).Contains(idB) =
                 (getBonds idB bondMap).Contains(idA))
         (getBonds idA bondMap).Contains(idB)
+
+    /// Determines whether a bond between the given atoms is valid.
+    let testBond neighborhood atomA atomB =
+        assert(
+            Seq.forall (fun (x, y) ->
+                x >= 0 && y >= 0)
+                neighborhood)
+        let diff = abs (atomA.Location - atomB.Location)
+        Set.contains
+            (max diff.X diff.Y, min diff.X diff.Y)
+            neighborhood
 
 /// A lattice world containing atoms bonded into molecules.
 /// Every atom occupies a 2x2 square around its central
@@ -133,18 +144,16 @@ module World =
             (BondMap.getBonds id world.StrongBondMap)
             (BondMap.getBonds id world.WeakBondMap)
 
-    /// Determines whether a strong bond between the given atoms
-    /// is valid.
-    let private testStrongBond atomA atomB =
-        let diff = abs (atomA.Location - atomB.Location)
-        match max diff.X diff.Y, min diff.X diff.Y with
-            | 2, 0
-            | 2, 1
-            | 2, 2
-            | 3, 0
-            | 3, 1
-            | 3, 2 -> true
-            | _ -> false
+    /// All possible normalized strong bond vectors.
+    let private strongBondNeighborhood =
+        set [
+            2, 0
+            2, 1
+            2, 2
+            3, 0
+            3, 1
+            3, 2
+        ]
 
     /// Maximum number of strong bonds an atom can have.
     let private strongBondValence = 2
@@ -172,7 +181,7 @@ module World =
         let atomB = world.AtomMap[idB]
         let canAdd =
             let bondMap = world.StrongBondMap
-            testStrongBond atomA atomB
+            BondMap.testBond strongBondNeighborhood atomA atomB
                 && (BondMap.getBonds idA bondMap).Count < strongBondValence
                 && (BondMap.getBonds idB bondMap).Count < strongBondValence
                 && not (areBonded idA idB world)
@@ -193,51 +202,36 @@ module World =
             | Some world -> world
             | None -> failwith "Invalid bond"
 
-    /// Determines whether a weak bond between the given locations
-    /// is valid.
-    let private testWeakBondLocation locA locB =
-        let diff = abs (locA - locB)
-        match max diff.X diff.Y, min diff.X diff.Y with
-            | 2, 0
-            | 2, 1
-            | 2, 2 -> true
-            | _ -> false
+    /// All possible normalized weak bond vectors.
+    let private weakBondNeighborhood =
+        set [
+            2, 0
+            2, 1
+            2, 2
+        ]
 
-    /// Determines whether a weak bond between the given atoms
-    /// is valid.
-    let private testWeakBond atomA atomB =
-        testWeakBondLocation
-            atomA.Location
-            atomB.Location
+    /// Denormalized weak bond neighborhood.
+    let private weakBondDeltas =
+        weakBondNeighborhood
+            |> Seq.collect (fun (a, b) ->
+                [|
+                    (a, b)                            // e.g.  2,  1
+                    if a <> 0 then (-a, b)            // e.g. -2,  1
+                    if b <> 0 then
+                        (a, -b)                       // e.g.  2, -1
+                        if a <> 0 then (-a, -b)       // e.g. -2, -1
+                    if a <> b then
+                        (b, a)                        // e.g.  1,  2
+                        if b <> 0 then (-b, a)        // e.g. -1,  2
+                        if a <> 0 then
+                            (b, -a)                   // e.g.  1, -2
+                            if b <> 0 then (-b, -a)   // e.g. -1, -2
+                |])
+            |> Seq.map Point.create
+            |> Seq.toArray
 
     /// Maximum number of weak bonds an atom can have.
     let private weakBondValence = 1
-
-    /// Weak bond neighborhood. These are neighbors that
-    /// are in short-range contact.
-    let private weakBondNeighborhood =
-        let points =
-            [| (2, 0); (2, 1); (2, 2) |]
-                |> Array.collect (fun (a, b) ->
-                    [|
-                        (a, b)                            // e.g.  2,  1
-                        if a <> 0 then (-a, b)            // e.g. -2,  1
-                        if b <> 0 then
-                            (a, -b)                       // e.g.  2, -1
-                            if a <> 0 then (-a, -b)       // e.g. -2, -1
-                        if a <> b then
-                            (b, a)                        // e.g.  1,  2
-                            if b <> 0 then (-b, a)        // e.g. -1,  2
-                            if a <> 0 then
-                                (b, -a)                   // e.g.  1, -2
-                                if b <> 0 then (-b, -a)   // e.g. -1, -2
-                    |])
-                |> Array.map Point.create
-        assert(
-            Seq.forall
-                (testWeakBondLocation Point.zero)
-                points)
-        points
 
     /// Determines orientation of the path connecting
     /// the given points (a-b-c):
@@ -265,7 +259,7 @@ module World =
     /// says, for weak bonds, it would suffice to check only
     /// four deltas: (±2, 0) and (0, ±2)).
     let private isCrossBond idA atomA idB atomB world =
-        weakBondNeighborhood
+        weakBondDeltas
             |> Seq.exists (fun delta ->
                 world.OccupancyMap
                     |> Map.tryFind (atomA.Location + delta)   // check A's neighborhood
@@ -291,7 +285,7 @@ module World =
         let canAdd =
             let bondMap = world.WeakBondMap
             AtomType.canPair atomA.Type atomB.Type
-                && testWeakBond atomA atomB
+                && BondMap.testBond weakBondNeighborhood atomA atomB
                 && (BondMap.getBonds idA bondMap).Count < weakBondValence
                 && (BondMap.getBonds idB bondMap).Count < weakBondValence
                 && not (areBonded idA idB world)
@@ -328,14 +322,14 @@ module World =
         BondMap.getBonds id world.StrongBondMap
             |> Seq.forall (fun idB ->
                 let atomB = world.AtomMap[idB]
-                testStrongBond atom atomB)
+                BondMap.testBond strongBondNeighborhood atom atomB)
 
     /// Tests validity of the given atom's weak bonds.
     let private testWeakBonds id atom world =
         BondMap.getBonds id world.WeakBondMap
             |> Seq.forall (fun idB ->
                 let atomB = world.AtomMap[idB]
-                testWeakBond atom atomB)
+                BondMap.testBond weakBondNeighborhood atom atomB)
 
     /// Applies the Metropolis rule:
     /// * A move that lowers the energy, or leaves it unchanged,
@@ -439,8 +433,7 @@ module World =
 
             // pick a direction to bond in
         let delta =
-            weakBondNeighborhood[
-                rng.Next(weakBondNeighborhood.Length)]
+            weakBondDeltas[rng.Next(weakBondDeltas.Length)]
 
             // toggle bond with atom at that location?
         world.OccupancyMap
