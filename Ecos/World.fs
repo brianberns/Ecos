@@ -48,6 +48,14 @@ module private BondMap =
             (max diff.X diff.Y, min diff.X diff.Y)
             neighborhood
 
+    /// Creates a unidirectional bond between the given atoms.
+    let createBond idA idB bondMap =
+        let ids =
+            Map.tryFind idA bondMap
+                |> Option.defaultValue Set.empty
+                |> Set.add idB
+        Map.add idA ids bondMap
+
 /// A lattice world containing atoms bonded into molecules.
 /// Every atom occupies a 2x2 square around its central
 /// location on the lattice, so in the drawing below, the
@@ -163,14 +171,6 @@ module World =
     let private areBonded idA idB world =
         BondMap.areBonded idA idB world.StrongBondMap
             || BondMap.areBonded idA idB world.WeakBondMap
-
-    /// Creates a unidirectional bond between the given atoms.
-    let private createBond idA idB bondMap =
-        let ids =
-            Map.tryFind idA bondMap
-                |> Option.defaultValue Set.empty
-                |> Set.add idB
-        Map.add idA ids bondMap
    
     /// Adds a strong bond between the given atoms in the given
     /// world if it is valid. Note that this currently allows
@@ -190,8 +190,8 @@ module World =
                 world with
                     StrongBondMap =
                         world.StrongBondMap
-                            |> createBond idA idB
-                            |> createBond idB idA
+                            |> BondMap.createBond idA idB
+                            |> BondMap.createBond idB idA
             }
         else None
 
@@ -295,8 +295,8 @@ module World =
                 world with
                     WeakBondMap =
                         world.WeakBondMap
-                            |> createBond idA idB
-                            |> createBond idB idA
+                            |> BondMap.createBond idA idB
+                            |> BondMap.createBond idB idA
             }
         else None
 
