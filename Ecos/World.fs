@@ -28,7 +28,7 @@ type World =
         StrongBondMap : Map<AtomId, Set<AtomId>>
 
         /// Undirected weak bonds between atoms in the world.
-        WeakBondMap : Map<AtomId, AtomId>   // valence = 1
+        WeakBondMap : Map<AtomId, Set<AtomId>>
 
         /// Maps each atom's location to its ID.
         OccupancyMap : Map<Point, AtomId>
@@ -121,11 +121,10 @@ module World =
         let ids =
             world.WeakBondMap
                 |> Map.tryFind id
-                |> Option.toArray
-                |> set
+                |> Option.defaultValue Set.empty
         assert(
             Seq.forall (fun idB ->
-                world.WeakBondMap[idB] = id)
+                world.WeakBondMap[idB].Contains(id))
                 ids)
         ids
 
@@ -173,9 +172,8 @@ module World =
         areStronglyBonded idA idB world
             || areWeaklyBonded idA idB world
 
-    /// Creates a unidirectional strong bond between the given
-    /// atoms.
-    let private createStrongBond idA idB bondMap =
+    /// Creates a unidirectional bond between the given atoms.
+    let private createBond idA idB bondMap =
         let ids =
             Map.tryFind idA bondMap
                 |> Option.defaultValue Set.empty
@@ -199,8 +197,8 @@ module World =
                 world with
                     StrongBondMap =
                         world.StrongBondMap
-                            |> createStrongBond idA idB
-                            |> createStrongBond idB idA
+                            |> createBond idA idB
+                            |> createBond idB idA
             }
         else None
 
@@ -318,8 +316,8 @@ module World =
                 world with
                     WeakBondMap =
                         world.WeakBondMap
-                            |> Map.add idA idB
-                            |> Map.add idB idA
+                            |> createBond idA idB
+                            |> createBond idB idA
             }
         else None
 

@@ -100,12 +100,14 @@ module View =
         let weakBonds =
             world.WeakBondMap
                 |> Map.toSeq
-                |> Seq.choose (fun (idA, idB) ->
-                    if idA < idB then
-                        Some (
-                            world.AtomMap[idA],
-                            world.AtomMap[idB])
-                    else None)
+                |> Seq.collect (fun (idA, ids) ->
+                    Seq.choose (fun idB ->
+                        if idA < idB then
+                            Some (
+                                world.AtomMap[idA],
+                                world.AtomMap[idB])
+                        else None)
+                        ids)
 
         [
             for a, b in weakBonds do
