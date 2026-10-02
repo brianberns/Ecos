@@ -432,8 +432,9 @@ module World =
     /// Attempts to toggle a weak bond between the atoms with the
     /// given IDs in the given world.
     let private tryToggleWeakBond kT rng idA idB world =
-        let nStacks = countStacks idA idB world
-        let bondEnergy = weakBondEnergy + stackEnergy * nStacks
+        let bondEnergy =
+            let nStacks = countStacks idA idB world
+            weakBondEnergy + stackEnergy * nStacks
         if areWeaklyBonded idA idB world then
             if testMetropolis kT rng bondEnergy then
                 Some (breakWeakBond idA idB world)
