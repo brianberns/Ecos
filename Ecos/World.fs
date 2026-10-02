@@ -48,6 +48,14 @@ module private BondMap =
             (max diff.X diff.Y, min diff.X diff.Y)
             neighborhood
 
+    /// Tests validity of the given atom's bonds.
+    let testBonds
+        neighborhood id atom (atomMap : Map<_, _>) bondMap =
+        getBonds id bondMap
+            |> Seq.forall (fun idB ->
+                let atomB = atomMap[idB]
+                testBond neighborhood atom atomB)
+
     /// Creates a unidirectional bond between the given atoms.
     let createBond idA idB bondMap =
         let ids =
@@ -317,20 +325,6 @@ module World =
                 | 3 ->  0,  1
                 | _ -> failwith "Unexpected"
 
-    /// Tests validity of the given atom's strong bonds.
-    let private testStrongBonds id atom world =
-        BondMap.getBonds id world.StrongBondMap
-            |> Seq.forall (fun idB ->
-                let atomB = world.AtomMap[idB]
-                BondMap.testBond strongBondNeighborhood atom atomB)
-
-    /// Tests validity of the given atom's weak bonds.
-    let private testWeakBonds id atom world =
-        BondMap.getBonds id world.WeakBondMap
-            |> Seq.forall (fun idB ->
-                let atomB = world.AtomMap[idB]
-                BondMap.testBond weakBondNeighborhood atom atomB)
-
     /// Applies the Metropolis rule:
     /// * A move that lowers the energy, or leaves it unchanged,
     ///   is always accepted.
@@ -372,10 +366,12 @@ module World =
 
             // move the atom permanently?
         let isValid =
-            isAvailable atom'.Location (Some idA) world   // avoids overlap with other atoms? (to-do: check only the leading edge)
-                && testStrongBonds idA atom' world        // all of the atom's strong bonds are still valid?
-                && testWeakBonds idA atom' world          // all of the atom's weak bonds are still valid?
-                && testMetropolis kT rng 0                // acceptable energy change?
+            isAvailable atom'.Location (Some idA) world       // avoids overlap with other atoms? (to-do: check only the leading edge)
+                && BondMap.testBonds strongBondNeighborhood   // all of the atom's strong bonds are still valid?
+                    idA atom' world.AtomMap world.StrongBondMap
+                && BondMap.testBonds weakBondNeighborhood     // all of the atom's weak bonds are still valid?
+                    idA atom' world.AtomMap world.WeakBondMap
+                && testMetropolis kT rng 0                    // acceptable energy change?
         if isValid then
             moveAtom idA atom atom' world
         else world
