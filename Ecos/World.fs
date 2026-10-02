@@ -29,6 +29,9 @@ module private StrongBond =
             3, 2
         ]
 
+    /// Maximum number of strong bonds an atom can have.
+    let valence = 2
+
 module private WeakBond =
 
     /// All normalized weak bond vectors.
@@ -38,6 +41,9 @@ module private WeakBond =
             2, 1
             2, 2
         ]
+
+    /// Maximum number of weak bonds an atom can have.
+    let valence = 1
 
 type World =
     {
@@ -128,9 +134,6 @@ module World =
             (BondMap.getBonds id world.StrongBondMap)
             (BondMap.getBonds id world.WeakBondMap)
 
-    /// Maximum number of strong bonds an atom can have.
-    let private strongBondValence = 2
-
     /// Indicates whether the atoms with the given IDs are already
     /// bonded in the given world.
     let private areBonded idA idB world =
@@ -147,8 +150,10 @@ module World =
         let canAdd =
             let bondMap = world.StrongBondMap
             BondMap.testBond StrongBond.neighborhood atomA atomB
-                && (BondMap.getBonds idA bondMap).Count < strongBondValence
-                && (BondMap.getBonds idB bondMap).Count < strongBondValence
+                && (BondMap.getBonds idA bondMap).Count
+                    < StrongBond.valence
+                && (BondMap.getBonds idB bondMap).Count
+                    < StrongBond.valence
                 && not (areBonded idA idB world)
         if canAdd then
             Some {
@@ -186,9 +191,6 @@ module World =
                 |])
             |> Seq.map Point.create
             |> Seq.toArray
-
-    /// Maximum number of weak bonds an atom can have.
-    let private weakBondValence = 1
 
     /// Determines orientation of the path connecting
     /// the given points (a-b-c):
@@ -243,8 +245,10 @@ module World =
             let bondMap = world.WeakBondMap
             AtomType.canPair atomA.Type atomB.Type
                 && BondMap.testBond WeakBond.neighborhood atomA atomB
-                && (BondMap.getBonds idA bondMap).Count < weakBondValence
-                && (BondMap.getBonds idB bondMap).Count < weakBondValence
+                && (BondMap.getBonds idA bondMap).Count
+                    < WeakBond.valence
+                && (BondMap.getBonds idB bondMap).Count
+                    < WeakBond.valence
                 && not (areBonded idA idB world)
                 && not (isCrossBond idA atomA idB atomB world)
         if canAdd then
