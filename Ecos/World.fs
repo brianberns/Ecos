@@ -404,6 +404,22 @@ module World =
     /// Energy delta of a weak bond.
     let private weakBondEnergy = 1
 
+    /// Additional energy from a stacked weak bond.
+    let private stackEnergy = weakBondEnergy
+
+    /// Counts stacks adjacent to the given bond:
+    ///    A ══ A′   ══ strong bond
+    ///    ┆    ┆    ┆  weak bond
+    ///    B ══ B′
+    let private countStacks idA idB world =
+        let bNeighbors = getStrongBonds idB world
+        getStrongBonds idA world
+            |> Seq.where (fun idA' ->
+                getWeakBonds idA' world
+                    |> Seq.exists (fun idB' ->
+                        bNeighbors.Contains(idB')))
+            |> Seq.length
+
     /// Breaks a weak bond between the atoms with the given IDs
     /// in the given world.
     let private breakWeakBond idA idB world =
@@ -416,12 +432,14 @@ module World =
     /// Attempts to toggle a weak bond between the atoms with the
     /// given IDs in the given world.
     let private tryToggleWeakBond kT rng idA idB world =
+        let nStacks = countStacks idA idB world
+        let bondEnergy = weakBondEnergy + stackEnergy * nStacks
         if areWeaklyBonded idA idB world then
-            if testMetropolis kT rng weakBondEnergy then
+            if testMetropolis kT rng bondEnergy then
                 Some (breakWeakBond idA idB world)
             else None
         else
-            if testMetropolis kT rng -weakBondEnergy then
+            if testMetropolis kT rng -bondEnergy then
                 tryAddWeakBond idA idB world
             else None
 

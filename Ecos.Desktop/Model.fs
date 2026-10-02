@@ -73,7 +73,7 @@ module Model =
             (world, [ 0 .. n - 1 ])
                 ||> Seq.fold (fun world i ->
                     let x = 2 * i - n
-                    let atomTypes = [| AtomType.A; AtomType.C |]
+                    let atomTypes = [| AtomType.W; AtomType.Y |]
                     addAtom rng atomTypes x -dist i (i > 0) world)
 
             // second strand
@@ -81,7 +81,7 @@ module Model =
             (world, [ 0 .. n - 1 ])
                 ||> Seq.fold (fun world i ->
                     let x = 2 * i - n
-                    let atomTypes = [| AtomType.B; AtomType.D |]
+                    let atomTypes = [| AtomType.X; AtomType.Z |]
                     addAtom rng atomTypes x dist (n + i) (i > 0) world)
 
         {

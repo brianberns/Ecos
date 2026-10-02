@@ -31,10 +31,10 @@ module View =
 
     let private brushMap =
         [
-            AtomType.A, "#1F4E9E"
-            AtomType.B, "#2E7D32"
-            AtomType.C, "#B0006B"
-            AtomType.D, "#B26A00"
+            AtomType.W, "#1F4E9E"
+            AtomType.X, "#2E7D32"
+            AtomType.Y, "#B0006B"
+            AtomType.Z, "#B26A00"
         ]
             |> Seq.map (fun (typ, hex) ->
                 typ, Media.Brush.Parse(hex))

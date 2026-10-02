@@ -4,7 +4,7 @@ open System
 
 /// Atom type.
 [<RequireQualifiedAccess>]
-type AtomType = A | B | C | D
+type AtomType = W | X | Y | Z
 
 module AtomType =
 
@@ -14,8 +14,8 @@ module AtomType =
         let atomTypeMin = min atomTypeA atomTypeB
         let atomTypeMax = max atomTypeA atomTypeB
         match atomTypeMin, atomTypeMax with
-            | AtomType.A, AtomType.B
-            | AtomType.C, AtomType.D -> true
+            | AtomType.W, AtomType.X
+            | AtomType.Y, AtomType.Z -> true
             | _ -> false
 
 /// An indivisible atom.
