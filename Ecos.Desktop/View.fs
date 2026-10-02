@@ -13,7 +13,7 @@ module View =
 
     let private windowWidth = 1000
     let private windowHeight = 800
-    let private scale = 10
+    let private scale = 8
     let private strongBondThickness = 0.2
     let private strongBondBrush = Brushes.Black
     let private weakBondThickness = 1.0
