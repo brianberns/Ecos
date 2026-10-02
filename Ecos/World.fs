@@ -3,8 +3,10 @@ namespace Ecos
 open System
 
 (*
- * 2D bond fluctuation model.
- * https://en.wikipedia.org/wiki/Bond_fluctuation_model
+ * Based on the Bond Fluctuation Model with:
+ *    - Metropolis dynamics
+ *    - Pairing of complementary strands
+ *    - Stacking of bonded pairs (a la DNA)
  *)
 
 /// Unique ID of an atom in a world.
