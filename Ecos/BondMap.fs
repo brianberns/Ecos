@@ -4,7 +4,7 @@ namespace Ecos
 type AtomId = int
 
 /// Bidirectional bonds between atoms.
-type BondMap = Map<AtomId, Set<AtomId>>
+type private BondMap = Map<AtomId, Set<AtomId>>
 
 module private BondMap =
 
