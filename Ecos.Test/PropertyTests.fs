@@ -79,13 +79,21 @@ module PropertyTests =
     let private isValid (world : World) =
         let atoms = world.AtomMap |> Map.toArray
 
-            // no two atoms overlap
+            // no two atoms overlap, no atom overlaps a wall, and no two
+            // walls overlap (a wall occupies the same square as an atom)
         let noOverlaps =
             atoms
                 |> Array.forall (fun (idA, a) ->
                     atoms
                         |> Array.forall (fun (idB, b) ->
-                            idA = idB || not (overlaps a.Location b.Location)))
+                            idA = idB || not (overlaps a.Location b.Location))
+                        && world.Walls
+                            |> Set.forall (fun wall -> not (overlaps a.Location wall)))
+                && world.Walls
+                    |> Set.forall (fun wallA ->
+                        world.Walls
+                            |> Set.forall (fun wallB ->
+                                wallA = wallB || not (overlaps wallA wallB)))
 
             // every strong bond is allowed and symmetric, and no atom
             // has more than two
@@ -142,6 +150,8 @@ module PropertyTests =
                         world.AtomMap
                             |> Map.forall (fun idB atomB ->
                                 idB = id || not (overlaps loc atomB.Location))
+                            && world.Walls
+                                |> Set.forall (fun wall -> not (overlaps loc wall))
                     let strongBondsOk =
                         world.StrongBondMap
                             |> Map.tryFind id
@@ -211,21 +221,24 @@ module PropertyTests =
                         (a, b), (c, d)
         ]
 
-    /// Adding atoms one by one: each is accepted if and only if it
-    /// doesn't overlap any atom already present.
+    /// Adding atoms and walls one by one: each is accepted if and only
+    /// if it doesn't overlap any atom or wall already present.
     [<Property>]
-    let ``tryAddAtom rejects exactly the overlapping atoms`` (coords : list<int * int>) =
-        let locs =
-            coords
-                |> List.map (fun (x, y) -> Point.create (x % 6, y % 6))   // crowd atoms together
-        (Some World.empty, locs)
-            ||> List.fold (fun worldOpt loc ->
+    let ``tryAddAtom and tryAddWall reject exactly the overlapping locations`` (items : list<bool * int * int>) =
+        (Some World.empty, items)
+            ||> List.fold (fun worldOpt (isWall, x, y) ->
                 worldOpt
                     |> Option.bind (fun world ->
+                        let loc = Point.create (x % 6, y % 6)   // crowd things together
                         let expected =
                             world.AtomMap
                                 |> Map.forall (fun _ atom -> not (overlaps loc atom.Location))
-                        match World.tryAddAtom (Atom.create loc) world, expected with
+                                && world.Walls
+                                    |> Set.forall (fun wall -> not (overlaps loc wall))
+                        let actual =
+                            if isWall then World.tryAddWall loc world
+                            else World.tryAddAtom (Atom.create loc) world
+                        match actual, expected with
                             | Some world', true -> Some world'
                             | None, false -> Some world
                             | _ -> None))   // mismatch
@@ -374,7 +387,7 @@ module PropertyTests =
         let length = 2 + abs (length % 20)
         let kT = temperatures[abs (iKT % temperatures.Length)]
         let rng = Random(seed)
-        let mutable world = Chain.grow rng length |> Chain.withRandomTypes rng |> Chain.addSoup rng 10
+        let mutable world = Chain.grow rng length |> Chain.withRandomTypes rng |> Chain.addSoup rng 10 |> Chain.addObstacles rng 10
         let strongBonds = world.StrongBondMap
         let mutable ok = isValid world
         for _ in 1 .. 500 + abs (nSteps % 1000) do
@@ -412,7 +425,7 @@ module PropertyTests =
         for kT in temperatures do
             for length in [ 1; 2; 5; 20 ] do
                 let rng = Random(length)
-                let mutable world = Chain.grow rng length |> Chain.withRandomTypes rng |> Chain.addSoup rng 10
+                let mutable world = Chain.grow rng length |> Chain.withRandomTypes rng |> Chain.addSoup rng 10 |> Chain.addObstacles rng 10
 
                     // expected and actual counts of each kind of event
                 let kinds = [| "moves"; "bonds formed"; "bonds broken" |]
@@ -502,7 +515,7 @@ module PropertyTests =
     let ``update never changes which bonds cross`` (length : int) (seed : int) (nSteps : int) =
         let length = 4 + abs (length % 20)
         let rng = Random(seed)
-        let mutable world = Chain.grow rng length |> Chain.withRandomTypes rng |> Chain.addSoup rng 10
+        let mutable world = Chain.grow rng length |> Chain.withRandomTypes rng |> Chain.addSoup rng 10 |> Chain.addObstacles rng 10
         let initial = crossings world
         let mutable ok = true
         for _ in 1 .. 500 + abs (nSteps % 500) do

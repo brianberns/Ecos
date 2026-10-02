@@ -154,6 +154,87 @@ module PhysicsTests =
     let ``Trimer with no allowed pairs samples uniformly`` () =
         checkTrimer (AtomType.A, AtomType.B, AtomType.C) 0.5
 
+    /// Walls and free atoms: two complementary atoms (types A and B),
+    /// not strongly bonded, are confined to a small box of walls. We
+    /// can enumerate every state exactly: each placement of the two
+    /// atoms in the box without overlap, unpaired (E = 0) or, when
+    /// they're in weak bond range, paired (E = weakBondEnergy). States
+    /// are grouped by the atoms' separation. The simulation must match
+    /// the Boltzmann distribution, and must never produce a state that
+    /// isn't in the box.
+    [<Fact>]
+    let ``Two atoms in a box follow the Boltzmann distribution`` () =
+        let size = 2   // atom locations have |x| <= size and |y| <= size
+        let kT = 0.7
+
+            // exact Boltzmann weight of each (separation, paired) state
+        let locs =
+            [
+                for x in -size .. size do
+                    for y in -size .. size do
+                        Point.create (x, y)
+            ]
+        let exact =
+            [
+                for a in locs do
+                    for b in locs do
+                        let d = b - a
+                        if abs d.X >= 2 || abs d.Y >= 2 then   // atoms don't overlap
+                            d
+            ]
+                |> List.countBy id
+                |> List.collect (fun (d, count) ->
+                    [
+                        (d, false), float count
+                        if Array.contains d Chain.weakBondVectors then
+                            (d, true), float count * exp (-Chain.weakBondEnergy / kT)
+                    ])
+                |> Map.ofList
+        let totalWeight = exact.Values |> Seq.sum
+
+            // sample states from independent simulations
+        let nRuns, nSamples = 8, 4000
+        let burnIn, sampleInterval = 500, 100   // sweeps; the interval keeps samples roughly uncorrelated
+        let inBox (loc : Point) = abs loc.X <= size && abs loc.Y <= size
+        let samples =
+            Array.Parallel.init nRuns (fun iRun ->
+                let rng = Random(iRun)
+                let mutable world =
+                    World.empty
+                        |> World.addAtom { Type = AtomType.A; Location = Point.create (-size, -size) }
+                        |> World.addAtom { Type = AtomType.B; Location = Point.create (size, size) }
+                        |> Chain.addBox size
+                world <- Chain.sweeps kT rng burnIn world
+                Array.init nSamples (fun _ ->
+                    world <- Chain.sweeps kT rng sampleInterval world
+                    let a = world.AtomMap[0].Location
+                    let b = world.AtomMap[1].Location
+                    Assert.True(inBox a && inBox b, $"Atom escaped the box: {a}, {b}")
+                    b - a, world.WeakBondMap.ContainsKey 0))
+                |> Array.concat
+        let observed = samples |> Array.countBy id |> Map.ofArray
+
+            // every sample is a valid state
+        for state in observed.Keys do
+            Assert.True(exact.ContainsKey state, $"Invalid state {state}")
+
+            // chi-squared goodness of fit against the Boltzmann distribution
+        let chi2 =
+            exact
+                |> Map.toSeq
+                |> Seq.sumBy (fun (state, weight) ->
+                    let expected =
+                        float samples.Length * weight / totalWeight
+                    let obs =
+                        observed
+                            |> Map.tryFind state
+                            |> Option.defaultValue 0
+                            |> float
+                    (obs - expected) ** 2.0 / expected)
+        let df = float (exact.Count - 1)
+        let limit = df + 5.0 * sqrt (2.0 * df)   // mean + 5 standard deviations
+        Assert.True(chi2 < limit, $"chi^2 = {chi2:F1}, limit {limit:F1} (df = {df})")
+
     /// Centre-of-mass mean squared displacement (MSD) at various lags,
     /// for each chain length. Shared by the diffusion tests.
     let private diffusionData =

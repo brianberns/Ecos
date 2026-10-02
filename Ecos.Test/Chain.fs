@@ -133,6 +133,29 @@ module Chain =
                     | None -> loop count (attempts + 1) world
         loop n 0 world
 
+    /// Scatters up to n wall blocks at random locations near the
+    /// origin, among whatever is already there. Locations that overlap
+    /// an atom or another wall are skipped.
+    let addObstacles (rng : Random) n (world : World) =
+        let size = 2 + int (ceil (1.5 * sqrt (float n)))   // half-width of the box
+        (world, [ 1 .. n ])
+            ||> List.fold (fun world _ ->
+                let loc = Point.create (rng.Next(-size, size + 1), rng.Next(-size, size + 1))
+                World.tryAddWall loc world
+                    |> Option.defaultValue world)
+
+    /// Encloses the square region of atom locations with |x| <= size
+    /// and |y| <= size in a box of walls.
+    let addBox size (world : World) =
+        let edge = size + 2   // nearest a wall can be to an atom inside
+        assert (edge % 2 = 0)   // so that walls spaced 2 apart meet at the corners
+        (world, [ -edge .. 2 .. edge ])
+            ||> List.fold (fun world i ->
+                (world, [ i, -edge; i, edge; -edge, i; edge, i ])
+                    ||> List.fold (fun world (x, y) ->
+                        World.tryAddWall (Point.create (x, y)) world   // corners are attempted twice
+                            |> Option.defaultValue world))
+
     /// Temperature for tests of the athermal model. Atoms created by
     /// the Atom.create helper above are all type A, which can't form
     /// weak bonds, so every event has zero energy change and the value
