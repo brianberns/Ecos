@@ -16,22 +16,27 @@ open System
 /// * Pairing of complementary strands
 /// * Stacking of bonded pairs (a la DNA)
 
-/// Types of bonds in the world.
-type private BondType = Strong | Weak
+module private StrongBond =
 
-module private BondType =
-
-    /// Gets all possible normalized bond vectors of the given
-    /// type.
-    let getNeighborhood bondType =
+    /// All normalized strong bond vectors.
+    let neighborhood =
         set [
             2, 0
             2, 1
             2, 2
-            if bondType = Strong then
-                3, 0
-                3, 1
-                3, 2
+            3, 0
+            3, 1
+            3, 2
+        ]
+
+module private WeakBond =
+
+    /// All normalized weak bond vectors.
+    let neighborhood =
+        set [
+            2, 0
+            2, 1
+            2, 2
         ]
 
 type World =
@@ -141,8 +146,7 @@ module World =
         let atomB = world.AtomMap[idB]
         let canAdd =
             let bondMap = world.StrongBondMap
-            let neighborhood = BondType.getNeighborhood Strong
-            BondMap.testBond neighborhood atomA atomB
+            BondMap.testBond StrongBond.neighborhood atomA atomB
                 && (BondMap.getBonds idA bondMap).Count < strongBondValence
                 && (BondMap.getBonds idB bondMap).Count < strongBondValence
                 && not (areBonded idA idB world)
@@ -165,7 +169,7 @@ module World =
 
     /// Denormalized weak bond neighborhood.
     let private weakBondDeltas =
-        BondType.getNeighborhood Weak
+        WeakBond.neighborhood
             |> Seq.collect (fun (a, b) ->
                 [|
                     (a, b)                            // e.g.  2,  1
@@ -237,9 +241,8 @@ module World =
         let atomB = world.AtomMap[idB]
         let canAdd =
             let bondMap = world.WeakBondMap
-            let neighborhood = BondType.getNeighborhood Weak
             AtomType.canPair atomA.Type atomB.Type
-                && BondMap.testBond neighborhood atomA atomB
+                && BondMap.testBond WeakBond.neighborhood atomA atomB
                 && (BondMap.getBonds idA bondMap).Count < weakBondValence
                 && (BondMap.getBonds idB bondMap).Count < weakBondValence
                 && not (areBonded idA idB world)
@@ -312,14 +315,12 @@ module World =
 
             // move the atom permanently?
         let isValid =
-            isAvailable atom'.Location (Some idA) world   // avoids overlap with other atoms? (to-do: check only the leading edge)
-                && BondMap.testBonds                      // all of the atom's strong bonds are still valid?
-                    (BondType.getNeighborhood Strong)
+            isAvailable atom'.Location (Some idA) world        // avoids overlap with other atoms? (to-do: check only the leading edge)
+                && BondMap.testBonds StrongBond.neighborhood   // all of the atom's strong bonds are still valid?
                     idA atom' world.AtomMap world.StrongBondMap
-                && BondMap.testBonds                      // all of the atom's weak bonds are still valid?
-                    (BondType.getNeighborhood Weak)
+                && BondMap.testBonds WeakBond.neighborhood     // all of the atom's weak bonds are still valid?
                     idA atom' world.AtomMap world.WeakBondMap
-                && testMetropolis kT rng 0                // acceptable energy change?
+                && testMetropolis kT rng 0                     // acceptable energy change?
         if isValid then
             moveAtom idA atom atom' world
         else world
