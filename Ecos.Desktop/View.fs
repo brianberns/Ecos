@@ -43,9 +43,23 @@ module View =
     let private (~~)(ecosPt : Ecos.Point) =
         Avalonia.Point(ecosPt.X, ecosPt.Y)
 
+    let renderWalls world =
+        [
+            for loc in world.Walls do
+                Rectangle.create [
+                    Rectangle.width 2
+                    Rectangle.height 2
+                    let pt = loc - Point.create (1, 1)
+                    Rectangle.left pt.X
+                    Rectangle.top pt.Y
+                    Rectangle.fill Brushes.Gray
+                    Rectangle.useLayoutRounding false   // don't snap to pixels before scaling
+                ] :> IView
+        ]
+
     let renderAtoms world =
         [
-            for i, atom in Map.toSeq world.AtomMap do
+            for atom in world.AtomMap.Values do
                 Ellipse.create [
                     Ellipse.width 2
                     Ellipse.height 2
@@ -108,6 +122,7 @@ module View =
             Canvas.renderTransform transformGroup
             Canvas.renderTransformOrigin RelativePoint.TopLeft   // use world origin as transform origin
             Canvas.children [
+                yield! renderWalls world
                 yield! renderStrongBonds world
                 yield! renderAtoms world   // draw atoms over strong bonds
                 yield! renderWeakBonds world

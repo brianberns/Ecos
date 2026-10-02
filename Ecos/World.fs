@@ -30,6 +30,9 @@ type World =
 
         /// Maps each atom's location to its ID.
         OccupancyMap : Map<Point, AtomId>
+
+        /// Immovable obstacles, each the size of an atom.
+        Walls : Set<Point>
     }
 
 module World =
@@ -41,6 +44,7 @@ module World =
             StrongBondMap = Map.empty
             WeakBondMap = Map.empty
             OccupancyMap = Map.empty
+            Walls = Set.empty
         }
 
     /// Moore neighborhood, including center.
@@ -55,10 +59,12 @@ module World =
     let private isAvailable loc idOpt world =
         mooreNeighborhood
             |> Seq.forall (fun delta ->
-                world.OccupancyMap
-                    |> Map.tryFind (loc + delta)
-                    |> Option.map (fun id -> Some id = idOpt)   // an atom can occupy its own location
-                    |> Option.defaultValue true)
+                let neighbor = loc + delta
+                not (world.Walls.Contains(neighbor))
+                    && world.OccupancyMap
+                        |> Map.tryFind neighbor
+                        |> Option.map (fun id -> Some id = idOpt)   // an atom can occupy its own location
+                        |> Option.defaultValue true)
 
     /// Adds the given atom to the given world if it is valid.
     let tryAddAtom atom world =
@@ -76,6 +82,21 @@ module World =
     /// Adds the given atom to the given world.
     let addAtom atom world =
         match tryAddAtom atom world with
+            | Some world -> world
+            | None -> failwith "Invalid location"
+
+    /// Adds a wall to the given world if it is valid.
+    let tryAddWall loc world =
+        if isAvailable loc None world then
+            Some {
+                world with
+                    Walls = world.Walls.Add(loc)
+            }
+        else None
+
+    /// Adds a wall to the given world.
+    let addWall loc world =
+        match tryAddWall loc world with
             | Some world -> world
             | None -> failwith "Invalid location"
 
