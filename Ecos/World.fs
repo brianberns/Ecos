@@ -123,26 +123,6 @@ module World =
         world.BondTypeMap.Values
             |> Seq.exists (BondMap.areBonded idA idB)
 
-    /// Determines orientation of the path connecting
-    /// the given points (a-b-c):
-    /// * Positive: left turn
-    /// * Negative: right turn
-    let private orient (a : Point) (b : Point) (c : Point) =
-        sign ((b - a) .* (c - a))
-
-    /// Indicates whether bonds between the given pairs of atoms
-    /// cross.
-    let private testCrossBond (atomA, atomB) (atomC, atomD) =
-        let locA = atomA.Location
-        let locB = atomB.Location
-        let locC = atomC.Location
-        let locD = atomD.Location
-        let cdOpp =   // C and D are on opposite sides of line AB
-            orient locA locB locC * orient locA locB locD < 0
-        let abOpp =   // A and B are on opposite sides of line CD
-            orient locC locD locA * orient locC locD locB < 0
-        cdOpp && abOpp
-
     /// Behavior of each bond type.
     let private behaviorMap =
         Map [
@@ -167,7 +147,7 @@ module World =
                                     if idD = idA || idD = idB then false
                                     else
                                         let atomD = world.AtomMap[idD]
-                                        testCrossBond
+                                        BondBehavior.testCrossBond
                                             (atomA, atomB)
                                             (atomC, atomD)))
                     |> Option.defaultValue false)
