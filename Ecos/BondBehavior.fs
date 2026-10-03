@@ -15,7 +15,6 @@ namespace Ecos
  * Drawing by Claude, with my edits.
  *)
 
-
 /// Specific behavior of a bond type.
 type private BondBehavior =
     {
