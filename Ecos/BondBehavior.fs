@@ -12,8 +12,6 @@ namespace Ecos
  *   |
  *    ----------------------------------
  * (Drawing by Claude, with my edits.)
- *
- * Lower energy states are favored by entropy.
  *)
 
 /// Specific behavior of a bond type.
