@@ -6,7 +6,7 @@ type private BondBehavior =
         /// All normalized bond vectors of this type.
         Neighborhood : Set<int * int>
 
-        /// Maximum number of bonds of this typ an atom can
+        /// Maximum number of bonds of this type an atom can
         /// have.
         Valence : int
 
