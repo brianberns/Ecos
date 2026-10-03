@@ -273,10 +273,11 @@ module World =
     /// Applies the Metropolis rule:
     /// * A move that lowers the energy, or leaves it unchanged,
     ///   is always accepted.
-    /// * An uphill move is accepted with probability exp(−ΔE/kT).
+    /// * An uphill move is accepted with probability exp(−ΔE/kT),
+    ///   where kT is temperature scaled by Boltzmann's constant.
     let private testMetropolis kT (rng : Random) energyDelta =
         energyDelta <= 0
-            || rng.NextDouble() < exp (-float energyDelta / kT)   // kT: temperature scaled by Boltzmann's constant.
+            || rng.NextDouble() < exp (-float energyDelta / kT)
 
     /// Updates the given atom's location in the given
     /// world.
