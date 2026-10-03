@@ -11,7 +11,7 @@ type private BondBehavior =
         Valence : int
 
         /// Indicates whether the given atom types can form
-        /// a bond.
+        /// a bond of this type.
         CanBond : AtomType -> AtomType -> bool
 
         /// Check for crossed bonds during update?
