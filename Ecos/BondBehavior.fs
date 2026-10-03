@@ -36,7 +36,7 @@ type private BondBehavior =
         /// a bond of this type.
         CanBond : AtomType -> AtomType -> bool
 
-        /// Energy delta of this bond type.
+        /// Energy delta of this bond type (S).
         Energy : int
 
         /// Energy barrier to bond formation (E_b).
