@@ -285,12 +285,12 @@ module World =
     let private countStacksWeak idA idB world =
         let strongBondMap = world.BondTypeMap[Strong]
         let weakBondMap = world.BondTypeMap[Weak]
-        let bPartners = BondMap.getBonds idB strongBondMap
+        let bPrimes = BondMap.getBonds idB strongBondMap
         BondMap.getBonds idA strongBondMap
             |> Seq.where (fun idA' ->
                 BondMap.getBonds idA' weakBondMap
                     |> Seq.exists (fun idB' ->
-                        bPartners.Contains(idB')))
+                        bPrimes.Contains(idB')))
             |> Seq.length
 
     /// Counts stacks affected by the given (existing or 
@@ -302,12 +302,12 @@ module World =
         let isStack =
             let strongBondMap = world.BondTypeMap[Strong]
             let weakBondMap = world.BondTypeMap[Weak]
-            let bPartners = BondMap.getBonds idB weakBondMap
+            let bPrimes = BondMap.getBonds idB weakBondMap
             BondMap.getBonds idA weakBondMap
                 |> Seq.exists (fun idA' ->
                     BondMap.getBonds idA' strongBondMap
                         |> Seq.exists (fun idB' ->
-                            bPartners.Contains(idB')))
+                            bPrimes.Contains(idB')))
         if isStack then 1 else 0
 
     /// Counts weak bonds stacked by a bond of the given
