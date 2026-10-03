@@ -335,16 +335,25 @@ module World =
                         bNeighbors.Contains(idB')))
             |> Seq.length
 
-    /// Breaks a weak bond between the atoms with the given IDs
-    /// in the given world.
-    let private breakWeakBond idA idB world =
-        let weakBondMap =
-            world.BondTypeMap[Weak]
-                |> Map.remove idA
-                |> Map.remove idB
+    /// Breaks a bond of the given type between the atoms
+    /// with the given IDs in the given world.
+    let private breakBond bondType idA idB world =
+
+        /// Removes atom B from atom A's bond set.
+        let remove idA idB (bondMap : BondMap) : BondMap =
+            let ids = bondMap[idA].Remove(idB)
+            if ids.IsEmpty then
+                Map.remove idA bondMap
+            else
+                Map.add idA ids bondMap
+
+        let bondMap =
+            world.BondTypeMap[bondType]
+                |> remove idA idB
+                |> remove idB idA
         { world with
             BondTypeMap =
-                Map.add Weak weakBondMap world.BondTypeMap }
+                Map.add bondType bondMap world.BondTypeMap }
 
     /// Attempts to toggle a weak bond between the atoms with the
     /// given IDs in the given world.
@@ -354,7 +363,7 @@ module World =
             WeakBond.energy + stackEnergy * nStacks
         if BondMap.areBonded idA idB world.BondTypeMap[Weak] then
             if testMetropolis kT rng bondEnergy then
-                Some (breakWeakBond idA idB world)
+                Some (breakBond Weak idA idB world)
             else None
         else
             if testMetropolis kT rng -bondEnergy then
