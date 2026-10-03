@@ -49,6 +49,11 @@ module private StrongBond =
     /// Maximum number of strong bonds an atom can have.
     let valence = 2
 
+    /// Indicates whether the given atom types can form
+    /// a strong bond.
+    let canBond (_ : AtomType) (_ : AtomType) =
+        true
+
 module private WeakBond =
 
     /// All normalized weak bond vectors.
@@ -61,6 +66,16 @@ module private WeakBond =
 
     /// Maximum number of weak bonds an atom can have.
     let valence = 1
+
+    /// Indicates whether the given atom types can form
+    /// a weak bond.
+    let canBond atomTypeA atomTypeB =
+        let atomTypeMin = min atomTypeA atomTypeB
+        let atomTypeMax = max atomTypeA atomTypeB
+        match atomTypeMin, atomTypeMax with
+            | AtomType.W, AtomType.X
+            | AtomType.Y, AtomType.Z -> true
+            | _ -> false
 
 module World =
 
@@ -148,7 +163,8 @@ module World =
         let atomB = world.AtomMap[idB]
         let canAdd =
             let bondMap = world.StrongBondMap
-            BondMap.testBond StrongBond.neighborhood atomA atomB
+            StrongBond.canBond atomA.Type atomB.Type
+                && BondMap.testBond StrongBond.neighborhood atomA atomB
                 && (BondMap.getBonds idA bondMap).Count
                     < StrongBond.valence
                 && (BondMap.getBonds idB bondMap).Count
@@ -240,7 +256,7 @@ module World =
         let atomB = world.AtomMap[idB]
         let canAdd =
             let bondMap = world.WeakBondMap
-            AtomType.canPair atomA.Type atomB.Type
+            WeakBond.canBond atomA.Type atomB.Type
                 && BondMap.testBond WeakBond.neighborhood atomA atomB
                 && (BondMap.getBonds idA bondMap).Count
                     < WeakBond.valence
