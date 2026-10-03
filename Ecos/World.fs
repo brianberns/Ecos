@@ -343,16 +343,23 @@ module World =
     /// Attempts to toggle a bond of the given type between
     /// the atoms with the given IDs in the given world.
     let private tryToggleBond bondType kT rng idA idB world =
+
         let behavior = behaviorMap[bondType]
+
+        let test energy =
+            testMetropolis kT rng behavior.Barrier
+                && testMetropolis kT rng energy
+
         let bondEnergy =
             let nStacks = countStacks bondType idA idB world
             behavior.Energy + stackEnergy * nStacks
+
         if BondMap.areBonded idA idB world.BondTypeMap[bondType] then
-            if testMetropolis kT rng bondEnergy then
+            if test bondEnergy then
                 Some (breakBond bondType idA idB world)
             else None
         else
-            if testMetropolis kT rng -bondEnergy then
+            if test -bondEnergy then
                 tryAddBond bondType idA idB world
             else None
 
