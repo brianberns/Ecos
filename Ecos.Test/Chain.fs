@@ -117,17 +117,18 @@ module Chain =
         }
 
     /// Tries to append atoms at the given locations to the end of the
-    /// chain in the given world, bonding each to its predecessor.
+    /// chain in the given world, bonding each to its predecessor. Fails
+    /// if an atom would overlap another, or a bond would cross another.
     let private tryAppend (locs : Point[]) (world : World) =
         let n0 = world.AtomMap.Count
         (Some world, Array.indexed locs)
             ||> Array.fold (fun worldOpt (i, loc) ->
                 worldOpt
                     |> Option.bind (World.tryAddAtom (Atom.create loc))
-                    |> Option.map (fun world ->
+                    |> Option.bind (fun world ->
                         let id = n0 + i
-                        if id > 0 then World.addStrongBond (id - 1) id world
-                        else world))
+                        if id > 0 then World.tryAddStrongBond (id - 1) id world
+                        else Some world))
 
     /// Atom locations in ID order.
     let private locationsOf (world : World) =
@@ -136,17 +137,16 @@ module Chain =
             |> Array.map (fun (_, atom) -> atom.Location)
 
     /// Grows a random linear chain of n atoms, sampled uniformly from
-    /// all valid conformations. This is the equilibrium ensemble of the
-    /// athermal model, so the chain needs no further equilibration.
+    /// all valid conformations (no overlapping atoms and no crossed
+    /// bonds). This is the equilibrium ensemble of the athermal model,
+    /// so the chain needs no further equilibration.
     ///
     /// Short chains use simple sampling: pick each bond uniformly and
-    /// start over on any overlap. That gets exponentially slow as n
-    /// grows, so longer chains use dimerization: join two independent
-    /// uniform half-chains with a random bond, and start over (both
-    /// halves) on any overlap. Both methods are exact.
-    ///
-    /// Note that grown chains may contain crossed bonds, which the
-    /// model's moves can neither create nor remove.
+    /// start over on any overlap or crossing. That gets exponentially
+    /// slow as n grows, so longer chains use dimerization: join two
+    /// independent uniform half-chains with a random bond, and start
+    /// over (both halves) on any overlap or crossing. Both methods are
+    /// exact.
     let rec grow (rng : Random) n : World =
         if n <= 8 then
             let rec simple () =
@@ -205,7 +205,7 @@ module Chain =
                     Some world
                         |> Option.bind (World.tryAddAtom (atom locA))
                         |> Option.bind (World.tryAddAtom (atom locB))
-                        |> Option.map (World.addStrongBond idA (idA + 1))
+                        |> Option.bind (World.tryAddStrongBond idA (idA + 1))
                 match worldOpt with
                     | Some world -> loop (count - 1) (attempts + 1) world
                     | None -> loop count (attempts + 1) world

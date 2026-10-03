@@ -94,6 +94,12 @@ module PropertyTests =
                 && Bonds.weakBondSets world
                     |> Map.forall (fun _ ids -> ids.Count <= 1)
 
+            // no bond, strong or weak, crosses another
+        let noCrossings =
+            allBonds world
+                |> List.forall (fun (idA, idB) ->
+                    not (crossesAnyBond world idA idB))
+
             // every weak bond is symmetric, in range, between
             // complementary types, between atoms that aren't also
             // strongly bonded, and doesn't cross any other bond
@@ -117,7 +123,7 @@ module PropertyTests =
                     |> Array.forall (fun (id, atom) ->
                         world.OccupancyMap.TryFind atom.Location = Some id)
 
-        noOverlaps && strongBondsValid && bondSetsValid && weakBondsValid && occupancyConsistent
+        noOverlaps && strongBondsValid && bondSetsValid && noCrossings && weakBondsValid && occupancyConsistent
 
     /// Unit steps an atom can attempt.
     let private directions =
@@ -326,19 +332,20 @@ module PropertyTests =
         Assert.True((World.tryAddWeakBond 4 0 world).IsNone, "Duplicate weak bond accepted")
 
     /// Topology, exhaustively: atoms A (type W, at the origin) and B
-    /// (type X) are in weak bond range, and atoms C (type Y) and D
-    /// (type Z) are bonded to each other, strongly or weakly. For every
-    /// such local configuration, a weak bond A-B must be accepted if
-    /// and only if it doesn't cross bond C-D. C ranges over every
-    /// location from which bond C-D could reach bond A-B.
-    [<Fact>]
-    let ``tryAddWeakBond rejects exactly the bonds that would cross`` () =
+    /// (type X) are separated by one of the given bond vectors, and
+    /// atoms C (type Y) and D (type Z) are bonded to each other,
+    /// strongly or weakly. For every such local configuration, the
+    /// given function, which tries to add a bond A-B, must succeed if
+    /// and only if A-B doesn't cross bond C-D. C ranges over every
+    /// location within the given distance of A, which must be far
+    /// enough for bond C-D to reach bond A-B.
+    let private checkCrossingRejected bondVectors range tryAddBond =
         let a = Point.create (0, 0)
         let mutable nChecked, nCrossed = 0, 0
-        for bondAB in Chain.weakBondVectors do
+        for bondAB in bondVectors do
             let b = a + bondAB
-            for cx in -6 .. 6 do
-                for cy in -6 .. 6 do
+            for cx in -range .. range do
+                for cy in -range .. range do
                     let c = Point.create (cx, cy)
                     for bondCD in Chain.bondVectors do
                         let d = c + bondCD
@@ -357,13 +364,25 @@ module PropertyTests =
                             nChecked <- nChecked + 1
                             let crosses = segmentsIntersect a b c d
                             if crosses then nCrossed <- nCrossed + 1
-                            if (World.tryAddWeakBond 0 1 world).IsSome = crosses then
+                            if (tryAddBond 0 1 world : Option<World>).IsSome = crosses then
                                 Assert.Fail(
                                     $"A {a}, B {b}, C {c}, D {d}: crosses = {crosses}, but accepted = {not crosses}")
 
             // make sure the check isn't vacuous
         Assert.True(nChecked > 10000, $"Only {nChecked} configurations checked")
         Assert.True(nCrossed > 0, "No crossed configurations checked")
+
+    /// A weak bond is accepted if and only if it doesn't cross another
+    /// bond.
+    [<Fact>]
+    let ``tryAddWeakBond rejects exactly the bonds that would cross`` () =
+        checkCrossingRejected Chain.weakBondVectors 6 World.tryAddWeakBond
+
+    /// A strong bond is accepted if and only if it doesn't cross
+    /// another bond.
+    [<Fact>]
+    let ``tryAddStrongBond rejects exactly the bonds that would cross`` () =
+        checkCrossingRejected Chain.bondVectors 8 World.tryAddStrongBond
 
     /// Moves made by a single update, as (atom ID, step) pairs.
     let private movesBetween (world : World) (world' : World) =
@@ -507,26 +526,27 @@ module PropertyTests =
 
     /// Topology, exhaustively: atom A (at the origin) is bonded to B
     /// and steps to A'; C and D are bonded to each other. For every
-    /// such local configuration that the model accepts both before and
-    /// after the step, bond AB must intersect bond CD before the step
-    /// if and only if A'B intersects CD after it.
+    /// such local configuration that is valid both before and after
+    /// the step, bond AB must intersect bond CD before the step if and
+    /// only if A'B intersects CD after it.
     ///
-    /// A single-atom move is valid exactly when the resulting world is
-    /// valid, so the model's own tryAddAtom and tryAddStrongBond decide which
-    /// configurations count. C ranges over every location from which
-    /// bond CD could reach the region swept by the moving bond.
+    /// This is a statement about the model's rules, so validity is
+    /// decided by the oracles (no overlapping atoms, allowed bond
+    /// vectors), which other tests check World against. World itself
+    /// can't be used here, since it refuses to build a configuration
+    /// with crossed bonds, and those must be covered too: a step must
+    /// not be able to uncross bonds either. C ranges over every
+    /// location from which bond CD could reach the region swept by the
+    /// moving bond.
     [<Fact>]
     let ``No single move can carry one bond across another`` () =
 
-            // world with bond A-B and bond C-D, if the model allows it
-        let tryBuild a b c d =
-            Some World.empty
-                |> Option.bind (World.tryAddAtom (Atom.create a))
-                |> Option.bind (World.tryAddAtom (Atom.create b))
-                |> Option.bind (World.tryAddAtom (Atom.create c))
-                |> Option.bind (World.tryAddAtom (Atom.create d))
-                |> Option.bind (World.tryAddStrongBond 0 1)
-                |> Option.bind (World.tryAddStrongBond 2 3)
+            // are bonds A-B and C-D a valid configuration, crossed or not?
+        let isValidConfig (a : Point) b c d =
+            isBondVector (b - a)
+                && isBondVector (d - c)
+                && not (overlaps a c) && not (overlaps a d)
+                && not (overlaps b c) && not (overlaps b d)
 
         let a = Point.create (0, 0)
         let mutable nChecked, nCrossed = 0, 0
@@ -537,11 +557,11 @@ module PropertyTests =
                     let c = Point.create (cx, cy)
                     for bondCD in Chain.bondVectors do
                         let d = c + bondCD
-                        if (tryBuild a b c d).IsSome then
+                        if isValidConfig a b c d then
                             let before = segmentsIntersect a b c d
                             for delta in directions do
                                 let a' = a + delta
-                                if (tryBuild a' b c d).IsSome then
+                                if isValidConfig a' b c d then
                                     nChecked <- nChecked + 1
                                     if before then nCrossed <- nCrossed + 1
                                     if segmentsIntersect a' b c d <> before then
@@ -552,19 +572,17 @@ module PropertyTests =
         Assert.True(nChecked > 100000, $"Only {nChecked} configurations checked")
         Assert.True(nCrossed > 0, "No crossed configurations checked")
 
-    /// Topology: a single step can never carry one bond across another,
-    /// and a weak bond can't form across another bond, so updates must
-    /// leave the set of intersecting bond pairs (strong and weak)
-    /// unchanged. Grown chains may start with crossed strong bonds,
-    /// which must persist; no other crossing may ever appear.
+    /// Topology: bonds never cross. A world can't be built with crossed
+    /// bonds, a single step can never carry one bond across another,
+    /// and a bond can't form across another bond, so no pair of bonds
+    /// (strong or weak) may ever intersect.
     [<Property>]
-    let ``update never changes which bonds cross`` (length : int) (seed : int) (nSteps : int) =
+    let ``Bonds never cross`` (length : int) (seed : int) (nSteps : int) =
         let length = 4 + abs (length % 20)
         let rng = Random(seed)
         let mutable world = Chain.grow rng length |> Chain.withRandomTypes rng |> Chain.addSoup rng 10 |> Chain.addDimers rng 5 |> Chain.addObstacles rng 10
-        let initial = crossings world
-        let mutable ok = true
+        let mutable ok = (crossings world).IsEmpty
         for _ in 1 .. 500 + abs (nSteps % 500) do
             world <- World.update 1.0 rng world
-            ok <- ok && crossings world = initial
+            ok <- ok && (crossings world).IsEmpty
         ok
