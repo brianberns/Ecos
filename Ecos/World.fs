@@ -363,8 +363,9 @@ module World =
                 tryAddBond bondType idA idB world
             else None
 
-    /// Attempts to toggle a weak bond in the given world.
-    let private tryUpdateWeakBond kT (rng : Random) world =
+    /// Attempts to toggle a bond of the given type in the given
+    /// world.
+    let private tryUpdateBond bondType kT (rng : Random) world =
 
             // pick atom to bond
         let idA = rng.Next(world.AtomMap.Count)   // assume for now that atoms are never removed
@@ -378,13 +379,14 @@ module World =
         world.OccupancyMap
             |> Map.tryFind (atom.Location + delta)
             |> Option.bind (fun idB ->
-                tryToggleBond Weak kT rng idA idB world)
+                tryToggleBond bondType kT rng idA idB world)
 
     /// Attempts to cause an event in the given world.
     let tryUpdate kT (rng : Random) world =
-        if rng.NextDouble() <= 0.5 then
-            tryUpdateAtom kT rng world
-        else tryUpdateWeakBond kT rng world
+        let x = rng.NextDouble()
+        if x <= 1.0 / 3.0 then tryUpdateAtom kT rng world
+        elif x <= 2.0 / 3.0 then tryUpdateBond Strong kT rng world
+        else tryUpdateBond Weak kT rng world
 
     /// Causes an event in the given world, or is a no-op if
     /// the event fails.
