@@ -8,6 +8,7 @@
     <Compile Include="Point.fs" />
     <Compile Include="Atom.fs" />
     <Compile Include="BondMap.fs" />
+    <Compile Include="BondBehavior.fs" />
     <Compile Include="World.fs" />
   </ItemGroup>
 
