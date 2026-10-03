@@ -385,9 +385,9 @@ module World =
     /// Attempts to cause an event in the given world.
     let tryUpdate kT (rng : Random) world =
         let x = rng.NextDouble()
-        if x <= 1.0 / 3.0 then tryUpdateAtom kT rng world
-        elif x <= 2.0 / 3.0 then tryUpdateBond Strong kT rng world
-        else tryUpdateBond Weak kT rng world
+        if x <= 0.5 then tryUpdateAtom kT rng world
+        elif x <= 0.9 then tryUpdateBond Weak kT rng world
+        else tryUpdateBond Strong kT rng world
 
     /// Causes an event in the given world, or is a no-op if
     /// the event fails.
