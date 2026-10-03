@@ -16,6 +16,24 @@ open System
 /// * Pairing of complementary strands
 /// * Stacking of bonded pairs (a la DNA)
 
+type World =
+    {
+        /// Atoms in the world, mapped by their IDs.
+        AtomMap : Map<AtomId, Atom>
+
+        /// Strong bonds between atoms in the world.
+        StrongBondMap : BondMap
+
+        /// Weak bonds between atoms in the world.
+        WeakBondMap : BondMap
+
+        /// Maps each atom's location to its ID.
+        OccupancyMap : Map<Point, AtomId>
+
+        /// Immovable obstacles, each the size of an atom.
+        Walls : Set<Point>
+    }
+
 module private StrongBond =
 
     /// All normalized strong bond vectors.
@@ -44,24 +62,6 @@ module private WeakBond =
 
     /// Maximum number of weak bonds an atom can have.
     let valence = 1
-
-type World =
-    {
-        /// Atoms in the world, mapped by their IDs.
-        AtomMap : Map<AtomId, Atom>
-
-        /// Strong bonds between atoms in the world.
-        StrongBondMap : BondMap
-
-        /// Weak bonds between atoms in the world.
-        WeakBondMap : BondMap
-
-        /// Maps each atom's location to its ID.
-        OccupancyMap : Map<Point, AtomId>
-
-        /// Immovable obstacles, each the size of an atom.
-        Walls : Set<Point>
-    }
 
 module World =
 
