@@ -51,6 +51,28 @@ module PhysicsTests =
         let nu = Stats.logLogSlope points / 2.0
         Assert.InRange(nu, 0.70, 0.80)
 
+    /// Runs the given world for burnIn sweeps, then takes the given
+    /// number of samples, sampleInterval sweeps apart, applying the
+    /// given function to the world each time.
+    ///
+    /// This is for tests whose exact enumeration treats strong bonds
+    /// as fixed. Strong bonds can form and break, but each attempt must
+    /// cross a barrier, which at a low enough temperature essentially
+    /// never happens in the length of a test. This fails if it does,
+    /// since the enumeration would no longer cover the states sampled.
+    let private sampleWithFixedStrongBonds
+        kT rng burnIn sampleInterval nSamples (observe : World -> 'sample) (world : World) =
+        let strongBonds = Bonds.strongBondMap world
+        let mutable world = Chain.sweeps kT rng burnIn world
+        let samples = Array.zeroCreate<'sample> nSamples
+        for i in 0 .. nSamples - 1 do
+            world <- Chain.sweeps kT rng sampleInterval world
+            samples[i] <- observe world
+        Assert.True(
+            (Bonds.strongBondMap world = strongBonds),
+            $"A strong bond formed or broke at kT = {kT}. Use a lower temperature.")
+        samples
+
     /// Equilibrium: update's events (hops and weak bond toggles) are
     /// proposed symmetrically, and are accepted only when valid and
     /// then with the Metropolis probability, so in the long run each
@@ -103,12 +125,13 @@ module PhysicsTests =
                         |> World.addAtom (atom typeC (6, 0))
                         |> World.addStrongBond 0 1
                         |> World.addStrongBond 1 2
-                world <- Chain.sweeps kT rng burnIn world
-                Array.init nSamples (fun _ ->
-                    world <- Chain.sweeps kT rng sampleInterval world
-                    let e = world.AtomMap[2].Location - world.AtomMap[0].Location
-                    let paired = Bonds.weakPartner world 0 = Some 2
-                    e, paired))
+                world
+                    |> sampleWithFixedStrongBonds
+                        kT rng burnIn sampleInterval nSamples
+                        (fun world ->
+                            let e = world.AtomMap[2].Location - world.AtomMap[0].Location
+                            let paired = Bonds.weakPartner world 0 = Some 2
+                            e, paired))
                 |> Array.concat
         let observed = samples |> Array.countBy id |> Map.ofArray
 
@@ -199,7 +222,7 @@ module PhysicsTests =
     /// vector.
     [<Fact>]
     let ``Hairpin with stacked pairs follows the Boltzmann distribution`` () =
-        let kT = 0.8
+        let kT = 0.5   // cold enough that strong bonds stay fixed
         let n = 5
         let types = [| AtomType.W; AtomType.W; AtomType.Y; AtomType.X; AtomType.X |]
         let overlaps (a : Point) (b : Point) =
@@ -285,8 +308,8 @@ module PhysicsTests =
             "No stacked states enumerated")
 
             // sample states from independent simulations
-        let nRuns, nSamples = 8, 3000
-        let burnIn, sampleInterval = 500, 60   // sweeps; the interval keeps samples roughly uncorrelated
+        let nRuns, nSamples = 8, 600
+        let burnIn, sampleInterval = 2000, 2000   // sweeps; stacked pairs break slowly when cold, so samples must be far apart
         let samples =
             Array.Parallel.init nRuns (fun iRun ->
                 let rng = Random(iRun)
@@ -299,35 +322,47 @@ module PhysicsTests =
                                     world
                             if i > 0 then World.addStrongBond (i - 1) i world
                             else world)
-                world <- Chain.sweeps kT rng burnIn world
-                Array.init nSamples (fun _ ->
-                    world <- Chain.sweeps kT rng sampleInterval world
-                    let bonds =
-                        (Bonds.weakBondMap world)
-                            |> Map.toList
-                            |> List.filter (fun (i, j) -> i < j)
-                    let endToEnd =
-                        world.AtomMap[n - 1].Location - world.AtomMap[0].Location
-                    bonds, endToEnd))
+                world
+                    |> sampleWithFixedStrongBonds
+                        kT rng burnIn sampleInterval nSamples
+                        (fun world ->
+                            let bonds =
+                                (Bonds.weakBondMap world)
+                                    |> Map.toList
+                                    |> List.filter (fun (i, j) -> i < j)
+                            let endToEnd =
+                                world.AtomMap[n - 1].Location - world.AtomMap[0].Location
+                            bonds, endToEnd))
                 |> Array.concat
 
         checkFit "Weak bonds" (toMap bondSetWeights) (Array.map fst samples)
         checkFit "End-to-end vector" (toMap endToEndWeights) (Array.map snd samples)
 
-    /// Walls and free atoms: two complementary atoms (types W and X),
-    /// not strongly bonded, are confined to a small box of walls. We
-    /// can enumerate every state exactly: each placement of the two
-    /// atoms in the box without overlap, unpaired (E = 0) or, when
-    /// they're in weak bond range, paired (E = weakBondEnergy). States
-    /// are grouped by the atoms' separation. The simulation must match
-    /// the Boltzmann distribution, and must never produce a state that
-    /// isn't in the box.
+    /// The bond between two atoms, if any.
+    type private Bond = NoBond | WeakBond | StrongBond
+
+    /// Walls, free atoms, and both bond types: two complementary atoms
+    /// (types W and X) are confined to a small box of walls, at a
+    /// temperature high enough that strong bonds form and break many
+    /// times. We can enumerate every state exactly: each placement of
+    /// the two atoms in the box without overlap, and then
+    /// * unbonded (E = 0), or
+    /// * weakly bonded (E = weakBondEnergy), if in weak bond range, or
+    /// * strongly bonded (E = strongBondEnergy), if in strong bond
+    ///   range.
+    /// States are grouped by the atoms' separation. The simulation must
+    /// match the Boltzmann distribution, and must never produce a state
+    /// that isn't in the box.
+    ///
+    /// The barrier to strong bonds affects only how fast they form and
+    /// break, not this distribution, so this also checks that it's
+    /// applied equally in both directions.
     [<Fact>]
     let ``Two atoms in a box follow the Boltzmann distribution`` () =
         let size = 2   // atom locations have |x| <= size and |y| <= size
-        let kT = 0.7
+        let kT = 12.0
 
-            // exact Boltzmann weight of each (separation, paired) state
+            // exact Boltzmann weight of each (separation, bond) state
         let locs =
             [
                 for x in -size .. size do
@@ -345,16 +380,23 @@ module PhysicsTests =
                 |> List.countBy id
                 |> List.collect (fun (d, count) ->
                     [
-                        (d, false), float count
+                        (d, NoBond), float count
                         if Array.contains d Chain.weakBondVectors then
-                            (d, true), float count * exp (-Chain.weakBondEnergy / kT)
+                            (d, WeakBond), float count * exp (-Chain.weakBondEnergy / kT)
+                        if Array.contains d Chain.bondVectors then
+                            (d, StrongBond), float count * exp (-Chain.strongBondEnergy / kT)
                     ])
                 |> Map.ofList
-        let totalWeight = exact.Values |> Seq.sum
+
+            // make sure every kind of state is part of the test
+        for bond in [ NoBond; WeakBond; StrongBond ] do
+            Assert.True(
+                exact.Keys |> Seq.exists (fun (_, b) -> b = bond),
+                $"No {bond} states enumerated")
 
             // sample states from independent simulations
-        let nRuns, nSamples = 8, 4000
-        let burnIn, sampleInterval = 500, 100   // sweeps; the interval keeps samples roughly uncorrelated
+        let nRuns, nSamples = 8, 3000
+        let burnIn, sampleInterval = 2000, 1000   // sweeps; a strong bond lasts hundreds of sweeps, so samples must be far apart
         let inBox (loc : Point) = abs loc.X <= size && abs loc.Y <= size
         let samples =
             Array.Parallel.init nRuns (fun iRun ->
@@ -365,35 +407,21 @@ module PhysicsTests =
                         |> World.addAtom { Type = AtomType.X; Location = Point.create (size, size) }
                         |> Chain.addBox size
                 world <- Chain.sweeps kT rng burnIn world
-                Array.init nSamples (fun _ ->
+                let samples = Array.zeroCreate nSamples
+                for i in 0 .. nSamples - 1 do
                     world <- Chain.sweeps kT rng sampleInterval world
                     let a = world.AtomMap[0].Location
                     let b = world.AtomMap[1].Location
                     Assert.True(inBox a && inBox b, $"Atom escaped the box: {a}, {b}")
-                    b - a, (Bonds.weakBondSets world).ContainsKey 0))
+                    let bond =
+                        if (Bonds.strongBondMap world).ContainsKey 0 then StrongBond
+                        elif (Bonds.weakBondSets world).ContainsKey 0 then WeakBond
+                        else NoBond
+                    samples[i] <- b - a, bond
+                samples)
                 |> Array.concat
-        let observed = samples |> Array.countBy id |> Map.ofArray
 
-            // every sample is a valid state
-        for state in observed.Keys do
-            Assert.True(exact.ContainsKey state, $"Invalid state {state}")
-
-            // chi-squared goodness of fit against the Boltzmann distribution
-        let chi2 =
-            exact
-                |> Map.toSeq
-                |> Seq.sumBy (fun (state, weight) ->
-                    let expected =
-                        float samples.Length * weight / totalWeight
-                    let obs =
-                        observed
-                            |> Map.tryFind state
-                            |> Option.defaultValue 0
-                            |> float
-                    (obs - expected) ** 2.0 / expected)
-        let df = float (exact.Count - 1)
-        let limit = df + 5.0 * sqrt (2.0 * df)   // mean + 5 standard deviations
-        Assert.True(chi2 < limit, $"chi^2 = {chi2:F1}, limit {limit:F1} (df = {df})")
+        checkFit "Separation and bond" exact samples
 
     /// Centre-of-mass mean squared displacement (MSD) at various lags,
     /// for each chain length. Shared by the diffusion tests.

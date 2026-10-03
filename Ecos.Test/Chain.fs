@@ -98,9 +98,14 @@ module Chain =
     /// where A and A' are strongly bonded, and so are B and B'.
     let stackEnergy = -1.0
 
-    /// Oracle: probability that World.update attempts a hop rather
-    /// than a weak bond toggle.
-    let hopProbability = 0.5
+    /// Oracle: energy of one strong bond.
+    let strongBondEnergy = -12.0
+
+    /// Oracle: barrier to forming or breaking a strong bond. Either
+    /// event is first accepted with probability exp(-barrier / kT), and
+    /// then with the usual Metropolis probability. (Weak bonds have no
+    /// barrier.)
+    let strongBondBarrier = 6.0
 
     /// Gives every atom in the given world a random type. Only valid
     /// for a world without weak bonds, since types determine which
@@ -236,9 +241,11 @@ module Chain =
 
     /// Temperature for tests of the athermal model. Atoms created by
     /// the Atom.create helper above are all type W, which can't form
-    /// weak bonds, so every event has zero energy change and the value
-    /// doesn't matter.
-    let athermalKT = 1.0
+    /// weak bonds, so hops and weak bond toggles never change the
+    /// energy, and the temperature doesn't affect them. It's set very
+    /// low so that strong bonds, which could otherwise form between a
+    /// chain's ends or break, are frozen: the barrier is never crossed.
+    let athermalKT = 0.1
 
     /// Performs one Monte Carlo sweep at the given temperature: N
     /// attempted moves for N atoms.

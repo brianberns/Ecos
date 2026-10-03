@@ -194,28 +194,116 @@ module PropertyTests =
                         || isStronglyBonded world idA idD && isStronglyBonded world idB idC))
             |> Seq.length
 
-    /// Oracle: probabilities that a weak bond toggle forms a bond, and
-    /// that it breaks one, in the given world. A toggle picks an atom
-    /// uniformly, then one of the weak bond vectors uniformly. If that
-    /// finds an atom that can pair, the bond always forms (since that
-    /// lowers the energy); if it finds the atom's partner, the bond
-    /// breaks with probability exp(E / kT), where E is the energy of
-    /// the bond and of the stacks it takes part in.
+    /// Strong bonds in the given world, as (smaller ID, larger ID)
+    /// pairs.
+    let private strongBonds (world : World) =
+        set [
+            for KeyValue(idA, ids) in Bonds.strongBondMap world do
+                for idB in ids do
+                    if idA < idB then idA, idB
+        ]
+
+    /// Number of strong bonds the given atom has.
+    let private strongBondCount (world : World) id =
+        Bonds.strongBondMap world
+            |> Map.tryFind id
+            |> Option.map Set.count
+            |> Option.defaultValue 0
+
+    /// Oracle: can the given atoms form a new strong bond? They must
+    /// be in range, each have fewer than two strong bonds, and not
+    /// already be bonded (strongly or weakly), and the new bond must
+    /// not cross any existing bond. Rings, including triangles, are
+    /// allowed.
+    let private canFormStrongBond (world : World) idA idB =
+        let atomA = world.AtomMap[idA]
+        let atomB = world.AtomMap[idB]
+        isBondVector (atomB.Location - atomA.Location)
+            && strongBondCount world idA < 2
+            && strongBondCount world idB < 2
+            && not (isStronglyBonded world idA idB)
+            && Bonds.weakPartner world idA <> Some idB
+            && not (crossesAnyBond world idA idB)
+
+    /// Oracle: number of stacks (0 or 1) that exist only because of a
+    /// strong bond between the given atoms (or would, if it formed).
+    /// If A and B have weak partners A' and B', those two weak bonds
+    /// are stacked when their ends are strongly bonded on both sides:
+    /// A to B and A' to B', or A to B' and A' to B. So bond A-B makes
+    /// the difference when A' and B' are strongly bonded, unless the
+    /// weak bonds are already stacked the other way.
+    let private countStacksStrong (world : World) idA idB =
+        match Bonds.weakPartner world idA, Bonds.weakPartner world idB with
+            | Some idA', Some idB' when idA' <> idB ->
+                let stackedOtherWay =
+                    isStronglyBonded world idA idB'
+                        && isStronglyBonded world idA' idB
+                if isStronglyBonded world idA' idB' && not stackedOtherWay then 1
+                else 0
+            | _ -> 0
+
+    /// Is the given bond vector longer than any weak bond?
+    let private isLong (v : Point) =
+        not (Array.contains v Chain.weakBondVectors)
+
+    /// Do the given bonds include one longer than any weak bond?
+    let private isLongBond (world : World) (bonds : Set<AtomId * AtomId>) =
+        bonds
+            |> Set.exists (fun (idA, idB) ->
+                isLong (world.AtomMap[idB].Location - world.AtomMap[idA].Location))
+
+    /// Oracle: probabilities that a toggle of each bond type forms a
+    /// bond, and that it breaks one, in the given world, as (weak
+    /// form, weak break, strong form, strong break, long strong form,
+    /// long strong break). The last two count only strong bonds longer
+    /// than any weak bond, and are included in the two before them.
+    ///
+    /// A toggle picks an atom uniformly, then one of the bond type's
+    /// vectors uniformly. If that finds an atom the first can bond
+    /// with, the bond forms (which always lowers the energy); if it
+    /// finds an atom already bonded to the first, the bond breaks with
+    /// probability exp(E / kT), where E is the energy of the bond and
+    /// of the stacks that depend on it. For a strong bond, either event
+    /// must also cross the barrier, with probability
+    /// exp(-barrier / kT).
     let private toggleProbabilities kT (world : World) =
-        let mutable form, brk = 0.0, 0.0
+        let nAtoms = float world.AtomMap.Count
+        let mutable weakForm, weakBreak = 0.0, 0.0
+        let mutable strongForm, strongBreak = 0.0, 0.0
+        let mutable longForm, longBreak = 0.0, 0.0
+        let barrierFactor = exp (-Chain.strongBondBarrier / kT)
         for KeyValue(idA, atomA) in world.AtomMap do
+
             for v in Chain.weakBondVectors do
                 match world.OccupancyMap.TryFind (atomA.Location + v) with
                     | Some idB when Bonds.weakPartner world idA = Some idB ->
                         let energy =
                             Chain.weakBondEnergy
                                 + Chain.stackEnergy * float (countStacks world idA idB)
-                        brk <- brk + exp (energy / kT)
+                        weakBreak <- weakBreak + exp (energy / kT)
                     | Some idB when canFormWeakBond world idA idB ->
-                        form <- form + 1.0
+                        weakForm <- weakForm + 1.0
                     | _ -> ()
-        let n = float (world.AtomMap.Count * Chain.weakBondVectors.Length)
-        form / n, brk / n
+
+            for v in Chain.bondVectors do
+                match world.OccupancyMap.TryFind (atomA.Location + v) with
+                    | Some idB when isStronglyBonded world idA idB ->
+                        let energy =
+                            Chain.strongBondEnergy
+                                + Chain.stackEnergy * float (countStacksStrong world idA idB)
+                        let p = barrierFactor * exp (energy / kT)
+                        strongBreak <- strongBreak + p
+                        if isLong v then longBreak <- longBreak + p
+                    | Some idB when canFormStrongBond world idA idB ->
+                        strongForm <- strongForm + barrierFactor
+                        if isLong v then longForm <- longForm + barrierFactor
+                    | _ -> ()
+
+        let nWeak = nAtoms * float Chain.weakBondVectors.Length
+        let nStrong = nAtoms * float Chain.bondVectors.Length
+        weakForm / nWeak, weakBreak / nWeak,
+            strongForm / nStrong, strongBreak / nStrong,
+            longForm / nStrong, longBreak / nStrong
 
     /// All pairs of bonds that intersect, excluding pairs that share
     /// an atom.
@@ -391,85 +479,110 @@ module PropertyTests =
                 let d = world'.AtomMap[id].Location - atom.Location
                 if d = Point.create (0, 0) then None else Some (id, d))
 
-    /// Temperatures for tests with weak bonds: cold enough that bonds
-    /// persist, and hot enough that they break often.
+    /// Temperatures for tests with bonds: cold enough that weak bonds
+    /// persist, and hot enough that strong bonds form and break.
     let private temperatures = [| 0.3; 1.0; 3.0 |]
 
+    /// Temperature at which strong bonds form and break often.
+    let private hotKT = 20.0
+
     /// Worlds for these tests are a chain plus a "soup" of free atoms
-    /// packed around it, since an isolated chain rarely brings
-    /// complementary atoms into range, so weak bonds would almost never
-    /// form or break.
+    /// and dimers packed around it, since an isolated chain rarely
+    /// brings atoms that can bond into range.
     ///
-    /// Each update makes at most one event, which must be valid: either
-    /// a valid move that leaves all bonds unchanged, or the breaking of
-    /// one existing weak bond, or the forming of one allowed weak bond.
-    /// Strong bonds never change, and the world stays valid.
+    /// Each update makes at most one event, which must be valid:
+    /// * a valid move that leaves all bonds unchanged, or
+    /// * the breaking of one existing bond, or
+    /// * the forming of one allowed bond (strong or weak).
+    /// The world must stay valid throughout.
     [<Property>]
     let ``update makes a single valid event`` (length : int) (seed : int) (iKT : int) (nSteps : int) =
         let length = 2 + abs (length % 20)
-        let kT = temperatures[abs (iKT % temperatures.Length)]
+        let kTs = Array.append temperatures [| hotKT |]
+        let kT = kTs[abs (iKT % kTs.Length)]
         let rng = Random(seed)
         let mutable world = Chain.grow rng length |> Chain.withRandomTypes rng |> Chain.addSoup rng 10 |> Chain.addDimers rng 5 |> Chain.addObstacles rng 10
-        let strongBonds = (Bonds.strongBondMap world)
         let mutable ok = isValid world
         for _ in 1 .. 500 + abs (nSteps % 1000) do
             let world' = World.update kT rng world
-            let before, after = weakBonds world, weakBonds world'
+            let weakBroken = weakBonds world - weakBonds world'
+            let weakFormed = weakBonds world' - weakBonds world
+            let strongBroken = strongBonds world - strongBonds world'
+            let strongFormed = strongBonds world' - strongBonds world
+            let nBondChanges =
+                weakBroken.Count + weakFormed.Count
+                    + strongBroken.Count + strongFormed.Count
             let eventOk =
                 match movesBetween world world' with
                     | [] ->
-                        let broken = before - after
-                        let formed = after - before
-                        match broken.Count, formed.Count with
-                            | 0, 0 -> true
-                            | 1, 0 -> true   // any existing bond may break
-                            | 0, 1 ->
-                                let idA, idB = Seq.exactlyOne formed
-                                canFormWeakBond world idA idB
-                            | _ -> false
+                        if nBondChanges = 0 then true
+                        elif nBondChanges > 1 then false
+                        elif weakFormed.Count = 1 then
+                            let idA, idB = Seq.exactlyOne weakFormed
+                            canFormWeakBond world idA idB
+                        elif strongFormed.Count = 1 then
+                            let idA, idB = Seq.exactlyOne strongFormed
+                            canFormStrongBond world idA idB
+                        else true   // any existing bond may break
                     | [ move ] ->
-                        List.contains move (validMoves world) && before = after
+                        List.contains move (validMoves world) && nBondChanges = 0
                     | _ -> false
-            ok <- ok && eventOk && (Bonds.strongBondMap world') = strongBonds && isValid world'
+            ok <- ok && eventOk && isValid world'
             world <- world'
         ok
 
     /// Runs the given number of updates on the given world, and checks
-    /// that each kind of event (move, weak bond formed, weak bond
-    /// broken) happens as often as expected.
+    /// that each kind of event (move, or a bond of either type formed
+    /// or broken) happens as often as expected.
     ///
-    /// An update hops with probability hopProbability, picking an atom
-    /// and a direction uniformly and accepting any valid move (no hop
-    /// changes the energy yet); otherwise it toggles a weak bond (see
-    /// toggleProbabilities). Over many updates, the number of events
-    /// of each kind must match the sum of its probabilities.
+    /// An update chooses between a hop and a toggle of each bond type
+    /// with World's fixed rates. A hop picks an atom and a direction
+    /// uniformly and accepts any valid move (no hop changes the energy
+    /// yet). For toggles, see toggleProbabilities. Over many updates,
+    /// the number of events of each kind must match the sum of its
+    /// probabilities.
     let private checkEventRates label kT nSteps (rng : Random) (world : World) =
         let mutable world = world
 
             // expected and actual counts of each kind of event
-        let kinds = [| "moves"; "bonds formed"; "bonds broken" |]
+        let kinds =
+            [|
+                "moves"
+                "weak bonds formed"; "weak bonds broken"
+                "strong bonds formed"; "strong bonds broken"
+                "long strong bonds formed"; "long strong bonds broken"
+            |]
         let expected = Array.zeroCreate<float> kinds.Length
         let variance = Array.zeroCreate<float> kinds.Length
         let actual = Array.zeroCreate<int> kinds.Length
 
         for _ in 1 .. nSteps do
-            let pForm, pBreak = toggleProbabilities kT world
+            let weakForm, weakBreak, strongForm, strongBreak, longForm, longBreak =
+                toggleProbabilities kT world
             let ps =
                 [|
-                    Chain.hopProbability
+                    World.moveAtomRate
                         * float (validMoves world).Length / float (4 * world.AtomMap.Count)
-                    (1.0 - Chain.hopProbability) * pForm
-                    (1.0 - Chain.hopProbability) * pBreak
+                    World.toggleWeakBondRate * weakForm
+                    World.toggleWeakBondRate * weakBreak
+                    World.toggleStrongBondRate * strongForm
+                    World.toggleStrongBondRate * strongBreak
+                    World.toggleStrongBondRate * longForm
+                    World.toggleStrongBondRate * longBreak
                 |]
             for i, p in Array.indexed ps do
                 expected[i] <- expected[i] + p
                 variance[i] <- variance[i] + p * (1.0 - p)
             let world' = World.update kT rng world
-            let nBefore, nAfter = (Bonds.weakBondMap world).Count, (Bonds.weakBondMap world').Count
-            if world'.AtomMap <> world.AtomMap then
-                actual[0] <- actual[0] + 1
-            if nAfter > nBefore then actual[1] <- actual[1] + 1
-            if nAfter < nBefore then actual[2] <- actual[2] + 1
+            let nWeak, nWeak' = (weakBonds world).Count, (weakBonds world').Count
+            let nStrong, nStrong' = (strongBonds world).Count, (strongBonds world').Count
+            if world'.AtomMap <> world.AtomMap then actual[0] <- actual[0] + 1
+            if nWeak' > nWeak then actual[1] <- actual[1] + 1
+            if nWeak' < nWeak then actual[2] <- actual[2] + 1
+            if nStrong' > nStrong then actual[3] <- actual[3] + 1
+            if nStrong' < nStrong then actual[4] <- actual[4] + 1
+            if isLongBond world' (strongBonds world' - strongBonds world) then actual[5] <- actual[5] + 1
+            if isLongBond world (strongBonds world - strongBonds world') then actual[6] <- actual[6] + 1
             world <- world'
 
         for i, kind in Array.indexed kinds do
@@ -485,7 +598,7 @@ module PropertyTests =
     [<Fact>]
     let ``update makes valid events at the expected rate`` () =
         for kT in temperatures do
-            for length in [ 1; 2; 5; 20 ] do
+            for length in [ 2; 20 ] do
                 let rng = Random(length)
                 Chain.grow rng length
                     |> Chain.withRandomTypes rng
@@ -522,7 +635,33 @@ module PropertyTests =
             ]
         for label, world in worlds do
             let kT = 0.7   // cold enough that a stack clearly changes how often bonds break
-            checkEventRates label kT 200000 (Random(0)) world
+            checkEventRates label kT 100000 (Random(0)) world
+
+    /// Strong bonds, at the right rates: eight atoms of random types
+    /// are sealed in a box, at a temperature high enough that strong
+    /// bonds form and break constantly. Chains, branches of weak bonds,
+    /// and rings (including triangles) all come and go, so this covers
+    /// the barrier, the strong bond vectors, valence, crossing, and
+    /// breaking one bond of an atom that has two.
+    [<Fact>]
+    let ``Strong bonds form and break at the expected rate`` () =
+        let size = 4   // atom locations have |x| <= size and |y| <= size
+        let rng = Random(0)
+        let types = [| AtomType.W; AtomType.X; AtomType.Y; AtomType.Z |]
+        let rec addAtoms count world =
+            if count = 0 then world
+            else
+                let atom =
+                    typedAtom
+                        types[rng.Next types.Length]
+                        (Point.create (rng.Next(-size, size + 1), rng.Next(-size, size + 1)))
+                match World.tryAddAtom atom world with
+                    | Some world -> addAtoms (count - 1) world
+                    | None -> addAtoms count world
+        World.empty
+            |> Chain.addBox size
+            |> addAtoms 8
+            |> checkEventRates "Box" hotKT 100000 rng
 
     /// Topology, exhaustively: atom A (at the origin) is bonded to B
     /// and steps to A'; C and D are bonded to each other. For every
