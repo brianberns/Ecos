@@ -275,19 +275,50 @@ module World =
             moveAtom idA atom atom' world
         else world
 
-    /// Counts stacks adjacent to the given bond:
-    ///    A ══ A′   ══ strong bond
-    ///    ┆    ┆    ┆  weak bond
-    ///    B ══ B′
-    let private countStacks idA idB world =
-        let bNeighbors =
-            BondMap.getBonds idB world.BondTypeMap[Strong]
-        BondMap.getBonds idA world.BondTypeMap[Strong]
+    /// Counts stacks adjacent to the given (existing or 
+    /// proposed) weak bond:
+    ///    A' ══ A ══ A′   ══ strong bond
+    ///    |     ┆    ┆    ┆  weak bond
+    ///    |     ?    ┆
+    ///    |     ┆    ┆
+    ///    B' ══ B ══ B′
+    let private countStacksWeak idA idB world =
+        let strongBondMap = world.BondTypeMap[Strong]
+        let weakBondMap = world.BondTypeMap[Weak]
+        let bPartners = BondMap.getBonds idB strongBondMap
+        BondMap.getBonds idA strongBondMap
             |> Seq.where (fun idA' ->
-                BondMap.getBonds idA' world.BondTypeMap[Weak]
+                BondMap.getBonds idA' weakBondMap
                     |> Seq.exists (fun idB' ->
-                        bNeighbors.Contains(idB')))
+                        bPartners.Contains(idB')))
             |> Seq.length
+
+    /// Determines whether the given atoms both have weak
+    /// partners that are strongly bonded to each other:
+    ///    A  ═?═ B    ══ strong bond
+    ///    ┆      ┆    ┆  weak bond
+    ///    A' ═══ B′
+    let private countStacksStrong idA idB world =
+        let isStack =
+            let strongBondMap = world.BondTypeMap[Strong]
+            let weakBondMap = world.BondTypeMap[Weak]
+            let bPartners = BondMap.getBonds idB weakBondMap
+            BondMap.getBonds idA weakBondMap
+                |> Seq.exists (fun idA' ->
+                    BondMap.getBonds idA' strongBondMap
+                        |> Seq.exists (fun idB' ->
+                            bPartners.Contains(idB')))
+        if isStack then 1 else 0
+
+    /// Counts weak bonds stacked by a bond of the given
+    /// type between the given atoms:
+    ///    P ══ P′   ══ strong bond
+    ///    ┆    ┆    ┆  weak bond
+    ///    Q ══ Q′
+    let private countStacks bondType idA idB world =
+        match bondType with
+            | Weak -> countStacksWeak idA idB world
+            | Strong -> countStacksStrong idA idB world
 
     /// Breaks a bond of the given type between the atoms
     /// with the given IDs in the given world.
@@ -309,15 +340,19 @@ module World =
             BondTypeMap =
                 Map.add bondType bondMap world.BondTypeMap }
 
-    /// Attempts to toggle a weak bond between the atoms with the
-    /// given IDs in the given world.
-    let private tryToggleWeakBond kT rng idA idB world =
+    /// Additional energy from a stacked weak bond.
+    let private stackEnergy = 1
+
+    /// Attempts to toggle a bond of the given type between
+    /// the atoms with the given IDs in the given world.
+    let private tryToggleBond bondType kT rng idA idB world =
+        let behavior = behaviorMap[bondType]
         let bondEnergy =
-            let nStacks = countStacks idA idB world
-            WeakBond.energy + WeakBond.stackEnergy * nStacks
-        if BondMap.areBonded idA idB world.BondTypeMap[Weak] then
+            let nStacks = countStacks bondType idA idB world
+            behavior.Energy + stackEnergy * nStacks
+        if BondMap.areBonded idA idB world.BondTypeMap[bondType] then
             if testMetropolis kT rng bondEnergy then
-                Some (breakBond Weak idA idB world)
+                Some (breakBond bondType idA idB world)
             else None
         else
             if testMetropolis kT rng -bondEnergy then
@@ -339,7 +374,7 @@ module World =
         world.OccupancyMap
             |> Map.tryFind (atom.Location + delta)
             |> Option.bind (fun idB ->
-                tryToggleWeakBond kT rng idA idB world)
+                tryToggleBond Weak kT rng idA idB world)
             |> Option.defaultValue world
 
     /// Attempts to cause an event in the given world.

@@ -1,12 +1,29 @@
 namespace Ecos
 
+(*
+ * Energy
+ *   |            ----  <- barrier: in-between state
+ *   |           /    \
+ *   |   E_b    /      \
+ *   |  --------        \
+ *   |  unbonded         \      E_b + S
+ *   |                    \
+ *   |                     -------- bonded (lower by S)
+ *   |
+ *    ----------------------------------
+ *
+ * Drawing by Claude, with my edits.
+ *)
+
+
 /// Specific behavior of a bond type.
 type private BondBehavior =
     {
         /// All normalized bond vectors of this type.
         Neighborhood : Set<int (*max*) * int (*min*)>   // not strictly (x, y) points
 
-        /// Denormalized neighborhood, cached for speed.
+        /// Denormalized neighborhood of (x, y) points, cached
+        /// for speed.
         Deltas : Point[]
 
         /// Deltas to check for cross bonds.
@@ -22,6 +39,9 @@ type private BondBehavior =
 
         /// Energy delta of this bond type.
         Energy : int
+
+        /// Energy barrier to bond formation (E_b).
+        Barrier : int
     }
 
 module private BondBehavior =
@@ -88,9 +108,6 @@ module private StrongBond =
             |> BondBehavior.getDeltas
             |> set
 
-    /// Strong bond energy delta.
-    let energy = 0   // to-do
-
     /// Behavior of strong bonds.
     let behavior =
         {
@@ -99,7 +116,8 @@ module private StrongBond =
             CrossBondDeltas = crossBondDeltas
             Valence = 2
             CanBond = fun _ _ -> true
-            Energy = energy
+            Energy = 12
+            Barrier = 6
         }
 
 module private WeakBond =
@@ -132,12 +150,6 @@ module private WeakBond =
             | AtomType.Y, AtomType.Z -> true
             | _ -> false
 
-    /// Weak bond energy delta.
-    let energy = 1
-
-    /// Additional energy from a stacked weak bond.
-    let stackEnergy = energy
-
     /// Behavior of weak bonds.
     let behavior =
         {
@@ -146,5 +158,6 @@ module private WeakBond =
             CrossBondDeltas = crossBondDeltas
             Valence = 1
             CanBond = canBond
-            Energy = energy
+            Energy = 1
+            Barrier = 0
         }
