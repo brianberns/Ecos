@@ -1,5 +1,6 @@
 namespace Ecos
 
+/// Specific behavior of a bond type.
 type private BondBehavior =
     {
         /// All normalized bond vectors of this type.
