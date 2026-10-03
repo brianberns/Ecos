@@ -15,7 +15,6 @@ open System
 /// * Metropolis dynamics
 /// * Pairing of complementary strands
 /// * Stacking of bonded pairs (a la DNA)
-
 type World =
     {
         /// Atoms in the world, mapped by their IDs.
