@@ -6,7 +6,7 @@ type private BondBehavior =
         /// All normalized bond vectors of this type.
         Neighborhood : Set<int (*max*) * int (*min*)>   // not strictly (x, y) points
 
-        /// Denormalized neighborhood.
+        /// Denormalized neighborhood, cached for speed.
         Deltas : Point[]
 
         /// Deltas to check for cross bonds.
@@ -59,10 +59,16 @@ module private StrongBond =
             3, 2
         ]
 
+    /// Denormalized neighborhood.
     let deltas = BondBehavior.getDeltas neighborhood
 
-    let crossBondDeltas = Set.empty   // not yet implemented
+    /// Possible cross bond deltas, as determined by Claude.
+    let crossBondDeltas =
+        neighborhood.Add(3, 3)
+            |> BondBehavior.getDeltas
+            |> set
 
+    /// Strong bond energy delta.
     let energy = 0   // to-do
 
     /// Behavior of strong bonds.
@@ -86,8 +92,11 @@ module private WeakBond =
             2, 2
         ]
 
-    let deltas = BondBehavior.getDeltas neighborhood
+    /// Denormalized neighborhood.
+    let deltas =
+        BondBehavior.getDeltas neighborhood
 
+    /// Possible cross bond deltas, as determined by Claude.
     let crossBondDeltas =
         [ (2, 0) ]
             |> BondBehavior.getDeltas
