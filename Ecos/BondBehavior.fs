@@ -115,6 +115,9 @@ module private WeakBond =
     /// Weak bond energy delta.
     let energy = 1
 
+    /// Additional energy from a stacked weak bond.
+    let stackEnergy = energy
+
     /// Behavior of weak bonds.
     let behavior =
         {
