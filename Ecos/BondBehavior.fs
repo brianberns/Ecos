@@ -4,7 +4,7 @@ namespace Ecos
 type private BondBehavior =
     {
         /// All normalized bond vectors of this type.
-        Neighborhood : Set<int * int>
+        Neighborhood : Set<int (*max*) * int (*min*)>   // not strictly (x, y) points
 
         /// Maximum number of bonds of this type an atom can
         /// have.
