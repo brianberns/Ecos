@@ -117,25 +117,41 @@ module View =
             ]
         ]
 
-    let renderTemperature kT dispatch =
-        DockPanel.create [
-            DockPanel.dock Dock.Bottom
-            DockPanel.children [
+    let renderTemperature (kT : float) dispatch =
+        StackPanel.create [
+            StackPanel.dock Dock.Bottom
+            StackPanel.orientation Orientation.Horizontal
+            StackPanel.children [
                 TextBlock.create [
                     TextBlock.dock Dock.Left
-                    TextBlock.text $"Temperature: %0.3f{kT}"
+                    TextBlock.text "Temperature:"
                     TextBlock.foreground Colors.Black
                     TextBlock.verticalAlignment VerticalAlignment.Center
                     TextBlock.padding 10
                 ]
-                Slider.create [
-                    Slider.dock Dock.Left
-                    Slider.minimum 0.0
-                    Slider.maximum 5.0
-                    Slider.value kT
-                    Slider.onValueChanged (fun value ->
-                        SetTemperature value |> dispatch)
+                NumericUpDown.create [
+                    NumericUpDown.dock Dock.Left
+                    NumericUpDown.minimum 0
+                    NumericUpDown.maximum 5
+                    NumericUpDown.increment 0.1m
+                    NumericUpDown.value (decimal kT)
+                    NumericUpDown.width 110
+                    NumericUpDown.horizontalContentAlignment HorizontalAlignment.Right
+                    NumericUpDown.onValueChanged (fun value ->
+                        if value.HasValue then
+                            float value.Value
+                                |> SetTemperature
+                                |> dispatch)
                 ]
+            ]
+        ]
+
+    let renderControlPanel model dispatch =
+        DockPanel.create [
+            DockPanel.dock Dock.Bottom
+            DockPanel.background Colors.LightGray
+            DockPanel.children [
+                renderTemperature model.Temperature dispatch
             ]
         ]
 
@@ -149,7 +165,7 @@ module View =
             Window.child (
                 DockPanel.create [
                     DockPanel.children [
-                        renderTemperature model.Temperature dispatch
+                        renderControlPanel model dispatch
                         renderWorld model.World   // last child fills
                     ]
                 ])
