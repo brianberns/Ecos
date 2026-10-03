@@ -64,7 +64,7 @@ module private StrongBond =
 
     /// Possible cross bond deltas, as determined by Claude.
     let crossBondDeltas =
-        neighborhood.Add(3, 3)
+        neighborhood
             |> BondBehavior.getDeltas
             |> set
 
