@@ -277,11 +277,11 @@ module World =
 
     /// Counts stacks adjacent to the given (existing or 
     /// proposed) weak bond:
-    ///    A' ══ A ══ A′   ══ strong bond
-    ///    |     ┆    ┆    ┆  weak bond
-    ///    |     ?    ┆
-    ///    |     ┆    ┆
-    ///    B' ══ B ══ B′
+    ///    A' ══ A ══ A'   ══ strong bond
+    ///    ┆     ┆    ┆    ┆  weak bond
+    ///    ┆     ?    ┆
+    ///    ┆     ┆    ┆
+    ///    B' ══ B ══ B'
     let private countStacksWeak idA idB world =
         let strongBondMap = world.BondTypeMap[Strong]
         let weakBondMap = world.BondTypeMap[Weak]
@@ -293,11 +293,11 @@ module World =
                         bPartners.Contains(idB')))
             |> Seq.length
 
-    /// Determines whether the given atoms both have weak
-    /// partners that are strongly bonded to each other:
+    /// Counts stacks affected by the given (existing or 
+    /// proposed) strong bond:
     ///    A  ═?═ B    ══ strong bond
     ///    ┆      ┆    ┆  weak bond
-    ///    A' ═══ B′
+    ///    A' ═══ B'
     let private countStacksStrong idA idB world =
         let isStack =
             let strongBondMap = world.BondTypeMap[Strong]
@@ -311,10 +311,7 @@ module World =
         if isStack then 1 else 0
 
     /// Counts weak bonds stacked by a bond of the given
-    /// type between the given atoms:
-    ///    P ══ P′   ══ strong bond
-    ///    ┆    ┆    ┆  weak bond
-    ///    Q ══ Q′
+    /// type between the given atoms.
     let private countStacks bondType idA idB world =
         match bondType with
             | Weak -> countStacksWeak idA idB world
