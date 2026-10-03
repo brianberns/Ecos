@@ -2,7 +2,19 @@ namespace Ecos
 
 open System
 
-type BondType = Strong | Weak
+/// Bond type.
+type BondType =
+
+    /// Long-term, long-range bonds.
+    | Strong
+
+    /// Short-term, short-range bonds.
+    | Weak
+
+module BondType =
+
+    /// All bond types.
+    let all = [| Strong; Weak |]
 
 /// A lattice world containing atoms bonded into molecules.
 /// Every atom occupies a 2x2 square around its central
@@ -39,7 +51,7 @@ module World =
         {
             AtomMap = Map.empty
             BondTypeMap =
-                [ Strong; Weak ]
+                BondType.all
                     |> Seq.map (fun bondType ->
                         bondType, Map.empty)
                     |> Map
@@ -175,6 +187,7 @@ module World =
                                             (atomC, atomD)))
                     |> Option.defaultValue false)
 
+    /// Behavior of each bond type.
     let private behaviorMap =
         Map [
             Strong, StrongBond.behavior
@@ -248,6 +261,15 @@ module World =
                 | 3 ->  0,  1
                 | _ -> failwith "Unexpected"
 
+    /// Determines whether the given atom's bonds are valid.
+    let private testBonds id atom world =
+        behaviorMap
+            |> Map.toSeq
+            |> Seq.forall (fun (bondType, behavior) ->
+                BondMap.testBonds behavior.Neighborhood
+                    id atom world.AtomMap
+                    world.BondTypeMap[bondType])
+
     /// Applies the Metropolis rule:
     /// * A move that lowers the energy, or leaves it unchanged,
     ///   is always accepted.
@@ -289,14 +311,9 @@ module World =
 
             // move the atom permanently?
         let isValid =
-            isAvailable atom'.Location (Some idA) world        // avoids overlap with other atoms? (to-do: check only the leading edge)
-                && BondMap.testBonds StrongBond.neighborhood   // all of the atom's strong bonds are still valid?
-                    idA atom' world.AtomMap
-                    world.BondTypeMap[Strong]
-                && BondMap.testBonds WeakBond.neighborhood     // all of the atom's weak bonds are still valid?
-                    idA atom' world.AtomMap
-                    world.BondTypeMap[Weak]
-                && testMetropolis kT rng 0                     // acceptable energy change?
+            isAvailable atom'.Location (Some idA) world   // avoids overlap with other atoms? (to-do: check only the leading edge)
+                && testBonds idA atom' world              // all of the atom's bonds are still valid?
+                && testMetropolis kT rng 0                // acceptable energy change?
         if isValid then
             moveAtom idA atom atom' world
         else world
