@@ -28,7 +28,7 @@ module PropertyTests =
 
     /// Are the given atoms strongly bonded?
     let private isStronglyBonded (world : World) idA idB =
-        world.StrongBondMap
+        (Bonds.strongBondMap world)
             |> Map.tryFind idA
             |> Option.exists (Set.contains idB)
 
@@ -36,10 +36,10 @@ module PropertyTests =
     /// (smaller ID, larger ID) pairs.
     let private allBonds (world : World) =
         [
-            for KeyValue(idA, ids) in world.StrongBondMap do
+            for KeyValue(idA, ids) in (Bonds.strongBondMap world) do
                 for idB in ids do
                     if idA < idB then idA, idB
-            for KeyValue(idA, idB) in world.WeakBondMap do
+            for KeyValue(idA, idB) in (Bonds.weakBondMap world) do
                 if idA < idB then idA, idB
         ]
 
@@ -77,25 +77,32 @@ module PropertyTests =
             // every strong bond is allowed and symmetric, and no atom
             // has more than two
         let strongBondsValid =
-            world.StrongBondMap
+            (Bonds.strongBondMap world)
                 |> Map.forall (fun idA ids ->
                     ids.Count <= 2
                         && ids
                             |> Set.forall (fun idB ->
                                 isBondVector
                                     (world.AtomMap[idB].Location - world.AtomMap[idA].Location)
-                                    && world.StrongBondMap[idB].Contains idA))
+                                    && (Bonds.strongBondMap world).[idB].Contains idA))
 
-            // every weak bond is symmetric (which also limits each atom
-            // to one), in range, between complementary types, between
-            // atoms that aren't also strongly bonded, and doesn't cross
-            // any other bond
+            // no atom is listed with an empty set of bonds, and no atom
+            // has more than one weak bond
+        let bondSetsValid =
+            world.BondTypeMap.Values
+                |> Seq.forall (Map.forall (fun _ ids -> not ids.IsEmpty))
+                && Bonds.weakBondSets world
+                    |> Map.forall (fun _ ids -> ids.Count <= 1)
+
+            // every weak bond is symmetric, in range, between
+            // complementary types, between atoms that aren't also
+            // strongly bonded, and doesn't cross any other bond
         let weakBondsValid =
-            world.WeakBondMap
+            (Bonds.weakBondMap world)
                 |> Map.forall (fun idA idB ->
                     let atomA = world.AtomMap[idA]
                     let atomB = world.AtomMap[idB]
-                    world.WeakBondMap.TryFind idB = Some idA
+                    Bonds.weakPartner world idB = Some idA
                         && Array.contains
                             (atomB.Location - atomA.Location)
                             Chain.weakBondVectors
@@ -110,7 +117,7 @@ module PropertyTests =
                     |> Array.forall (fun (id, atom) ->
                         world.OccupancyMap.TryFind atom.Location = Some id)
 
-        noOverlaps && strongBondsValid && weakBondsValid && occupancyConsistent
+        noOverlaps && strongBondsValid && bondSetsValid && weakBondsValid && occupancyConsistent
 
     /// Unit steps an atom can attempt.
     let private directions =
@@ -132,13 +139,13 @@ module PropertyTests =
                             && world.Walls
                                 |> Set.forall (fun wall -> not (overlaps loc wall))
                     let strongBondsOk =
-                        world.StrongBondMap
+                        (Bonds.strongBondMap world)
                             |> Map.tryFind id
                             |> Option.defaultValue Set.empty
                             |> Set.forall (fun idB ->
                                 isBondVector (world.AtomMap[idB].Location - loc))
                     let weakBondOk =
-                        world.WeakBondMap
+                        (Bonds.weakBondMap world)
                             |> Map.tryFind id
                             |> Option.forall (fun idB ->
                                 Array.contains
@@ -150,7 +157,7 @@ module PropertyTests =
 
     /// Weak bonds in the given world, as (smaller ID, larger ID) pairs.
     let private weakBonds (world : World) =
-        world.WeakBondMap
+        (Bonds.weakBondMap world)
             |> Map.toSeq
             |> Seq.filter (fun (idA, idB) -> idA < idB)
             |> set
@@ -163,8 +170,8 @@ module PropertyTests =
         let atomB = world.AtomMap[idB]
         Chain.canPair atomA.Type atomB.Type
             && Array.contains (atomB.Location - atomA.Location) Chain.weakBondVectors
-            && not (world.WeakBondMap.ContainsKey idA)
-            && not (world.WeakBondMap.ContainsKey idB)
+            && not ((Bonds.weakBondSets world).ContainsKey idA)
+            && not ((Bonds.weakBondSets world).ContainsKey idB)
             && not (isStronglyBonded world idA idB)
             && not (crossesAnyBond world idA idB)
 
@@ -193,7 +200,7 @@ module PropertyTests =
         for KeyValue(idA, atomA) in world.AtomMap do
             for v in Chain.weakBondVectors do
                 match world.OccupancyMap.TryFind (atomA.Location + v) with
-                    | Some idB when world.WeakBondMap.TryFind idA = Some idB ->
+                    | Some idB when Bonds.weakPartner world idA = Some idB ->
                         let energy =
                             Chain.weakBondEnergy
                                 + Chain.stackEnergy * float (countStacks world idA idB)
@@ -384,7 +391,7 @@ module PropertyTests =
         let kT = temperatures[abs (iKT % temperatures.Length)]
         let rng = Random(seed)
         let mutable world = Chain.grow rng length |> Chain.withRandomTypes rng |> Chain.addSoup rng 10 |> Chain.addDimers rng 5 |> Chain.addObstacles rng 10
-        let strongBonds = world.StrongBondMap
+        let strongBonds = (Bonds.strongBondMap world)
         let mutable ok = isValid world
         for _ in 1 .. 500 + abs (nSteps % 1000) do
             let world' = World.update kT rng world
@@ -404,7 +411,7 @@ module PropertyTests =
                     | [ move ] ->
                         List.contains move (validMoves world) && before = after
                     | _ -> false
-            ok <- ok && eventOk && world'.StrongBondMap = strongBonds && isValid world'
+            ok <- ok && eventOk && (Bonds.strongBondMap world') = strongBonds && isValid world'
             world <- world'
         ok
 
@@ -439,7 +446,7 @@ module PropertyTests =
                 expected[i] <- expected[i] + p
                 variance[i] <- variance[i] + p * (1.0 - p)
             let world' = World.update kT rng world
-            let nBefore, nAfter = world.WeakBondMap.Count, world'.WeakBondMap.Count
+            let nBefore, nAfter = (Bonds.weakBondMap world).Count, (Bonds.weakBondMap world').Count
             if world'.AtomMap <> world.AtomMap then
                 actual[0] <- actual[0] + 1
             if nAfter > nBefore then actual[1] <- actual[1] + 1
