@@ -107,7 +107,7 @@ module PhysicsTests =
                 Array.init nSamples (fun _ ->
                     world <- Chain.sweeps kT rng sampleInterval world
                     let e = world.AtomMap[2].Location - world.AtomMap[0].Location
-                    let paired = world.WeakBondMap.TryFind 0 = Some 2
+                    let paired = Bonds.weakPartner world 0 = Some 2
                     e, paired))
                 |> Array.concat
         let observed = samples |> Array.countBy id |> Map.ofArray
@@ -303,7 +303,7 @@ module PhysicsTests =
                 Array.init nSamples (fun _ ->
                     world <- Chain.sweeps kT rng sampleInterval world
                     let bonds =
-                        world.WeakBondMap
+                        (Bonds.weakBondMap world)
                             |> Map.toList
                             |> List.filter (fun (i, j) -> i < j)
                     let endToEnd =
@@ -370,7 +370,7 @@ module PhysicsTests =
                     let a = world.AtomMap[0].Location
                     let b = world.AtomMap[1].Location
                     Assert.True(inBox a && inBox b, $"Atom escaped the box: {a}, {b}")
-                    b - a, world.WeakBondMap.ContainsKey 0))
+                    b - a, (Bonds.weakBondSets world).ContainsKey 0))
                 |> Array.concat
         let observed = samples |> Array.countBy id |> Map.ofArray
 

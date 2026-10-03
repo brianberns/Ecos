@@ -12,6 +12,30 @@ namespace Ecos.Test
 open System
 open Ecos
 
+/// Views of a world's bonds.
+module Bonds =
+
+    /// Strong bonds, mapping each bonded atom to its partners.
+    let strongBondMap (world : World) =
+        world.BondTypeMap[BondType.Strong]
+
+    /// Weak bonds, mapping each bonded atom to its partners (at most
+    /// one each, which isValid checks).
+    let weakBondSets (world : World) =
+        world.BondTypeMap[BondType.Weak]
+
+    /// Weak bonds, mapping each bonded atom to its partner. Only
+    /// meaningful if each atom has at most one weak bond.
+    let weakBondMap (world : World) : Map<AtomId, AtomId> =
+        weakBondSets world
+            |> Map.map (fun _ ids -> Seq.head ids)
+
+    /// The given atom's weak bond partner, if any.
+    let weakPartner (world : World) id =
+        weakBondSets world
+            |> Map.tryFind id
+            |> Option.map Seq.head
+
 /// Geometry helpers.
 module Geometry =
 
@@ -82,7 +106,7 @@ module Chain =
     /// for a world without weak bonds, since types determine which
     /// weak bonds are allowed.
     let withRandomTypes (rng : Random) (world : World) =
-        assert world.WeakBondMap.IsEmpty
+        assert (Bonds.weakBondMap world).IsEmpty
         let types = [| AtomType.W; AtomType.X; AtomType.Y; AtomType.Z |]
         {
             world with
