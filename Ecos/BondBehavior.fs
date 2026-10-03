@@ -11,8 +11,9 @@ namespace Ecos
  *   |                     -------- bonded (lower by S)
  *   |
  *    ----------------------------------
+ * (Drawing by Claude, with my edits.)
  *
- * Drawing by Claude, with my edits.
+ * Lower energy states are favored by entropy.
  *)
 
 /// Specific behavior of a bond type.
