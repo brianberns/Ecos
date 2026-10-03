@@ -403,7 +403,7 @@ module World =
         elif x <= moveAtomRate + toggleStrongBondRate then
             tryUpdateBond Strong kT rng world
         else
-            tryUpdateBond Strong kT rng world
+            tryUpdateBond Weak kT rng world
 
     /// Causes an event in the given world, or is a no-op if
     /// the event fails.
