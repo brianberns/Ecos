@@ -47,10 +47,17 @@ module private BondMap =
                 let atomB = atomMap[idB]
                 testBond neighborhood atom atomB)
 
-    /// Creates a unidirectional bond between the given atoms.
+    /// Creates a bidirectional bond between the given atoms.
     let createBond idA idB bondMap =
-        let ids =
-            Map.tryFind idA bondMap
-                |> Option.defaultValue Set.empty
-                |> Set.add idB
-        Map.add idA ids bondMap
+        assert(not (areBonded idA idB bondMap))
+
+        let impl idA idB bondMap =
+            let ids =
+                Map.tryFind idA bondMap
+                    |> Option.defaultValue Set.empty
+                    |> Set.add idB
+            Map.add idA ids bondMap
+
+        bondMap
+            |> impl idA idB
+            |> impl idB idA

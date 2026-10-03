@@ -159,9 +159,7 @@ module World =
             Some {
                 world with
                     StrongBondMap =
-                        world.StrongBondMap
-                            |> BondMap.createBond idA idB
-                            |> BondMap.createBond idB idA
+                        BondMap.createBond idA idB world.StrongBondMap
             }
         else None
 
@@ -255,9 +253,7 @@ module World =
             Some {
                 world with
                     WeakBondMap =
-                        world.WeakBondMap
-                            |> BondMap.createBond idA idB
-                            |> BondMap.createBond idB idA
+                        BondMap.createBond idB idA world.WeakBondMap
             }
         else None
 
