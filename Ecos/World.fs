@@ -356,7 +356,7 @@ module World =
             else None
         else
             if testMetropolis kT rng -bondEnergy then
-                tryAddWeakBond idA idB world
+                tryAddBond bondType idA idB world
             else None
 
     /// Attempts to toggle a weak bond in the given world.
