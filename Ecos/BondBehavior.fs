@@ -11,6 +11,10 @@ namespace Ecos
  *   |                     -------- bonded (lower by S)
  *   |
  *    ----------------------------------
+ *
+ * The barrier affects how fast the system moves between the
+ * states, not which one it favors.
+ *
  * (Drawing by Claude, with my edits.)
  *)
 
