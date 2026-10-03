@@ -6,6 +6,12 @@ type private BondBehavior =
         /// All normalized bond vectors of this type.
         Neighborhood : Set<int (*max*) * int (*min*)>   // not strictly (x, y) points
 
+        /// Denormalized neighborhood.
+        Deltas : Point[]
+
+        /// Deltas to check for cross bonds.
+        CrossBondDeltas : Set<Point>
+
         /// Maximum number of bonds of this type an atom can
         /// have.
         Valence : int
@@ -14,12 +20,31 @@ type private BondBehavior =
         /// a bond of this type.
         CanBond : AtomType -> AtomType -> bool
 
-        /// Check for crossed bonds during update?
-        CheckCrossBonds : bool
-
         /// Energy delta of this bond type.
         Energy : int
     }
+
+module private BondBehavior =
+
+    /// Full (x, y) deltas from normalized (max, min) neighborhood.
+    let getDeltas neighborhood =
+        neighborhood
+            |> Seq.collect (fun (a, b) ->
+                [|
+                    (a, b)                            // e.g.  2,  1
+                    if a <> 0 then (-a, b)            // e.g. -2,  1
+                    if b <> 0 then
+                        (a, -b)                       // e.g.  2, -1
+                        if a <> 0 then (-a, -b)       // e.g. -2, -1
+                    if a <> b then
+                        (b, a)                        // e.g.  1,  2
+                        if b <> 0 then (-b, a)        // e.g. -1,  2
+                        if a <> 0 then
+                            (b, -a)                   // e.g.  1, -2
+                            if b <> 0 then (-b, -a)   // e.g. -1, -2
+                |])
+            |> Seq.map Point.create
+            |> Seq.toArray
 
 module private StrongBond =
 
@@ -34,15 +59,20 @@ module private StrongBond =
             3, 2
         ]
 
+    let deltas = BondBehavior.getDeltas neighborhood
+
+    let crossBondDeltas = Set.empty   // not yet implemented
+
     let energy = 0   // to-do
 
     /// Behavior of strong bonds.
     let behavior =
         {
             Neighborhood = neighborhood
+            Deltas = deltas
+            CrossBondDeltas = crossBondDeltas
             Valence = 2
             CanBond = fun _ _ -> true
-            CheckCrossBonds = false   // crosses not possible
             Energy = energy
         }
 
@@ -55,6 +85,13 @@ module private WeakBond =
             2, 1
             2, 2
         ]
+
+    let deltas = BondBehavior.getDeltas neighborhood
+
+    let crossBondDeltas =
+        [ (2, 0) ]
+            |> BondBehavior.getDeltas
+            |> set
 
     /// Indicates whether the given atom types can form
     /// a weak bond.
@@ -73,8 +110,9 @@ module private WeakBond =
     let behavior =
         {
             Neighborhood = neighborhood
+            Deltas = deltas
+            CrossBondDeltas = crossBondDeltas
             Valence = 1
             CanBond = canBond
-            CheckCrossBonds = true
             Energy = energy
         }

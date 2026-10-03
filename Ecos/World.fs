@@ -59,8 +59,8 @@ module World =
             Walls = Set.empty
         }
 
-    /// Moore neighborhood, including center.
-    let private mooreNeighborhood =
+    /// Moore neighborhood deltas, including center.
+    let private mooreDeltas =
         [|
             for dx = -1 to 1 do
                 for dy = -1 to 1 do
@@ -69,7 +69,7 @@ module World =
 
     /// Determines whether the given location is available.
     let private isAvailable loc idOpt world =
-        mooreNeighborhood
+        mooreDeltas
             |> Seq.forall (fun delta ->
                 let neighbor = loc + delta
                 not (world.Walls.Contains(neighbor))
@@ -123,26 +123,6 @@ module World =
         world.BondTypeMap.Values
             |> Seq.exists (BondMap.areBonded idA idB)
 
-    /// Denormalized weak bond neighborhood.
-    let private weakBondDeltas =
-        WeakBond.neighborhood
-            |> Seq.collect (fun (a, b) ->
-                [|
-                    (a, b)                            // e.g.  2,  1
-                    if a <> 0 then (-a, b)            // e.g. -2,  1
-                    if b <> 0 then
-                        (a, -b)                       // e.g.  2, -1
-                        if a <> 0 then (-a, -b)       // e.g. -2, -1
-                    if a <> b then
-                        (b, a)                        // e.g.  1,  2
-                        if b <> 0 then (-b, a)        // e.g. -1,  2
-                        if a <> 0 then
-                            (b, -a)                   // e.g.  1, -2
-                            if b <> 0 then (-b, -a)   // e.g. -1, -2
-                |])
-            |> Seq.map Point.create
-            |> Seq.toArray
-
     /// Determines orientation of the path connecting
     /// the given points (a-b-c):
     /// * Positive: left turn
@@ -163,13 +143,18 @@ module World =
             orient locC locD locA * orient locC locD locB < 0
         cdOpp && abOpp
 
-    /// Indicates whether a bond between the given atoms
-    /// crosses any other bonds. This only needs to check the
-    /// local neighborhood of one of the atoms. (In fact, Claude
-    /// says, for weak bonds, it would suffice to check only
-    /// four deltas: (±2, 0) and (0, ±2)).
-    let private isCrossBond idA atomA idB atomB world =
-        weakBondDeltas
+    /// Behavior of each bond type.
+    let private behaviorMap =
+        Map [
+            Strong, StrongBond.behavior
+            Weak, WeakBond.behavior
+        ]
+
+    /// Indicates whether a bond of the given type between the
+    /// given atoms crosses any other bonds. This only needs to
+    /// check the local neighborhood of one of the atoms.
+    let private isCrossBond bondType idA atomA idB atomB world =
+        behaviorMap[bondType].CrossBondDeltas
             |> Seq.exists (fun delta ->
                 world.OccupancyMap
                     |> Map.tryFind (atomA.Location + delta)   // check A's neighborhood
@@ -186,13 +171,6 @@ module World =
                                             (atomA, atomB)
                                             (atomC, atomD)))
                     |> Option.defaultValue false)
-
-    /// Behavior of each bond type.
-    let private behaviorMap =
-        Map [
-            Strong, StrongBond.behavior
-            Weak, WeakBond.behavior
-        ]
 
     /// Adds a bond of the given type between the given atoms in
     /// the given world if it is valid.
@@ -211,9 +189,7 @@ module World =
                 && (BondMap.getBonds idB bondMap).Count
                     < behavior.Valence
                 && not (areBonded idA idB world)
-                &&
-                    (not behavior.CheckCrossBonds
-                        || not (isCrossBond idA atomA idB atomB world))
+                && not (isCrossBond bondType idA atomA idB atomB world)
 
         if canAdd then
             let bondMap = BondMap.createBond idB idA bondMap
@@ -380,7 +356,7 @@ module World =
 
             // pick a direction to bond in
         let delta =
-            weakBondDeltas[rng.Next(weakBondDeltas.Length)]
+            WeakBond.deltas[rng.Next(WeakBond.deltas.Length)]
 
             // toggle bond with atom at that location?
         world.OccupancyMap
