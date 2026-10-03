@@ -71,22 +71,21 @@ module View =
                 ] :> IView
         ]
 
+    let private getBonds bondType world =
+        world.BondTypeMap[bondType]
+            |> Map.toSeq
+            |> Seq.collect (fun (idA, ids) ->
+                Seq.choose (fun idB ->
+                    if idA < idB then
+                        Some (
+                            world.AtomMap[idA],
+                            world.AtomMap[idB])
+                    else None)
+                    ids)
+
     let renderStrongBonds world =
-
-        let strongBonds =
-            world.StrongBondMap
-                |> Map.toSeq
-                |> Seq.collect (fun (idA, ids) ->
-                    Seq.choose (fun idB ->
-                        if idA < idB then
-                            Some (
-                                world.AtomMap[idA],
-                                world.AtomMap[idB])
-                        else None)
-                        ids)
-
         [
-            for a, b in strongBonds do
+            for a, b in getBonds Strong world do
                 Line.create [
                     Line.startPoint ~~a.Location
                     Line.endPoint ~~b.Location
@@ -96,21 +95,8 @@ module View =
         ]
 
     let renderWeakBonds world =
-
-        let weakBonds =
-            world.WeakBondMap
-                |> Map.toSeq
-                |> Seq.collect (fun (idA, ids) ->
-                    Seq.choose (fun idB ->
-                        if idA < idB then
-                            Some (
-                                world.AtomMap[idA],
-                                world.AtomMap[idB])
-                        else None)
-                        ids)
-
         [
-            for a, b in weakBonds do
+            for a, b in getBonds Weak world do
                 Line.create [
                     Line.startPoint ~~a.Location
                     Line.endPoint ~~b.Location

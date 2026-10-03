@@ -2,6 +2,71 @@ namespace Ecos
 
 open System
 
+type private BondBehavior =
+    {
+        /// All normalized bond vectors of this type.
+        Neighborhood : Set<int * int>
+
+        /// Maximum number of bonds of this typ an atom can
+        /// have.
+        Valence : int
+
+        /// Indicates whether the given atom types can form
+        /// a bond.
+        CanBond : AtomType -> AtomType -> bool
+
+        CheckCrossBonds : bool
+    }
+
+module private StrongBond =
+
+    let neighborhood =
+        set [
+            2, 0
+            2, 1
+            2, 2
+            3, 0
+            3, 1
+            3, 2
+        ]
+
+    let behavior =
+        {
+            Neighborhood = neighborhood
+            Valence = 2
+            CanBond = fun _ _ -> true
+            CheckCrossBonds = false
+        }
+
+module private WeakBond =
+
+    let neighborhood =
+        set [
+            2, 0
+            2, 1
+            2, 2
+        ]
+
+    /// Indicates whether the given atom types can form
+    /// a weak bond.
+    let canBond atomTypeA atomTypeB =
+        let atomTypeMin = min atomTypeA atomTypeB
+        let atomTypeMax = max atomTypeA atomTypeB
+        match atomTypeMin, atomTypeMax with
+            | AtomType.W, AtomType.X
+            | AtomType.Y, AtomType.Z -> true
+            | _ -> false
+
+    let behavior =
+        {
+            Neighborhood = neighborhood
+            Valence = 1
+            CanBond = canBond
+            CheckCrossBonds = true
+        }
+
+type BondType = Strong | Weak
+
 /// A lattice world containing atoms bonded into molecules.
 /// Every atom occupies a 2x2 square around its central
 /// location on the lattice, so in the drawing below, the
@@ -20,11 +85,8 @@ type World =
         /// Atoms in the world, mapped by their IDs.
         AtomMap : Map<AtomId, Atom>
 
-        /// Strong bonds between atoms in the world.
-        StrongBondMap : BondMap
-
-        /// Weak bonds between atoms in the world.
-        WeakBondMap : BondMap
+        /// Bonds between atoms in the world, by type.
+        BondTypeMap : Map<BondType, BondMap>
 
         /// Maps each atom's location to its ID.
         OccupancyMap : Map<Point, AtomId>
@@ -33,58 +95,17 @@ type World =
         Walls : Set<Point>
     }
 
-module private StrongBond =
-
-    /// All normalized strong bond vectors.
-    let neighborhood =
-        set [
-            2, 0
-            2, 1
-            2, 2
-            3, 0
-            3, 1
-            3, 2
-        ]
-
-    /// Maximum number of strong bonds an atom can have.
-    let valence = 2
-
-    /// Indicates whether the given atom types can form
-    /// a strong bond.
-    let canBond (_ : AtomType) (_ : AtomType) =
-        true
-
-module private WeakBond =
-
-    /// All normalized weak bond vectors.
-    let neighborhood =
-        set [
-            2, 0
-            2, 1
-            2, 2
-        ]
-
-    /// Maximum number of weak bonds an atom can have.
-    let valence = 1
-
-    /// Indicates whether the given atom types can form
-    /// a weak bond.
-    let canBond atomTypeA atomTypeB =
-        let atomTypeMin = min atomTypeA atomTypeB
-        let atomTypeMax = max atomTypeA atomTypeB
-        match atomTypeMin, atomTypeMax with
-            | AtomType.W, AtomType.X
-            | AtomType.Y, AtomType.Z -> true
-            | _ -> false
-
 module World =
 
     /// An empty world.
     let empty =
         {
             AtomMap = Map.empty
-            StrongBondMap = Map.empty
-            WeakBondMap = Map.empty
+            BondTypeMap =
+                [ Strong; Weak ]
+                    |> Seq.map (fun bondType ->
+                        bondType, Map.empty)
+                    |> Map
             OccupancyMap = Map.empty
             Walls = Set.empty
         }
@@ -143,47 +164,15 @@ module World =
             | None -> failwith "Invalid location"
 
     /// Answers the IDs of all atoms bonded with the given atom.
-    let private getAllBonds id world =
-        Seq.append
-            (BondMap.getBonds id world.StrongBondMap)
-            (BondMap.getBonds id world.WeakBondMap)
+    let getAllBonds id world =
+        world.BondTypeMap.Values
+            |> Seq.collect (BondMap.getBonds id)
 
     /// Indicates whether the atoms with the given IDs are already
     /// bonded in the given world.
     let private areBonded idA idB world =
-        BondMap.areBonded idA idB world.StrongBondMap
-            || BondMap.areBonded idA idB world.WeakBondMap
-   
-    /// Adds a strong bond between the given atoms in the given
-    /// world if it is valid. Note that this currently allows
-    /// crossed bonds. (Moves cannot create crossings, so a world
-    /// created without crossed bonds will stay that way.)
-    let tryAddStrongBond idA idB world =
-        let atomA = world.AtomMap[idA]
-        let atomB = world.AtomMap[idB]
-        let canAdd =
-            let bondMap = world.StrongBondMap
-            StrongBond.canBond atomA.Type atomB.Type
-                && BondMap.testBond StrongBond.neighborhood atomA atomB
-                && (BondMap.getBonds idA bondMap).Count
-                    < StrongBond.valence
-                && (BondMap.getBonds idB bondMap).Count
-                    < StrongBond.valence
-                && not (areBonded idA idB world)
-        if canAdd then
-            Some {
-                world with
-                    StrongBondMap =
-                        BondMap.createBond idA idB world.StrongBondMap
-            }
-        else None
-
-    /// Adds a strong bond between the given atoms in the given
-    /// world.
-    let addStrongBond idA idB world =
-        match tryAddStrongBond idA idB world with
-            | Some world -> world
-            | None -> failwith "Invalid bond"
+        world.BondTypeMap.Values
+            |> Seq.exists (BondMap.areBonded idA idB)
 
     /// Denormalized weak bond neighborhood.
     let private weakBondDeltas =
@@ -230,7 +219,7 @@ module World =
     /// local neighborhood of one of the atoms. (In fact, Claude
     /// says, for weak bonds, it would suffice to check only
     /// four deltas: (±2, 0) and (0, ±2)).
-    let private isCrossBond idA atomA idB atomB world =
+    let isCrossBond idA atomA idB atomB world =
         weakBondDeltas
             |> Seq.exists (fun delta ->
                 world.OccupancyMap
@@ -249,28 +238,61 @@ module World =
                                             (atomC, atomD)))
                     |> Option.defaultValue false)
 
+    let private behaviorMap =
+        Map [
+            Strong, StrongBond.behavior
+            Weak, WeakBond.behavior
+        ]
+
+    /// Adds a bond of the given type between the given atoms in
+    /// the given world if it is valid.
+    let private tryAddBond bondType idA idB world =
+
+        let bondMap = world.BondTypeMap[bondType]
+
+        let canAdd =
+            let atomA = world.AtomMap[idA]
+            let atomB = world.AtomMap[idB]
+            let behavior = behaviorMap[bondType]
+            behavior.CanBond atomA.Type atomB.Type
+                && BondMap.testBond behavior.Neighborhood atomA atomB
+                && (BondMap.getBonds idA bondMap).Count
+                    < behavior.Valence
+                && (BondMap.getBonds idB bondMap).Count
+                    < behavior.Valence
+                && not (areBonded idA idB world)
+                &&
+                    (not behavior.CheckCrossBonds
+                        || not (isCrossBond idA atomA idB atomB world))
+
+        if canAdd then
+            let bondMap = BondMap.createBond idB idA bondMap
+            Some {
+                world with
+                    BondTypeMap =
+                        world.BondTypeMap
+                            |> Map.add bondType bondMap
+            }
+        else None
+
+    /// Adds a strong bond between the given atoms in the given
+    /// world if it is valid. Note that this currently allows
+    /// crossed bonds. (Moves cannot create crossings, so a world
+    /// created without crossed bonds will stay that way.)
+    let tryAddStrongBond idA idB world =
+        tryAddBond Strong idA idB world
+
+    /// Adds a strong bond between the given atoms in the given
+    /// world.
+    let addStrongBond idA idB world =
+        match tryAddStrongBond idA idB world with
+            | Some world -> world
+            | None -> failwith "Invalid bond"
+
     /// Adds a weak bond between the given atoms in the given
     /// world if it is valid.
     let tryAddWeakBond idA idB world =
-        let atomA = world.AtomMap[idA]
-        let atomB = world.AtomMap[idB]
-        let canAdd =
-            let bondMap = world.WeakBondMap
-            WeakBond.canBond atomA.Type atomB.Type
-                && BondMap.testBond WeakBond.neighborhood atomA atomB
-                && (BondMap.getBonds idA bondMap).Count
-                    < WeakBond.valence
-                && (BondMap.getBonds idB bondMap).Count
-                    < WeakBond.valence
-                && not (areBonded idA idB world)
-                && not (isCrossBond idA atomA idB atomB world)
-        if canAdd then
-            Some {
-                world with
-                    WeakBondMap =
-                        BondMap.createBond idB idA world.WeakBondMap
-            }
-        else None
+        tryAddBond Weak idA idB world
 
     /// Adds a weak bond between the given atoms in the given
     /// world.
@@ -332,9 +354,11 @@ module World =
         let isValid =
             isAvailable atom'.Location (Some idA) world        // avoids overlap with other atoms? (to-do: check only the leading edge)
                 && BondMap.testBonds StrongBond.neighborhood   // all of the atom's strong bonds are still valid?
-                    idA atom' world.AtomMap world.StrongBondMap
+                    idA atom' world.AtomMap
+                    world.BondTypeMap[Strong]
                 && BondMap.testBonds WeakBond.neighborhood     // all of the atom's weak bonds are still valid?
-                    idA atom' world.AtomMap world.WeakBondMap
+                    idA atom' world.AtomMap
+                    world.BondTypeMap[Weak]
                 && testMetropolis kT rng 0                     // acceptable energy change?
         if isValid then
             moveAtom idA atom atom' world
@@ -352,10 +376,10 @@ module World =
     ///    B ══ B′
     let private countStacks idA idB world =
         let bNeighbors =
-            BondMap.getBonds idB world.StrongBondMap
-        BondMap.getBonds idA world.StrongBondMap
+            BondMap.getBonds idB world.BondTypeMap[Strong]
+        BondMap.getBonds idA world.BondTypeMap[Strong]
             |> Seq.where (fun idA' ->
-                BondMap.getBonds idA' world.WeakBondMap
+                BondMap.getBonds idA' world.BondTypeMap[Weak]
                     |> Seq.exists (fun idB' ->
                         bNeighbors.Contains(idB')))
             |> Seq.length
@@ -364,10 +388,12 @@ module World =
     /// in the given world.
     let private breakWeakBond idA idB world =
         let weakBondMap =
-            world.WeakBondMap
+            world.BondTypeMap[Weak]
                 |> Map.remove idA
                 |> Map.remove idB
-        { world with WeakBondMap = weakBondMap }
+        { world with
+            BondTypeMap =
+                Map.add Weak weakBondMap world.BondTypeMap }
 
     /// Attempts to toggle a weak bond between the atoms with the
     /// given IDs in the given world.
@@ -375,7 +401,7 @@ module World =
         let bondEnergy =
             let nStacks = countStacks idA idB world
             weakBondEnergy + stackEnergy * nStacks
-        if BondMap.areBonded idA idB world.WeakBondMap then
+        if BondMap.areBonded idA idB world.BondTypeMap[Weak] then
             if testMetropolis kT rng bondEnergy then
                 Some (breakWeakBond idA idB world)
             else None
