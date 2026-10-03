@@ -382,12 +382,28 @@ module World =
             |> Option.bind (fun idB ->
                 tryToggleBond bondType kT rng idA idB world)
 
+    /// Fraction of updates that attempt to move an atom (aka "hop").
+    let moveAtomRate = 0.5
+
+    /// Fraction of updates that attempt to toggle a strong bond.
+    let toggleStrongBondRate = 0.1
+
+    /// Fraction of updates that attempt to toggle a weak bond.
+    let toggleWeakBondRate = 0.4
+
     /// Attempts to cause an event in the given world.
     let tryUpdate kT (rng : Random) world =
+        assert(
+            moveAtomRate
+                + toggleStrongBondRate
+                + toggleWeakBondRate= 1.0)
         let x = rng.NextDouble()
-        if x <= 0.5 then tryUpdateAtom kT rng world
-        elif x <= 0.9 then tryUpdateBond Weak kT rng world
-        else tryUpdateBond Strong kT rng world
+        if x <= moveAtomRate then
+            tryUpdateAtom kT rng world
+        elif x <= moveAtomRate + toggleStrongBondRate then
+            tryUpdateBond Strong kT rng world
+        else
+            tryUpdateBond Strong kT rng world
 
     /// Causes an event in the given world, or is a no-op if
     /// the event fails.
