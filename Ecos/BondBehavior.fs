@@ -1,7 +1,5 @@
 namespace Ecos
 
-open System
-
 type private BondBehavior =
     {
         /// All normalized bond vectors of this type.
