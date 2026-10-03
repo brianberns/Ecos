@@ -15,6 +15,9 @@ type private BondBehavior =
 
         /// Check for crossed bonds during update?
         CheckCrossBonds : bool
+
+        /// Energy delta of this bond type.
+        Energy : int
     }
 
 module private StrongBond =
@@ -30,6 +33,8 @@ module private StrongBond =
             3, 2
         ]
 
+    let energy = 0   // to-do
+
     /// Behavior of strong bonds.
     let behavior =
         {
@@ -37,6 +42,7 @@ module private StrongBond =
             Valence = 2
             CanBond = fun _ _ -> true
             CheckCrossBonds = false   // crosses not possible
+            Energy = energy
         }
 
 module private WeakBond =
@@ -59,6 +65,9 @@ module private WeakBond =
             | AtomType.Y, AtomType.Z -> true
             | _ -> false
 
+    /// Weak bond energy delta.
+    let energy = 1
+
     /// Behavior of weak bonds.
     let behavior =
         {
@@ -66,4 +75,5 @@ module private WeakBond =
             Valence = 1
             CanBond = canBond
             CheckCrossBonds = true
+            Energy = energy
         }

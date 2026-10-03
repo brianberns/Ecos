@@ -318,11 +318,8 @@ module World =
             moveAtom idA atom atom' world
         else world
 
-    /// Energy delta of a weak bond.
-    let private weakBondEnergy = 1
-
     /// Additional energy from a stacked weak bond.
-    let private stackEnergy = weakBondEnergy
+    let private stackEnergy = behaviorMap[Weak].Energy
 
     /// Counts stacks adjacent to the given bond:
     ///    A ══ A′   ══ strong bond
@@ -354,7 +351,7 @@ module World =
     let private tryToggleWeakBond kT rng idA idB world =
         let bondEnergy =
             let nStacks = countStacks idA idB world
-            weakBondEnergy + stackEnergy * nStacks
+            WeakBond.energy + stackEnergy * nStacks
         if BondMap.areBonded idA idB world.BondTypeMap[Weak] then
             if testMetropolis kT rng bondEnergy then
                 Some (breakWeakBond idA idB world)
