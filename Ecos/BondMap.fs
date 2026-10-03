@@ -4,9 +4,9 @@ namespace Ecos
 type AtomId = int
 
 /// Bidirectional bonds between atoms.
-type private BondMap = Map<AtomId, Set<AtomId>>
+type BondMap = Map<AtomId, Set<AtomId>>
 
-module private BondMap =
+module BondMap =
 
     /// Answers the IDs of all atoms bonded with the given atom.
     let getBonds id bondMap =

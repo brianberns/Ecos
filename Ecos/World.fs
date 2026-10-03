@@ -113,7 +113,7 @@ module World =
             | None -> failwith "Invalid location"
 
     /// Answers the IDs of all atoms bonded with the given atom.
-    let getAllBonds id world =
+    let private getAllBonds id world =
         world.BondTypeMap.Values
             |> Seq.collect (BondMap.getBonds id)
 
@@ -168,7 +168,7 @@ module World =
     /// local neighborhood of one of the atoms. (In fact, Claude
     /// says, for weak bonds, it would suffice to check only
     /// four deltas: (±2, 0) and (0, ±2)).
-    let isCrossBond idA atomA idB atomB world =
+    let private isCrossBond idA atomA idB atomB world =
         weakBondDeltas
             |> Seq.exists (fun delta ->
                 world.OccupancyMap
