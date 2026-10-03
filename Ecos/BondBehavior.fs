@@ -15,11 +15,13 @@ type private BondBehavior =
         /// a bond.
         CanBond : AtomType -> AtomType -> bool
 
+        /// Check for crossed bonds during update?
         CheckCrossBonds : bool
     }
 
 module private StrongBond =
 
+    /// All normalized strong bond vectors.
     let neighborhood =
         set [
             2, 0
@@ -30,16 +32,18 @@ module private StrongBond =
             3, 2
         ]
 
+    /// Behavior of strong bonds.
     let behavior =
         {
             Neighborhood = neighborhood
             Valence = 2
             CanBond = fun _ _ -> true
-            CheckCrossBonds = false
+            CheckCrossBonds = false   // crosses not possible
         }
 
 module private WeakBond =
 
+    /// All normalized weak bond vectors.
     let neighborhood =
         set [
             2, 0
@@ -57,6 +61,7 @@ module private WeakBond =
             | AtomType.Y, AtomType.Z -> true
             | _ -> false
 
+    /// Behavior of weak bonds.
     let behavior =
         {
             Neighborhood = neighborhood
