@@ -373,7 +373,8 @@ module World =
 
             // pick a direction to bond in
         let delta =
-            WeakBond.deltas[rng.Next(WeakBond.deltas.Length)]
+            let deltas = behaviorMap[bondType].Deltas
+            deltas[rng.Next(deltas.Length)]
 
             // toggle bond with atom at that location?
         world.OccupancyMap
