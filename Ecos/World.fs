@@ -252,7 +252,7 @@ module World =
         }
 
     /// Attempts to move an atom in the given world.
-    let private updateAtom kT (rng : Random) world =
+    let private tryUpdateAtom kT (rng : Random) world =
 
             // pick atom to move
         let idA = rng.Next(world.AtomMap.Count)   // assume for now that atoms are never removed
@@ -272,8 +272,8 @@ module World =
                 && testBonds idA atom' world              // all of the atom's bonds are still valid?
                 && testMetropolis kT rng 0                // acceptable energy change?
         if isValid then
-            moveAtom idA atom atom' world
-        else world
+            Some (moveAtom idA atom atom' world)
+        else None
 
     /// Counts stacks adjacent to the given (existing or 
     /// proposed) weak bond:
@@ -357,7 +357,7 @@ module World =
             else None
 
     /// Attempts to toggle a weak bond in the given world.
-    let private updateWeakBond kT (rng : Random) world =
+    let private tryUpdateWeakBond kT (rng : Random) world =
 
             // pick atom to bond
         let idA = rng.Next(world.AtomMap.Count)   // assume for now that atoms are never removed
@@ -372,10 +372,15 @@ module World =
             |> Map.tryFind (atom.Location + delta)
             |> Option.bind (fun idB ->
                 tryToggleBond Weak kT rng idA idB world)
-            |> Option.defaultValue world
 
     /// Attempts to cause an event in the given world.
-    let update kT (rng : Random) world =
+    let tryUpdate kT (rng : Random) world =
         if rng.NextDouble() <= 0.5 then
-            updateAtom kT rng world
-        else updateWeakBond kT rng world
+            tryUpdateAtom kT rng world
+        else tryUpdateWeakBond kT rng world
+
+    /// Causes an event in the given world, or is a no-op if
+    /// the event fails.
+    let update kT rng world =
+        tryUpdate kT rng world
+            |> Option.defaultValue world
