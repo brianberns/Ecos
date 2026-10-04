@@ -23,7 +23,7 @@ type Message =
 module Model =
 
     let init () =
-        let scenario = Scenario.twoStrands
+        let scenario = Scenario.createExperiment2 ()
         {
             World = scenario.World
             Random = scenario.Random

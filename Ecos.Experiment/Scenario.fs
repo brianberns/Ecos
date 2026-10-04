@@ -84,7 +84,7 @@ module Scenario =
             Random = rng
         }
 
-    let createExperiment1 seed =
+    let private createExperiment1or2 withTemplate seed =
 
         let rng = Random(seed)
         let nTemplate = 10
@@ -94,15 +94,6 @@ module Scenario =
             let width = 2 * nTemplate + 6 * dist
             let height = width
             addBox width height World.empty
-
-            // template
-        let world =
-            let atomTypes = [| AtomType.W; AtomType.Y |]
-            (world, [ 0 .. nTemplate - 1 ])
-                ||> Seq.fold (fun world i ->
-                    let x = 2 * i - nTemplate
-                    addAtom rng atomTypes x 0 i (i > 0) world)
-        let template = Seq.toArray world.AtomMap.Keys
 
             // free positive
         let world =
@@ -120,8 +111,34 @@ module Scenario =
                     let x = 2 * i - nTemplate
                     addAtom rng atomTypes x -dist (nTemplate + i) false world)
 
+            // template
+        let world, template =
+            if withTemplate then
+                let atomTypes = [| AtomType.W; AtomType.Y |]
+                let world =
+                    (world, [ 0 .. nTemplate - 1 ])
+                        ||> Seq.fold (fun world i ->
+                            let x = 2 * i - nTemplate
+                            addAtom rng atomTypes x 0 i (i > 0) world)
+                let template =
+                    world.AtomMap
+                        |> Map.toSeq
+                        |> Seq.where (fun (id, atom) ->
+                            Array.contains atom.Type atomTypes)
+                        |> Seq.map fst
+                        |> Seq.toArray
+                world, template
+            else
+                world, Array.empty
+
         {
             World = world
             Template = template
             Random = rng
         }
+
+    let createExperiment1 seed =
+        createExperiment1or2 true seed
+
+    let createExperiment2 () =
+        createExperiment1or2 false 0   // seed is irrelevant
