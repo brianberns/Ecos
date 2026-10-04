@@ -39,7 +39,7 @@ module Scenario =
             |> addVerticalWall (width/2) -(height'/2) (height'/2)
 
     let private addAtom
-        (rng : Random) (atomTypes : _[]) x y bond world =
+        (rng : Random) (atomTypes : _[]) x y withBond world =
         assert(x % 2 = 0)
         assert(y % 2 = 0)
         let id = world.AtomMap.Count
@@ -48,7 +48,7 @@ module Scenario =
         let loc = Point.create (x, y)
         let atom = Atom.create atomType loc
         let world = World.addAtom atom world
-        if bond then
+        if withBond then
             World.addStrongBond (id - 1) id world
         else world
 
