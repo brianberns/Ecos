@@ -8,6 +8,8 @@ module World =
         world.AtomMap.Count
 
     let getBondCount bondType world =
-        let count = world.BondTypeMap[bondType].Count
-        assert(count % 2 = 0)
-        count / 2   // each bond counted twice
+        world.BondTypeMap[bondType]
+            |> Map.toSeq
+            |> Seq.collect (fun (idA, ids) ->
+                Seq.where (fun idB -> idA < idB) ids)   // count each bond only once
+            |> Seq.length
