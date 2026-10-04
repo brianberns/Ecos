@@ -7,11 +7,35 @@ module Atom =
     let create loc =
         Ecos.Atom.create AtomType.W loc
 
+/// Parameters used by the tests.
+module TestParameters =
+
+    /// Standard bond parameters. Most tests use these, and the exact
+    /// tests' temperatures are chosen to suit them.
+    let standardBondParameterMap =
+        Map [
+            Strong, { Energy = 12; Barrier = 6 }
+            Weak, { Energy = 1; Barrier = 0 }
+        ]
+
+    /// Standard parameters at the given temperature.
+    let create kT =
+        {
+            Temperature = kT
+            BondParameterMap = standardBondParameterMap
+        }
+
 module World =
 
-    /// Helper function for updating a world. Ignores event.
+    /// Helper function for updating a world with the given
+    /// parameters. Ignores event.
+    let updateWith parms rng world =
+        Ecos.World.update parms rng world |> fst
+
+    /// Helper function for updating a world with standard parameters
+    /// at the given temperature. Ignores event.
     let update kT rng world =
-        Ecos.World.update kT rng world |> fst
+        updateWith (TestParameters.create kT) rng world
 
 namespace Ecos.Test
 
@@ -97,21 +121,30 @@ module Chain =
             | AtomType.Y, AtomType.Z | AtomType.Z, AtomType.Y -> true
             | _ -> false
 
-    /// Oracle: energy of one weak bond.
-    let weakBondEnergy = -1.0
+    /// Oracle: energy of one bond of the given type, with the given
+    /// parameters. (World's parameters give the depth of the bond as a
+    /// positive number, so the energy is its negative.)
+    let bondEnergy (parms : Parameters) bondType =
+        -float parms.BondParameterMap[bondType].Energy
+
+    /// Oracle: barrier to forming or breaking a bond of the given type,
+    /// with the given parameters. Either event is first accepted with
+    /// probability exp(-barrier / kT), and then with the usual
+    /// Metropolis probability.
+    let bondBarrier (parms : Parameters) bondType =
+        float parms.BondParameterMap[bondType].Barrier
+
+    /// Oracle: energy of one weak bond, with the standard parameters.
+    let weakBondEnergy =
+        bondEnergy (TestParameters.create 1.0) Weak
+
+    /// Oracle: energy of one strong bond, with the standard parameters.
+    let strongBondEnergy =
+        bondEnergy (TestParameters.create 1.0) Strong
 
     /// Oracle: energy of one stack, i.e. two weak bonds A-B and A'-B'
     /// where A and A' are strongly bonded, and so are B and B'.
     let stackEnergy = -1.0
-
-    /// Oracle: energy of one strong bond.
-    let strongBondEnergy = -12.0
-
-    /// Oracle: barrier to forming or breaking a strong bond. Either
-    /// event is first accepted with probability exp(-barrier / kT), and
-    /// then with the usual Metropolis probability. (Weak bonds have no
-    /// barrier.)
-    let strongBondBarrier = 6.0
 
     /// Gives every atom in the given world a random type. Only valid
     /// for a world without weak bonds, since types determine which

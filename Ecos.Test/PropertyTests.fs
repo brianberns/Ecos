@@ -252,58 +252,82 @@ module PropertyTests =
             |> Set.exists (fun (idA, idB) ->
                 isLong (world.AtomMap[idB].Location - world.AtomMap[idA].Location))
 
+    /// Do the given strong bonds include one that a stack depends on?
+    let private isStackedBond (world : World) (bonds : Set<AtomId * AtomId>) =
+        bonds
+            |> Set.exists (fun (idA, idB) ->
+                countStacksStrong world idA idB > 0)
+
     /// Oracle: probabilities that a toggle of each bond type forms a
     /// bond, and that it breaks one, in the given world, as (weak
     /// form, weak break, strong form, strong break, long strong form,
-    /// long strong break). The last two count only strong bonds longer
-    /// than any weak bond, and are included in the two before them.
+    /// long strong break, stacked strong break). The long ones count
+    /// only strong bonds longer
+    /// than any weak bond, and the stacked one counts only strong bonds
+    /// that a stack depends on. All three are included in the strong
+    /// form and strong break probabilities.
     ///
     /// A toggle picks an atom uniformly, then one of the bond type's
     /// vectors uniformly. If that finds an atom the first can bond
-    /// with, the bond forms (which always lowers the energy); if it
-    /// finds an atom already bonded to the first, the bond breaks with
-    /// probability exp(E / kT), where E is the energy of the bond and
-    /// of the stacks that depend on it. For a strong bond, either event
-    /// must also cross the barrier, with probability
-    /// exp(-barrier / kT).
-    let private toggleProbabilities kT (world : World) =
+    /// with, it proposes forming the bond; if it finds an atom already
+    /// bonded to the first, it proposes breaking the bond. Either
+    /// proposal must first cross the bond type's barrier, with
+    /// probability exp(-barrier / kT), and is then accepted with the
+    /// Metropolis probability for its energy change. That change is
+    /// the energy of the bond plus that of the stacks that depend on
+    /// it, gained on forming and lost on breaking.
+    let private toggleProbabilities (parms : Parameters) (world : World) =
+        let kT = parms.Temperature
         let nAtoms = float world.AtomMap.Count
         let mutable weakForm, weakBreak = 0.0, 0.0
         let mutable strongForm, strongBreak = 0.0, 0.0
         let mutable longForm, longBreak = 0.0, 0.0
-        let barrierFactor = exp (-Chain.strongBondBarrier / kT)
+        let mutable stackedBreak = 0.0
+
+            // probability of accepting a toggle that changes the energy
+            // by the given amount
+        let accept bondType energyDelta =
+            exp (-Chain.bondBarrier parms bondType / kT)
+                * min 1.0 (exp (-energyDelta / kT))
+
         for KeyValue(idA, atomA) in world.AtomMap do
 
             for v in Chain.weakBondVectors do
                 match world.OccupancyMap.TryFind (atomA.Location + v) with
-                    | Some idB when Bonds.weakPartner world idA = Some idB ->
+                    | Some idB ->
                         let energy =
-                            Chain.weakBondEnergy
+                            Chain.bondEnergy parms Weak
                                 + Chain.stackEnergy * float (countStacks world idA idB)
-                        weakBreak <- weakBreak + exp (energy / kT)
-                    | Some idB when canFormWeakBond world idA idB ->
-                        weakForm <- weakForm + 1.0
-                    | _ -> ()
+                        if Bonds.weakPartner world idA = Some idB then
+                            weakBreak <- weakBreak + accept Weak -energy
+                        elif canFormWeakBond world idA idB then
+                            weakForm <- weakForm + accept Weak energy
+                    | None -> ()
 
             for v in Chain.bondVectors do
                 match world.OccupancyMap.TryFind (atomA.Location + v) with
-                    | Some idB when isStronglyBonded world idA idB ->
+                    | Some idB ->
+                        let nStacks = countStacksStrong world idA idB
                         let energy =
-                            Chain.strongBondEnergy
-                                + Chain.stackEnergy * float (countStacksStrong world idA idB)
-                        let p = barrierFactor * exp (energy / kT)
-                        strongBreak <- strongBreak + p
-                        if isLong v then longBreak <- longBreak + p
-                    | Some idB when canFormStrongBond world idA idB ->
-                        strongForm <- strongForm + barrierFactor
-                        if isLong v then longForm <- longForm + barrierFactor
-                    | _ -> ()
+                            Chain.bondEnergy parms Strong
+                                + Chain.stackEnergy * float nStacks
+                        if isStronglyBonded world idA idB then
+                            let p = accept Strong -energy
+                            strongBreak <- strongBreak + p
+                            if isLong v then longBreak <- longBreak + p
+                            if nStacks > 0 then stackedBreak <- stackedBreak + p
+                        elif canFormStrongBond world idA idB then
+                            let p = accept Strong energy
+                            strongForm <- strongForm + p
+                            if isLong v then longForm <- longForm + p
+                    | None -> ()
 
         let nWeak = nAtoms * float Chain.weakBondVectors.Length
         let nStrong = nAtoms * float Chain.bondVectors.Length
         weakForm / nWeak, weakBreak / nWeak,
             strongForm / nStrong, strongBreak / nStrong,
-            longForm / nStrong, longBreak / nStrong
+            longForm / nStrong, longBreak / nStrong,
+            stackedBreak / nStrong
 
     /// All pairs of bonds that intersect, excluding pairs that share
     /// an atom.
@@ -541,7 +565,7 @@ module PropertyTests =
     /// yet). For toggles, see toggleProbabilities. Over many updates,
     /// the number of events of each kind must match the sum of its
     /// probabilities.
-    let private checkEventRates label kT nSteps (rng : Random) (world : World) =
+    let private checkEventRates label (parms : Parameters) nSteps (rng : Random) (world : World) =
         let mutable world = world
 
             // expected and actual counts of each kind of event
@@ -551,14 +575,15 @@ module PropertyTests =
                 "weak bonds formed"; "weak bonds broken"
                 "strong bonds formed"; "strong bonds broken"
                 "long strong bonds formed"; "long strong bonds broken"
+                "stacked strong bonds broken"
             |]
         let expected = Array.zeroCreate<float> kinds.Length
         let variance = Array.zeroCreate<float> kinds.Length
         let actual = Array.zeroCreate<int> kinds.Length
 
         for _ in 1 .. nSteps do
-            let weakForm, weakBreak, strongForm, strongBreak, longForm, longBreak =
-                toggleProbabilities kT world
+            let weakForm, weakBreak, strongForm, strongBreak, longForm, longBreak, stackedBreak =
+                toggleProbabilities parms world
             let ps =
                 [|
                     World.moveAtomRate
@@ -569,11 +594,12 @@ module PropertyTests =
                     World.toggleStrongBondRate * strongBreak
                     World.toggleStrongBondRate * longForm
                     World.toggleStrongBondRate * longBreak
+                    World.toggleStrongBondRate * stackedBreak
                 |]
             for i, p in Array.indexed ps do
                 expected[i] <- expected[i] + p
                 variance[i] <- variance[i] + p * (1.0 - p)
-            let world' = World.update kT rng world
+            let world' = World.updateWith parms rng world
             let nWeak, nWeak' = (weakBonds world).Count, (weakBonds world').Count
             let nStrong, nStrong' = (strongBonds world).Count, (strongBonds world').Count
             if world'.AtomMap <> world.AtomMap then actual[0] <- actual[0] + 1
@@ -583,13 +609,14 @@ module PropertyTests =
             if nStrong' < nStrong then actual[4] <- actual[4] + 1
             if isLongBond world' (strongBonds world' - strongBonds world) then actual[5] <- actual[5] + 1
             if isLongBond world (strongBonds world - strongBonds world') then actual[6] <- actual[6] + 1
+            if isStackedBond world (strongBonds world - strongBonds world') then actual[7] <- actual[7] + 1
             world <- world'
 
         for i, kind in Array.indexed kinds do
             let tolerance = 5.0 * sqrt variance[i] + 0.5   // 5 standard deviations
             Assert.True(
                 abs (float actual[i] - expected[i]) <= tolerance,
-                $"{label}, kT = {kT}: {actual[i]} {kind}, expected {expected[i]:F1} ± {tolerance:F1}")
+                $"{label}, kT = {parms.Temperature}: {actual[i]} {kind}, expected {expected[i]:F1} ± {tolerance:F1}")
 
     /// Valid events are actually made, at the right rates, in crowded
     /// worlds of chains, free atoms, and walls. This catches an update
@@ -604,22 +631,17 @@ module PropertyTests =
                     |> Chain.withRandomTypes rng
                     |> Chain.addSoup rng 10
                     |> Chain.addObstacles rng 10
-                    |> checkEventRates $"N = {length}" kT 20000 rng
+                    |> checkEventRates $"N = {length}" (TestParameters.create kT) 20000 rng
 
-    /// Stacking, at the right rates: four atoms are confined to a small
-    /// box, so that weak bonds between them form and break constantly.
+    /// Worlds for testing stacking: four atoms confined to a small box,
+    /// so that bonds between them form and break constantly.
     ///
     /// * Ladder: W0-W1 and X2-X3 are both strongly bonded. When both
-    ///   rungs (0-2 and 1-3, or 0-3 and 1-2) exist, they form a stack,
-    ///   so each is harder to break.
+    ///   rungs (0-2 and 1-3, or 0-3 and 1-2) exist, they form a stack.
     /// * Near miss: W0-W1 is strongly bonded, but X2 and X3 are free.
-    ///   The same two rungs can exist, but they never form a stack,
+    ///   The same two rungs can exist, but they don't form a stack,
     ///   since X2 and X3 aren't strongly bonded.
-    ///
-    /// The oracle counts stacks independently of World, so bonds must
-    /// break at the rates it predicts in both cases.
-    [<Fact>]
-    let ``Stacked weak bonds break at the expected rate`` () =
+    let private stackingWorlds =
         let atoms =
             World.empty
                 |> World.addAtom (typedAtom AtomType.W (Point.create (-1, -1)))   // 0
@@ -628,14 +650,45 @@ module PropertyTests =
                 |> World.addAtom (typedAtom AtomType.X (Point.create (1, 1)))     // 3
                 |> World.addStrongBond 0 1
                 |> Chain.addBox 2
-        let worlds =
-            [
-                "Ladder", World.addStrongBond 2 3 atoms
-                "Near miss", atoms
-            ]
-        for label, world in worlds do
+        [
+            "Ladder", World.addStrongBond 2 3 atoms
+            "Near miss", atoms
+        ]
+
+    /// Stacking and weak bonds, at the right rates: with the standard
+    /// parameters, strong bonds stay fixed, and a stack makes each of
+    /// its weak bonds harder to break. The oracle counts stacks
+    /// independently of World, so weak bonds must break at the rates
+    /// it predicts in both worlds.
+    [<Fact>]
+    let ``Stacked weak bonds break at the expected rate`` () =
+        for label, world in stackingWorlds do
             let kT = 0.7   // cold enough that a stack clearly changes how often bonds break
-            checkEventRates label kT 100000 (Random(0)) world
+            checkEventRates label (TestParameters.create kT) 100000 (Random(0)) world
+
+    /// Stacking and strong bonds, at the right rates: a stack also
+    /// depends on the strong bonds along its sides, so it makes those
+    /// harder to break too, and forming one of them can create a stack.
+    /// With the standard parameters, a strong bond is so much stronger
+    /// than a stack that the difference can't be measured. Here strong
+    /// bonds have no energy or barrier of their own, so they form and
+    /// break constantly, and only a stack holds one in place. Weak
+    /// bonds are made stronger, so that the rungs of a stack persist
+    /// while its sides come and go. Strong bonds that a stack depends
+    /// on are counted separately from the rest.
+    [<Fact>]
+    let ``Stacked strong bonds break at the expected rate`` () =
+        let parms =
+            {
+                Temperature = 1.0
+                BondParameterMap =
+                    Map [
+                        Strong, { Energy = 0; Barrier = 0 }
+                        Weak, { Energy = 3; Barrier = 0 }
+                    ]
+            }
+        for label, world in stackingWorlds do
+            checkEventRates label parms 200000 (Random(0)) world
 
     /// Strong bonds, at the right rates: eight atoms of random types
     /// are sealed in a box, at a temperature high enough that strong
@@ -661,7 +714,7 @@ module PropertyTests =
         World.empty
             |> Chain.addBox size
             |> addAtoms 8
-            |> checkEventRates "Box" hotKT 100000 rng
+            |> checkEventRates "Box" (TestParameters.create hotKT) 100000 rng
 
     /// Topology, exhaustively: atom A (at the origin) is bonded to B
     /// and steps to A'; C and D are bonded to each other. For every
