@@ -44,10 +44,23 @@ type World =
         Walls : Set<Point>
     }
 
+/// Bond type-specific parameters.
+type BondTypeParameters =
+    {
+        /// Energy delta of this bond type (S).
+        Energy : int
+
+        /// Energy barrier to bond formation (E_b).
+        Barrier : int
+    }
+
 type Parameters =
     {
         /// Temperature scaled by Boltzmann's constant (kT).
         Temperature : float
+
+        /// Bond type-specific parameters.
+        BondParameterMap : Map<BondType, BondTypeParameters>
     }
 
 /// An event in the world.
@@ -364,15 +377,15 @@ module World =
     /// the atoms with the given IDs in the given world.
     let private tryToggleBond parms rng bondType idA idB world =
 
-        let behavior = behaviorMap[bondType]
+        let bondParams = parms.BondParameterMap[bondType]
 
         let test energy =
-            testMetropolis parms.Temperature rng behavior.Barrier
+            testMetropolis parms.Temperature rng bondParams.Barrier
                 && testMetropolis parms.Temperature rng energy
 
         let bondEnergy =
             let nStacks = countStacks bondType idA idB world
-            behavior.Energy + stackEnergy * nStacks
+            bondParams.Energy + stackEnergy * nStacks
 
         if BondMap.areBonded idA idB world.BondTypeMap[bondType] then
             if test bondEnergy then

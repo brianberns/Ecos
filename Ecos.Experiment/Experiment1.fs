@@ -119,6 +119,17 @@ module Experiment1 =
     /// to the given CSV file.
     let run (settings : Settings) (csvPath : string) =
 
+        /// Temporary helper.
+        let toParams kT =
+            {
+                Temperature = kT
+                BondParameterMap =
+                    Map [
+                        Strong, { Energy = 12; Barrier = 6 }
+                        Weak, { Energy = 1; Barrier = 0 }
+                    ]
+            }
+
             // run every (temperature, seed) combination in parallel
         let results =
             [|
@@ -127,7 +138,7 @@ module Experiment1 =
                         kT, seed
             |]
                 |> Array.Parallel.map (fun (kT, seed) ->
-                    kT, runOne settings { Temperature = kT } seed)
+                    kT, runOne settings (toParams kT) seed)
                 |> Array.groupBy fst
                 |> Array.map (fun (kT, group) -> kT, Array.map snd group)
                 |> Array.sortBy fst

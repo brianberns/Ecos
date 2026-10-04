@@ -38,12 +38,6 @@ type private BondBehavior =
         /// Indicates whether the given atom types can form
         /// a bond of this type.
         CanBond : AtomType -> AtomType -> bool
-
-        /// Energy delta of this bond type (S).
-        Energy : int
-
-        /// Energy barrier to bond formation (E_b).
-        Barrier : int
     }
 
 module private BondBehavior =
@@ -118,8 +112,6 @@ module private StrongBond =
             CrossBondDeltas = crossBondDeltas
             Valence = 2
             CanBond = fun _ _ -> true
-            Energy = 12
-            Barrier = 6
         }
 
 module private WeakBond =
@@ -160,6 +152,4 @@ module private WeakBond =
             CrossBondDeltas = crossBondDeltas
             Valence = 1
             CanBond = canBond
-            Energy = 1
-            Barrier = 0
         }

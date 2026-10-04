@@ -23,11 +23,19 @@ type Message =
 module Model =
 
     let init () =
-        let scenaioro = Scenario.createExperiment1 0
+        let scenario = Scenario.twoStrands
         {
-            World = scenaioro.World
-            Random = scenaioro.Random
-            Parameters = { Temperature = 1.0 }
+            World = scenario.World
+            Random = scenario.Random
+            Parameters =
+                {
+                    Temperature = 1.0
+                    BondParameterMap =
+                        Map [
+                            Strong, { Energy = 12; Barrier = 6 }
+                            Weak, { Energy = 1; Barrier = 0 }
+                        ]
+                }
         }
 
     let updateTick model =
@@ -49,7 +57,9 @@ module Model =
             | Tick -> updateTick model
             | SetTemperature kT ->
                 { model with
-                    Parameters = { Temperature = kT } }
+                    Parameters = {
+                        model.Parameters with
+                            Temperature = kT } }
 
     /// Subscribable timer.
     let timer : Subscribe<_> =
