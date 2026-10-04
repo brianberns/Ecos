@@ -19,16 +19,6 @@ module View =
     let private weakBondThickness = 1.0
     let private weakBondBrush = Brushes.HotPink
 
-    let private transformGroup =
-        let group = TransformGroup()
-        group.Children.Add(
-            ScaleTransform(scale, scale))
-        group.Children.Add(
-            TranslateTransform(
-                float windowWidth / 2.0,
-                float windowHeight / 2.0))
-        group
-
     let private brushMap =
         [
             AtomType.W, "#1F4E9E"
@@ -106,15 +96,24 @@ module View =
         ]
 
     let renderWorld world =
-        Canvas.create [
-            Canvas.renderTransform transformGroup
-            Canvas.renderTransformOrigin RelativePoint.TopLeft   // use world origin as transform origin
-            Canvas.children [
-                yield! renderWalls world
-                yield! renderStrongBonds world
-                yield! renderAtoms world   // draw atoms over strong bonds
-                yield! renderWeakBonds world
-            ]
+        Border.create [
+            Border.clipToBounds true   // keep drawing inside the available space
+            Border.child (
+                Canvas.create [
+                    Canvas.width 0.0
+                    Canvas.height 0.0
+                    Canvas.horizontalAlignment HorizontalAlignment.Center   // world origin at the center
+                    Canvas.verticalAlignment VerticalAlignment.Center
+                    Canvas.renderTransform (
+                        ScaleTransform(float scale, float scale))
+                    Canvas.renderTransformOrigin RelativePoint.TopLeft
+                    Canvas.children [
+                        yield! renderWalls world
+                        yield! renderStrongBonds world
+                        yield! renderAtoms world   // draw atoms over strong bonds
+                        yield! renderWeakBonds world
+                    ]
+                ])
         ]
 
     let renderLabel text width =
