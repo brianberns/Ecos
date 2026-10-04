@@ -85,29 +85,37 @@ module Scenario =
     let experiment1 =
 
         let rng = Random(0)
-        let n = 10
+        let nTemplate = 10
         let dist = 6
 
         let world =
-            let width = 2 * n + 6 * dist
+            let width = 2 * nTemplate + 6 * dist
             let height = width
             addBox width height World.empty
 
             // template
         let world =
             let atomTypes = [| AtomType.W; AtomType.Y |]
-            (world, [ 0 .. n - 1 ])
+            (world, [ 0 .. nTemplate - 1 ])
                 ||> Seq.fold (fun world i ->
-                    let x = 2 * i - n
-                    addAtom rng atomTypes x -dist i (i > 0) world)
+                    let x = 2 * i - nTemplate
+                    addAtom rng atomTypes x 0 i (i > 0) world)
 
-            // free
+            // free positive
         let world =
-            let atomTypes = [| AtomType.X; AtomType.Z |]
-            (world, [ 0 .. n - 1 ])
+            let atomTypes = [| AtomType.X  |]
+            (world, [ 0 .. nTemplate - 1 ])
                 ||> Seq.fold (fun world i ->
-                    let x = 2 * i - n
-                    addAtom rng atomTypes x dist (n + i) false world)
+                    let x = 2 * i - nTemplate
+                    addAtom rng atomTypes x dist (nTemplate + i) false world)
+
+            // free negative
+        let world =
+            let atomTypes = [| AtomType.Z |]
+            (world, [ 0 .. nTemplate - 1 ])
+                ||> Seq.fold (fun world i ->
+                    let x = 2 * i - nTemplate
+                    addAtom rng atomTypes x -dist (nTemplate + i) false world)
 
         {
             World = world
