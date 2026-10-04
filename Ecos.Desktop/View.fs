@@ -128,13 +128,23 @@ module View =
 
     let labelColumnWidth = 150
 
-    let renderAtomCount nAtoms =
+    let renderAtomCount world =
         StackPanel.create [
             StackPanel.dock Dock.Top
             StackPanel.orientation Orientation.Horizontal
             StackPanel.children [
-                renderLabel "# atoms:" labelColumnWidth
-                renderLabel $"{nAtoms}" 50
+                renderLabel "Atoms:" labelColumnWidth
+                renderLabel $"{World.getAtomCount world}" 50
+            ]
+        ]
+
+    let renderBondCount bondType world =
+        StackPanel.create [
+            StackPanel.dock Dock.Top
+            StackPanel.orientation Orientation.Horizontal
+            StackPanel.children [
+                renderLabel $"{bondType} bonds:" labelColumnWidth
+                renderLabel $"{World.getBondCount bondType world}" 50
             ]
         ]
 
@@ -166,7 +176,9 @@ module View =
             DockPanel.dock Dock.Bottom
             DockPanel.background Colors.LightGray
             DockPanel.children [
-                renderAtomCount model.World.AtomMap.Count
+                renderAtomCount model.World
+                renderBondCount Strong model.World
+                renderBondCount Weak model.World
                 renderTemperature model.Temperature dispatch
             ]
         ]
