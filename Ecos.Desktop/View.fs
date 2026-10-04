@@ -117,26 +117,40 @@ module View =
             ]
         ]
 
-    let renderLabel text =
+    let renderLabel text width =
         TextBlock.create [
             TextBlock.text text
+            TextBlock.width width
             TextBlock.foreground Colors.Black
             TextBlock.verticalAlignment VerticalAlignment.Center
             TextBlock.padding 10
         ]
 
-    let renderTemperature (kT : float) dispatch =
+    let labelColumnWidth = 150
+
+    let renderAtomCount nAtoms =
         StackPanel.create [
-            StackPanel.dock Dock.Bottom
+            StackPanel.dock Dock.Top
             StackPanel.orientation Orientation.Horizontal
             StackPanel.children [
-                renderLabel "Temperature:"
+                renderLabel "# atoms:" labelColumnWidth
+                renderLabel $"{nAtoms}" 50
+            ]
+        ]
+
+    let renderTemperature (kT : float) dispatch =
+        StackPanel.create [
+            StackPanel.dock Dock.Top
+            StackPanel.orientation Orientation.Horizontal
+            StackPanel.children [
+                renderLabel "Temperature:" labelColumnWidth
                 NumericUpDown.create [
                     NumericUpDown.minimum 0
                     NumericUpDown.maximum 5
                     NumericUpDown.increment 0.1m
                     NumericUpDown.value (decimal kT)
                     NumericUpDown.width 110
+                    NumericUpDown.padding 10
                     NumericUpDown.horizontalContentAlignment HorizontalAlignment.Right
                     NumericUpDown.onValueChanged (fun value ->
                         if value.HasValue then
@@ -152,6 +166,7 @@ module View =
             DockPanel.dock Dock.Bottom
             DockPanel.background Colors.LightGray
             DockPanel.children [
+                renderAtomCount model.World.AtomMap.Count
                 renderTemperature model.Temperature dispatch
             ]
         ]
