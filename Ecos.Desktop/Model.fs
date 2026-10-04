@@ -9,7 +9,7 @@ type Model =
     {
         World : World
         Random : Random
-        Temperature : float   // kT
+        Parameters : Parameters
     }
 
 type Message =
@@ -27,7 +27,7 @@ module Model =
         {
             World = scenaioro.World
             Random = scenaioro.Random
-            Temperature = 1.0
+            Parameters = { Temperature = 1.0 }
         }
 
     let updateTick model =
@@ -36,7 +36,7 @@ module Model =
             (model.World, [ 1 .. n ])
                 ||> Seq.fold (fun world _ ->
                     World.update
-                        model.Temperature
+                        model.Parameters
                         model.Random
                         world
                         |> fst)
@@ -47,7 +47,9 @@ module Model =
     let update msg model =
         match msg with
             | Tick -> updateTick model
-            | SetTemperature kT -> { model with Temperature = kT }
+            | SetTemperature kT ->
+                { model with
+                    Parameters = { Temperature = kT } }
 
     /// Subscribable timer.
     let timer : Subscribe<_> =

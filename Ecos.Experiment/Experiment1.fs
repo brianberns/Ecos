@@ -13,7 +13,7 @@ module Experiment1 =
     /// Settings for the experiment.
     type Settings =
         {
-            /// Temperatures to run at.
+            /// Parameters to run at.
             Temperatures : float[]
 
             /// Number of independent runs (seeds) per temperature.
@@ -127,7 +127,7 @@ module Experiment1 =
                         kT, seed
             |]
                 |> Array.Parallel.map (fun (kT, seed) ->
-                    kT, runOne settings kT seed)
+                    kT, runOne settings { Temperature = kT } seed)
                 |> Array.groupBy fst
                 |> Array.map (fun (kT, group) -> kT, Array.map snd group)
                 |> Array.sortBy fst

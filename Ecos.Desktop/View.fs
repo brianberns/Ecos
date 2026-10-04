@@ -171,7 +171,7 @@ module View =
                 renderAtomCount model.World
                 for bondType in BondType.all do
                     renderBondCount bondType model.World
-                renderTemperature model.Temperature dispatch
+                renderTemperature model.Parameters.Temperature dispatch
             ]
         ]
 

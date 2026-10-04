@@ -44,6 +44,12 @@ type World =
         Walls : Set<Point>
     }
 
+type Parameters =
+    {
+        /// Temperature scaled by Boltzmann's constant (kT).
+        Temperature : float
+    }
+
 /// An event in the world.
 type Event =
 
@@ -264,7 +270,7 @@ module World =
         }
 
     /// Attempts to move an atom in the given world.
-    let private tryUpdateAtom kT (rng : Random) world =
+    let private tryUpdateAtom parms (rng : Random) world =
 
             // pick atom to move
         let idA = rng.Next(world.AtomMap.Count)   // assume for now that atoms are never removed
@@ -280,9 +286,9 @@ module World =
 
             // move the atom permanently?
         let isValid =
-            isAvailable atom'.Location (Some idA) world   // avoids overlap with other atoms? (to-do: check only the leading edge)
-                && testBonds idA atom' world              // all of the atom's bonds are still valid?
-                && testMetropolis kT rng 0                // acceptable energy change?
+            isAvailable atom'.Location (Some idA) world     // avoids overlap with other atoms? (to-do: check only the leading edge)
+                && testBonds idA atom' world                // all of the atom's bonds are still valid?
+                && testMetropolis parms.Temperature rng 0   // possible to-do: add position-dependent energy term
         if isValid then
             let world = moveAtom idA atom atom' world
             let event = MoveAtom idA
@@ -356,13 +362,13 @@ module World =
 
     /// Attempts to toggle a bond of the given type between
     /// the atoms with the given IDs in the given world.
-    let private tryToggleBond bondType kT rng idA idB world =
+    let private tryToggleBond parms rng bondType idA idB world =
 
         let behavior = behaviorMap[bondType]
 
         let test energy =
-            testMetropolis kT rng behavior.Barrier
-                && testMetropolis kT rng energy
+            testMetropolis parms.Temperature rng behavior.Barrier
+                && testMetropolis parms.Temperature rng energy
 
         let bondEnergy =
             let nStacks = countStacks bondType idA idB world
@@ -384,7 +390,7 @@ module World =
 
     /// Attempts to toggle a bond of the given type in the given
     /// world.
-    let private tryUpdateBond bondType kT (rng : Random) world =
+    let private tryUpdateBond parms (rng : Random) bondType world =
 
             // pick atom to bond
         let idA = rng.Next(world.AtomMap.Count)   // assume for now that atoms are never removed
@@ -399,7 +405,7 @@ module World =
         world.OccupancyMap
             |> Map.tryFind (atom.Location + delta)
             |> Option.bind (fun idB ->
-                tryToggleBond bondType kT rng idA idB world)
+                tryToggleBond parms rng bondType idA idB world)
 
     /// Fraction of updates that attempt to move an atom (aka "hop").
     let moveAtomRate = 0.5
@@ -411,22 +417,22 @@ module World =
     let toggleWeakBondRate = 0.4
 
     /// Attempts to cause an event in the given world.
-    let tryUpdate kT (rng : Random) world =
+    let tryUpdate parms (rng : Random) world =
         assert(
             moveAtomRate
                 + toggleStrongBondRate
                 + toggleWeakBondRate= 1.0)
         let x = rng.NextDouble()
         if x <= moveAtomRate then
-            tryUpdateAtom kT rng world
+            tryUpdateAtom parms rng world
         elif x <= moveAtomRate + toggleStrongBondRate then
-            tryUpdateBond Strong kT rng world
+            tryUpdateBond parms rng Strong world
         else
-            tryUpdateBond Weak kT rng world
+            tryUpdateBond parms rng Weak world
 
     /// Causes an event in the given world, or is a no-op if
     /// the event fails.
-    let update kT rng world =
-        match tryUpdate kT rng world with
+    let update parms rng world =
+        match tryUpdate parms rng world with
             | Some (world, event) -> world, Some event
             | None -> world, None
