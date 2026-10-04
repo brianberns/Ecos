@@ -6,6 +6,7 @@ open Ecos
 type Scenario =
     {
         World : World
+        Template : AtomId[]
         Random : Random
     }
 
@@ -79,12 +80,13 @@ module Scenario =
 
         {
             World = world
+            Template = Array.empty
             Random = rng
         }
 
-    let experiment1 =
+    let createExperiment1 seed =
 
-        let rng = Random(0)
+        let rng = Random(seed)
         let nTemplate = 10
         let dist = 6
 
@@ -100,6 +102,7 @@ module Scenario =
                 ||> Seq.fold (fun world i ->
                     let x = 2 * i - nTemplate
                     addAtom rng atomTypes x 0 i (i > 0) world)
+        let template = Seq.toArray world.AtomMap.Keys
 
             // free positive
         let world =
@@ -119,5 +122,6 @@ module Scenario =
 
         {
             World = world
+            Template = template
             Random = rng
         }
