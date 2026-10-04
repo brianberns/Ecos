@@ -54,6 +54,7 @@ type BondTypeParameters =
         Barrier : int
     }
 
+/// Configurable update parameters.
 type Parameters =
     {
         /// Temperature scaled by Boltzmann's constant (kT).
