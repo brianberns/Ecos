@@ -8,6 +8,7 @@ module Program =
         printfn ""
         printfn "Experiments:"
         printfn "   experiment1   Fraction of template paired, by temperature"
+        printfn "   experiment2   Joining of free atoms, with and without a template"
 
     [<EntryPoint>]
     let main argv =
@@ -17,6 +18,12 @@ module Program =
                 0
             | [ "experiment1"; csvPath ] ->
                 Experiment1.run Experiment1.defaultSettings csvPath
+                0
+            | [ "experiment2" ] ->
+                Experiment2.run Experiment2.defaultSettings "experiment2.csv"
+                0
+            | [ "experiment2"; csvPath ] ->
+                Experiment2.run Experiment2.defaultSettings csvPath
                 0
             | _ ->
                 printUsage ()
