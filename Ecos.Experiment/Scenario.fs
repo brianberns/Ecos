@@ -39,9 +39,10 @@ module Scenario =
             |> addVerticalWall (width/2) -(height'/2) (height'/2)
 
     let private addAtom
-        (rng : Random) (atomTypes : _[]) x y id bond world =
+        (rng : Random) (atomTypes : _[]) x y bond world =
         assert(x % 2 = 0)
         assert(y % 2 = 0)
+        let id = world.AtomMap.Count
         let atomType =
             atomTypes[rng.Next(atomTypes.Length)]
         let loc = Point.create (x, y)
@@ -68,7 +69,7 @@ module Scenario =
             (world, [ 0 .. n - 1 ])
                 ||> Seq.fold (fun world i ->
                     let x = 2 * i - n
-                    addAtom rng atomTypes x -dist i (i > 0) world)
+                    addAtom rng atomTypes x -dist (i > 0) world)
 
             // second strand
         let world =
@@ -76,7 +77,7 @@ module Scenario =
             (world, [ 0 .. n - 1 ])
                 ||> Seq.fold (fun world i ->
                     let x = 2 * i - n
-                    addAtom rng atomTypes x dist (n + i) (i > 0) world)
+                    addAtom rng atomTypes x dist (i > 0) world)
 
         {
             World = world
@@ -95,22 +96,6 @@ module Scenario =
             let height = width
             addBox width height World.empty
 
-            // free positive
-        let world =
-            let atomTypes = [| AtomType.X  |]
-            (world, [ 0 .. nTemplate - 1 ])
-                ||> Seq.fold (fun world i ->
-                    let x = 2 * i - nTemplate
-                    addAtom rng atomTypes x dist (nTemplate + i) false world)
-
-            // free negative
-        let world =
-            let atomTypes = [| AtomType.Z |]
-            (world, [ 0 .. nTemplate - 1 ])
-                ||> Seq.fold (fun world i ->
-                    let x = 2 * i - nTemplate
-                    addAtom rng atomTypes x -dist (nTemplate + i) false world)
-
             // template
         let world, template =
             if withTemplate then
@@ -119,7 +104,7 @@ module Scenario =
                     (world, [ 0 .. nTemplate - 1 ])
                         ||> Seq.fold (fun world i ->
                             let x = 2 * i - nTemplate
-                            addAtom rng atomTypes x 0 i (i > 0) world)
+                            addAtom rng atomTypes x 0 (i > 0) world)
                 let template =
                     world.AtomMap
                         |> Map.toSeq
@@ -131,6 +116,22 @@ module Scenario =
             else
                 world, Array.empty
 
+            // free positive
+        let world =
+            let atomTypes = [| AtomType.X  |]
+            (world, [ 0 .. nTemplate - 1 ])
+                ||> Seq.fold (fun world i ->
+                    let x = 2 * i - nTemplate
+                    addAtom rng atomTypes x dist false world)
+
+            // free negative
+        let world =
+            let atomTypes = [| AtomType.Z |]
+            (world, [ 0 .. nTemplate - 1 ])
+                ||> Seq.fold (fun world i ->
+                    let x = 2 * i - nTemplate
+                    addAtom rng atomTypes x -dist false world)
+
         {
             World = world
             Template = template
@@ -140,5 +141,5 @@ module Scenario =
     let createExperiment1 seed =
         createExperiment1or2 true seed
 
-    let createExperiment2 () =
-        createExperiment1or2 false 0   // seed is irrelevant
+    let createExperiment2 seed =
+        createExperiment1or2 false seed
