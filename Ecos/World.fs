@@ -48,10 +48,10 @@ type World =
 type BondTypeParameters =
     {
         /// Energy delta of this bond type (S).
-        Energy : int
+        Energy : float
 
         /// Energy barrier to bond formation (E_b).
-        Barrier : int
+        Barrier : float
     }
 
 /// Configurable update parameters.
@@ -263,9 +263,10 @@ module World =
     ///   is always accepted.
     /// * An uphill move is accepted with probability exp(−ΔE/kT),
     ///   where kT is temperature scaled by Boltzmann's constant.
-    let private testMetropolis kT (rng : Random) energyDelta =
+    let private testMetropolis
+        (kT : float) (rng : Random) (energyDelta : float) =
         energyDelta <= 0
-            || rng.NextDouble() < exp (-float energyDelta / kT)
+            || rng.NextDouble() < exp (-energyDelta / kT)
 
     /// Updates the given atom's location in the given
     /// world.
@@ -372,7 +373,7 @@ module World =
                 Map.add bondType bondMap world.BondTypeMap }
 
     /// Additional energy from a stacked weak bond.
-    let private stackEnergy = 1
+    let private stackEnergy = 1.0
 
     /// Attempts to toggle a bond of the given type between
     /// the atoms with the given IDs in the given world.
@@ -386,7 +387,7 @@ module World =
 
         let bondEnergy =
             let nStacks = countStacks bondType idA idB world
-            bondParams.Energy + stackEnergy * nStacks
+            bondParams.Energy + stackEnergy * float nStacks
 
         if BondMap.areBonded idA idB world.BondTypeMap[bondType] then
             if test bondEnergy then

@@ -155,7 +155,7 @@ module Experiment1 =
         printfn ""
         for KeyValue(bondType, bondParms) in settings.BondParameterMap do
             printfn
-                "%A bonds: energy %d, barrier %d"
+                "%A bonds: energy %g, barrier %g"
                 bondType bondParms.Energy bondParms.Barrier
         printfn ""
         printfn "   kT   occupancy     +/-      drift     +/-   strong formed   strong broken"
