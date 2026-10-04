@@ -29,6 +29,14 @@ module Scenario =
                 let loc = Point.create (x, y)
                 World.addWall loc world)
 
+    let private addBox width height world =
+        let height' = height - 2 * 2
+        world
+            |> addHorizontalWall -(width/2) (width/2) -(height/2)
+            |> addHorizontalWall -(width/2) (width/2) (height/2)
+            |> addVerticalWall -(width/2) -(height'/2) (height'/2)
+            |> addVerticalWall (width/2) -(height'/2) (height'/2)
+
     let private addAtom
         (rng : Random) (atomTypes : _[]) x y id bond world =
         assert(x % 2 = 0)
@@ -51,28 +59,55 @@ module Scenario =
         let world =
             let width = 2 * n + 6 * dist
             let height = 2 * n
-            let height' = height - 2 * 2
-            World.empty
-                |> addHorizontalWall -(width/2) (width/2) -(height/2)
-                |> addHorizontalWall -(width/2) (width/2) (height/2)
-                |> addVerticalWall -(width/2) -(height'/2) (height'/2)
-                |> addVerticalWall (width/2) -(height'/2) (height'/2)
+            addBox width height World.empty
 
             // first strand
         let world =
+            let atomTypes = [| AtomType.W; AtomType.Y |]
             (world, [ 0 .. n - 1 ])
                 ||> Seq.fold (fun world i ->
                     let x = 2 * i - n
-                    let atomTypes = [| AtomType.W; AtomType.Y |]
                     addAtom rng atomTypes x -dist i (i > 0) world)
 
             // second strand
         let world =
+            let atomTypes = [| AtomType.X; AtomType.Z |]
             (world, [ 0 .. n - 1 ])
                 ||> Seq.fold (fun world i ->
                     let x = 2 * i - n
-                    let atomTypes = [| AtomType.X; AtomType.Z |]
                     addAtom rng atomTypes x dist (n + i) (i > 0) world)
+
+        {
+            World = world
+            Random = rng
+        }
+
+    let experiment1 =
+
+        let rng = Random(0)
+        let n = 10
+        let dist = 6
+
+        let world =
+            let width = 2 * n + 6 * dist
+            let height = width
+            addBox width height World.empty
+
+            // template
+        let world =
+            let atomTypes = [| AtomType.W; AtomType.Y |]
+            (world, [ 0 .. n - 1 ])
+                ||> Seq.fold (fun world i ->
+                    let x = 2 * i - n
+                    addAtom rng atomTypes x -dist i (i > 0) world)
+
+            // free
+        let world =
+            let atomTypes = [| AtomType.X; AtomType.Z |]
+            (world, [ 0 .. n - 1 ])
+                ||> Seq.fold (fun world i ->
+                    let x = 2 * i - n
+                    addAtom rng atomTypes x dist (n + i) false world)
 
         {
             World = world

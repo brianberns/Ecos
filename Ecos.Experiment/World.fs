@@ -8,4 +8,6 @@ module World =
         world.AtomMap.Count
 
     let getBondCount bondType world =
-        world.BondTypeMap[bondType].Count
+        let count = world.BondTypeMap[bondType].Count
+        assert(count % 2 = 0)
+        count / 2   // each bond counted twice

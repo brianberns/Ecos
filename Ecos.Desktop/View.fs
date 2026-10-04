@@ -106,16 +106,18 @@ module View =
                 ])
         ]
 
+    let margin = 10
+
     let renderLabel text width =
         TextBlock.create [
             TextBlock.text text
             TextBlock.width width
             TextBlock.foreground Colors.Black
             TextBlock.verticalAlignment VerticalAlignment.Center
-            TextBlock.padding 10
+            TextBlock.margin margin
         ]
 
-    let labelColumnWidth = 150
+    let labelColumnWidth = 100
 
     let renderAtomCount world =
         StackPanel.create [
@@ -149,7 +151,7 @@ module View =
                     NumericUpDown.increment 0.1m
                     NumericUpDown.value (decimal kT)
                     NumericUpDown.width 110
-                    NumericUpDown.padding 10
+                    NumericUpDown.margin margin
                     NumericUpDown.horizontalContentAlignment
                         HorizontalAlignment.Right
                     NumericUpDown.onValueChanged (fun value ->
