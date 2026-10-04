@@ -13,8 +13,11 @@ module Experiment1 =
     /// Settings for the experiment.
     type Settings =
         {
-            /// Parameters to run at.
+            /// Temperatures to run at.
             Temperatures : float[]
+
+            /// Bond parameters to run with.
+            BondParameterMap : Map<BondType, BondTypeParameters>
 
             /// Number of independent runs (seeds) per temperature.
             NumRuns : int
@@ -35,6 +38,11 @@ module Experiment1 =
     let defaultSettings =
         {
             Temperatures = [| for i in 3 .. 20 -> float i / 10.0 |]   // 0.3 to 2.0
+            BondParameterMap =
+                Map [
+                    Strong, { Energy = 12; Barrier = 6 }
+                    Weak, { Energy = 1; Barrier = 0 }
+                ]
             NumRuns = 16
             EquilibrationSweeps = 20000
             NumSamples = 2000
@@ -70,8 +78,8 @@ module Experiment1 =
             StrongBondsBroken : int
         }
 
-    /// Runs one world at the given temperature.
-    let private runOne settings kT seed =
+    /// Runs one world with the given parameters.
+    let private runOne settings parms seed =
         let scenario = Scenario.createExperiment1 seed
         let rng = scenario.Random
         let nAtoms = scenario.World.AtomMap.Count
@@ -81,7 +89,7 @@ module Experiment1 =
 
         let sweep nSweeps =
             for _ in 1 .. nSweeps * nAtoms do
-                let world', eventOpt = Ecos.World.update kT rng world
+                let world', eventOpt = Ecos.World.update parms rng world
                 match eventOpt with
                     | Some (CreateBond (Strong, _, _)) -> nFormed <- nFormed + 1
                     | Some (BreakBond (Strong, _, _)) -> nBroken <- nBroken + 1
@@ -119,17 +127,6 @@ module Experiment1 =
     /// to the given CSV file.
     let run (settings : Settings) (csvPath : string) =
 
-        /// Temporary helper.
-        let toParams kT =
-            {
-                Temperature = kT
-                BondParameterMap =
-                    Map [
-                        Strong, { Energy = 12; Barrier = 6 }
-                        Weak, { Energy = 1; Barrier = 0 }
-                    ]
-            }
-
             // run every (temperature, seed) combination in parallel
         let results =
             [|
@@ -138,7 +135,12 @@ module Experiment1 =
                         kT, seed
             |]
                 |> Array.Parallel.map (fun (kT, seed) ->
-                    kT, runOne settings (toParams kT) seed)
+                    let parms =
+                        {
+                            Temperature = kT
+                            BondParameterMap = settings.BondParameterMap
+                        }
+                    kT, runOne settings parms seed)
                 |> Array.groupBy fst
                 |> Array.map (fun (kT, group) -> kT, Array.map snd group)
                 |> Array.sortBy fst
@@ -150,6 +152,11 @@ module Experiment1 =
             settings.EquilibrationSweeps
             settings.NumSamples
             settings.SampleInterval
+        printfn ""
+        for KeyValue(bondType, bondParms) in settings.BondParameterMap do
+            printfn
+                "%A bonds: energy %d, barrier %d"
+                bondType bondParms.Energy bondParms.Barrier
         printfn ""
         printfn "   kT   occupancy     +/-      drift     +/-   strong formed   strong broken"
 
