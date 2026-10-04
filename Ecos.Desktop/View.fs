@@ -117,20 +117,21 @@ module View =
             ]
         ]
 
+    let renderLabel text =
+        TextBlock.create [
+            TextBlock.text text
+            TextBlock.foreground Colors.Black
+            TextBlock.verticalAlignment VerticalAlignment.Center
+            TextBlock.padding 10
+        ]
+
     let renderTemperature (kT : float) dispatch =
         StackPanel.create [
             StackPanel.dock Dock.Bottom
             StackPanel.orientation Orientation.Horizontal
             StackPanel.children [
-                TextBlock.create [
-                    TextBlock.dock Dock.Left
-                    TextBlock.text "Temperature:"
-                    TextBlock.foreground Colors.Black
-                    TextBlock.verticalAlignment VerticalAlignment.Center
-                    TextBlock.padding 10
-                ]
+                renderLabel "Temperature:"
                 NumericUpDown.create [
-                    NumericUpDown.dock Dock.Left
                     NumericUpDown.minimum 0
                     NumericUpDown.maximum 5
                     NumericUpDown.increment 0.1m
