@@ -7,6 +7,12 @@ module Atom =
     let create loc =
         Ecos.Atom.create AtomType.W loc
 
+module World =
+
+    /// Helper function for updating a world. Ignores event.
+    let update kT rng world =
+        Ecos.World.update kT rng world |> fst
+
 namespace Ecos.Test
 
 open System

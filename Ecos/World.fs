@@ -44,6 +44,18 @@ type World =
         Walls : Set<Point>
     }
 
+/// An event in the world.
+type UpdateEvent =
+
+    /// An atom moved.
+    | MoveAtom of AtomId
+
+    /// A bond was created between two atoms.
+    | CreateBond of BondType * AtomId * AtomId
+
+    /// A bond was broken between two atoms.
+    | BreakBond of BondType * AtomId * AtomId
+
 module World =
 
     /// An empty world.
@@ -272,7 +284,9 @@ module World =
                 && testBonds idA atom' world              // all of the atom's bonds are still valid?
                 && testMetropolis kT rng 0                // acceptable energy change?
         if isValid then
-            Some (moveAtom idA atom atom' world)
+            let world = moveAtom idA atom atom' world
+            let event = MoveAtom idA
+            Some (world, event)
         else None
 
     /// Counts stacks adjacent to the given (existing or 
@@ -356,11 +370,16 @@ module World =
 
         if BondMap.areBonded idA idB world.BondTypeMap[bondType] then
             if test bondEnergy then
-                Some (breakBond bondType idA idB world)
+                let world = breakBond bondType idA idB world
+                let event = BreakBond (bondType, idA, idB)
+                Some (world, event)
             else None
         else
             if test -bondEnergy then
                 tryAddBond bondType idA idB world
+                    |> Option.map (fun world ->
+                        let event = CreateBond (bondType, idA, idB)
+                        world, event)
             else None
 
     /// Attempts to toggle a bond of the given type in the given
@@ -408,5 +427,6 @@ module World =
     /// Causes an event in the given world, or is a no-op if
     /// the event fails.
     let update kT rng world =
-        tryUpdate kT rng world
-            |> Option.defaultValue world
+        match tryUpdate kT rng world with
+            | Some (world, event) -> world, Some event
+            | None -> world, None
