@@ -177,8 +177,8 @@ module View =
             DockPanel.background Colors.LightGray
             DockPanel.children [
                 renderAtomCount model.World
-                renderBondCount Strong model.World
-                renderBondCount Weak model.World
+                for bondType in BondType.all do
+                    renderBondCount bondType model.World
                 renderTemperature model.Temperature dispatch
             ]
         ]
