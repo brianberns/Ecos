@@ -11,14 +11,6 @@ open Avalonia.FuncUI.Types
 
 module View =
 
-    let private windowWidth = 1000
-    let private windowHeight = 800
-    let private scale = 8
-    let private strongBondThickness = 0.2
-    let private strongBondBrush = Brushes.Black
-    let private weakBondThickness = 1.0
-    let private weakBondBrush = Brushes.HotPink
-
     let private brushMap =
         [
             AtomType.W, "#1F4E9E"
@@ -73,29 +65,26 @@ module View =
                     else None)
                     ids)
 
-    let renderStrongBonds world =
+    let renderBonds
+        bondType (brush : IImmutableBrush) thickness world =
         [
-            for a, b in getBonds Strong world do
+            for a, b in getBonds bondType world do
                 Line.create [
                     Line.startPoint ~~a.Location
                     Line.endPoint ~~b.Location
-                    Line.stroke strongBondBrush
-                    Line.strokeThickness strongBondThickness
+                    Line.stroke brush
+                    Line.strokeThickness thickness
                 ] :> IView
         ]
+
+    let renderStrongBonds world =
+        renderBonds Strong Brushes.Black 0.2 world
 
     let renderWeakBonds world =
-        [
-            for a, b in getBonds Weak world do
-                Line.create [
-                    Line.startPoint ~~a.Location
-                    Line.endPoint ~~b.Location
-                    Line.stroke weakBondBrush
-                    Line.strokeThickness weakBondThickness
-                ] :> IView
-        ]
+        renderBonds Weak Brushes.HotPink 1.0 world
 
     let renderWorld world =
+        let scale = 8.0
         Border.create [
             Border.clipToBounds true   // keep drawing inside the available space
             Border.child (
@@ -104,8 +93,7 @@ module View =
                     Canvas.height 0.0
                     Canvas.horizontalAlignment HorizontalAlignment.Center   // world origin at the center
                     Canvas.verticalAlignment VerticalAlignment.Center
-                    Canvas.renderTransform (
-                        ScaleTransform(float scale, float scale))
+                    Canvas.renderTransform (ScaleTransform(scale, scale))
                     Canvas.renderTransformOrigin RelativePoint.TopLeft
                     Canvas.children [
                         yield! renderWalls world
@@ -160,7 +148,8 @@ module View =
                     NumericUpDown.value (decimal kT)
                     NumericUpDown.width 110
                     NumericUpDown.padding 10
-                    NumericUpDown.horizontalContentAlignment HorizontalAlignment.Right
+                    NumericUpDown.horizontalContentAlignment
+                        HorizontalAlignment.Right
                     NumericUpDown.onValueChanged (fun value ->
                         if value.HasValue then
                             float value.Value
@@ -186,8 +175,8 @@ module View =
         let world = model.World
         Window.create [
             Window.title "Ecos"
-            Window.width windowWidth
-            Window.height windowHeight
+            Window.width 1000
+            Window.height 900
             Window.background Brushes.WhiteSmoke
             Window.child (
                 DockPanel.create [
