@@ -9,6 +9,8 @@ open Avalonia.Media
 open Avalonia.FuncUI.DSL
 open Avalonia.FuncUI.Types
 
+open Ecos.Experiment
+
 module View =
 
     let private brushMap =
@@ -159,7 +161,7 @@ module View =
             ]
         ]
 
-    let renderControlPanel model dispatch =
+    let renderControlPanel (model : Model) dispatch =
         DockPanel.create [
             DockPanel.dock Dock.Bottom
             DockPanel.background Colors.LightGray
@@ -171,7 +173,7 @@ module View =
             ]
         ]
 
-    let render model dispatch =
+    let render (model : Model) dispatch =
         let world = model.World
         Window.create [
             Window.title "Ecos"

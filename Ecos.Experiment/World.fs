@@ -1,4 +1,6 @@
-namespace Ecos
+﻿namespace Ecos.Experiment
+
+open Ecos
 
 module World =
 

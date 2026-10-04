@@ -7,7 +7,6 @@
 
   <ItemGroup>
     <Compile Include="Model.fs" />
-    <Compile Include="World.fs" />
     <Compile Include="View.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
@@ -20,6 +19,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Avalonia.FuncUI\src\Avalonia.FuncUI\Avalonia.FuncUI.fsproj" />
     <ProjectReference Include="..\Avalonia.FuncUI\src\Avalonia.FuncUI.Elmish\Avalonia.FuncUI.Elmish.fsproj" />
+    <ProjectReference Include="..\Ecos.Experiment\Ecos.Experiment.fsproj" />
     <ProjectReference Include="..\Ecos\Ecos.fsproj" />
   </ItemGroup>
 
