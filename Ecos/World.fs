@@ -45,7 +45,7 @@ type World =
     }
 
 /// An event in the world.
-type UpdateEvent =
+type Event =
 
     /// An atom moved.
     | MoveAtom of AtomId
