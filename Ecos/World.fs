@@ -16,34 +16,6 @@ module BondType =
     /// All bond types.
     let all = [| Strong; Weak |]
 
-/// A lattice world containing atoms bonded into molecules.
-/// Every atom occupies a 2x2 square around its central
-/// location on the lattice, so in the drawing below, the
-/// ╋ symbol indicates the location of the atom:
-///
-///    ┏━┳━┓
-///    ┣━╋━┫
-///    ┗━┻━┛
-///
-/// Behavior is based on the Bond Fluctuation Model with:
-/// * Metropolis dynamics
-/// * Pairing of complementary strands
-/// * Stacking of bonded pairs (a la DNA)
-type World =
-    {
-        /// Atoms in the world, mapped by their IDs.
-        AtomMap : Map<AtomId, Atom>
-
-        /// Bonds between atoms in the world, by type.
-        BondTypeMap : Map<BondType, BondMap>
-
-        /// Maps each atom's location to its ID.
-        OccupancyMap : Map<Point, AtomId>
-
-        /// Immovable obstacles, each the size of an atom.
-        Walls : Set<Point>
-    }
-
 /// Bond type-specific parameters.
 /// 
 /// Energy
@@ -94,6 +66,34 @@ type Event =
 
     /// A bond was broken between two atoms.
     | BreakBond of BondType * AtomId * AtomId
+
+/// A lattice world containing atoms bonded into molecules.
+/// Every atom occupies a 2x2 square around its central
+/// location on the lattice, so in the drawing below, the
+/// ╋ symbol indicates the location of the atom:
+///
+///    ┏━┳━┓
+///    ┣━╋━┫
+///    ┗━┻━┛
+///
+/// Behavior is based on the Bond Fluctuation Model with:
+/// * Metropolis dynamics
+/// * Pairing of complementary strands
+/// * Stacking of bonded pairs (a la DNA)
+type World =
+    {
+        /// Atoms in the world, mapped by their IDs.
+        AtomMap : Map<AtomId, Atom>
+
+        /// Bonds between atoms in the world, by type.
+        BondTypeMap : Map<BondType, BondMap>
+
+        /// Maps each atom's location to its ID.
+        OccupancyMap : Map<Point, AtomId>
+
+        /// Immovable obstacles, each the size of an atom.
+        Walls : Set<Point>
+    }
 
 module World =
 
