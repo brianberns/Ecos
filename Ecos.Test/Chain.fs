@@ -290,13 +290,10 @@ module Chain =
     /// chain's ends or break, are frozen: the barrier is never crossed.
     let athermalKT = 0.1
 
-    /// Performs one Monte Carlo sweep at the given temperature: N
-    /// attempted moves for N atoms.
+    /// Performs one sweep with the standard parameters at the given
+    /// temperature: N updates for N atoms.
     let sweep kT rng (world : World) =
-        let mutable world = world
-        for _ in 1 .. world.AtomMap.Count do
-            world <- World.update kT rng world
-        world
+        Ecos.World.sweep (TestParameters.create kT) rng world
 
     /// Performs the given number of sweeps at the given temperature.
     let sweeps kT rng count world =
