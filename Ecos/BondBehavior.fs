@@ -49,7 +49,7 @@ module private BondBehavior =
     /// * Positive: left turn
     /// * Negative: right turn
     let private orient (a : Point) (b : Point) (c : Point) =
-        sign ((b - a) .* (c - a))
+        sign ((b - a) *^ (c - a))
 
     /// Indicates whether bonds between the given pairs of atoms
     /// cross.

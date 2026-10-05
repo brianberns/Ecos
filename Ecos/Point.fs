@@ -44,8 +44,12 @@ type Point =
             Y = abs pt.Y
         }
 
-    /// Cross product.
+    /// Dot product.
     static member (.*)(a, b) =
+        (a.X * b.X) + (a.Y * b.Y)
+
+    /// Cross product.
+    static member ( *^)(a, b) =
         (a.X * b.Y) - (a.Y * b.X)
 
 module Point =
