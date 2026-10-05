@@ -68,6 +68,9 @@ type BondTypeParameters =
 
         /// Energy barrier to bond formation (E_b).
         Barrier : float
+
+        /// Barrier reduction for completed stacks (δ).
+        BarrierStackReduction : float
     }
 
 /// Configurable update parameters.
@@ -396,13 +399,16 @@ module World =
     let private tryToggleBond parms rng bondType idA idB world =
 
         let bondParams = parms.BondParameterMap[bondType]
+        let nStacks = countStacks bondType idA idB world
 
         let test energy =
-            testMetropolis parms.Temperature rng bondParams.Barrier
+            let barrier =
+                bondParams.Barrier
+                    - bondParams.BarrierStackReduction * float nStacks
+            testMetropolis parms.Temperature rng barrier
                 && testMetropolis parms.Temperature rng energy
 
         let bondEnergy =
-            let nStacks = countStacks bondType idA idB world
             bondParams.Energy + stackEnergy * float nStacks
 
         if BondMap.areBonded idA idB world.BondTypeMap[bondType] then

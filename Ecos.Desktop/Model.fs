@@ -31,9 +31,21 @@ module Model =
                 {
                     Temperature = 1.0
                     BondParameterMap =
+                        let strong =
+                            {
+                                Energy = 12
+                                Barrier = 6
+                                BarrierStackReduction = 0
+                            }
+                        let weak =
+                            {
+                                Energy = 1
+                                Barrier = 0
+                                BarrierStackReduction = 0
+                            }
                         Map [
-                            Strong, { Energy = 12; Barrier = 6 }
-                            Weak, { Energy = 1; Barrier = 0 }
+                            Strong, strong
+                            Weak, weak
                         ]
                 }
         }
