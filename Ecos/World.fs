@@ -473,3 +473,11 @@ module World =
         match tryUpdate parms rng world with
             | Some (world, event) -> world, Some event
             | None -> world, None
+
+    /// Performs one update per atom in the world, on average.
+    /// Some atoms might be updated more than once, or not at
+    /// all.
+    let sweep parms rng world =
+        (world, seq { 1 .. world.AtomMap.Count })
+            ||> Seq.fold (fun world _ ->
+                update parms rng world |> fst)

@@ -23,7 +23,7 @@ type Message =
 module Model =
 
     let init () =
-        let scenario = Scenario.twoStrands
+        let scenario = Scenario.createExperiment1 0
         {
             World = scenario.World
             Random = scenario.Random
@@ -52,14 +52,12 @@ module Model =
 
     let updateTick model =
         let world =
-            let n = 25 * model.World.AtomMap.Count
-            (model.World, [ 1 .. n ])
+            (model.World, [ 1 .. 25 ])
                 ||> Seq.fold (fun world _ ->
-                    World.update
+                    World.sweep
                         model.Parameters
                         model.Random
-                        world
-                        |> fst)
+                        world)
         { model with World = world }
 
     /// Moves N random atoms per tick. Duplicates or omissions are
