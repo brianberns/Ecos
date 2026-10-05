@@ -29,13 +29,13 @@ module Model =
             Random = scenario.Random
             Parameters =
                 {
-                    Temperature = 1.0
+                    Temperature = 0.25
                     BondParameterMap =
                         let strong =
                             {
-                                Energy = 12
-                                Barrier = 6
-                                BarrierStackReduction = 0
+                                Energy = 17
+                                Barrier = 3
+                                BarrierStackReduction = 3
                             }
                         let weak =
                             {

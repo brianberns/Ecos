@@ -148,7 +148,7 @@ module View =
                 NumericUpDown.create [
                     NumericUpDown.minimum 0
                     NumericUpDown.maximum 5
-                    NumericUpDown.increment 0.1m
+                    NumericUpDown.increment 0.05m
                     NumericUpDown.value (decimal kT)
                     NumericUpDown.width 110
                     NumericUpDown.margin margin
