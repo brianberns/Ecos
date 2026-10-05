@@ -398,18 +398,18 @@ module World =
     /// the atoms with the given IDs in the given world.
     let private tryToggleBond parms rng bondType idA idB world =
 
-        let bondParams = parms.BondParameterMap[bondType]
+        let bondParms = parms.BondParameterMap[bondType]
         let nStacks = countStacks bondType idA idB world
 
         let test energy =
             let barrier =
-                bondParams.Barrier
-                    - bondParams.BarrierStackReduction * float nStacks
+                bondParms.Barrier
+                    - bondParms.BarrierStackReduction * float nStacks
             testMetropolis parms.Temperature rng barrier
                 && testMetropolis parms.Temperature rng energy
 
         let bondEnergy =
-            bondParams.Energy + stackEnergy * float nStacks
+            bondParms.Energy + stackEnergy * float nStacks
 
         if BondMap.areBonded idA idB world.BondTypeMap[bondType] then
             if test bondEnergy then
