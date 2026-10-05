@@ -9,7 +9,7 @@ type BondMap = Map<AtomId, Set<AtomId>>
 module BondMap =
 
     /// Answers the IDs of all atoms bonded with the given atom.
-    let getBonds id bondMap =
+    let getBonds id (bondMap : BondMap) =
         let ids =
             bondMap
                 |> Map.tryFind id
