@@ -203,6 +203,21 @@ module World =
                                             (atomC, atomD)))
                     |> Option.defaultValue false)
 
+    /// A -?- B
+    ///  \
+    ///   \
+    ///    C
+    let private testBondAngles bondType atomA atomB cIds world =
+        let deltaAB = atomB.Location - atomA.Location   // vector from A to B
+        behaviorMap[bondType].MaxDotProductOpt
+            |> Option.map (fun maxDotProd ->
+                Seq.forall (fun cId ->
+                    let atomC = world.AtomMap[cId]
+                    let deltaAC = atomC.Location - atomA.Location
+                    deltaAB .* deltaAC <= maxDotProd)
+                    cIds)
+            |> Option.defaultValue true
+
     /// Adds a bond of the given type between the given atoms in
     /// the given world if it is valid.
     let private tryAddBond bondType idA idB world =
@@ -213,14 +228,16 @@ module World =
             let atomA = world.AtomMap[idA]
             let atomB = world.AtomMap[idB]
             let behavior = behaviorMap[bondType]
+            let aIds = BondMap.getBonds idA bondMap
+            let bIds = BondMap.getBonds idB bondMap
             behavior.CanBond atomA.Type atomB.Type
+                && aIds.Count < behavior.Valence
+                && bIds.Count < behavior.Valence
                 && BondMap.testBond behavior.Neighborhood atomA atomB
-                && (BondMap.getBonds idA bondMap).Count
-                    < behavior.Valence
-                && (BondMap.getBonds idB bondMap).Count
-                    < behavior.Valence
                 && not (areBonded idA idB world)
                 && not (isCrossBond bondType idA atomA idB atomB world)
+                && testBondAngles bondType atomA atomB aIds world
+                && testBondAngles bondType atomB atomA bIds world
 
         if canAdd then
             let bondMap = BondMap.createBond idB idA bondMap
@@ -273,9 +290,10 @@ module World =
         behaviorMap
             |> Map.toSeq
             |> Seq.forall (fun (bondType, behavior) ->
-                BondMap.testBonds behavior.Neighborhood
-                    id atom world.AtomMap
-                    world.BondTypeMap[bondType])
+                BondMap.getBonds id world.BondTypeMap[bondType]
+                    |> Seq.forall (fun idB ->
+                        let atomB = world.AtomMap[idB]
+                        BondMap.testBond behavior.Neighborhood atom atomB))
 
     /// Applies the Metropolis rule:
     /// * A move that lowers the energy, or leaves it unchanged,

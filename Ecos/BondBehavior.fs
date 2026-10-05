@@ -20,6 +20,10 @@ type private BondBehavior =
         /// Indicates whether the given atom types can form
         /// a bond of this type.
         CanBond : AtomType -> AtomType -> bool
+
+        /// Maximum allowed dot product between two bonds of
+        /// this type for an atom, if any.
+        MaxDotProductOpt : Option<int>
     }
 
 module private BondBehavior =
@@ -94,6 +98,7 @@ module private StrongBond =
             CrossBondDeltas = crossBondDeltas
             Valence = 2
             CanBond = fun _ _ -> true
+            MaxDotProductOpt = None
         }
 
 module private WeakBond =
@@ -134,4 +139,5 @@ module private WeakBond =
             CrossBondDeltas = crossBondDeltas
             Valence = 1
             CanBond = canBond
+            MaxDotProductOpt = None // Some 0   // an atom's two weak partners must be on roughly opposite sides of it
         }

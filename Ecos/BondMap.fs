@@ -39,14 +39,6 @@ module BondMap =
             (max diff.X diff.Y, min diff.X diff.Y)
             neighborhood
 
-    /// Tests validity of the given atom's bonds.
-    let testBonds
-        neighborhood id atom (atomMap : Map<_, _>) bondMap =
-        getBonds id bondMap
-            |> Seq.forall (fun idB ->
-                let atomB = atomMap[idB]
-                testBond neighborhood atom atomB)
-
     /// Creates a bidirectional bond between the given atoms.
     let createBond idA idB bondMap =
         assert(not (areBonded idA idB bondMap))
