@@ -20,12 +20,17 @@ module Experiment2 =
             /// Strong bond barriers to run with.
             StrongBondBarriers : float[]
 
+            /// Strong bond barrier reductions (per stack) to run with.
+            /// A reduction larger than the barrier just removes it.
+            StrongBondBarrierStackReductions : float[]
+
             /// Bond parameters to run with. The strong bond barrier
-            /// is replaced by each of the barriers above in turn.
+            /// and its reduction are replaced by each combination of
+            /// the values above in turn.
             BondParameterMap : Map<BondType, BondTypeParameters>
 
             /// Number of independent runs (seeds) of each world, at
-            /// each combination of temperature and barrier.
+            /// each combination of the values above.
             NumRuns : int
 
             /// Sweeps to run before measuring, so that the free
@@ -47,12 +52,23 @@ module Experiment2 =
     /// Default settings.
     let defaultSettings =
         {
-            Temperatures = [| 0.2; 0.25; 0.3; 0.4 |]
-            StrongBondBarriers = [| 0.5; 0.75; 1.0; 1.5; 2.0 |]
+            Temperatures = [| 0.2; 0.25; 0.3 |]
+            StrongBondBarriers = [| 2.0; 3.0 |]
+            StrongBondBarrierStackReductions = [| 0.0; 1.0; 1.5; 2.0; 3.0 |]
             BondParameterMap =
                 Map [
-                    Strong, { Energy = 17.0; Barrier = 0.0 }   // barrier is replaced
-                    Weak, { Energy = 1.0; Barrier = 0.0 }
+                    Strong,
+                        {
+                            Energy = 17.0
+                            Barrier = 0.0                 // replaced
+                            BarrierStackReduction = 0.0   // replaced
+                        }
+                    Weak,
+                        {
+                            Energy = 1.0
+                            Barrier = 0.0
+                            BarrierStackReduction = 0.0
+                        }
                 ]
             NumRuns = 16
             EquilibrationSweeps = 10000
@@ -67,6 +83,14 @@ module Experiment2 =
             /// measurement began. (Zero if there's no template.)
             Occupancy : float
 
+            /// Pairs of adjacent template atoms that were both
+            /// paired when measurement began.
+            AdjacentPairs : int
+
+            /// Those of the pairs above whose partners were on the
+            /// same side of the template, and so could join.
+            SameSidePairs : int
+
             /// Sweeps of measurement.
             Sweeps : int
 
@@ -80,22 +104,77 @@ module Experiment2 =
             /// Strong bonds formed between a free atom and a template
             /// atom.
             TemplateEndJoins : int
+
+            /// Number of atoms in the longest chain of free atoms
+            /// when the run stopped. (One if none had joined.)
+            LongestChain : int
         }
+
+    /// The given atom's weak bond partner, if it's one of the given
+    /// atoms.
+    let private tryGetPartner (candidates : Set<AtomId>) (world : World) id =
+        world.BondTypeMap[Weak]
+            |> Map.tryFind id
+            |> Option.bind Seq.tryExactlyOne
+            |> Option.filter candidates.Contains
+
+    /// Indicates whether the given atoms are strongly bonded.
+    let private areStronglyBonded (world : World) idA idB =
+        world.BondTypeMap[Strong]
+            |> Map.tryFind idA
+            |> Option.exists (Set.contains idB)
 
     /// Indicates whether the given atoms are weakly bonded to template
     /// atoms that are strongly bonded to each other.
-    let private isTemplated (template : Set<AtomId>) (world : World) idA idB =
-        let tryGetPartner id =
-            world.BondTypeMap[Weak]
-                |> Map.tryFind id
-                |> Option.bind Seq.tryExactlyOne
-                |> Option.filter template.Contains
-        match tryGetPartner idA, tryGetPartner idB with
-            | Some idA', Some idB' ->
-                world.BondTypeMap[Strong]
-                    |> Map.tryFind idA'
-                    |> Option.exists (Set.contains idB')
+    let private isTemplated template world idA idB =
+        match tryGetPartner template world idA, tryGetPartner template world idB with
+            | Some idA', Some idB' -> areStronglyBonded world idA' idB'
             | _ -> false
+
+    /// Counts pairs of adjacent template atoms that are both paired
+    /// with free atoms, and how many of those have both partners on
+    /// the same side of the line through the two template atoms.
+    let private countAdjacentPairs (template : AtomId[]) (free : Set<AtomId>) (world : World) =
+        let loc id = world.AtomMap[id].Location
+        let side (a : Point) (b : Point) (c : Point) =
+            sign ((b.X - a.X) * (c.Y - a.Y) - (b.Y - a.Y) * (c.X - a.X))
+        let pairs =
+            [
+                for idA in template do
+                    for idB in template do
+                        if idA < idB && areStronglyBonded world idA idB then
+                            match tryGetPartner free world idA, tryGetPartner free world idB with
+                                | Some idA', Some idB' ->
+                                    let sideA = side (loc idA) (loc idB) (loc idA')
+                                    let sideB = side (loc idA) (loc idB) (loc idB')
+                                    sideA <> 0 && sideA = sideB
+                                | _ -> ()
+            ]
+        pairs.Length, (pairs |> List.where id |> List.length)
+
+    /// Number of atoms in the largest group of the given atoms that
+    /// are connected by strong bonds.
+    let private getLongestChain (atoms : Set<AtomId>) (world : World) =
+        let strongBondMap = world.BondTypeMap[Strong]
+        let rec visit (seen : Set<AtomId>) = function
+            | [] -> seen
+            | id :: rest when seen.Contains id -> visit seen rest
+            | id :: rest ->
+                let partners =
+                    strongBondMap
+                        |> Map.tryFind id
+                        |> Option.defaultValue Set.empty
+                        |> Seq.where atoms.Contains
+                        |> Seq.toList
+                visit (seen.Add id) (partners @ rest)
+        let _, longest =
+            ((Set.empty, 0), atoms)
+                ||> Seq.fold (fun (seen, longest) id ->
+                    if seen.Contains id then seen, longest
+                    else
+                        let chain = visit Set.empty [ id ]
+                        Set.union seen chain, max longest chain.Count)
+        longest
 
     /// Runs one world, with or without a template, using the given
     /// parameters.
@@ -105,6 +184,7 @@ module Experiment2 =
             else Scenario.createExperiment2 seed
         let rng = scenario.Random
         let template = set scenario.Template
+        let free = Set.difference (set scenario.World.AtomMap.Keys) template
         let nAtoms = scenario.World.AtomMap.Count
         let mutable world = scenario.World
 
@@ -112,7 +192,8 @@ module Experiment2 =
         let frozenParms =
             let strongParms =
                 { parms.BondParameterMap[Strong] with
-                    Barrier = Double.PositiveInfinity }
+                    Barrier = Double.PositiveInfinity
+                    BarrierStackReduction = 0.0 }
             { parms with
                 BondParameterMap =
                     Map.add Strong strongParms parms.BondParameterMap }
@@ -122,6 +203,8 @@ module Experiment2 =
             if withTemplate then
                 Experiment1.getOccupancy scenario.Template world
             else 0.0
+        let nAdjacent, nSameSide =
+            countAdjacentPairs scenario.Template free world
 
             // measure
         let mutable nSweeps = 0
@@ -146,24 +229,23 @@ module Experiment2 =
 
         {
             Occupancy = occupancy
+            AdjacentPairs = nAdjacent
+            SameSidePairs = nSameSide
             Sweeps = nSweeps
             Joins = nJoins
             TemplatedJoins = nTemplated
             TemplateEndJoins = nTemplateEnd
+            LongestChain = getLongestChain free world
         }
 
     /// Joins per 10,000 sweeps, pooled over the given runs, and the
-    /// standard error of that rate. Joins are rare, independent events,
-    /// so the error is the rate divided by the square root of the
+    /// number of joins. Joins are rare, independent events, so the
+    /// relative error of the rate is one over the square root of the
     /// number of joins.
     let private getRate (runs : RunResult[]) =
         let nJoins = runs |> Array.sumBy _.Joins
         let nSweeps = runs |> Array.sumBy _.Sweeps
-        let rate = 10000.0 * float nJoins / float nSweeps
-        let stdErr =
-            if nJoins = 0 then nan
-            else rate / sqrt (float nJoins)
-        rate, stdErr, nJoins
+        10000.0 * float nJoins / float nSweeps, nJoins, nSweeps
 
     /// Runs the experiment, prints a table of results, and writes them
     /// to the given CSV file.
@@ -173,22 +255,25 @@ module Experiment2 =
         let results =
             [|
                 for barrier in settings.StrongBondBarriers do
-                    for kT in settings.Temperatures do
-                        for withTemplate in [ false; true ] do
-                            for seed in 0 .. settings.NumRuns - 1 do
-                                barrier, kT, withTemplate, seed
+                    for reduction in settings.StrongBondBarrierStackReductions do
+                        for kT in settings.Temperatures do
+                            for withTemplate in [ false; true ] do
+                                for seed in 0 .. settings.NumRuns - 1 do
+                                    barrier, reduction, kT, withTemplate, seed
             |]
-                |> Array.Parallel.map (fun (barrier, kT, withTemplate, seed) ->
+                |> Array.Parallel.map (fun (barrier, reduction, kT, withTemplate, seed) ->
                     let parms =
                         let strongParms =
                             { settings.BondParameterMap[Strong] with
-                                Barrier = barrier }
+                                Barrier = barrier
+                                BarrierStackReduction = reduction }
                         {
                             Temperature = kT
                             BondParameterMap =
                                 Map.add Strong strongParms settings.BondParameterMap
                         }
-                    (barrier, kT), (withTemplate, runOne settings withTemplate parms seed))
+                    (barrier, reduction, kT),
+                    (withTemplate, runOne settings withTemplate parms seed))
                 |> Array.groupBy fst
                 |> Array.map (fun (key, group) ->
                     let runs = Array.map snd group
@@ -211,57 +296,79 @@ module Experiment2 =
             settings.BondParameterMap[Strong].Energy
             settings.BondParameterMap[Weak].Energy
         printfn ""
-        printfn "                         joins per 10,000 sweeps"
-        printfn "barrier    kT   occupancy   no template   with template   enhancement     +/-   templated   end joins"
+        printfn "                                           joins per 10,000 sweeps"
+        printfn "barrier  reduction    kT   occupancy   same side   no template   with template   enhancement      +/-   templated   longest   end joins"
 
         use writer = new StreamWriter(csvPath)
         writer.WriteLine(
-            "barrier,kT,occupancy,rate_no_template,rate_no_template_stderr,"
-                + "rate_with_template,rate_with_template_stderr,"
-                + "enhancement,enhancement_stderr,templated_fraction,"
+            "barrier,reduction,kT,occupancy,same_side_fraction,"
+                + "rate_no_template,rate_with_template,"
+                + "enhancement,enhancement_stderr,enhancement_is_lower_bound,"
+                + "templated_fraction,longest_chain,"
                 + "joins_no_template,joins_with_template,template_end_joins")
 
-        for (barrier, kT), controlRuns, templateRuns in results do
+        for (barrier, reduction, kT), controlRuns, templateRuns in results do
             let occupancy = templateRuns |> Array.averageBy _.Occupancy
-            let controlRate, controlErr, nControl = getRate controlRuns
-            let templateRate, templateErr, nTemplate = getRate templateRuns
+            let sameSide =
+                let nAdjacent = templateRuns |> Array.sumBy _.AdjacentPairs
+                if nAdjacent = 0 then nan
+                else
+                    float (templateRuns |> Array.sumBy _.SameSidePairs)
+                        / float nAdjacent
+            let controlRate, nControl, nControlSweeps = getRate controlRuns
+            let templateRate, nTemplate, _ = getRate templateRuns
 
-                // ratio of two rates; relative errors add in quadrature
-            let enhancement, enhancementErr =
-                if nControl = 0 || nTemplate = 0 then nan, nan
+                // ratio of two rates; relative errors add in quadrature. If
+                // nothing joined without the template, the ratio is at least
+                // what a single join there would have given.
+            let enhancement, enhancementErr, isLowerBound =
+                if nTemplate = 0 then nan, nan, false
+                elif nControl = 0 then
+                    let rateOfOneJoin = 10000.0 / float nControlSweeps
+                    templateRate / rateOfOneJoin, nan, true
                 else
                     let ratio = templateRate / controlRate
                     ratio,
-                    ratio * sqrt (1.0 / float nControl + 1.0 / float nTemplate)
+                    ratio * sqrt (1.0 / float nControl + 1.0 / float nTemplate),
+                    false
 
             let templatedFraction =
                 if nTemplate = 0 then nan
                 else
                     float (templateRuns |> Array.sumBy _.TemplatedJoins)
                         / float nTemplate
+            let longestChain =
+                templateRuns |> Array.averageBy (fun run -> float run.LongestChain)
             let nEndJoins = templateRuns |> Array.sumBy _.TemplateEndJoins
 
             printfn
-                "%7.2f  %4.2f     %5.3f     %9.3f       %9.3f      %8.2f  %6.2f      %5.2f       %5d"
-                barrier kT occupancy controlRate templateRate
-                enhancement enhancementErr templatedFraction nEndJoins
+                "%7.2f    %7.2f  %4.2f     %5.3f       %5.2f     %9.3f       %9.3f     %s%8.1f   %6.1f       %5.2f     %5.2f       %5d"
+                barrier reduction kT occupancy sameSide controlRate templateRate
+                (if isLowerBound then ">" else " ")
+                enhancement enhancementErr templatedFraction longestChain nEndJoins
             writer.WriteLine(
                 String.Join(
                     ",",
                     [
-                        barrier; kT; occupancy
-                        controlRate; controlErr
-                        templateRate; templateErr
-                        enhancement; enhancementErr; templatedFraction
+                        barrier; reduction; kT; occupancy; sameSide
+                        controlRate; templateRate
+                        enhancement; enhancementErr
+                        (if isLowerBound then 1.0 else 0.0)
+                        templatedFraction; longestChain
                         float nControl; float nTemplate; float nEndJoins
                     ]
                         |> Seq.map (fun (x : float) ->
                             x.ToString(Globalization.CultureInfo.InvariantCulture))))
 
         printfn ""
+        printfn "reduction: how much each stack lowers the strong bond barrier."
         printfn "occupancy: fraction of the template paired when measurement began."
+        printfn "same side: of adjacent template atoms that were both paired, the fraction whose"
+        printfn "   partners were on the same side of the template (and so could join)."
         printfn "enhancement: rate with the template divided by rate without; +/- is its standard error."
+        printfn "   > means nothing joined without the template, so this is a lower bound."
         printfn "templated: fraction of joins (with template) between atoms paired to adjacent template atoms."
+        printfn "longest: atoms in the longest chain of free atoms when a run stopped (with template; average)."
         printfn "end joins: free atoms that bonded to an end of the template (total over runs)."
-        printfn "NaN: no joins were seen, so the value can't be estimated."
+        printfn "NaN: can't be estimated (nothing joined, or no adjacent pairs)."
         printfn "Results written to %s" (Path.GetFullPath csvPath)
