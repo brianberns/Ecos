@@ -284,10 +284,11 @@ module PropertyTests =
         let mutable longForm, longBreak = 0.0, 0.0
         let mutable stackedBreak = 0.0
 
-            // probability of accepting a toggle that changes the energy
-            // by the given amount
-        let accept bondType energyDelta =
-            exp (-Chain.bondBarrier parms bondType / kT)
+            // probability of accepting a toggle of a bond that the given
+            // number of stacks depend on, which changes the energy by the
+            // given amount
+        let accept bondType nStacks energyDelta =
+            exp (-Chain.bondBarrier parms bondType nStacks / kT)
                 * min 1.0 (exp (-energyDelta / kT))
 
         for KeyValue(idA, atomA) in world.AtomMap do
@@ -295,13 +296,14 @@ module PropertyTests =
             for v in Chain.weakBondVectors do
                 match world.OccupancyMap.TryFind (atomA.Location + v) with
                     | Some idB ->
+                        let nStacks = countStacks world idA idB
                         let energy =
                             Chain.bondEnergy parms Weak
-                                + Chain.stackEnergy * float (countStacks world idA idB)
+                                + Chain.stackEnergy * float nStacks
                         if Bonds.weakPartner world idA = Some idB then
-                            weakBreak <- weakBreak + accept Weak -energy
+                            weakBreak <- weakBreak + accept Weak nStacks -energy
                         elif canFormWeakBond world idA idB then
-                            weakForm <- weakForm + accept Weak energy
+                            weakForm <- weakForm + accept Weak nStacks energy
                     | None -> ()
 
             for v in Chain.bondVectors do
@@ -312,12 +314,12 @@ module PropertyTests =
                             Chain.bondEnergy parms Strong
                                 + Chain.stackEnergy * float nStacks
                         if isStronglyBonded world idA idB then
-                            let p = accept Strong -energy
+                            let p = accept Strong nStacks -energy
                             strongBreak <- strongBreak + p
                             if isLong v then longBreak <- longBreak + p
                             if nStacks > 0 then stackedBreak <- stackedBreak + p
                         elif canFormStrongBond world idA idB then
-                            let p = accept Strong energy
+                            let p = accept Strong nStacks energy
                             strongForm <- strongForm + p
                             if isLong v then longForm <- longForm + p
                     | None -> ()
@@ -683,12 +685,34 @@ module PropertyTests =
                 Temperature = 1.0
                 BondParameterMap =
                     Map [
-                        Strong, { Energy = 0; Barrier = 0 }
-                        Weak, { Energy = 3; Barrier = 0 }
+                        Strong, { Energy = 0; Barrier = 0; BarrierStackReduction = 0 }
+                        Weak, { Energy = 3; Barrier = 0; BarrierStackReduction = 0 }
                     ]
             }
         for label, world in stackingWorlds do
             checkEventRates label parms 200000 (Random(0)) world
+
+    /// A stack lowers the barrier, at the right rates: a strong bond
+    /// that a stack depends on has a lower barrier, both to forming and
+    /// to breaking. Here strong bonds have a barrier that keeps them
+    /// from forming or breaking often, except where a stack removes it.
+    /// As above, they have no energy of their own, and weak bonds are
+    /// made stronger. Strong bonds that a stack depends on are counted
+    /// separately from the rest, so both their forming and their
+    /// breaking are checked against the lowered barrier.
+    [<Fact>]
+    let ``A stack lowers the barrier of its strong bonds`` () =
+        let parms =
+            {
+                Temperature = 1.0
+                BondParameterMap =
+                    Map [
+                        Strong, { Energy = 0; Barrier = 3; BarrierStackReduction = 3 }
+                        Weak, { Energy = 3; Barrier = 0; BarrierStackReduction = 0 }
+                    ]
+            }
+        for label, world in stackingWorlds do
+            checkEventRates label parms 200000 (Random(1)) world
 
     /// Strong bonds, at the right rates: eight atoms of random types
     /// are sealed in a box, at a temperature high enough that strong

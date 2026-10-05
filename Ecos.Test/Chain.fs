@@ -14,8 +14,8 @@ module TestParameters =
     /// tests' temperatures are chosen to suit them.
     let standardBondParameterMap =
         Map [
-            Strong, { Energy = 12; Barrier = 6 }
-            Weak, { Energy = 1; Barrier = 0 }
+            Strong, { Energy = 12; Barrier = 6; BarrierStackReduction = 0 }
+            Weak, { Energy = 1; Barrier = 0; BarrierStackReduction = 0 }
         ]
 
     /// Standard parameters at the given temperature.
@@ -128,11 +128,15 @@ module Chain =
         -float parms.BondParameterMap[bondType].Energy
 
     /// Oracle: barrier to forming or breaking a bond of the given type,
-    /// with the given parameters. Either event is first accepted with
-    /// probability exp(-barrier / kT), and then with the usual
-    /// Metropolis probability.
-    let bondBarrier (parms : Parameters) bondType =
-        float parms.BondParameterMap[bondType].Barrier
+    /// with the given parameters, when the given number of stacks
+    /// depend on that bond. Each such stack lowers the barrier, but not
+    /// below zero. Either event is first accepted with probability
+    /// exp(-barrier / kT), and then with the usual Metropolis
+    /// probability.
+    let bondBarrier (parms : Parameters) bondType nStacks =
+        let bondParms = parms.BondParameterMap[bondType]
+        bondParms.Barrier - bondParms.BarrierStackReduction * float nStacks
+            |> max 0.0
 
     /// Oracle: energy of one weak bond, with the standard parameters.
     let weakBondEnergy =
