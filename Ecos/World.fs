@@ -292,14 +292,33 @@ module World =
                 | 3 ->  0,  1
                 | _ -> failwith "Unexpected"
 
-    /// Answers all pairs of items in the given sequence.
-    let private getPairs items =
-        let items = Seq.toArray items
-        [
-            for i = 0 to items.Length - 2 do
-                for j = i + 1 to items.Length - 1 do
-                    items[i], items[j]
-        ]
+    /// Tests bond angles in which the atom is central: C-A-B.
+    let private testCentralBonds
+        maxDotProd atom (partnerIds : _[]) world =
+        seq {
+            for i = 0 to partnerIds.Length - 2 do
+                for j = i + 1 to partnerIds.Length - 1 do
+                    partnerIds[i], partnerIds[j]
+        }
+            |> Seq.forall (fun (idB, idC) ->
+                let atomB = world.AtomMap[idB]
+                let atomC = world.AtomMap[idC]
+                testBondAngle maxDotProd atom atomB atomC)
+
+
+    /// Tests angles in which the atom isn't central: A-B-C.
+    let private testPeripheralBonds
+        maxDotProd id atom bondMap partnerIds world =
+        partnerIds
+            |> Seq.forall (fun idB ->
+                let atomB = world.AtomMap[idB]
+                BondMap.getBonds idB bondMap
+                    |> Seq.forall (fun idC ->
+                        if idC = id then true
+                        else
+                            let atomC = world.AtomMap[idC]
+                            testBondAngle maxDotProd atomB atom atomC))
+
 
     /// Determines whether the given atom's bonds are valid.
     let private testBonds id atom world =
@@ -309,7 +328,9 @@ module World =
 
                     // test the atom's bonds
                 let bondMap = world.BondTypeMap[bondType]
-                let partnerIds = BondMap.getBonds id bondMap
+                let partnerIds =
+                    BondMap.getBonds id bondMap
+                        |> Seq.toArray
                 let isValid =
                     partnerIds
                         |> Seq.forall (fun idB ->
@@ -319,29 +340,11 @@ module World =
 
                     // test bond angles?
                 if isValid then
-
-                        // test angles in which the atom is central: C-A-B
                     let maxDotProd = behavior.MaxDotProduct
-                    let isValid =
-                        getPairs partnerIds
-                            |> Seq.forall (fun (idB, idC) ->
-                                let atomB = world.AtomMap[idB]
-                                let atomC = world.AtomMap[idC]
-                                testBondAngle maxDotProd atom atomB atomC)
-
-                        // test angles in which the atom isn't central: A-B-C
-                    if isValid then
-                        partnerIds
-                            |> Seq.forall (fun idB ->
-                                let atomB = world.AtomMap[idB]
-                                BondMap.getBonds idB bondMap
-                                    |> Seq.forall (fun idC ->
-                                        if idC = id then true
-                                        else
-                                            let atomC = world.AtomMap[idC]
-                                            testBondAngle maxDotProd atomB atom atomC))
-                    else false
-
+                    testCentralBonds
+                        maxDotProd atom partnerIds world
+                        && testPeripheralBonds
+                            maxDotProd id atom bondMap partnerIds world
                 else false)
 
     /// Applies the Metropolis rule:
