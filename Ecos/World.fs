@@ -319,7 +319,6 @@ module World =
                             let atomC = world.AtomMap[idC]
                             testBondAngle maxDotProd atomB atom atomC))
 
-
     /// Determines whether the given atom's bonds are valid.
     let private testBonds id atom world =
         behaviorMap
