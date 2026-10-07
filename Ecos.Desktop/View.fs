@@ -2,6 +2,7 @@ namespace Ecos
 
 open Avalonia
 open Avalonia.Controls
+open Avalonia.Controls.Primitives
 open Avalonia.Controls.Shapes
 open Avalonia.Layout
 open Avalonia.Media
@@ -150,7 +151,7 @@ module View =
                     NumericUpDown.maximum 5
                     NumericUpDown.increment 0.05m
                     NumericUpDown.value (decimal kT)
-                    NumericUpDown.width 110
+                    NumericUpDown.width 120
                     NumericUpDown.margin margin
                     NumericUpDown.horizontalContentAlignment
                         HorizontalAlignment.Right
@@ -163,6 +164,22 @@ module View =
             ]
         ]
 
+    let renderRun run dispatch =
+        ToggleButton.create [
+            ToggleButton.dock Dock.Top
+            ToggleButton.content "Run"
+            ToggleButton.isChecked (run : bool)
+            ToggleButton.margin margin
+            ToggleButton.foreground Colors.Black
+            ToggleButton.background Colors.DarkGray
+            ToggleButton.horizontalContentAlignment HorizontalAlignment.Center
+            ToggleButton.onIsCheckedChanged (fun args ->
+                let btn = args.Source :?> ToggleButton
+                btn.IsChecked.Value
+                    |> SetRun
+                    |> dispatch)
+        ]
+
     let renderControlPanel (model : Model) dispatch =
         DockPanel.create [
             DockPanel.dock Dock.Bottom
@@ -172,6 +189,7 @@ module View =
                 for bondType in BondType.all do
                     renderBondCount bondType model.World
                 renderTemperature model.Parameters.Temperature dispatch
+                renderRun model.Run dispatch
             ]
         ]
 

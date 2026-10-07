@@ -16,6 +16,9 @@ type Model =
 
         /// Current update parameters.
         Parameters : Parameters
+
+        /// Indicates whether updates are enabled.
+        Run : bool
     }
 
 /// Elmish messages.
@@ -26,6 +29,9 @@ type Message =
 
     /// Sets temperature.
     | SetTemperature of float
+
+    /// Turns updates on or off.
+    | SetRun of bool
 
 module Model =
 
@@ -56,29 +62,40 @@ module Model =
                             Weak, weak
                         ]
                 }
+            Run = false
         }
 
     /// Moves N random atoms per tick. Duplicates or omissions are
     /// possible.
     let handleTick model =
-        let world =
-            (model.World, [ 1 .. 25 ])
-                ||> Seq.fold (fun world _ ->
-                    World.sweep
-                        model.Parameters
-                        model.Random
-                        world)
-        { model with World = world }
+        if model.Run then
+            let world =
+                (model.World, [ 1 .. 25 ])
+                    ||> Seq.fold (fun world _ ->
+                        World.sweep
+                            model.Parameters
+                            model.Random
+                            world)
+            { model with World = world }
+        else model
+
+    /// Handlees temperature change.
+    let handleSetTemperature kT model =
+        { model with
+            Parameters = {
+                model.Parameters with
+                    Temperature = kT } }
+
+    /// Handles `run` flag change.
+    let handleSetRun run model =
+        { model with Run = run }
 
     /// Handles a message.
     let update msg model =
         match msg with
             | Tick -> handleTick model
-            | SetTemperature kT ->
-                { model with
-                    Parameters = {
-                        model.Parameters with
-                            Temperature = kT } }
+            | SetTemperature kT -> handleSetTemperature kT model
+            | SetRun run -> handleSetRun run model
 
     /// Subscribable timer.
     let timer : Subscribe<_> =
