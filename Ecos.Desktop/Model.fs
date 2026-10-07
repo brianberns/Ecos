@@ -19,6 +19,9 @@ type Model =
 
         /// Indicates whether updates are enabled.
         Run : bool
+
+        /// Number of sweeps per timer tick.
+        Speed : int
     }
 
 /// Elmish messages.
@@ -32,6 +35,9 @@ type Message =
 
     /// Turns updates on or off.
     | SetRun of bool
+
+    /// Sets speed.
+    | SetSpeed of int
 
 module Model =
 
@@ -63,6 +69,7 @@ module Model =
                         ]
                 }
             Run = false
+            Speed = 25
         }
 
     /// Moves N random atoms per tick. Duplicates or omissions are
@@ -70,7 +77,7 @@ module Model =
     let handleTick model =
         if model.Run then
             let world =
-                (model.World, [ 1 .. 25 ])
+                (model.World, [ 1 .. model.Speed ])
                     ||> Seq.fold (fun world _ ->
                         World.sweep
                             model.Parameters
@@ -90,12 +97,17 @@ module Model =
     let handleSetRun run model =
         { model with Run = run }
 
+    /// Handles speed change.
+    let handleSetSpeed speed model =
+        { model with Speed = speed }
+
     /// Handles a message.
     let update msg model =
         match msg with
             | Tick -> handleTick model
             | SetTemperature kT -> handleSetTemperature kT model
             | SetRun run -> handleSetRun run model
+            | SetSpeed speed -> handleSetSpeed speed model
 
     /// Subscribable timer.
     let timer : Subscribe<_> =

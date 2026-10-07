@@ -176,9 +176,35 @@ module View =
                 HorizontalAlignment.Center
             ToggleButton.onIsCheckedChanged (fun args ->
                 let btn = args.Source :?> ToggleButton
-                btn.IsChecked.Value
-                    |> SetRun
-                    |> dispatch)
+                if btn.IsChecked.HasValue then
+                    btn.IsChecked.Value
+                        |> SetRun
+                        |> dispatch)
+        ]
+
+    let renderSpeed (speed : int) dispatch =
+        StackPanel.create [
+            StackPanel.dock Dock.Top
+            StackPanel.orientation Orientation.Horizontal
+            StackPanel.children [
+                renderLabel "Speed:" labelColumnWidth
+                NumericUpDown.create [
+                    NumericUpDown.minimum 1
+                    NumericUpDown.maximum 50
+                    NumericUpDown.increment 1
+                    NumericUpDown.value speed
+                    NumericUpDown.formatString "F0"
+                    NumericUpDown.width 120
+                    NumericUpDown.margin margin
+                    NumericUpDown.horizontalContentAlignment
+                        HorizontalAlignment.Right
+                    NumericUpDown.onValueChanged (fun value ->
+                        if value.HasValue then
+                            int value.Value
+                                |> SetSpeed
+                                |> dispatch)
+                ]
+            ]
         ]
 
     let renderControlPanel (model : Model) dispatch =
@@ -186,11 +212,14 @@ module View =
             DockPanel.dock Dock.Bottom
             DockPanel.background Colors.LightGray
             DockPanel.children [
+                (*
                 renderAtomCount model.World
                 for bondType in BondType.all do
                     renderBondCount bondType model.World
+                *)
                 renderTemperature model.Parameters.Temperature dispatch
                 renderRun model.Run dispatch
+                renderSpeed model.Speed dispatch
             ]
         ]
 
