@@ -172,7 +172,8 @@ module View =
             ToggleButton.margin margin
             ToggleButton.foreground Colors.Black
             ToggleButton.background Colors.DarkGray
-            ToggleButton.horizontalContentAlignment HorizontalAlignment.Center
+            ToggleButton.horizontalContentAlignment
+                HorizontalAlignment.Center
             ToggleButton.onIsCheckedChanged (fun args ->
                 let btn = args.Source :?> ToggleButton
                 btn.IsChecked.Value
