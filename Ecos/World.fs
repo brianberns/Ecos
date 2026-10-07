@@ -313,11 +313,10 @@ module World =
             |> Seq.forall (fun idB ->
                 let atomB = world.AtomMap[idB]
                 BondMap.getBonds idB bondMap
+                    |> Seq.where ((<>) id)
                     |> Seq.forall (fun idC ->
-                        if idC = id then true
-                        else
-                            let atomC = world.AtomMap[idC]
-                            testBondAngle maxDotProd atomB atom atomC))
+                        world.AtomMap[idC]
+                            |> testBondAngle maxDotProd atomB atom))
 
     /// Determines whether the given atom's bonds are valid.
     let private testBonds id atom world =
