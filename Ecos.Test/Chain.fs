@@ -25,6 +25,20 @@ module TestParameters =
             BondParameterMap = standardBondParameterMap
         }
 
+    /// Standard parameters at the given temperature, except that
+    /// strong bonds can never form or break: their barrier is
+    /// impassable. For tests whose exact enumeration treats strong
+    /// bonds as fixed.
+    let createFrozen kT =
+        let strong =
+            { standardBondParameterMap[Strong] with
+                Barrier = System.Double.PositiveInfinity }
+        {
+            Temperature = kT
+            BondParameterMap =
+                Map.add Strong strong standardBondParameterMap
+        }
+
 module World =
 
     /// Helper function for updating a world with the given
@@ -49,22 +63,66 @@ module Bonds =
     let strongBondMap (world : World) =
         world.BondTypeMap[BondType.Strong]
 
-    /// Weak bonds, mapping each bonded atom to its partners (at most
-    /// one each, which isValid checks).
-    let weakBondSets (world : World) =
+    /// Weak bonds, mapping each bonded atom to its partners.
+    let weakBondMap (world : World) =
         world.BondTypeMap[BondType.Weak]
 
-    /// Weak bonds, mapping each bonded atom to its partner. Only
-    /// meaningful if each atom has at most one weak bond.
-    let weakBondMap (world : World) : Map<AtomId, AtomId> =
-        weakBondSets world
-            |> Map.map (fun _ ids -> Seq.head ids)
-
-    /// The given atom's weak bond partner, if any.
-    let weakPartner (world : World) id =
-        weakBondSets world
+    /// The given atom's weak bond partners.
+    let weakPartners (world : World) id =
+        weakBondMap world
             |> Map.tryFind id
-            |> Option.map Seq.head
+            |> Option.defaultValue Set.empty
+
+    /// Are the given atoms weakly bonded?
+    let areWeaklyBonded (world : World) idA idB =
+        (weakPartners world idA).Contains idB
+
+    /// Are the given atoms strongly bonded?
+    let areStronglyBonded (world : World) idA idB =
+        strongBondMap world
+            |> Map.tryFind idA
+            |> Option.exists (Set.contains idB)
+
+    /// The bonds in the given bond map, as (smaller ID, larger ID)
+    /// pairs.
+    let private toPairs (bondMap : BondMap) =
+        set [
+            for KeyValue(idA, ids) in bondMap do
+                for idB in ids do
+                    if idA < idB then idA, idB
+        ]
+
+    /// Strong bonds, as (smaller ID, larger ID) pairs.
+    let strongBonds world =
+        toPairs (strongBondMap world)
+
+    /// Weak bonds, as (smaller ID, larger ID) pairs.
+    let weakBonds world =
+        toPairs (weakBondMap world)
+
+    /// Oracle: is the angle between an atom's two bonds of the given
+    /// type wide enough, when the atom is at the given center and its
+    /// partners are at locations a and b? The dot product of the two
+    /// vectors from the center must be at most a limit that depends on
+    /// the bond type:
+    /// * Strong, -4: a strand can't bend sharply. Two of the shortest
+    ///   bonds must be exactly in line.
+    /// * Weak, -3: an atom's two weak partners are on roughly opposite
+    ///   sides of it (about 125 degrees or more apart), which is also
+    ///   too far apart for them to be strongly bonded to each other.
+    let isAngleAllowed bondType (center : Point) (a : Point) (b : Point) =
+        let da = a - center
+        let db = b - center
+        let limit =
+            match bondType with
+                | Strong -> -4
+                | Weak -> -3
+        da.X * db.X + da.Y * db.Y <= limit
+
+    /// Oracle: are locations a and b on roughly opposite sides of the
+    /// given center? An atom's two weak partners must be.
+    let areOpposite center a b =
+        isAngleAllowed Weak center a b
 
 /// Geometry helpers.
 module Geometry =
@@ -178,44 +236,31 @@ module Chain =
                         if id > 0 then World.tryAddStrongBond (id - 1) id world
                         else Some world))
 
-    /// Atom locations in ID order.
-    let private locationsOf (world : World) =
-        world.AtomMap
-            |> Map.toArray
-            |> Array.map (fun (_, atom) -> atom.Location)
-
-    /// Grows a random linear chain of n atoms, sampled uniformly from
-    /// all valid conformations (no overlapping atoms and no crossed
-    /// bonds). This is the equilibrium ensemble of the athermal model,
-    /// so the chain needs no further equilibration.
+    /// Grows a random linear chain of n atoms, one atom at a time,
+    /// starting at the origin. Each atom is placed by trying random
+    /// bond vectors from the previous atom until one is valid (no
+    /// overlap, no crossed bond, and no bond angle too sharp), starting
+    /// the whole chain over if it gets stuck.
     ///
-    /// Short chains use simple sampling: pick each bond uniformly and
-    /// start over on any overlap or crossing. That gets exponentially
-    /// slow as n grows, so longer chains use dimerization: join two
-    /// independent uniform half-chains with a random bond, and start
-    /// over (both halves) on any overlap or crossing. Both methods are
-    /// exact.
+    /// The result is a valid chain, but it isn't a uniform sample of
+    /// all valid chains, since chains with more ways to continue are
+    /// favored. So it's a starting point for tests of rules and rates,
+    /// not a sample from equilibrium.
     let rec grow (rng : Random) n : World =
-        if n <= 8 then
-            let rec simple () =
-                let locs =
-                    Array.scan
-                        (fun loc _ -> loc + bondVectors[rng.Next bondVectors.Length])
-                        (Point.create (0, 0))
-                        (Array.zeroCreate<unit> (n - 1))
-                match tryAppend locs World.empty with
-                    | Some world -> world
-                    | None -> simple ()
-            simple ()
-        else
-            let left = grow rng (n / 2)
-            let right = locationsOf (grow rng (n - n / 2))
-            let last = left.AtomMap[left.AtomMap.Count - 1].Location
-            let offset =
-                last + bondVectors[rng.Next bondVectors.Length] - right[0]
-            match tryAppend (right |> Array.map ((+) offset)) left with
-                | Some world -> world
-                | None -> grow rng n
+        let rec extend tries (world : World) =
+            if world.AtomMap.Count = n then Some world
+            elif tries = 0 then None
+            else
+                let last = world.AtomMap[world.AtomMap.Count - 1].Location
+                let loc = last + bondVectors[rng.Next bondVectors.Length]
+                match tryAppend [| loc |] world with
+                    | Some world -> extend 1000 world
+                    | None -> extend (tries - 1) world
+        let start =
+            World.addAtom (Atom.create (Point.create (0, 0))) World.empty
+        match extend 1000 start with
+            | Some world -> world
+            | None -> grow rng n
 
     /// Adds n free (unbonded) atoms of random types at random
     /// locations near the origin, packed closely enough that weak
@@ -295,12 +340,17 @@ module Chain =
     let sweep kT rng (world : World) =
         Ecos.World.sweep (TestParameters.create kT) rng world
 
-    /// Performs the given number of sweeps at the given temperature.
-    let sweeps kT rng count world =
+    /// Performs the given number of sweeps with the given parameters.
+    let sweepsWith parms rng count (world : World) =
         let mutable world = world
         for _ in 1 .. count do
-            world <- sweep kT rng world
+            world <- Ecos.World.sweep parms rng world
         world
+
+    /// Performs the given number of sweeps with the standard
+    /// parameters at the given temperature.
+    let sweeps kT rng count world =
+        sweepsWith (TestParameters.create kT) rng count world
 
     /// Atom locations as floating-point (x, y) pairs, in ID order.
     let private locations (world : World) =

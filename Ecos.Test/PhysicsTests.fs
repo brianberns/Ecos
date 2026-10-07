@@ -4,178 +4,19 @@ open System
 open Xunit
 open Ecos
 
-/// Checks that a single chain reproduces known polymer physics.
+/// Checks that the model reproduces known physics: small systems
+/// match their exact equilibrium distributions, and chains diffuse as
+/// expected.
 ///
-/// Each measurement averages over many independent chains, each grown
-/// in equilibrium (see Chain.grow) and then evolved by World.update.
-/// Seeds are fixed, so results are reproducible.
+/// Each measurement averages over many independent runs. Seeds are
+/// fixed, so results are reproducible.
 module PhysicsTests =
 
-    /// Chain lengths to measure.
-    let private lengths = [ 8; 16; 32; 64 ]
-
-    /// Independent chains per length.
-    let private nChains = 32
-
-    /// Chain size: a single chain with excluded volume is a
-    /// self-avoiding walk, whose size scales as R ~ N^nu, where
-    /// nu = 3/4 exactly in 2D. (A random walk that can cross itself
-    /// would give 1/2, and a rigid rod 1.)
-    ///
-    /// Note that chains are grown already in equilibrium, and the
-    /// sweeps below are far shorter than a long chain's relaxation
-    /// time. So this mainly checks the excluded-volume and bond rules
-    /// (via Chain.grow), not World.update. The trimer test below checks
-    /// that World.update itself reaches equilibrium.
-    [<Fact>]
-    let ``Chain size scales with the 2D Flory exponent`` () =
-
-        let nSamples, sampleInterval = 20, 50   // sweeps
-
-            // mean squared radius of gyration for each chain length
-        let points =
-            [
-                for n in lengths do
-                    let rg2s =
-                        Array.Parallel.init nChains (fun iChain ->
-                            let rng = Random(1000 * n + iChain)
-                            let mutable world = Chain.grow rng n
-                            Array.init nSamples (fun _ ->
-                                world <- Chain.sweeps Chain.athermalKT rng sampleInterval world
-                                Chain.radiusOfGyrationSquared world))
-                    float n, Array.average (Array.concat rg2s)
-            ]
-
-            // <Rg^2> ~ N^(2 nu). Short chains show corrections to scaling
-            // that push the estimate slightly above 3/4, hence the tolerance.
-        let nu = Stats.logLogSlope points / 2.0
-        Assert.InRange(nu, 0.70, 0.80)
-
-    /// Runs the given world for burnIn sweeps, then takes the given
-    /// number of samples, sampleInterval sweeps apart, applying the
-    /// given function to the world each time.
-    ///
-    /// This is for tests whose exact enumeration treats strong bonds
-    /// as fixed. Strong bonds can form and break, but each attempt must
-    /// cross a barrier, which at a low enough temperature essentially
-    /// never happens in the length of a test. This fails if it does,
-    /// since the enumeration would no longer cover the states sampled.
-    let private sampleWithFixedStrongBonds
-        kT rng burnIn sampleInterval nSamples (observe : World -> 'sample) (world : World) =
-        let strongBonds = Bonds.strongBondMap world
-        let mutable world = Chain.sweeps kT rng burnIn world
-        let samples = Array.zeroCreate<'sample> nSamples
-        for i in 0 .. nSamples - 1 do
-            world <- Chain.sweeps kT rng sampleInterval world
-            samples[i] <- observe world
-        Assert.True(
-            (Bonds.strongBondMap world = strongBonds),
-            $"A strong bond formed or broke at kT = {kT}. Use a lower temperature.")
-        samples
-
-    /// Equilibrium: update's events (hops and weak bond toggles) are
-    /// proposed symmetrically, and are accepted only when valid and
-    /// then with the Metropolis probability, so in the long run each
-    /// state's probability is proportional to its Boltzmann factor
-    /// exp(-E/kT).
-    ///
-    /// For a three-atom chain we can enumerate all states exactly. A
-    /// state is a conformation, identified by end-to-end vector e,
-    /// plus whether the ends are weakly bonded. The middle atom is
-    /// strongly bonded to both ends, so it can never pair with either
-    /// of them. The ends can pair only if their types are complementary
-    /// and e is an allowed weak bond vector, in which case that
-    /// conformation has two states: unpaired (E = 0) and paired
-    /// (E = weakBondEnergy). We compare the exact distribution against
-    /// simulations started far from equilibrium (a straight rod).
-    let private checkTrimer (typeA, typeB, typeC) kT =
-
-            // exact Boltzmann weight of each state
-        let exact =
-            [
-                for b1 in Chain.bondVectors do
-                    for b2 in Chain.bondVectors do
-                        let e = b1 + b2
-                        if abs e.X >= 2 || abs e.Y >= 2 then   // end atoms don't overlap
-                            e
-            ]
-                |> List.countBy id
-                |> List.collect (fun (e, count) ->
-                    [
-                        (e, false), float count
-                        if Chain.canPair typeA typeC
-                            && Array.contains e Chain.weakBondVectors then
-                            (e, true), float count * exp (-Chain.weakBondEnergy / kT)
-                    ])
-                |> Map.ofList
-        let totalWeight = exact.Values |> Seq.sum
-
-            // sample states from independent simulations
-        let nRuns, nSamples = 8, 5000
-        let burnIn, sampleInterval = 200, 50   // sweeps; the interval keeps samples roughly uncorrelated
-        let samples =
-            Array.Parallel.init nRuns (fun iRun ->
-                let rng = Random(iRun)
-                let atom typ (x, y) =
-                    { Type = typ; Location = Point.create (x, y) }
-                let mutable world =
-                    World.empty
-                        |> World.addAtom (atom typeA (0, 0))
-                        |> World.addAtom (atom typeB (3, 0))
-                        |> World.addAtom (atom typeC (6, 0))
-                        |> World.addStrongBond 0 1
-                        |> World.addStrongBond 1 2
-                world
-                    |> sampleWithFixedStrongBonds
-                        kT rng burnIn sampleInterval nSamples
-                        (fun world ->
-                            let e = world.AtomMap[2].Location - world.AtomMap[0].Location
-                            let paired = Bonds.weakPartner world 0 = Some 2
-                            e, paired))
-                |> Array.concat
-        let observed = samples |> Array.countBy id |> Map.ofArray
-
-            // every sample is a valid state
-        for state in observed.Keys do
-            Assert.True(exact.ContainsKey state, $"Invalid state {state}")
-
-            // chi-squared goodness of fit against the Boltzmann distribution
-        let chi2 =
-            exact
-                |> Map.toSeq
-                |> Seq.sumBy (fun (state, weight) ->
-                    let expected =
-                        float samples.Length * weight / totalWeight
-                    let obs =
-                        observed
-                            |> Map.tryFind state
-                            |> Option.defaultValue 0
-                            |> float
-                    (obs - expected) ** 2.0 / expected)
-        let df = float (exact.Count - 1)
-        let limit = df + 5.0 * sqrt (2.0 * df)   // mean + 5 standard deviations
-        Assert.True(chi2 < limit, $"chi^2 = {chi2:F1}, limit {limit:F1} (df = {df})")
-
-    /// Athermal limit: with no possible weak bonds, every valid
-    /// conformation is equally likely.
-    [<Fact>]
-    let ``Trimer samples all conformations uniformly`` () =
-        checkTrimer (AtomType.W, AtomType.W, AtomType.W) Chain.athermalKT
-
-    /// Pairing: complementary ends spend time weakly bonded, with
-    /// paired and unpaired states weighted by exactly the Boltzmann
-    /// factor.
-    [<Fact>]
-    let ``Trimer with complementary ends follows the Boltzmann distribution`` () =
-        checkTrimer (AtomType.W, AtomType.Y, AtomType.X) 0.5
-
-    /// Selectivity: the ends aren't complementary, and the middle atom
-    /// is complementary to one end but strongly bonded to it, so no
-    /// weak bond can ever form and every conformation is equally
-    /// likely.
-    [<Fact>]
-    let ``Trimer with no allowed pairs samples uniformly`` () =
-        checkTrimer (AtomType.W, AtomType.X, AtomType.Y) 0.5
+    /// Oracle: do atoms at the given locations overlap? Each atom
+    /// occupies a 2x2 square, so they overlap if they are closer than
+    /// 2 along both axes.
+    let private overlaps (a : Point) (b : Point) =
+        abs (a.X - b.X) < 2 && abs (a.Y - b.Y) < 2
 
     /// Chi-squared goodness of fit of observed counts against exact
     /// weights. Bins expected to hold fewer than 5 samples are merged
@@ -206,137 +47,108 @@ module PhysicsTests =
         let limit = df + 5.0 * sqrt (2.0 * df)   // mean + 5 standard deviations
         Assert.True(chi2 < limit, $"{name}: chi^2 = {chi2:F1}, limit {limit:F1} (df = {df})")
 
-    /// Stacking: a five-atom chain with types W-W-Y-X-X can fold into
-    /// a hairpin. Either W can pair with either X (the Y in the middle
-    /// pairs with nothing), so there are four possible weak bonds:
-    /// 0-3, 0-4, 1-3, and 1-4. Two of them can exist at once, and then
-    /// they always form a stack, since atoms 0 and 1 are strongly
-    /// bonded, and so are atoms 3 and 4.
+    /// Runs nRuns independent copies of the given world with the given
+    /// parameters. Each runs for burnIn sweeps, and then takes nSamples
+    /// samples, sampleInterval sweeps apart, by applying the given
+    /// function to the world.
+    let private sample
+        parms nRuns burnIn sampleInterval nSamples
+        (observe : World -> 'sample) (world : World) =
+        Array.Parallel.init nRuns (fun iRun ->
+            let rng = Random(iRun)
+            let mutable world = Chain.sweepsWith parms rng burnIn world
+            let samples = Array.zeroCreate<'sample> nSamples
+            for i in 0 .. nSamples - 1 do
+                world <- Chain.sweepsWith parms rng sampleInterval world
+                samples[i] <- observe world
+            samples)
+            |> Array.concat
+
+    /// Adds a dictionary entry, or adds to an existing one.
+    let private addWeight (dict : Collections.Generic.Dictionary<'key, float>) key weight =
+        dict[key] <-
+            match dict.TryGetValue key with
+                | true, w -> w + weight
+                | _ -> weight
+
+    /// Converts a dictionary to a map.
+    let private toMap (dict : Collections.Generic.Dictionary<'key, float>) =
+        dict
+            |> Seq.map (fun (KeyValue(key, weight)) -> key, weight)
+            |> Map.ofSeq
+
+    /// Equilibrium of a chain: update's hops are proposed symmetrically
+    /// and accepted only when valid, so in the long run every valid
+    /// conformation of a chain is equally likely.
     ///
-    /// We enumerate every state exactly: each conformation of the chain
-    /// without overlaps or crossed strong bonds (which hops can't
-    /// create), with each set of weak bonds that are in range and cross
-    /// nothing. A state's energy is weakBondEnergy per weak bond plus
-    /// stackEnergy per stack. The simulation must match the exact
-    /// distribution of both the set of weak bonds and the end-to-end
-    /// vector.
-    [<Fact>]
-    let ``Hairpin with stacked pairs follows the Boltzmann distribution`` () =
-        let kT = 0.5   // cold enough that strong bonds stay fixed
-        let n = 5
-        let types = [| AtomType.W; AtomType.W; AtomType.Y; AtomType.X; AtomType.X |]
-        let overlaps (a : Point) (b : Point) =
-            abs (a.X - b.X) < 2 && abs (a.Y - b.Y) < 2
-        let strongBonds = [ for i in 0 .. n - 2 -> i, i + 1 ]
-        let isStrong (i, j) = abs (i - j) = 1
-        let sharesAtom (i, j) (k, l) = i = k || i = l || j = k || j = l
+    /// For a short chain, we can enumerate the conformations exactly: no
+    /// two atoms overlap, the angle at every interior atom is wide
+    /// enough, and no two bonds cross. (Hops can't create a crossing,
+    /// and the chain starts without one.) We compare the exact
+    /// distribution of the end-to-end vector against simulations started
+    /// far from equilibrium (a straight rod).
+    ///
+    /// All atoms are type W, so no weak bonds can form, and strong
+    /// bonds are frozen, so the chain can't break or close into a ring.
+    let private checkChain n =
 
-            // weak bonds that the types allow
-        let candidates =
-            [
-                for i in 0 .. n - 1 do
-                    for j in i + 1 .. n - 1 do
-                        if Chain.canPair types[i] types[j] && not (isStrong (i, j)) then
-                            i, j
-            ]
-
-            // number of stacks formed by the given weak bonds
-        let countStacks (bonds : list<int * int>) =
-            List.sum [
-                for iBond, (a, b) in List.indexed bonds do
-                    for c, d in List.skip (iBond + 1) bonds do
-                        if (isStrong (a, c) && isStrong (b, d))
-                            || (isStrong (a, d) && isStrong (b, c)) then 1
-            ]
-
-            // exact Boltzmann weights of weak bond sets and of end-to-end vectors
-        let bondSetWeights = Collections.Generic.Dictionary<list<int * int>, float>()
-        let endToEndWeights = Collections.Generic.Dictionary<Point, float>()
-        let add (dict : Collections.Generic.Dictionary<_, float>) key weight =
-            dict[key] <- (match dict.TryGetValue key with | true, w -> w + weight | _ -> weight)
+            // exact number of conformations for each end-to-end vector
+        let counts = Collections.Generic.Dictionary<Point, float>()
         let locs = Array.zeroCreate<Point> n
+        let crosses a b c d =
+            Geometry.segmentsIntersect locs[a] locs[b] locs[c] locs[d]
         let rec enumerate i =
             if i = n then
-                let crosses (a, b) (c, d) =
-                    not (sharesAtom (a, b) (c, d))
-                        && Geometry.segmentsIntersect locs[a] locs[b] locs[c] locs[d]
-                let anyStrongCrossing =
-                    strongBonds
-                        |> List.exists (fun bondA ->
-                            strongBonds |> List.exists (crosses bondA))
-                if not anyStrongCrossing then
-
-                        // weak bonds that are in range and cross no strong bond
-                    let feasible =
-                        candidates
-                            |> List.filter (fun (i, j) ->
-                                Array.contains (locs[j] - locs[i]) Chain.weakBondVectors
-                                    && not (strongBonds |> List.exists (crosses (i, j))))
-
-                        // every set of feasible weak bonds: none, one, or two that
-                        // share no atom and don't cross each other
-                    let bondSets =
-                        [
-                            []
-                            for bond in feasible do [ bond ]
-                            for iBond, bondA in List.indexed feasible do
-                                for bondB in List.skip (iBond + 1) feasible do
-                                    if not (sharesAtom bondA bondB) && not (crosses bondA bondB) then
-                                        [ bondA; bondB ]
-                        ]
-                    for bonds in bondSets do
-                        let energy =
-                            Chain.weakBondEnergy * float bonds.Length
-                                + Chain.stackEnergy * float (countStacks bonds)
-                        let weight = exp (-energy / kT)
-                        add bondSetWeights bonds weight
-                        add endToEndWeights (locs[n - 1] - locs[0]) weight
+                let anyCrossing =
+                    List.exists id [
+                        for a in 0 .. n - 2 do
+                            for c in a + 2 .. n - 2 do   // bonds a-(a+1) and c-(c+1) share no atom
+                                crosses a (a + 1) c (c + 1)
+                    ]
+                if not anyCrossing then
+                    addWeight counts (locs[n - 1] - locs[0]) 1.0
             else
                 for v in Chain.bondVectors do
                     let loc = locs[i - 1] + v
-                    if Seq.forall (fun j -> not (overlaps loc locs[j])) (seq { 0 .. i - 1 }) then
+                    let clear =
+                        Seq.forall (fun j -> not (overlaps loc locs[j])) (seq { 0 .. i - 1 })
+                    let angleOk =
+                        i < 2
+                            || Bonds.isAngleAllowed Strong locs[i - 1] locs[i - 2] loc
+                    if clear && angleOk then
                         locs[i] <- loc
                         enumerate (i + 1)
         locs[0] <- Point.create (0, 0)
         enumerate 1
-        let toMap (dict : Collections.Generic.Dictionary<_, float>) =
-            dict |> Seq.map (fun (KeyValue(key, weight)) -> key, weight) |> Map.ofSeq
 
-            // make sure stacked states are actually part of the test
-        Assert.True(
-            bondSetWeights.Keys |> Seq.exists (fun bonds -> countStacks bonds > 0),
-            "No stacked states enumerated")
-
-            // sample states from independent simulations
-        let nRuns, nSamples = 8, 600
-        let burnIn, sampleInterval = 2000, 2000   // sweeps; stacked pairs break slowly when cold, so samples must be far apart
+            // sample end-to-end vectors, starting from a straight rod
+        let world =
+            (World.empty, [ 0 .. n - 1 ])
+                ||> List.fold (fun world i ->
+                    let world =
+                        World.addAtom (Atom.create (Point.create (2 * i, 0))) world
+                    if i > 0 then World.addStrongBond (i - 1) i world
+                    else world)
         let samples =
-            Array.Parallel.init nRuns (fun iRun ->
-                let rng = Random(iRun)
-                let mutable world =
-                    (World.empty, Array.indexed types)
-                        ||> Array.fold (fun world (i, typ) ->
-                            let world =
-                                World.addAtom
-                                    { Type = typ; Location = Point.create (3 * i, 0) }
-                                    world
-                            if i > 0 then World.addStrongBond (i - 1) i world
-                            else world)
-                world
-                    |> sampleWithFixedStrongBonds
-                        kT rng burnIn sampleInterval nSamples
-                        (fun world ->
-                            let bonds =
-                                (Bonds.weakBondMap world)
-                                    |> Map.toList
-                                    |> List.filter (fun (i, j) -> i < j)
-                            let endToEnd =
-                                world.AtomMap[n - 1].Location - world.AtomMap[0].Location
-                            bonds, endToEnd))
-                |> Array.concat
+            world
+                |> sample
+                    (TestParameters.createFrozen Chain.athermalKT)
+                    8 (200 * n) (20 * n) 5000
+                    (fun world ->
+                        world.AtomMap[n - 1].Location - world.AtomMap[0].Location)
 
-        checkFit "Weak bonds" (toMap bondSetWeights) (Array.map fst samples)
-        checkFit "End-to-end vector" (toMap endToEndWeights) (Array.map snd samples)
+        checkFit $"End-to-end vector, N = {n}" (toMap counts) samples
+
+    /// A three-atom chain: the simplest case with a bond angle.
+    [<Fact>]
+    let ``Trimer samples all conformations uniformly`` () =
+        checkChain 3
+
+    /// A five-atom chain: long enough for atoms that aren't neighbors
+    /// to get in each other's way.
+    [<Fact>]
+    let ``Pentamer samples all conformations uniformly`` () =
+        checkChain 5
 
     /// The bond between two atoms, if any.
     type private Bond = NoBond | WeakBond | StrongBond
@@ -374,8 +186,7 @@ module PhysicsTests =
                 for a in locs do
                     for b in locs do
                         let d = b - a
-                        if abs d.X >= 2 || abs d.Y >= 2 then   // atoms don't overlap
-                            d
+                        if not (overlaps a b) then d
             ]
                 |> List.countBy id
                 |> List.collect (fun (d, count) ->
@@ -394,39 +205,163 @@ module PhysicsTests =
                 exact.Keys |> Seq.exists (fun (_, b) -> b = bond),
                 $"No {bond} states enumerated")
 
-            // sample states from independent simulations
-        let nRuns, nSamples = 8, 3000
-        let burnIn, sampleInterval = 2000, 1000   // sweeps; a strong bond lasts hundreds of sweeps, so samples must be far apart
+            // sample states. A strong bond lasts hundreds of sweeps, so
+            // samples must be far apart.
         let inBox (loc : Point) = abs loc.X <= size && abs loc.Y <= size
         let samples =
-            Array.Parallel.init nRuns (fun iRun ->
-                let rng = Random(iRun)
-                let mutable world =
-                    World.empty
-                        |> World.addAtom { Type = AtomType.W; Location = Point.create (-size, -size) }
-                        |> World.addAtom { Type = AtomType.X; Location = Point.create (size, size) }
-                        |> Chain.addBox size
-                world <- Chain.sweeps kT rng burnIn world
-                let samples = Array.zeroCreate nSamples
-                for i in 0 .. nSamples - 1 do
-                    world <- Chain.sweeps kT rng sampleInterval world
-                    let a = world.AtomMap[0].Location
-                    let b = world.AtomMap[1].Location
-                    Assert.True(inBox a && inBox b, $"Atom escaped the box: {a}, {b}")
-                    let bond =
-                        if (Bonds.strongBondMap world).ContainsKey 0 then StrongBond
-                        elif (Bonds.weakBondSets world).ContainsKey 0 then WeakBond
-                        else NoBond
-                    samples[i] <- b - a, bond
-                samples)
-                |> Array.concat
+            World.empty
+                |> World.addAtom { Type = AtomType.W; Location = Point.create (-size, -size) }
+                |> World.addAtom { Type = AtomType.X; Location = Point.create (size, size) }
+                |> Chain.addBox size
+                |> sample
+                    (TestParameters.create kT) 8 2000 1000 3000
+                    (fun world ->
+                        let a = world.AtomMap[0].Location
+                        let b = world.AtomMap[1].Location
+                        Assert.True(inBox a && inBox b, $"Atom escaped the box: {a}, {b}")
+                        let bond =
+                            if Bonds.areStronglyBonded world 0 1 then StrongBond
+                            elif Bonds.areWeaklyBonded world 0 1 then WeakBond
+                            else NoBond
+                        b - a, bond)
 
         checkFit "Separation and bond" exact samples
 
+    /// Pairing, opposite sides, and stacking: two dimers (W0-W1 and
+    /// X2-X3, each strongly bonded) are confined to a small box. Either
+    /// W can pair with either X, so there are four possible weak bonds:
+    /// 0-2, 0-3, 1-2, and 1-3.
+    ///
+    /// We enumerate every state exactly: each placement of the two
+    /// dimers in the box, without overlaps and without their strong
+    /// bonds crossing (which hops can't cause), with each set of weak
+    /// bonds that are in range and can exist together. Two weak bonds
+    /// that share an atom need that atom's partners to be on opposite
+    /// sides of it; two that don't share an atom must not cross. Those
+    /// always form a stack, since their ends are strongly bonded on
+    /// both sides. A state's energy is weakBondEnergy per weak bond
+    /// plus stackEnergy per stack.
+    ///
+    /// The simulation must match the exact distribution of both the
+    /// set of weak bonds and the separation of atoms 0 and 2. Strong
+    /// bonds are frozen, so the dimers can't break or bond to each
+    /// other.
+    [<Fact>]
+    let ``Two dimers in a box follow the Boltzmann distribution`` () =
+        let size = 2   // atom locations have |x| <= size and |y| <= size
+        let kT = 1.0
+        let candidates = [ 0, 2; 0, 3; 1, 2; 1, 3 ]
+        let isStrong (i, j) = (min i j, max i j) = (0, 1) || (min i j, max i j) = (2, 3)
+        let sharesAtom (i, j) (k, l) = i = k || i = l || j = k || j = l
+
+            // number of stacks formed by the given weak bonds
+        let countStacks (bonds : list<int * int>) =
+            List.sum [
+                for iBond, (a, b) in List.indexed bonds do
+                    for c, d in List.skip (iBond + 1) bonds do
+                        if (isStrong (a, c) && isStrong (b, d))
+                            || (isStrong (a, d) && isStrong (b, c)) then 1
+            ]
+
+            // every placement of a dimer in the box
+        let inBox (loc : Point) = abs loc.X <= size && abs loc.Y <= size
+        let dimers =
+            [|
+                for x in -size .. size do
+                    for y in -size .. size do
+                        for v in Chain.bondVectors do
+                            let a = Point.create (x, y)
+                            if inBox (a + v) then a, a + v
+            |]
+
+            // exact Boltzmann weights of weak bond sets and of separations
+        let bondSetWeights = Collections.Generic.Dictionary<list<int * int>, float>()
+        let separationWeights = Collections.Generic.Dictionary<Point, float>()
+        for loc0, loc1 in dimers do
+            for loc2, loc3 in dimers do
+                let locs = [| loc0; loc1; loc2; loc3 |]
+                let clear =
+                    not (overlaps loc0 loc2) && not (overlaps loc0 loc3)
+                        && not (overlaps loc1 loc2) && not (overlaps loc1 loc3)
+                let crosses (a, b) (c, d) =
+                    Geometry.segmentsIntersect locs[a] locs[b] locs[c] locs[d]
+                if clear && not (crosses (0, 1) (2, 3)) then
+
+                        // weak bonds that are in range. (Each shares an atom
+                        // with both strong bonds, so can't cross either.)
+                    let feasible =
+                        candidates
+                            |> List.filter (fun (i, j) ->
+                                Array.contains (locs[j] - locs[i]) Chain.weakBondVectors)
+
+                        // can the two given weak bonds exist together?
+                    let compatible (a, b) (c, d) =
+                        if sharesAtom (a, b) (c, d) then
+                            let shared, other1, other2 =
+                                if a = c then a, b, d
+                                elif a = d then a, b, c
+                                elif b = c then b, a, d
+                                else b, a, c
+                            Bonds.areOpposite locs[shared] locs[other1] locs[other2]
+                        else not (crosses (a, b) (c, d))
+
+                        // every set of feasible weak bonds in which each pair
+                        // is compatible
+                    let bondSets =
+                        (feasible, [ [] ])
+                            ||> List.foldBack (fun bond sets ->
+                                sets @ (sets |> List.map (fun set -> bond :: set)))
+                            |> List.where (fun bonds ->
+                                List.allPairs bonds bonds
+                                    |> List.forall (fun (bondA, bondB) ->
+                                        bondA >= bondB || compatible bondA bondB))
+
+                    for bonds in bondSets do
+                        let energy =
+                            Chain.weakBondEnergy * float bonds.Length
+                                + Chain.stackEnergy * float (countStacks bonds)
+                        let weight = exp (-energy / kT)
+                        addWeight bondSetWeights bonds weight
+                        addWeight separationWeights (loc2 - loc0) weight
+
+            // make sure stacked states are actually part of the test
+        Assert.True(
+            bondSetWeights.Keys |> Seq.exists (fun bonds -> countStacks bonds > 0),
+            "No stacked states enumerated")
+
+            // sample states, starting with the dimers apart
+        let atom typ (x, y) =
+            { Type = typ; Location = Point.create (x, y) }
+        let samples =
+            World.empty
+                |> World.addAtom (atom AtomType.W (-2, -2))   // 0
+                |> World.addAtom (atom AtomType.W (0, -2))    // 1
+                |> World.addAtom (atom AtomType.X (0, 2))     // 2
+                |> World.addAtom (atom AtomType.X (2, 2))     // 3
+                |> World.addStrongBond 0 1
+                |> World.addStrongBond 2 3
+                |> Chain.addBox size
+                |> sample
+                    (TestParameters.createFrozen kT) 8 2000 300 3000
+                    (fun world ->
+                        Set.toList (Bonds.weakBonds world),
+                        world.AtomMap[2].Location - world.AtomMap[0].Location)
+
+        checkFit "Weak bonds" (toMap bondSetWeights) (Array.map fst samples)
+        checkFit "Separation" (toMap separationWeights) (Array.map snd samples)
+
+    /// Chain lengths for the diffusion tests.
+    let private lengths = [ 8; 16; 32; 64 ]
+
+    /// Independent chains per length.
+    let private nChains = 32
+
     /// Centre-of-mass mean squared displacement (MSD) at various lags,
-    /// for each chain length. Shared by the diffusion tests.
+    /// for each chain length. Shared by the diffusion tests. Chains are
+    /// all type W, and strong bonds are frozen.
     let private diffusionData =
         lazy (
+            let parms = TestParameters.createFrozen Chain.athermalKT
             let nFrames, frameInterval = 200, 10   // sweeps
             let lags = [ 1; 2; 5; 10; 20 ]         // frames (i.e. 10 to 200 sweeps)
             [
@@ -439,7 +374,7 @@ module PhysicsTests =
                             let mutable world = Chain.grow rng n
                             Array.init (nFrames + 1) (fun iFrame ->
                                 if iFrame > 0 then
-                                    world <- Chain.sweeps Chain.athermalKT rng frameInterval world
+                                    world <- Chain.sweepsWith parms rng frameInterval world
                                 Chain.centerOfMass world))
 
                         // MSD averaged over chains and over all time origins
@@ -467,7 +402,10 @@ module PhysicsTests =
 
     /// Rouse dynamics: with only local moves (and no solvent), each
     /// move shifts the centre of mass by 1/N of a step, so the diffusion
-    /// constant scales as D ~ 1/N.
+    /// constant scales roughly as D ~ 1/N. Chains are stiff, though, so
+    /// the atoms at a chain's ends move more freely than those inside
+    /// it. That helps short chains most, so D falls off somewhat faster
+    /// than 1/N over these lengths.
     [<Fact>]
     let ``Diffusion constant scales inversely with chain length`` () =
         let points =
@@ -477,4 +415,4 @@ module PhysicsTests =
                     float n, d
             ]
         let exponent = Stats.logLogSlope points
-        Assert.InRange(exponent, -1.15, -0.85)
+        Assert.InRange(exponent, -1.35, -0.85)
