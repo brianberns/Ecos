@@ -22,6 +22,9 @@ type Model =
 
         /// Number of sweeps per timer tick.
         Speed : int
+
+        /// Number of sweeps run so far.
+        SweepCount : int
     }
 
 /// Elmish messages.
@@ -73,6 +76,7 @@ module Model =
                 }
             Run = false
             Speed = 25
+            SweepCount = 0
         }
 
     /// Moves N random atoms per tick. Duplicates or omissions are
@@ -86,7 +90,9 @@ module Model =
                             model.Parameters
                             model.Random
                             world)
-            { model with World = world }
+            { model with
+                World = world
+                SweepCount = model.SweepCount + model.Speed }
         else model
 
     /// Handlees temperature change.

@@ -164,6 +164,16 @@ module View =
             ]
         ]
 
+    let renderSweepCount sweepCount =
+        StackPanel.create [
+            StackPanel.dock Dock.Top
+            StackPanel.orientation Orientation.Horizontal
+            StackPanel.children [
+                renderLabel "# Sweeps:" labelColumnWidth
+                renderLabel $"{sweepCount:N0}" labelColumnWidth
+            ]
+        ]
+
     let renderSpeed (speed : int) dispatch =
         StackPanel.create [
             StackPanel.dock Dock.Top
@@ -240,6 +250,7 @@ module View =
                 for bondType in BondType.all do
                     renderBondCount bondType model.World
                 *)
+                renderSweepCount model.SweepCount
                 renderTemperature model.Parameters.Temperature dispatch
                 renderSpeed model.Speed dispatch
                 renderButtons model dispatch
