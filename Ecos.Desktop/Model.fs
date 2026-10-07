@@ -5,6 +5,7 @@ open Elmish
 open Avalonia.Threading
 open Ecos.Experiment
 
+/// Elmish model.
 type Model =
     {
         World : World
@@ -12,6 +13,7 @@ type Model =
         Parameters : Parameters
     }
 
+/// Elmish messages.
 type Message =
 
     /// Timer tick.
@@ -22,6 +24,7 @@ type Message =
 
 module Model =
 
+    /// Initializes a model.
     let init () =
         let scenario = Scenario.createExperiment1 0
         {
@@ -50,7 +53,9 @@ module Model =
                 }
         }
 
-    let updateTick model =
+    /// Moves N random atoms per tick. Duplicates or omissions are
+    /// possible.
+    let handleTick model =
         let world =
             (model.World, [ 1 .. 25 ])
                 ||> Seq.fold (fun world _ ->
@@ -60,11 +65,10 @@ module Model =
                         world)
         { model with World = world }
 
-    /// Moves N random atoms per tick. Duplicates or omissions are
-    /// possible.
+    /// Handles a message.
     let update msg model =
         match msg with
-            | Tick -> updateTick model
+            | Tick -> handleTick model
             | SetTemperature kT ->
                 { model with
                     Parameters = {
