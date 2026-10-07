@@ -292,6 +292,7 @@ module World =
                 | 3 ->  0,  1
                 | _ -> failwith "Unexpected"
 
+    /// Answers all pairs of items in the given sequence.
     let private getPairs items =
         let items = Seq.toArray items
         [
