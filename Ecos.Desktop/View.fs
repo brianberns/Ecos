@@ -83,10 +83,10 @@ module View =
         renderBonds Strong Brushes.Black 0.2 world
 
     let renderWeakBonds world =
-        renderBonds Weak Brushes.HotPink 1.0 world
+        renderBonds Weak Brushes.HotPink 0.4 world
 
     let renderWorld world =
-        let scale = 8.0
+        let scale = 12.0
         Border.create [
             Border.clipToBounds true   // keep drawing inside the available space
             Border.child (
@@ -99,8 +99,8 @@ module View =
                     Canvas.renderTransformOrigin RelativePoint.TopLeft
                     Canvas.children [
                         yield! renderWalls world
+                        yield! renderAtoms world
                         yield! renderStrongBonds world
-                        yield! renderAtoms world   // draw atoms over strong bonds
                         yield! renderWeakBonds world
                     ]
                 ])
