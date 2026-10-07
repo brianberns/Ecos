@@ -116,7 +116,7 @@ module Scenario =
             else
                 world, Array.empty
 
-            // free positive
+            // free weak partners w/ positive y-coord
         let nFree = 2 * nTemplate
         let world =
             let atomTypes = [| AtomType.X  |]
@@ -125,13 +125,29 @@ module Scenario =
                     let x = 2 * i - nFree
                     addAtom rng atomTypes x dist false world)
 
-            // free negative
+            // free weak partners w/ negative y-coord
         let world =
             let atomTypes = [| AtomType.Z |]
             (world, [ 0 .. nFree - 1 ])
                 ||> Seq.fold (fun world i ->
                     let x = 2 * i - nFree
                     addAtom rng atomTypes x -dist false world)
+
+            // free strong partners w/ positive y-coord
+        let world =
+            let atomTypes = [| AtomType.W |]
+            (world, [ 0 .. nFree - 1 ])
+                ||> Seq.fold (fun world i ->
+                    let x = 2 * i - nFree
+                    addAtom rng atomTypes x (2 * dist) false world)
+
+            // free strong partners w/ negative y-coord
+        let world =
+            let atomTypes = [| AtomType.Y |]
+            (world, [ 0 .. nFree - 1 ])
+                ||> Seq.fold (fun world i ->
+                    let x = 2 * i - nFree
+                    addAtom rng atomTypes x -(2 * dist) false world)
 
         {
             World = world
