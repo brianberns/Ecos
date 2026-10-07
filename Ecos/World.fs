@@ -415,20 +415,21 @@ module World =
 
     /// Counts stacks affected by the given (existing or 
     /// proposed) strong bond:
-    ///    A  ═?═ B    ══ strong bond
+    ///    A' ═══ B'   ══ strong bond
     ///    ┆      ┆    ┆  weak bond
+    ///    A  ═?═ B
+    ///    ┆      ┆
     ///    A' ═══ B'
     let private countStacksStrong idA idB world =
-        let isStack =
-            let strongBondMap = world.BondTypeMap[Strong]
-            let weakBondMap = world.BondTypeMap[Weak]
-            let bPrimes = BondMap.getBonds idB weakBondMap
-            BondMap.getBonds idA weakBondMap
-                |> Seq.exists (fun idA' ->
-                    BondMap.getBonds idA' strongBondMap
-                        |> Seq.exists (fun idB' ->
-                            bPrimes.Contains(idB')))
-        if isStack then 1 else 0
+        let strongBondMap = world.BondTypeMap[Strong]
+        let weakBondMap = world.BondTypeMap[Weak]
+        let bPrimes = BondMap.getBonds idB weakBondMap
+        BondMap.getBonds idA weakBondMap
+            |> Seq.where (fun idA' ->
+                BondMap.getBonds idA' strongBondMap
+                    |> Seq.exists (fun idB' ->
+                        bPrimes.Contains(idB')))
+            |> Seq.length
 
     /// Counts weak bonds stacked by a bond of the given
     /// type between the given atoms.
