@@ -137,7 +137,7 @@ module private WeakBond =
             Neighborhood = neighborhood
             Deltas = deltas
             CrossBondDeltas = crossBondDeltas
-            Valence = 1
+            Valence = 2
             CanBond = canBond
-            MaxDotProductOpt = None // Some 0   // an atom's two weak partners must be on roughly opposite sides of it
+            MaxDotProductOpt = Some 0   // an atom's two weak partners must be on roughly opposite sides of it
         }
