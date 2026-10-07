@@ -307,8 +307,8 @@ module World =
             |> Seq.forall (fun (bondType, behavior) ->
 
                     // test the atom's bonds
-                let partnerIds =
-                    BondMap.getBonds id world.BondTypeMap[bondType]
+                let bondMap = world.BondTypeMap[bondType]
+                let partnerIds = BondMap.getBonds id bondMap
                 let isValid =
                     partnerIds
                         |> Seq.forall (fun idB ->
@@ -316,18 +316,32 @@ module World =
                             BondMap.testBond
                                 behavior.Neighborhood atom atomB)
 
-                    // test angles of bond pairs in which the atom is central: C-A-B
-                let isValid =
-                    match isValid, behavior.MaxDotProductOpt with
-                        | true, Some maxDotProd ->
+                    // test bond angles?
+                match isValid, behavior.MaxDotProductOpt with
+                    | true, Some maxDotProd ->
+
+                            // test angles in which the atom is central: C-A-B
+                        let isValid =
                             getPairs partnerIds
                                 |> Seq.forall (fun (idB, idC) ->
                                     let atomB = world.AtomMap[idB]
                                     let atomC = world.AtomMap[idC]
                                     testBondAngle maxDotProd atom atomB atomC)
-                        | _ -> isValid
-                        
-                isValid)
+
+                            // test angles in which the atom isn't central: A-B-C
+                        if isValid then
+                            partnerIds
+                                |> Seq.forall (fun idB ->
+                                    let atomB = world.AtomMap[idB]
+                                    BondMap.getBonds idB bondMap
+                                        |> Seq.forall (fun idC ->
+                                            if idC = id then true
+                                            else
+                                                let atomC = world.AtomMap[idC]
+                                                testBondAngle maxDotProd atomB atom atomC))
+                        else false
+
+                    | _ -> isValid)
 
     /// Applies the Metropolis rule:
     /// * A move that lowers the energy, or leaves it unchanged,
