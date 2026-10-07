@@ -117,19 +117,20 @@ module Scenario =
                 world, Array.empty
 
             // free positive
+        let nFree = 2 * nTemplate
         let world =
             let atomTypes = [| AtomType.X  |]
-            (world, [ 0 .. nTemplate - 1 ])
+            (world, [ 0 .. nFree - 1 ])
                 ||> Seq.fold (fun world i ->
-                    let x = 2 * i - nTemplate
+                    let x = 2 * i - nFree
                     addAtom rng atomTypes x dist false world)
 
             // free negative
         let world =
             let atomTypes = [| AtomType.Z |]
-            (world, [ 0 .. nTemplate - 1 ])
+            (world, [ 0 .. nFree - 1 ])
                 ||> Seq.fold (fun world i ->
-                    let x = 2 * i - nTemplate
+                    let x = 2 * i - nFree
                     addAtom rng atomTypes x -dist false world)
 
         {

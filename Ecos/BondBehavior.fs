@@ -98,7 +98,7 @@ module private StrongBond =
             CrossBondDeltas = crossBondDeltas
             Valence = 2
             CanBond = fun _ _ -> true
-            MaxDotProductOpt = None
+            MaxDotProductOpt = Some -4
         }
 
 module private WeakBond =
