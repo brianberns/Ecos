@@ -1,5 +1,19 @@
 namespace Ecos
 
+/// Bond type.
+type BondType =
+
+    /// Long-term, long-range bonds.
+    | Strong
+
+    /// Short-term, short-range bonds.
+    | Weak
+
+module BondType =
+
+    /// All bond types.
+    let all = [| Strong; Weak |]
+
 /// Specific behavior of a bond type.
 type private BondBehavior =
     {
@@ -20,6 +34,10 @@ type private BondBehavior =
         /// Indicates whether the given atom types can form
         /// a bond of this type.
         CanBond : AtomType -> AtomType -> bool
+
+        /// Counts stacks adjacent to the given (existing or 
+        /// proposed) bond.
+        CountStacks : AtomId -> AtomId -> Map<BondType, BondMap> -> int
 
         /// Maximum allowed dot product between two bonds of
         /// this type for an atom.
@@ -90,6 +108,24 @@ module private StrongBond =
             |> BondBehavior.getDeltas
             |> set
 
+    /// Counts stacks affected by the given (existing or 
+    /// proposed) strong bond:
+    ///    A' ═══ B'   ══ strong bond
+    ///    ┆      ┆    ┆  weak bond
+    ///    A  ═?═ B
+    ///    ┆      ┆
+    ///    A' ═══ B'
+    let countStacks idA idB (bondTypeMap : Map<_, _>) =
+        let strongBondMap = bondTypeMap[Strong]
+        let weakBondMap = bondTypeMap[Weak]
+        let bPrimes = BondMap.getBonds idB weakBondMap
+        BondMap.getBonds idA weakBondMap
+            |> Seq.where (fun idA' ->
+                BondMap.getBonds idA' strongBondMap
+                    |> Seq.exists (fun idB' ->
+                        bPrimes.Contains(idB')))
+            |> Seq.length
+
     /// Behavior of strong bonds.
     let behavior =
         {
@@ -98,6 +134,7 @@ module private StrongBond =
             CrossBondDeltas = crossBondDeltas
             Valence = 2
             CanBond = fun _ _ -> true
+            CountStacks = countStacks
             MaxDotProduct = -4
         }
 
@@ -131,6 +168,24 @@ module private WeakBond =
             | AtomType.Y, AtomType.Z -> true
             | _ -> false
 
+    /// Counts stacks adjacent to the given (existing or 
+    /// proposed) weak bond:
+    ///    A' ══ A ══ A'   ══ strong bond
+    ///    ┆     ┆    ┆    ┆  weak bond
+    ///    ┆     ?    ┆
+    ///    ┆     ┆    ┆
+    ///    B' ══ B ══ B'
+    let countStacks idA idB (bondTypeMap : Map<_, _>) =
+        let strongBondMap = bondTypeMap[Strong]
+        let weakBondMap = bondTypeMap[Weak]
+        let bPrimes = BondMap.getBonds idB strongBondMap
+        BondMap.getBonds idA strongBondMap
+            |> Seq.where (fun idA' ->
+                BondMap.getBonds idA' weakBondMap
+                    |> Seq.exists (fun idB' ->
+                        bPrimes.Contains(idB')))
+            |> Seq.length
+
     /// Behavior of weak bonds.
     let behavior =
         {
@@ -139,5 +194,6 @@ module private WeakBond =
             CrossBondDeltas = crossBondDeltas
             Valence = 2
             CanBond = canBond
+            CountStacks = countStacks
             MaxDotProduct = -3
         }

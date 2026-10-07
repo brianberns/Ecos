@@ -169,7 +169,7 @@ module View =
             StackPanel.dock Dock.Top
             StackPanel.orientation Orientation.Horizontal
             StackPanel.children [
-                renderLabel "# Sweeps:" labelColumnWidth
+                renderLabel "Sweeps:" labelColumnWidth
                 renderLabel $"{sweepCount:N0}" labelColumnWidth
             ]
         ]

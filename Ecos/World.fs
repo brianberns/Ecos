@@ -2,20 +2,6 @@ namespace Ecos
 
 open System
 
-/// Bond type.
-type BondType =
-
-    /// Long-term, long-range bonds.
-    | Strong
-
-    /// Short-term, short-range bonds.
-    | Weak
-
-module BondType =
-
-    /// All bond types.
-    let all = [| Strong; Weak |]
-
 /// Bond type-specific parameters.
 /// 
 /// Energy
@@ -397,49 +383,6 @@ module World =
             Some (world, event)
         else None
 
-    /// Counts stacks adjacent to the given (existing or 
-    /// proposed) weak bond:
-    ///    A' ══ A ══ A'   ══ strong bond
-    ///    ┆     ┆    ┆    ┆  weak bond
-    ///    ┆     ?    ┆
-    ///    ┆     ┆    ┆
-    ///    B' ══ B ══ B'
-    let private countStacksWeak idA idB world =
-        let strongBondMap = world.BondTypeMap[Strong]
-        let weakBondMap = world.BondTypeMap[Weak]
-        let bPrimes = BondMap.getBonds idB strongBondMap
-        BondMap.getBonds idA strongBondMap
-            |> Seq.where (fun idA' ->
-                BondMap.getBonds idA' weakBondMap
-                    |> Seq.exists (fun idB' ->
-                        bPrimes.Contains(idB')))
-            |> Seq.length
-
-    /// Counts stacks affected by the given (existing or 
-    /// proposed) strong bond:
-    ///    A' ═══ B'   ══ strong bond
-    ///    ┆      ┆    ┆  weak bond
-    ///    A  ═?═ B
-    ///    ┆      ┆
-    ///    A' ═══ B'
-    let private countStacksStrong idA idB world =
-        let strongBondMap = world.BondTypeMap[Strong]
-        let weakBondMap = world.BondTypeMap[Weak]
-        let bPrimes = BondMap.getBonds idB weakBondMap
-        BondMap.getBonds idA weakBondMap
-            |> Seq.where (fun idA' ->
-                BondMap.getBonds idA' strongBondMap
-                    |> Seq.exists (fun idB' ->
-                        bPrimes.Contains(idB')))
-            |> Seq.length
-
-    /// Counts weak bonds stacked by a bond of the given
-    /// type between the given atoms.
-    let private countStacks bondType idA idB world =
-        match bondType with
-            | Weak -> countStacksWeak idA idB world
-            | Strong -> countStacksStrong idA idB world
-
     /// Breaks a bond of the given type between the atoms
     /// with the given IDs in the given world.
     let private breakBond bondType idA idB world =
@@ -468,7 +411,9 @@ module World =
     let private tryToggleBond parms rng bondType idA idB world =
 
         let bondParms = parms.BondParameterMap[bondType]
-        let nStacks = countStacks bondType idA idB world
+        let nStacks =
+            behaviorMap[bondType].CountStacks
+                idA idB world.BondTypeMap
 
         let test energy =
             let barrier =
