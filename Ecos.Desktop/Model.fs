@@ -8,8 +8,13 @@ open Ecos.Experiment
 /// Elmish model.
 type Model =
     {
+        /// Current world state.
         World : World
+
+        /// RNG used to update the world.
         Random : Random
+
+        /// Current update parameters.
         Parameters : Parameters
     }
 
