@@ -164,24 +164,6 @@ module View =
             ]
         ]
 
-    let renderRun run dispatch =
-        ToggleButton.create [
-            ToggleButton.dock Dock.Top
-            ToggleButton.content "Run"
-            ToggleButton.isChecked (run : bool)
-            ToggleButton.margin margin
-            ToggleButton.foreground Colors.Black
-            ToggleButton.background Colors.DarkGray
-            ToggleButton.horizontalContentAlignment
-                HorizontalAlignment.Center
-            ToggleButton.onIsCheckedChanged (fun args ->
-                let btn = args.Source :?> ToggleButton
-                if btn.IsChecked.HasValue then
-                    btn.IsChecked.Value
-                        |> SetRun
-                        |> dispatch)
-        ]
-
     let renderSpeed (speed : int) dispatch =
         StackPanel.create [
             StackPanel.dock Dock.Top
@@ -207,15 +189,45 @@ module View =
             ]
         ]
 
+    let renderRun run dispatch =
+        ToggleButton.create [
+            ToggleButton.content "Run"
+            ToggleButton.isChecked (run : bool)
+            ToggleButton.width 100
+            ToggleButton.margin margin
+            ToggleButton.foreground Colors.Black
+            ToggleButton.background Colors.DarkGray
+            ToggleButton.horizontalContentAlignment
+                HorizontalAlignment.Center
+            ToggleButton.onIsCheckedChanged (fun args ->
+                let btn = args.Source :?> ToggleButton
+                if btn.IsChecked.HasValue then
+                    btn.IsChecked.Value
+                        |> SetRun
+                        |> dispatch)
+        ]
+
     let renderReset dispatch =
         Button.create [
-            Button.dock Dock.Top
             Button.content "Reset"
+            Button.width 100
             Button.margin margin
             Button.foreground Colors.Black
             Button.background Colors.DarkGray
+            Button.horizontalContentAlignment
+                HorizontalAlignment.Center
             Button.onClick (fun _ ->
                 dispatch Reset)
+        ]
+
+    let renderButtons model dispatch =
+        StackPanel.create [
+            StackPanel.dock Dock.Top
+            StackPanel.orientation Orientation.Horizontal
+            StackPanel.children [
+                renderRun model.Run dispatch
+                renderReset dispatch
+            ]
         ]
 
     let renderControlPanel (model : Model) dispatch =
@@ -229,9 +241,8 @@ module View =
                     renderBondCount bondType model.World
                 *)
                 renderTemperature model.Parameters.Temperature dispatch
-                renderRun model.Run dispatch
                 renderSpeed model.Speed dispatch
-                renderReset dispatch
+                renderButtons model dispatch
             ]
         ]
 
