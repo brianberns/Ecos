@@ -207,6 +207,17 @@ module View =
             ]
         ]
 
+    let renderReset dispatch =
+        Button.create [
+            Button.dock Dock.Top
+            Button.content "Reset"
+            Button.margin margin
+            Button.foreground Colors.Black
+            Button.background Colors.DarkGray
+            Button.onClick (fun _ ->
+                dispatch Reset)
+        ]
+
     let renderControlPanel (model : Model) dispatch =
         DockPanel.create [
             DockPanel.dock Dock.Bottom
@@ -220,6 +231,7 @@ module View =
                 renderTemperature model.Parameters.Temperature dispatch
                 renderRun model.Run dispatch
                 renderSpeed model.Speed dispatch
+                renderReset dispatch
             ]
         ]
 

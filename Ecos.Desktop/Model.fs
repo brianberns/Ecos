@@ -39,6 +39,9 @@ type Message =
     /// Sets speed.
     | SetSpeed of int
 
+    /// Resets model.
+    | Reset
+
 module Model =
 
     /// Initializes a model.
@@ -101,6 +104,10 @@ module Model =
     let handleSetSpeed speed model =
         { model with Speed = speed }
 
+    /// Handles model reset.
+    let handleReset model =
+        { init() with Speed = model.Speed }
+
     /// Handles a message.
     let update msg model =
         match msg with
@@ -108,6 +115,7 @@ module Model =
             | SetTemperature kT -> handleSetTemperature kT model
             | SetRun run -> handleSetRun run model
             | SetSpeed speed -> handleSetSpeed speed model
+            | Reset -> handleReset model
 
     /// Subscribable timer.
     let timer : Subscribe<_> =

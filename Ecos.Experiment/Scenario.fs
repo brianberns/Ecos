@@ -135,7 +135,7 @@ module Scenario =
 
             // free strong partners w/ positive y-coord
         let world =
-            let atomTypes = [| AtomType.W |]
+            let atomTypes = [| AtomType.Y |]
             (world, [ 0 .. nFree - 1 ])
                 ||> Seq.fold (fun world i ->
                     let x = 2 * i - nFree
@@ -143,7 +143,7 @@ module Scenario =
 
             // free strong partners w/ negative y-coord
         let world =
-            let atomTypes = [| AtomType.Y |]
+            let atomTypes = [| AtomType.W |]
             (world, [ 0 .. nFree - 1 ])
                 ||> Seq.fold (fun world i ->
                     let x = 2 * i - nFree
