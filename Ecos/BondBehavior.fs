@@ -139,5 +139,5 @@ module private WeakBond =
             CrossBondDeltas = crossBondDeltas
             Valence = 2
             CanBond = canBond
-            MaxDotProductOpt = Some 0   // an atom's two weak partners must be on roughly opposite sides of it
+            MaxDotProductOpt = Some -3   // an atom's two weak partners must be on roughly opposite sides of it
         }
