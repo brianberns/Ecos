@@ -144,7 +144,7 @@ module private WeakBond =
 
     /// Indicates whether the given atom types can form
     /// a weak bond.
-    let AreCompatible atomTypeA atomTypeB =
+    let areCompatible atomTypeA atomTypeB =
         let atomTypeMin = min atomTypeA atomTypeB
         let atomTypeMax = max atomTypeA atomTypeB
         match atomTypeMin, atomTypeMax with
@@ -192,7 +192,7 @@ module private WeakBond =
             Deltas = deltas
             CrossBondDeltas = crossBondDeltas
             TestValence = testValence
-            AreCompatible = AreCompatible
+            AreCompatible = areCompatible
             CountStacks = countStacks
             MaxDotProduct = -3
         }
