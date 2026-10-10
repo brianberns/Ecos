@@ -129,21 +129,24 @@ module View =
             StackPanel.orientation Orientation.Horizontal
             StackPanel.children [
                 renderLabel "Temperature:" labelColumnWidth
-                NumericUpDown.create [
-                    NumericUpDown.minimum 0
-                    NumericUpDown.maximum 5
-                    NumericUpDown.increment 0.05m
-                    NumericUpDown.value (decimal kT)
-                    NumericUpDown.width 120
-                    NumericUpDown.margin margin
-                    NumericUpDown.horizontalContentAlignment
-                        HorizontalAlignment.Right
-                    NumericUpDown.onValueChanged (fun value ->
-                        if value.HasValue then
-                            float value.Value
-                                |> SetTemperature
-                                |> dispatch)
-                ]
+                if model.TemperatureType.IsAdjustable then
+                    NumericUpDown.create [
+                        NumericUpDown.minimum 0
+                        NumericUpDown.maximum 5
+                        NumericUpDown.increment 0.05m
+                        NumericUpDown.value (decimal kT)
+                        NumericUpDown.width 120
+                        NumericUpDown.margin margin
+                        NumericUpDown.horizontalContentAlignment
+                            HorizontalAlignment.Right
+                        NumericUpDown.onValueChanged (fun value ->
+                            if value.HasValue then
+                                float value.Value
+                                    |> SetTemperature
+                                    |> dispatch)
+                    ]
+                else
+                    renderLabel $"%0.2f{kT}" labelColumnWidth
             ]
         ]
 
