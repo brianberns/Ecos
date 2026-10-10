@@ -137,13 +137,15 @@ module PropertyTests =
                                 && Chain.canPair world.AtomMap[idA].Type world.AtomMap[idB].Type
                                 && not (isStronglyBonded world idA idB)))
 
-            // no atom has more than two weak partners; two partners are
+            // no atom has more than two weak partners, and only an atom
+            // in a strand (one with a strong bond) has two; two partners are
             // on opposite sides of the atom, and (as a consequence) are
             // never strongly bonded to each other
         let weakPartnersValid =
             (Bonds.weakBondMap world)
                 |> Map.forall (fun idA ids ->
                     ids.Count <= 2
+                        && (ids.Count < 2 || not (partners Strong world idA).IsEmpty)
                         && anglesAreAllowed Strong world loc idA
                         && anglesAreAllowed Weak world loc idA
                         && List.allPairs (Set.toList ids) (Set.toList ids)
@@ -209,14 +211,17 @@ module PropertyTests =
 
     /// Oracle: can the given atoms form a new weak bond? They must be
     /// complementary, in range, and not already bonded (weakly or
-    /// strongly); each must have fewer than two weak partners, and an
+    /// strongly); each must have no weak partner yet, or have one and
+    /// be part of a strand (have a strong bond), in which case the
     /// existing partner must be on the opposite side from the new one;
     /// and the new bond must not cross any existing bond.
     let private canFormWeakBond (world : World) idA idB =
         let atomA = world.AtomMap[idA]
         let atomB = world.AtomMap[idB]
         let hasRoom idC idNew =
-            (Bonds.weakPartners world idC).Count < 2
+            let nWeak = (Bonds.weakPartners world idC).Count
+            let inStrand = not (partners Strong world idC).IsEmpty
+            (nWeak = 0 || (nWeak = 1 && inStrand))
                 && hasRoomAtAngle Weak world idC idNew
         Chain.canPair atomA.Type atomB.Type
             && Array.contains (atomB.Location - atomA.Location) Chain.weakBondVectors
@@ -292,6 +297,15 @@ module PropertyTests =
                         && not stackedOtherWay then 1
         ]
 
+    /// Oracle: can the strong bond between the given atoms break? Not
+    /// if it's the last strong bond of an atom that has two weak
+    /// partners, since only an atom in a strand can have two.
+    let private canBreakStrongBond (world : World) idA idB =
+        [ idA; idB ]
+            |> List.forall (fun id ->
+                (Bonds.weakPartners world id).Count < 2
+                    || (partners Strong world id).Count > 1)
+
     /// Is the given bond vector longer than any weak bond?
     let private isLong (v : Point) =
         not (Array.contains v Chain.weakBondVectors)
@@ -363,7 +377,10 @@ module PropertyTests =
                             Chain.bondEnergy parms Strong
                                 + Chain.stackEnergy * float nStacks
                         if isStronglyBonded world idA idB then
-                            let p = accept Strong nStacks -energy
+                            let p =
+                                if canBreakStrongBond world idA idB then
+                                    accept Strong nStacks -energy
+                                else 0.0
                             strongBreak <- strongBreak + p
                             if isLong v then longBreak <- longBreak + p
                             if nStacks > 0 then stackedBreak <- stackedBreak + p
@@ -500,24 +517,42 @@ module PropertyTests =
         Assert.True((World.tryAddStrongBond 4 0 world).IsNone, "Strong bond accepted between weakly bonded atoms")
         Assert.True((World.tryAddWeakBond 4 0 world).IsNone, "Duplicate weak bond accepted")
 
-            // weak bonds: a third one is rejected. W0 at the center, with
-            // X1 and X2 on opposite sides of it, and X3 also in range
+            // weak bonds: a third one is rejected. W0 at the center, in a
+            // strand with Y4, with X1 and X2 on opposite sides of it, and
+            // X3 also in range
         let world =
             World.empty
                 |> World.addAtom (typedAtom AtomType.W (Point.create (0, 0)))    // 0
                 |> World.addAtom (typedAtom AtomType.X (Point.create (0, 2)))    // 1
                 |> World.addAtom (typedAtom AtomType.X (Point.create (0, -2)))   // 2
                 |> World.addAtom (typedAtom AtomType.X (Point.create (2, 0)))    // 3
+                |> World.addAtom (typedAtom AtomType.Y (Point.create (-2, 0)))   // 4
+                |> World.addStrongBond 0 4
                 |> World.addWeakBond 0 1
                 |> World.addWeakBond 0 2
         Assert.True((World.tryAddWeakBond 0 3 world).IsNone, "Third weak bond accepted")
         Assert.True((World.tryAddWeakBond 3 0 world).IsNone, "Third weak bond accepted")
+
+            // weak bonds: a free atom (one with no strong bond) can't have a
+            // second one, even on the opposite side
+        let world =
+            World.empty
+                |> World.addAtom (typedAtom AtomType.W (Point.create (0, 0)))    // 0
+                |> World.addAtom (typedAtom AtomType.X (Point.create (0, 2)))    // 1
+                |> World.addAtom (typedAtom AtomType.X (Point.create (0, -2)))   // 2
+                |> World.addWeakBond 0 1
+        Assert.True((World.tryAddWeakBond 0 2 world).IsNone, "Free atom got a second weak bond")
+        Assert.True((World.tryAddWeakBond 2 0 world).IsNone, "Free atom got a second weak bond")
 
     /// Opposite sides, exhaustively: atom A (type W, at the origin) is
     /// weakly bonded to B (type X). A second weak bond, to C (also type
     /// X), must be accepted if and only if B and C are on opposite
     /// sides of A. Checked for every pair of locations in weak bond
     /// range of A, and with the new bond added from either end.
+    ///
+    /// A is strongly bonded to another atom, D (type Y), since only an
+    /// atom in a strand can have two weak partners. D is placed
+    /// wherever it fits.
     ///
     /// Whenever the second bond is accepted, B and C must also be too
     /// far apart to be strongly bonded to each other. That's what
@@ -530,11 +565,17 @@ module PropertyTests =
         for b in Chain.weakBondVectors do
             for c in Chain.weakBondVectors do
                 if not (overlaps b c) then
+                    let d =
+                        Chain.bondVectors
+                            |> Array.find (fun d ->
+                                not (overlaps d b) && not (overlaps d c))
                     let world =
                         World.empty
                             |> World.addAtom (typedAtom AtomType.W a)   // 0
                             |> World.addAtom (typedAtom AtomType.X b)   // 1
                             |> World.addAtom (typedAtom AtomType.X c)   // 2
+                            |> World.addAtom (typedAtom AtomType.Y d)   // 3
+                            |> World.addStrongBond 0 3
                             |> World.addWeakBond 0 1
                     let expected = Bonds.areOpposite a b c
                     for idFrom, idTo in [ 0, 2; 2, 0 ] do
@@ -584,30 +625,83 @@ module PropertyTests =
 
     /// Opposite sides stay opposite: a hop can't bring an atom's two
     /// weak partners onto the same side of it. Here W0 sits between X1
-    /// and X2, weakly bonded to both, in a box that leaves all three
-    /// room to move. After every update, the world must still be valid,
-    /// which includes X1 and X2 being on opposite sides of W0 whenever
-    /// both bonds exist.
+    /// and X2, weakly bonded to both, and is strongly bonded to Y3 (so
+    /// that it's allowed two weak partners), in a box that leaves all
+    /// of them room to move. Strong bonds are frozen. After every
+    /// update, the world must still be valid, which includes X1 and X2
+    /// being on opposite sides of W0 whenever both bonds exist.
     [<Fact>]
     let ``Weak partners stay on opposite sides`` () =
         let rng = Random(0)
+        let parms = TestParameters.createFrozen 0.3   // cold, so that both bonds usually exist
         let mutable world =
             World.empty
                 |> World.addAtom (typedAtom AtomType.W (Point.create (0, 0)))    // 0
                 |> World.addAtom (typedAtom AtomType.X (Point.create (0, 2)))    // 1
                 |> World.addAtom (typedAtom AtomType.X (Point.create (0, -2)))   // 2
+                |> World.addAtom (typedAtom AtomType.Y (Point.create (2, 0)))    // 3
+                |> World.addStrongBond 0 3
                 |> World.addWeakBond 0 1
                 |> World.addWeakBond 0 2
                 |> Chain.addBox 4
         let mutable nBothBonded = 0
         for _ in 1 .. 20000 do
-            world <- World.update 0.3 rng world   // cold, so that both bonds usually exist
+            world <- World.updateWith parms rng world
             if (Bonds.weakPartners world 0).Count = 2 then
                 nBothBonded <- nBothBonded + 1
             Assert.True(isValid world, "World became invalid")
 
             // make sure the check isn't vacuous
         Assert.True(nBothBonded > 1000, $"Both bonds existed in only {nBothBonded} updates")
+
+    /// Only an atom in a strand has two weak partners: W0 is weakly
+    /// bonded to X1 and X2, which it's allowed because it's strongly
+    /// bonded to Y3. That strong bond is W0's only one, so it must not
+    /// break while W0 has both weak partners.
+    ///
+    /// Here strong bonds have no energy or barrier, so they break at
+    /// every opportunity, and weak bonds are strong, so both usually
+    /// exist. After every update, the world must still be valid, which
+    /// includes W0 having a strong bond whenever it has two weak
+    /// partners. The strong bond must also break sometimes, when W0
+    /// has fewer than two, or the test would pass trivially.
+    [<Fact>]
+    let ``An atom with two weak partners keeps a strong bond`` () =
+        let rng = Random(0)
+        let parms =
+            {
+                Temperature = 1.0
+                BondParameterMap =
+                    Map [
+                        Strong, { Energy = 0; Barrier = 0; BarrierStackReduction = 0 }
+                        Weak, { Energy = 3; Barrier = 0; BarrierStackReduction = 0 }
+                    ]
+            }
+        let mutable world =
+            World.empty
+                |> World.addAtom (typedAtom AtomType.W (Point.create (0, 0)))    // 0
+                |> World.addAtom (typedAtom AtomType.X (Point.create (0, 2)))    // 1
+                |> World.addAtom (typedAtom AtomType.X (Point.create (0, -2)))   // 2
+                |> World.addAtom (typedAtom AtomType.Y (Point.create (2, 0)))    // 3
+                |> World.addStrongBond 0 3
+                |> World.addWeakBond 0 1
+                |> World.addWeakBond 0 2
+                |> Chain.addBox 2
+        let mutable nBothBonded, nBroken = 0, 0
+        for _ in 1 .. 50000 do
+            let world' = World.updateWith parms rng world
+            if (Bonds.weakPartners world' 0).Count = 2 then
+                nBothBonded <- nBothBonded + 1
+            if (strongBonds world').Count < (strongBonds world).Count then
+                nBroken <- nBroken + 1
+            Assert.True(
+                isValid world',
+                "World became invalid: an atom has two weak partners and no strong bond")
+            world <- world'
+
+            // make sure the check isn't vacuous
+        Assert.True(nBothBonded > 1000, $"Both weak bonds existed in only {nBothBonded} updates")
+        Assert.True(nBroken > 0, "No strong bond ever broke")
 
     /// Topology, exhaustively: atoms A (type W, at the origin) and B
     /// (type X) are separated by one of the given bond vectors, and
@@ -682,7 +776,7 @@ module PropertyTests =
     ///
     /// Each update makes at most one event, which must be valid:
     /// * a valid move that leaves all bonds unchanged, or
-    /// * the breaking of one existing bond, or
+    /// * the breaking of one existing bond (if that's allowed), or
     /// * the forming of one allowed bond (strong or weak).
     /// The world must stay valid throughout.
     [<Property>]
@@ -713,7 +807,10 @@ module PropertyTests =
                         elif strongFormed.Count = 1 then
                             let idA, idB = Seq.exactlyOne strongFormed
                             canFormStrongBond world idA idB
-                        else true   // any existing bond may break
+                        elif strongBroken.Count = 1 then
+                            let idA, idB = Seq.exactlyOne strongBroken
+                            canBreakStrongBond world idA idB
+                        else true   // any existing weak bond may break
                     | [ move ] ->
                         List.contains move (validMoves world) && nBondChanges = 0
                     | _ -> false
