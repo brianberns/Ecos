@@ -71,7 +71,7 @@ module Scenario =
             World.addStrongBond (id - 1) id world
         else world
 
-    let private createExperiment1or2 withTemplate seed =
+    let private createScenario withTemplate seed =
 
         let rng = Random(seed)
         let nTemplate = 10
@@ -158,7 +158,35 @@ module Scenario =
         }
 
     let createExperiment1 seed =
-        createExperiment1or2 true seed
+        createScenario true seed
 
     let createExperiment2 seed =
-        createExperiment1or2 false seed
+        createScenario false seed
+
+    let createExperiment3 seed =
+
+        let scenario = createExperiment1 seed
+
+        let tempType =
+            Cycle [|
+                { Temperature = 0.3; NumSweeps = 50_000 }   // cold
+                { Temperature = 1.5; NumSweeps =  5_000 }   // hot
+            |]
+
+        let bondParamMap =
+            Map [
+                Strong, {
+                    Energy = 17
+                    Barrier = 10
+                    BarrierStackReduction = 10
+                }
+                Weak, {
+                    Energy = 1
+                    Barrier = 0
+                    BarrierStackReduction = 0
+                }
+            ]
+
+        { scenario with
+            TemperatureType = tempType
+            BondParameterMap = bondParamMap }
