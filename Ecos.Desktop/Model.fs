@@ -58,7 +58,7 @@ module Model =
                     Temperature =
                         match scenario.TemperatureType with
                             | Adjustable kT -> kT
-                            | _ -> failwith "Unexpected"
+                            | Cycle phases -> phases[0].Temperature
                     BondParameterMap = scenario.BondParameterMap
                 }
             Run = false

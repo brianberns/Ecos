@@ -151,7 +151,7 @@ module Scenario =
 
         {
             World = world
-            Template = Array.empty
+            Template = template
             TemperatureType = Adjustable 0.25
             BondParameterMap = bondParamMap
             Random = rng
