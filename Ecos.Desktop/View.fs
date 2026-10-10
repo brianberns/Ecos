@@ -238,8 +238,7 @@ module View =
             ]
         ]
 
-    let render (model : Model) dispatch =
-        let world = model.World
+    let render model dispatch =
         Window.create [
             Window.title "Ecos"
             Window.width 1000
