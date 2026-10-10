@@ -33,7 +33,7 @@ type private BondBehavior =
 
         /// Indicates whether the given atom types can form
         /// a bond of this type.
-        TestCompatibility : AtomType -> AtomType -> bool
+        AreCompatible : AtomType -> AtomType -> bool
 
         /// Counts stacks adjacent to the given (existing or 
         /// proposed) bond.
@@ -110,7 +110,7 @@ module private StrongBond =
             Deltas = deltas
             CrossBondDeltas = crossBondDeltas
             Valence = 2
-            TestCompatibility = fun _ _ -> true
+            AreCompatible = fun _ _ -> true
             CountStacks = countStacks
             MaxDotProduct = -4
         }
@@ -137,7 +137,7 @@ module private WeakBond =
 
     /// Indicates whether the given atom types can form
     /// a weak bond.
-    let testCompatibility atomTypeA atomTypeB =
+    let AreCompatible atomTypeA atomTypeB =
         let atomTypeMin = min atomTypeA atomTypeB
         let atomTypeMax = max atomTypeA atomTypeB
         match atomTypeMin, atomTypeMax with
@@ -170,7 +170,7 @@ module private WeakBond =
             Deltas = deltas
             CrossBondDeltas = crossBondDeltas
             Valence = 2
-            TestCompatibility = testCompatibility
+            AreCompatible = AreCompatible
             CountStacks = countStacks
             MaxDotProduct = -3
         }

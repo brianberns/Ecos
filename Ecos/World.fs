@@ -223,7 +223,7 @@ module World =
             let behavior = behaviorMap[bondType]
             let aIds = BondMap.getBonds idA bondMap
             let bIds = BondMap.getBonds idB bondMap
-            behavior.TestCompatibility atomA.Type atomB.Type
+            behavior.AreCompatible atomA.Type atomB.Type
                 && aIds.Count < behavior.Valence
                 && bIds.Count < behavior.Valence
                 && Neighborhood.testBond behavior.Neighborhood atomA atomB
