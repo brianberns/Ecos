@@ -79,9 +79,9 @@ module BondMap =
                 let atomB = atomMap[idB]
                 Neighborhood.testBond neighborhood atom atomB)
 
-    /// Creates a bidirectional bond between the given atoms.
+    /// Creates a bidirectional bond between the given atoms. If
+    /// the bond already exists, this is a no-op.
     let createBond idA idB bondMap =
-        assert(not (areBonded idA idB bondMap))
 
         let impl idA idB bondMap =
             let ids =

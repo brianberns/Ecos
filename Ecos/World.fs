@@ -231,10 +231,10 @@ module World =
             let idsA = BondMap.getBonds idA bondMap
             let idsB = BondMap.getBonds idB bondMap
             behavior.AreCompatible atomA.Type atomB.Type
+                && not (areBonded idA idB world)
+                && Neighborhood.testBond behavior.Neighborhood atomA atomB
                 && behavior.TestValence idA bondTypeMap
                 && behavior.TestValence idB bondTypeMap
-                && Neighborhood.testBond behavior.Neighborhood atomA atomB
-                && not (areBonded idA idB world)
                 && not (isCrossBond bondType idA atomA idB atomB world)
                 && testBondAngles bondType atomA atomB idsA world
                 && testBondAngles bondType atomB atomA idsB world
