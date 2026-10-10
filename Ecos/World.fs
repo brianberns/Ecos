@@ -221,16 +221,16 @@ module World =
             let atomA = world.AtomMap[idA]
             let atomB = world.AtomMap[idB]
             let behavior = behaviorMap[bondType]
-            let aIds = BondMap.getBonds idA bondMap
-            let bIds = BondMap.getBonds idB bondMap
+            let idsA = BondMap.getBonds idA bondMap
+            let idsB = BondMap.getBonds idB bondMap
             behavior.AreCompatible atomA.Type atomB.Type
-                && aIds.Count < behavior.Valence
-                && bIds.Count < behavior.Valence
+                && idsA.Count < behavior.Valence
+                && idsB.Count < behavior.Valence
                 && Neighborhood.testBond behavior.Neighborhood atomA atomB
                 && not (areBonded idA idB world)
                 && not (isCrossBond bondType idA atomA idB atomB world)
-                && testBondAngles bondType atomA atomB aIds world
-                && testBondAngles bondType atomB atomA bIds world
+                && testBondAngles bondType atomA atomB idsA world
+                && testBondAngles bondType atomB atomA idsB world
 
         if isValid then
             let bondMap = BondMap.createBond idB idA bondMap
