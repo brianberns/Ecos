@@ -18,7 +18,7 @@ module BondType =
 type private BondBehavior =
     {
         /// All normalized bond vectors of this type.
-        Neighborhood : Set<int (*max*) * int (*min*)>   // not strictly (x, y) points
+        Neighborhood : Neighborhood
 
         /// Denormalized neighborhood of (x, y) points, cached
         /// for speed.
@@ -33,7 +33,7 @@ type private BondBehavior =
 
         /// Indicates whether the given atom types can form
         /// a bond of this type.
-        CanBond : AtomType -> AtomType -> bool
+        TestCompatibility : AtomType -> AtomType -> bool
 
         /// Counts stacks adjacent to the given (existing or 
         /// proposed) bond.
@@ -45,26 +45,6 @@ type private BondBehavior =
     }
 
 module private BondBehavior =
-
-    /// Full (x, y) deltas from normalized (max, min) neighborhood.
-    let getDeltas neighborhood =
-        neighborhood
-            |> Seq.collect (fun (a, b) ->
-                [|
-                    (a, b)                            // e.g.  2,  1
-                    if a <> 0 then (-a, b)            // e.g. -2,  1
-                    if b <> 0 then
-                        (a, -b)                       // e.g.  2, -1
-                        if a <> 0 then (-a, -b)       // e.g. -2, -1
-                    if a <> b then
-                        (b, a)                        // e.g.  1,  2
-                        if b <> 0 then (-b, a)        // e.g. -1,  2
-                        if a <> 0 then
-                            (b, -a)                   // e.g.  1, -2
-                            if b <> 0 then (-b, -a)   // e.g. -1, -2
-                |])
-            |> Seq.map Point.create
-            |> Seq.toArray
 
     /// Determines orientation of the path connecting
     /// the given points (a-b-c):
@@ -89,7 +69,7 @@ module private BondBehavior =
 module private StrongBond =
 
     /// All normalized strong bond vectors.
-    let neighborhood =
+    let neighborhood : Neighborhood =
         set [
             2, 0
             2, 1
@@ -99,14 +79,11 @@ module private StrongBond =
             3, 2
         ]
 
-    /// Denormalized neighborhood.
-    let deltas = BondBehavior.getDeltas neighborhood
+    /// Denormalized neighborhood, cached for speed.
+    let deltas = Neighborhood.toDeltas neighborhood
 
     /// Possible cross bond deltas, as determined by Claude.
-    let crossBondDeltas =
-        neighborhood
-            |> BondBehavior.getDeltas
-            |> set
+    let crossBondDeltas = set deltas
 
     /// Counts stacks affected by the given (existing or 
     /// proposed) strong bond:
@@ -133,7 +110,7 @@ module private StrongBond =
             Deltas = deltas
             CrossBondDeltas = crossBondDeltas
             Valence = 2
-            CanBond = fun _ _ -> true
+            TestCompatibility = fun _ _ -> true
             CountStacks = countStacks
             MaxDotProduct = -4
         }
@@ -141,26 +118,26 @@ module private StrongBond =
 module private WeakBond =
 
     /// All normalized weak bond vectors.
-    let neighborhood =
+    let neighborhood : Neighborhood =
         set [
             2, 0
             2, 1
             2, 2
         ]
 
-    /// Denormalized neighborhood.
+    /// Denormalized neighborhood, cached for speed.
     let deltas =
-        BondBehavior.getDeltas neighborhood
+        Neighborhood.toDeltas neighborhood
 
     /// Possible cross bond deltas, as determined by Claude.
     let crossBondDeltas =
-        [ (2, 0) ]
-            |> BondBehavior.getDeltas
+        set [ (2, 0) ]
+            |> Neighborhood.toDeltas
             |> set
 
     /// Indicates whether the given atom types can form
     /// a weak bond.
-    let canBond atomTypeA atomTypeB =
+    let testCompatibility atomTypeA atomTypeB =
         let atomTypeMin = min atomTypeA atomTypeB
         let atomTypeMax = max atomTypeA atomTypeB
         match atomTypeMin, atomTypeMax with
@@ -193,7 +170,7 @@ module private WeakBond =
             Deltas = deltas
             CrossBondDeltas = crossBondDeltas
             Valence = 2
-            CanBond = canBond
+            TestCompatibility = testCompatibility
             CountStacks = countStacks
             MaxDotProduct = -3
         }

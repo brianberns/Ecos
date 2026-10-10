@@ -3,6 +3,42 @@ namespace Ecos
 /// Unique ID of an atom in a world.
 type AtomId = int
 
+/// A set of non-negative integer pairs that describe normalized
+/// offsets from a center. These are not necessarily (x, y)
+/// points.
+type Neighborhood = Set<int (*max*) * int (*min*)>
+
+module Neighborhood =
+
+    /// Indicates whether the given neighborhood is valid.
+    let isValid (neighborhood : Neighborhood) =
+        neighborhood
+            |> Seq.forall (fun (x, y) ->
+                x >= y
+                    && x >= 0
+                    && y >= 0)
+
+    /// Creates full (x, y) deltas from the given normalized (max,
+    /// min) neighborhood.
+    let toDeltas (neighborhood : Neighborhood) =
+        neighborhood
+            |> Seq.collect (fun (a, b) ->
+                [|
+                    (a, b)                            // e.g.  2,  1
+                    if a <> 0 then (-a, b)            // e.g. -2,  1
+                    if b <> 0 then
+                        (a, -b)                       // e.g.  2, -1
+                        if a <> 0 then (-a, -b)       // e.g. -2, -1
+                    if a <> b then
+                        (b, a)                        // e.g.  1,  2
+                        if b <> 0 then (-b, a)        // e.g. -1,  2
+                        if a <> 0 then
+                            (b, -a)                   // e.g.  1, -2
+                            if b <> 0 then (-b, -a)   // e.g. -1, -2
+                |])
+            |> Seq.map Point.create
+            |> Seq.toArray
+
 /// Bidirectional bonds between atoms.
 type BondMap = Map<AtomId, Set<AtomId>>
 
@@ -28,12 +64,10 @@ module BondMap =
                 (getBonds idB bondMap).Contains(idA))
         (getBonds idA bondMap).Contains(idB)
 
-    /// Determines whether a bond between the given atoms is valid.
-    let testBond neighborhood atomA atomB =
-        assert(
-            Seq.forall (fun (x, y) ->
-                x >= 0 && y >= 0)
-                neighborhood)
+    /// Determines whether a bond between the given atoms is valid
+    /// for the given neighborhood.
+    let testBond (neighborhood : Neighborhood) atomA atomB =
+        assert(Neighborhood.isValid neighborhood)
         let diff = abs (atomA.Location - atomB.Location)
         Set.contains
             (max diff.X diff.Y, min diff.X diff.Y)
