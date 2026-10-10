@@ -217,7 +217,7 @@ module World =
 
         let bondMap = world.BondTypeMap[bondType]
 
-        let canAdd =
+        let isValid =
             let atomA = world.AtomMap[idA]
             let atomB = world.AtomMap[idB]
             let behavior = behaviorMap[bondType]
@@ -232,7 +232,7 @@ module World =
                 && testBondAngles bondType atomA atomB aIds world
                 && testBondAngles bondType atomB atomA bIds world
 
-        if canAdd then
+        if isValid then
             let bondMap = BondMap.createBond idB idA bondMap
             Some {
                 world with
