@@ -110,13 +110,13 @@ module Experiment2 =
             LongestChain : int
         }
 
-    /// The given atom's weak bond partner, if it's one of the given
-    /// atoms.
-    let private tryGetPartner (candidates : Set<AtomId>) (world : World) id =
+    /// The given atom's weak bond partners (it can have two) that are
+    /// among the given atoms.
+    let private getPartners (candidates : Set<AtomId>) (world : World) id =
         world.BondTypeMap[Weak]
             |> Map.tryFind id
-            |> Option.bind Seq.tryExactlyOne
-            |> Option.filter candidates.Contains
+            |> Option.defaultValue Set.empty
+            |> Set.intersect candidates
 
     /// Indicates whether the given atoms are strongly bonded.
     let private areStronglyBonded (world : World) idA idB =
@@ -127,13 +127,15 @@ module Experiment2 =
     /// Indicates whether the given atoms are weakly bonded to template
     /// atoms that are strongly bonded to each other.
     let private isTemplated template world idA idB =
-        match tryGetPartner template world idA, tryGetPartner template world idB with
-            | Some idA', Some idB' -> areStronglyBonded world idA' idB'
-            | _ -> false
+        Seq.allPairs
+            (getPartners template world idA)
+            (getPartners template world idB)
+            |> Seq.exists (fun (idA', idB') ->
+                areStronglyBonded world idA' idB')
 
     /// Counts pairs of adjacent template atoms that are both paired
-    /// with free atoms, and how many of those have both partners on
-    /// the same side of the line through the two template atoms.
+    /// with free atoms, and how many of those have partners on the
+    /// same side of the line through the two template atoms.
     let private countAdjacentPairs (template : AtomId[]) (free : Set<AtomId>) (world : World) =
         let loc id = world.AtomMap[id].Location
         let side (a : Point) (b : Point) (c : Point) =
@@ -143,12 +145,14 @@ module Experiment2 =
                 for idA in template do
                     for idB in template do
                         if idA < idB && areStronglyBonded world idA idB then
-                            match tryGetPartner free world idA, tryGetPartner free world idB with
-                                | Some idA', Some idB' ->
-                                    let sideA = side (loc idA) (loc idB) (loc idA')
-                                    let sideB = side (loc idA) (loc idB) (loc idB')
-                                    sideA <> 0 && sideA = sideB
-                                | _ -> ()
+                            let idsA' = getPartners free world idA
+                            let idsB' = getPartners free world idB
+                            if not idsA'.IsEmpty && not idsB'.IsEmpty then
+                                Seq.allPairs idsA' idsB'
+                                    |> Seq.exists (fun (idA', idB') ->
+                                        let sideA = side (loc idA) (loc idB) (loc idA')
+                                        let sideB = side (loc idA) (loc idB) (loc idB')
+                                        sideA <> 0 && sideA = sideB)
             ]
         pairs.Length, (pairs |> List.where id |> List.length)
 
