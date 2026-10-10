@@ -226,7 +226,7 @@ module World =
             behavior.TestCompatibility atomA.Type atomB.Type
                 && aIds.Count < behavior.Valence
                 && bIds.Count < behavior.Valence
-                && BondMap.testBond behavior.Neighborhood atomA atomB
+                && Neighborhood.testBond behavior.Neighborhood atomA atomB
                 && not (areBonded idA idB world)
                 && not (isCrossBond bondType idA atomA idB atomB world)
                 && testBondAngles bondType atomA atomB aIds world
@@ -319,7 +319,7 @@ module World =
                     partnerIds
                         |> Seq.forall (fun idB ->
                             let atomB = world.AtomMap[idB]
-                            BondMap.testBond
+                            Neighborhood.testBond
                                 behavior.Neighborhood atom atomB)
 
                     // test bond angles?

@@ -14,9 +14,7 @@ module Neighborhood =
     let isValid (neighborhood : Neighborhood) =
         neighborhood
             |> Seq.forall (fun (x, y) ->
-                x >= y
-                    && x >= 0
-                    && y >= 0)
+                x >= y && x >= 0 && y >= 0)
 
     /// Creates full (x, y) deltas from the given normalized (max,
     /// min) neighborhood.
@@ -38,6 +36,15 @@ module Neighborhood =
                 |])
             |> Seq.map Point.create
             |> Seq.toArray
+
+    /// Determines whether a bond between the given atoms is valid
+    /// for the given neighborhood.
+    let testBond neighborhood atomA atomB =
+        assert(isValid neighborhood)
+        let diff = abs (atomA.Location - atomB.Location)
+        Set.contains
+            (max diff.X diff.Y, min diff.X diff.Y)
+            neighborhood
 
 /// Bidirectional bonds between atoms.
 type BondMap = Map<AtomId, Set<AtomId>>
@@ -64,22 +71,13 @@ module BondMap =
                 (getBonds idB bondMap).Contains(idA))
         (getBonds idA bondMap).Contains(idB)
 
-    /// Determines whether a bond between the given atoms is valid
-    /// for the given neighborhood.
-    let testBond (neighborhood : Neighborhood) atomA atomB =
-        assert(Neighborhood.isValid neighborhood)
-        let diff = abs (atomA.Location - atomB.Location)
-        Set.contains
-            (max diff.X diff.Y, min diff.X diff.Y)
-            neighborhood
-
     /// Tests validity of the given atom's bonds.
     let testBonds
         neighborhood id atom (atomMap : Map<_, _>) bondMap =
         getBonds id bondMap
             |> Seq.forall (fun idB ->
                 let atomB = atomMap[idB]
-                testBond neighborhood atom atomB)
+                Neighborhood.testBond neighborhood atom atomB)
 
     /// Creates a bidirectional bond between the given atoms.
     let createBond idA idB bondMap =
