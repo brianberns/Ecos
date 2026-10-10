@@ -3,10 +3,29 @@ namespace Ecos.Experiment
 open System
 open Ecos
 
+type Phase =
+    {
+        /// Temperature scaled by Boltzmann's constant (kT).
+        Temperature : float
+
+        /// Number of sweeps to run at this temperature.
+        NumSweeps : int
+    }
+
+type TemperatureType =
+
+    /// Only the initial temperature is specified.
+    | Adjustable of float
+
+    /// Phases to run in a loop.
+    | Cycle of Phase[]
+
 type Scenario =
     {
         World : World
         Template : AtomId[]
+        TemperatureType : TemperatureType
+        BondParameterMap : Map<BondType, BondTypeParameters>
         Random : Random
     }
 
@@ -51,39 +70,6 @@ module Scenario =
         if withBond then
             World.addStrongBond (id - 1) id world
         else world
-
-    let twoStrands =
-
-        let rng = Random(0)
-        let n = 40
-        let dist = 6
-
-        let world =
-            let width = 2 * n + 6 * dist
-            let height = 2 * n
-            addBox width height World.empty
-
-            // first strand
-        let world =
-            let atomTypes = [| AtomType.W; AtomType.Y |]
-            (world, [ 0 .. n - 1 ])
-                ||> Seq.fold (fun world i ->
-                    let x = 2 * i - n
-                    addAtom rng atomTypes x -dist (i > 0) world)
-
-            // second strand
-        let world =
-            let atomTypes = [| AtomType.X; AtomType.Z |]
-            (world, [ 0 .. n - 1 ])
-                ||> Seq.fold (fun world i ->
-                    let x = 2 * i - n
-                    addAtom rng atomTypes x dist (i > 0) world)
-
-        {
-            World = world
-            Template = Array.empty
-            Random = rng
-        }
 
     let private createExperiment1or2 withTemplate seed =
 
@@ -149,9 +135,25 @@ module Scenario =
                     let x = 2 * i - nFree
                     addAtom rng atomTypes x -(2 * dist) false world)
 
+        let bondParamMap =
+            Map [
+                Strong, {
+                    Energy = 17
+                    Barrier = 3
+                    BarrierStackReduction = 3
+                }
+                Weak, {
+                    Energy = 1
+                    Barrier = 0
+                    BarrierStackReduction = 0
+                }
+            ]
+
         {
             World = world
-            Template = template
+            Template = Array.empty
+            TemperatureType = Adjustable 0.25
+            BondParameterMap = bondParamMap
             Random = rng
         }
 

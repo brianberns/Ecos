@@ -55,24 +55,11 @@ module Model =
             Random = scenario.Random
             Parameters =
                 {
-                    Temperature = 0.25
-                    BondParameterMap =
-                        let strong =
-                            {
-                                Energy = 17
-                                Barrier = 3
-                                BarrierStackReduction = 3
-                            }
-                        let weak =
-                            {
-                                Energy = 1
-                                Barrier = 0
-                                BarrierStackReduction = 0
-                            }
-                        Map [
-                            Strong, strong
-                            Weak, weak
-                        ]
+                    Temperature =
+                        match scenario.TemperatureType with
+                            | Adjustable kT -> kT
+                            | _ -> failwith "Unexpected"
+                    BondParameterMap = scenario.BondParameterMap
                 }
             Run = false
             Speed = 25
