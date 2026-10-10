@@ -27,9 +27,9 @@ type private BondBehavior =
         /// Deltas to check for cross bonds.
         CrossBondDeltas : Set<Point>
 
-        /// Maximum number of bonds of this type an atom can
-        /// have.
-        Valence : int
+        /// Determines whether a bond of this type can be created
+        /// within the allowed valence for the given atom.
+        TestValence : AtomId -> Set<AtomId> -> Map<BondType, BondMap> -> bool
 
         /// Indicates whether the given atom types can form
         /// a bond of this type.
@@ -85,6 +85,13 @@ module private StrongBond =
     /// Possible cross bond deltas, as determined by Claude.
     let crossBondDeltas = set deltas
 
+    /// Maximum number of strong bonds an atom can have.
+    let private valence = 2
+
+    /// Strong bond valence test.
+    let testValence _id (ids : Set<_>) _bondTypeMap =
+        ids.Count < valence
+
     /// Counts stacks affected by the given (existing or 
     /// proposed) strong bond:
     ///    A' ═══ B'   ══ strong bond
@@ -109,7 +116,7 @@ module private StrongBond =
             Neighborhood = neighborhood
             Deltas = deltas
             CrossBondDeltas = crossBondDeltas
-            Valence = 2
+            TestValence = testValence
             AreCompatible = fun _ _ -> true
             CountStacks = countStacks
             MaxDotProduct = -4
@@ -145,6 +152,21 @@ module private WeakBond =
             | AtomType.Y, AtomType.Z -> true
             | _ -> false
 
+    /// Maximum number of weak bonds an atom can have.
+    let private valence = 2
+
+    /// Weak bond valence test. To get a second weak bond,
+    /// an atom must have at least one strong bond.
+    let testValence id (ids : Set<_>) (bondTypeMap : Map<_, _>) =
+        match ids.Count with
+            | 0 -> true
+            | 1 ->
+                let strongIds =
+                    BondMap.getBonds id bondTypeMap[Strong]
+                strongIds.Count > 0
+            | 2 -> false
+            | _ -> failwith "Unexpected"
+
     /// Counts stacks adjacent to the given (existing or 
     /// proposed) weak bond:
     ///    A' ══ A ══ A'   ══ strong bond
@@ -169,7 +191,7 @@ module private WeakBond =
             Neighborhood = neighborhood
             Deltas = deltas
             CrossBondDeltas = crossBondDeltas
-            Valence = 2
+            TestValence = testValence
             AreCompatible = AreCompatible
             CountStacks = countStacks
             MaxDotProduct = -3

@@ -224,8 +224,8 @@ module World =
             let idsA = BondMap.getBonds idA bondMap
             let idsB = BondMap.getBonds idB bondMap
             behavior.AreCompatible atomA.Type atomB.Type
-                && idsA.Count < behavior.Valence
-                && idsB.Count < behavior.Valence
+                && behavior.TestValence idA idsA world.BondTypeMap
+                && behavior.TestValence idB idsB world.BondTypeMap
                 && Neighborhood.testBond behavior.Neighborhood atomA atomB
                 && not (areBonded idA idB world)
                 && not (isCrossBond bondType idA atomA idB atomB world)
