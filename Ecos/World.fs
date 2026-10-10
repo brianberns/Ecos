@@ -250,9 +250,7 @@ module World =
         else None
 
     /// Adds a strong bond between the given atoms in the given
-    /// world if it is valid. Note that this currently allows
-    /// crossed bonds. (Moves cannot create crossings, so a world
-    /// created without crossed bonds will stay that way.)
+    /// world if it is valid.
     let tryAddStrongBond idA idB world =
         tryAddBond Strong idA idB world
 
