@@ -86,13 +86,10 @@ module private StrongBond =
     /// Possible cross bond deltas, as determined by Claude.
     let crossBondDeltas = set deltas
 
-    /// Maximum number of strong bonds an atom can have.
-    let private valence = 2
-
     /// Strong bond valence test.
     let testValence id (bondTypeMap : Map<_, _>) =
         let bonds = BondMap.getBonds id bondTypeMap[Strong]
-        bonds.Count <= valence
+        bonds.Count <= 2
 
     /// Counts stacks affected by the given (existing or 
     /// proposed) strong bond:
@@ -153,9 +150,6 @@ module private WeakBond =
             | AtomType.W, AtomType.X
             | AtomType.Y, AtomType.Z -> true
             | _ -> false
-
-    /// Maximum number of weak bonds an atom can have.
-    let private valence = 2
 
     /// Weak bond valence test. To have a second weak bond,
     /// an atom must have at least one strong bond.
