@@ -410,11 +410,13 @@ module World =
     /// the atoms with the given IDs in the given world.
     let private tryToggleBond parms rng bondType idA idB world =
 
+            // count adjacent stacks
         let bondParms = parms.BondParameterMap[bondType]
         let nStacks =
             behaviorMap[bondType].CountStacks
                 idA idB world.BondTypeMap
 
+        /// Applies Metropolis tests to the given bond energy.
         let test energy =
             let barrier =
                 bondParms.Barrier
@@ -422,9 +424,11 @@ module World =
             testMetropolis parms.Temperature rng barrier
                 && testMetropolis parms.Temperature rng energy
 
+            // compute bond energy
         let bondEnergy =
             bondParms.Energy + stackEnergy * float nStacks
 
+            // create or break bond?
         if BondMap.areBonded idA idB world.BondTypeMap[bondType] then
             if test bondEnergy then
                 let world = breakBond bondType idA idB world
