@@ -202,14 +202,14 @@ module World =
     ///  \
     ///   \
     ///    C
-    let private testBondAngles bondType atomA atomB cIds world =
-        Seq.forall (fun cId ->
+    let private testBondAngles bondType atomA atomB idsC world =
+        Seq.forall (fun idC ->
             testBondAngle
                 behaviorMap[bondType].MaxDotProduct
                 atomA
                 atomB
-                world.AtomMap[cId])
-            cIds
+                world.AtomMap[idC])
+            idsC
 
     /// Adds a bond of the given type between the given atoms in
     /// the given world if it is valid.
