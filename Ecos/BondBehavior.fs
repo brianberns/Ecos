@@ -90,7 +90,7 @@ module private StrongBond =
 
     /// Strong bond valence test.
     let testValence _id (ids : Set<_>) _bondTypeMap =
-        ids.Count < valence
+        ids.Count <= valence
 
     /// Counts stacks affected by the given (existing or 
     /// proposed) strong bond:
@@ -155,17 +155,16 @@ module private WeakBond =
     /// Maximum number of weak bonds an atom can have.
     let private valence = 2
 
-    /// Weak bond valence test. To get a second weak bond,
+    /// Weak bond valence test. To have a second weak bond,
     /// an atom must have at least one strong bond.
     let testValence id (ids : Set<_>) (bondTypeMap : Map<_, _>) =
         match ids.Count with
-            | 0 -> true
-            | 1 ->
+            | 0 | 1 -> true
+            | 2 ->
                 let strongIds =
                     BondMap.getBonds id bondTypeMap[Strong]
                 strongIds.Count > 0
-            | 2 -> false
-            | _ -> failwith "Unexpected"
+            | _ -> false
 
     /// Counts stacks adjacent to the given (existing or 
     /// proposed) weak bond:

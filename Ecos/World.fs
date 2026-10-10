@@ -222,10 +222,12 @@ module World =
             let atomB = world.AtomMap[idB]
             let behavior = behaviorMap[bondType]
             let idsA = BondMap.getBonds idA bondMap
+            let idsA' = idsA.Add(idB)
             let idsB = BondMap.getBonds idB bondMap
+            let idsB' = idsB.Add(idA)
             behavior.AreCompatible atomA.Type atomB.Type
-                && behavior.TestValence idA idsA world.BondTypeMap
-                && behavior.TestValence idB idsB world.BondTypeMap
+                && behavior.TestValence idA idsA' world.BondTypeMap
+                && behavior.TestValence idB idsB' world.BondTypeMap
                 && Neighborhood.testBond behavior.Neighborhood atomA atomB
                 && not (areBonded idA idB world)
                 && not (isCrossBond bondType idA atomA idB atomB world)
@@ -383,9 +385,9 @@ module World =
             Some (world, event)
         else None
 
-    /// Breaks a bond of the given type between the atoms
-    /// with the given IDs in the given world.
-    let private breakBond bondType idA idB world =
+    /// Attempts to break the bond of the given type between the
+    /// atoms with the given IDs in the given world.
+    let private tryBreakBond bondType idA idB world =
 
         /// Removes atom B from atom A's bond set.
         let remove idA idB (bondMap : BondMap) : BondMap =
@@ -395,13 +397,28 @@ module World =
             else
                 Map.add idA ids bondMap
 
-        let bondMap =
-            world.BondTypeMap[bondType]
-                |> remove idA idB
-                |> remove idB idA
-        { world with
-            BondTypeMap =
-                Map.add bondType bondMap world.BondTypeMap }
+            // remove the bond provisionally
+        let bondTypeMap =
+            let bondMap =
+                world.BondTypeMap[bondType]
+                    |> remove idA idB
+                    |> remove idB idA
+            Map.add bondType bondMap world.BondTypeMap
+
+            // enforce valence rules
+        let isValid =
+            BondType.all
+                |> Seq.forall (fun bondType ->
+                    let behavior = behaviorMap[bondType]
+                    let bondMap = bondTypeMap[bondType]
+                    let idsA = BondMap.getBonds idA bondMap
+                    let idsB = BondMap.getBonds idB bondMap
+                    behavior.TestValence idA idsA bondTypeMap
+                        && behavior.TestValence idB idsB bondTypeMap)
+
+        if isValid then
+            Some { world with BondTypeMap = bondTypeMap }
+        else None
 
     /// Additional energy from a stacked weak bond.
     let private stackEnergy = 1.0
@@ -431,9 +448,10 @@ module World =
             // create or break bond?
         if BondMap.areBonded idA idB world.BondTypeMap[bondType] then
             if test bondEnergy then
-                let world = breakBond bondType idA idB world
-                let event = BreakBond (bondType, idA, idB)
-                Some (world, event)
+                tryBreakBond bondType idA idB world
+                    |> Option.map (fun world ->
+                        let event = BreakBond (bondType, idA, idB)
+                        world, event)
             else None
         else
             if test -bondEnergy then
