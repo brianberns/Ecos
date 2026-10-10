@@ -215,19 +215,24 @@ module World =
     /// the given world if it is valid.
     let private tryAddBond bondType idA idB world =
 
+            // get existing bond map
         let bondMap = world.BondTypeMap[bondType]
 
+            // create bond provisionally                
+        let bondTypeMap =
+            let bondMap = BondMap.createBond idB idA bondMap
+            Map.add bondType bondMap world.BondTypeMap
+
+            // new bond is valid?
         let isValid =
             let atomA = world.AtomMap[idA]
             let atomB = world.AtomMap[idB]
             let behavior = behaviorMap[bondType]
             let idsA = BondMap.getBonds idA bondMap
-            let idsA' = idsA.Add(idB)
             let idsB = BondMap.getBonds idB bondMap
-            let idsB' = idsB.Add(idA)
             behavior.AreCompatible atomA.Type atomB.Type
-                && behavior.TestValence idA idsA' world.BondTypeMap
-                && behavior.TestValence idB idsB' world.BondTypeMap
+                && behavior.TestValence idA bondTypeMap
+                && behavior.TestValence idB bondTypeMap
                 && Neighborhood.testBond behavior.Neighborhood atomA atomB
                 && not (areBonded idA idB world)
                 && not (isCrossBond bondType idA atomA idB atomB world)
@@ -410,11 +415,8 @@ module World =
             BondType.all
                 |> Seq.forall (fun bondType ->
                     let behavior = behaviorMap[bondType]
-                    let bondMap = bondTypeMap[bondType]
-                    let idsA = BondMap.getBonds idA bondMap
-                    let idsB = BondMap.getBonds idB bondMap
-                    behavior.TestValence idA idsA bondTypeMap
-                        && behavior.TestValence idB idsB bondTypeMap)
+                    behavior.TestValence idA bondTypeMap
+                        && behavior.TestValence idB bondTypeMap)
 
         if isValid then
             Some { world with BondTypeMap = bondTypeMap }

@@ -27,9 +27,10 @@ type private BondBehavior =
         /// Deltas to check for cross bonds.
         CrossBondDeltas : Set<Point>
 
-        /// Determines whether a bond of this type can be created
-        /// within the allowed valence for the given atom.
-        TestValence : AtomId -> Set<AtomId> -> Map<BondType, BondMap> -> bool
+        /// Determines whether the given atom obeys this type's
+        /// valence rule (which may involve other bond types as
+        /// well, via the given map).
+        TestValence : AtomId -> Map<BondType, BondMap> -> bool
 
         /// Indicates whether the given atom types can form
         /// a bond of this type.
@@ -89,8 +90,9 @@ module private StrongBond =
     let private valence = 2
 
     /// Strong bond valence test.
-    let testValence _id (ids : Set<_>) _bondTypeMap =
-        ids.Count <= valence
+    let testValence id (bondTypeMap : Map<_, _>) =
+        let bonds = BondMap.getBonds id bondTypeMap[Strong]
+        bonds.Count <= valence
 
     /// Counts stacks affected by the given (existing or 
     /// proposed) strong bond:
@@ -157,8 +159,9 @@ module private WeakBond =
 
     /// Weak bond valence test. To have a second weak bond,
     /// an atom must have at least one strong bond.
-    let testValence id (ids : Set<_>) (bondTypeMap : Map<_, _>) =
-        match ids.Count with
+    let testValence id (bondTypeMap : Map<_, _>) =
+        let bonds = BondMap.getBonds id bondTypeMap[Weak]
+        match bonds.Count with
             | 0 | 1 -> true
             | 2 ->
                 let strongIds =
