@@ -8,14 +8,14 @@ open Ecos.Experiment
 /// Elmish model.
 type Model =
     {
+        /// Initial scenario.
+        Scenario : Scenario
+
         /// Current world state.
         World : World
 
-        /// RNG used to update the world.
-        Random : Random
-
-        /// Current update parameters.
-        Parameters : Parameters
+        /// Current temperature.
+        TemperatureType : TemperatureType
 
         /// Indicates whether updates are enabled.
         Run : bool
@@ -51,43 +51,76 @@ module Model =
     let init () =
         let scenario = Scenario.createExperiment3 0
         {
+            Scenario = scenario
             World = scenario.World
-            Random = scenario.Random
-            Parameters =
-                {
-                    Temperature =
-                        match scenario.TemperatureType with
-                            | Adjustable kT -> kT
-                            | Cycle phases -> phases[0].Temperature
-                    BondParameterMap = scenario.BondParameterMap
-                }
+            TemperatureType = scenario.TemperatureType
             Run = false
             Speed = 25
             SweepCount = 0
         }
 
+    /// Gets the given model's current temperature.
+    let getTemperature model =
+        match model.TemperatureType with
+            | Adjustable kT -> kT
+            | Cycle phases -> phases[0].Temperature
+
+    /// Runs one sweep.
+    let private runSweep model =
+
+            // update world
+        let world =
+            let parms =
+                {
+                    Temperature = getTemperature model
+                    BondParameterMap = model.Scenario.BondParameterMap
+                }
+            World.sweep parms model.Scenario.Random model.World
+
+            // update temperature
+        let tempType =
+            match model.TemperatureType with
+                | Cycle phases ->
+
+                        // update current phase
+                    let phase = phases[0]
+                    assert(phase.NumSweeps > 0)
+                    let phase =
+                        { phase with NumSweeps = phase.NumSweeps - 1 }
+
+                        // current phase is over?
+                    if phase.NumSweeps = 0 then
+                        if phases.Length = 1 then
+                            model.Scenario.TemperatureType   // start cycling from the beginning again
+                        else
+                            Cycle phases[1..]                // move to next phase
+                    else
+                        Cycle [|
+                            phase
+                            yield! phases[1..]
+                        |]
+
+                | tempType -> tempType
+
+            // update model
+        { model with
+            World = world
+            TemperatureType = tempType
+            SweepCount = model.SweepCount + 1 }
+
     /// Moves N random atoms per tick. Duplicates or omissions are
     /// possible.
     let handleTick model =
         if model.Run then
-            let world =
-                (model.World, [ 1 .. model.Speed ])
-                    ||> Seq.fold (fun world _ ->
-                        World.sweep
-                            model.Parameters
-                            model.Random
-                            world)
-            { model with
-                World = world
-                SweepCount = model.SweepCount + model.Speed }
+            (model, [ 1 .. model.Speed ])
+                ||> Seq.fold (fun model _ ->
+                    runSweep model)
         else model
 
-    /// Handlees temperature change.
-    let handleSetTemperature kT model =
+    /// Handles temperature change.
+    let handleSetTemperature kT (model : Model) =
         { model with
-            Parameters = {
-                model.Parameters with
-                    Temperature = kT } }
+            TemperatureType = Adjustable kT }
 
     /// Handles `run` flag change.
     let handleSetRun run model =
