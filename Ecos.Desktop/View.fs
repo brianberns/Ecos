@@ -42,16 +42,21 @@ module View =
                 ] :> IView
         ]
 
-    let renderAtoms world =
+    let renderAtoms model =
+        let templateIds = set model.Scenario.Template
         [
-            for atom in world.AtomMap.Values do
+            for id, atom in Map.toSeq model.World.AtomMap do
                 Ellipse.create [
                     Ellipse.width 2
                     Ellipse.height 2
                     let pt = atom.Location - Point.create (1, 1)   // every atom is 2x2 centered on its location
                     Ellipse.left pt.X
                     Ellipse.top pt.Y
-                    Ellipse.fill brushMap[atom.Type]
+                    if templateIds.Contains(id) then
+                        Ellipse.fill brushMap[atom.Type]
+                    else
+                        Ellipse.stroke brushMap[atom.Type]
+                        Ellipse.strokeThickness 0.5
                     Ellipse.useLayoutRounding false   // don't snap to pixels before scaling
                 ] :> IView
         ]
@@ -86,7 +91,7 @@ module View =
     let renderWeakBonds world =
         renderBonds Weak Brushes.HotPink 0.4 world
 
-    let renderWorld world =
+    let renderWorld (model : Model) =
         let scale = 12.0
         Border.create [
             Border.clipToBounds true   // keep drawing inside the available space
@@ -99,10 +104,10 @@ module View =
                     Canvas.renderTransform (ScaleTransform(scale, scale))
                     Canvas.renderTransformOrigin RelativePoint.TopLeft
                     Canvas.children [
-                        yield! renderWalls world
-                        yield! renderAtoms world
-                        yield! renderStrongBonds world
-                        yield! renderWeakBonds world
+                        yield! renderWalls model.World
+                        yield! renderAtoms model
+                        yield! renderStrongBonds model.World
+                        yield! renderWeakBonds model.World
                     ]
                 ])
         ]
@@ -248,7 +253,7 @@ module View =
                 DockPanel.create [
                     DockPanel.children [
                         renderControlPanel model dispatch
-                        renderWorld model.World   // last child fills
+                        renderWorld model   // last child fills
                     ]
                 ])
         ]
