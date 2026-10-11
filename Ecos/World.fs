@@ -193,10 +193,10 @@ module World =
     ///  \
     ///   \
     ///    C
-    let private testBondAngle maxDotProd atomA atomB atomC =
+    let private testBondAngle behavior atomA atomB atomC =
         let deltaAB = atomB.Location - atomA.Location   // vector from A to B
         let deltaAC = atomC.Location - atomA.Location   // vector from A to C
-        deltaAB .* deltaAC <= maxDotProd
+        behavior.TestBondAngle deltaAB deltaAC
 
     /// A -?- B
     ///  \
@@ -204,11 +204,8 @@ module World =
     ///    C
     let private testBondAngles bondType atomA atomB idsC world =
         Seq.forall (fun idC ->
-            testBondAngle
-                behaviorMap[bondType].MaxDotProduct
-                atomA
-                atomB
-                world.AtomMap[idC])
+            let atomC = world.AtomMap[idC]
+            testBondAngle behaviorMap[bondType] atomA atomB atomC)
             idsC
 
     /// Adds a bond of the given type between the given atoms in
@@ -285,7 +282,7 @@ module World =
 
     /// Tests bond angles in which the atom is central: C-A-B.
     let private testCentralBonds
-        maxDotProd atom (partnerIds : _[]) world =
+        behavior atom (partnerIds : _[]) world =
         seq {
             for i = 0 to partnerIds.Length - 2 do
                 for j = i + 1 to partnerIds.Length - 1 do
@@ -294,12 +291,12 @@ module World =
             |> Seq.forall (fun (idB, idC) ->
                 let atomB = world.AtomMap[idB]
                 let atomC = world.AtomMap[idC]
-                testBondAngle maxDotProd atom atomB atomC)
+                testBondAngle behavior atom atomB atomC)
 
 
     /// Tests angles in which the atom isn't central: A-B-C.
     let private testPeripheralBonds
-        maxDotProd id atom bondMap partnerIds world =
+        behavior id atom bondMap partnerIds world =
         partnerIds
             |> Seq.forall (fun idB ->
                 let atomB = world.AtomMap[idB]
@@ -307,7 +304,7 @@ module World =
                     |> Seq.where ((<>) id)
                     |> Seq.forall (fun idC ->
                         world.AtomMap[idC]
-                            |> testBondAngle maxDotProd atomB atom))
+                            |> testBondAngle behavior atomB atom))
 
     /// Determines whether the given atom's bonds are valid.
     let private testBonds id atom world =
@@ -329,11 +326,10 @@ module World =
 
                     // test bond angles?
                 if isValid then
-                    let maxDotProd = behavior.MaxDotProduct
                     testCentralBonds
-                        maxDotProd atom partnerIds world
+                        behavior atom partnerIds world
                         && testPeripheralBonds
-                            maxDotProd id atom bondMap partnerIds world
+                            behavior id atom bondMap partnerIds world
                 else false)
 
     /// Applies the Metropolis rule:

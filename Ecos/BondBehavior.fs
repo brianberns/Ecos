@@ -32,7 +32,7 @@ type private BondBehavior =
         /// well, via the given map).
         TestValence : AtomId -> Map<BondType, BondMap> -> bool
 
-        /// Indicates whether the given atom types can form
+        /// Determines whether the given atom types can form
         /// a bond of this type.
         AreCompatible : AtomType -> AtomType -> bool
 
@@ -40,9 +40,9 @@ type private BondBehavior =
         /// proposed) bond.
         CountStacks : AtomId -> AtomId -> Map<BondType, BondMap> -> int
 
-        /// Maximum allowed dot product between two bonds of
-        /// this type for an atom.
-        MaxDotProduct : int
+        /// Determines whether the angle defined the given vectors
+        /// is valid for a bond of this type.
+        TestBondAngle : Point -> Point -> bool
     }
 
 module private BondBehavior =
@@ -54,7 +54,7 @@ module private BondBehavior =
     let private orient (a : Point) (b : Point) (c : Point) =
         sign ((b - a) *^ (c - a))
 
-    /// Indicates whether bonds between the given pairs of atoms
+    /// Determines whether bonds between the given pairs of atoms
     /// cross.
     let testCrossBond (atomA, atomB) (atomC, atomD) =
         let locA = atomA.Location
@@ -109,6 +109,12 @@ module private StrongBond =
                         bPrimes.Contains(idB')))
             |> Seq.length
 
+    /// Ensures strong bond stiffness.
+    let testBondAngle u v =
+        let dot = u .* v
+        dot < 0
+            && 25 * dot * dot >= 16 * (u .* u) * (v .* v)   // 16/25 = abs((-4/5)^2) in cos <= -0.8 
+
     /// Behavior of strong bonds.
     let behavior =
         {
@@ -118,7 +124,7 @@ module private StrongBond =
             TestValence = testValence
             AreCompatible = fun _ _ -> true
             CountStacks = countStacks
-            MaxDotProduct = -4
+            TestBondAngle = testBondAngle
         }
 
 module private WeakBond =
@@ -141,7 +147,7 @@ module private WeakBond =
             |> Neighborhood.toDeltas
             |> set
 
-    /// Indicates whether the given atom types can form
+    /// Determines whether the given atom types can form
     /// a weak bond.
     let areCompatible atomTypeA atomTypeB =
         let atomTypeMin = min atomTypeA atomTypeB
@@ -181,6 +187,12 @@ module private WeakBond =
                         bPrimes.Contains(idB')))
             |> Seq.length
 
+    /// Ensures an atom’s two weak partners are on opposite
+    /// sides of it, and too far apart to be strongly bonded
+    /// to each other.
+    let testBondAngle u v =
+        u .* v <= -3
+
     /// Behavior of weak bonds.
     let behavior =
         {
@@ -190,5 +202,5 @@ module private WeakBond =
             TestValence = testValence
             AreCompatible = areCompatible
             CountStacks = countStacks
-            MaxDotProduct = -3
+            TestBondAngle = testBondAngle
         }
