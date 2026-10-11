@@ -55,7 +55,7 @@ module Model =
             World = scenario.World
             TemperatureType = scenario.TemperatureType
             Run = false
-            Speed = 25
+            Speed = 200
             SweepCount = 0
         }
 
