@@ -125,10 +125,8 @@ module View =
 
     let labelColumnWidth = 100
 
-    let renderTemperature model dispatch =
-
-        let kT = Model.getTemperature model
-
+    let renderTemperature (model : Model) dispatch =
+        let kT = model.Temperature
         StackPanel.create [
             StackPanel.dock Dock.Top
             StackPanel.orientation Orientation.Horizontal

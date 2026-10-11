@@ -27,6 +27,12 @@ type Model =
         SweepCount : int
     }
 
+    /// Gets the model's current temperature.
+    member this.Temperature =
+        match this.TemperatureType with
+            | Adjustable kT -> kT
+            | Cycle phases -> phases[0].Temperature
+
 /// Elmish messages.
 type Message =
 
@@ -59,20 +65,14 @@ module Model =
             SweepCount = 0
         }
 
-    /// Gets the given model's current temperature.
-    let getTemperature model =
-        match model.TemperatureType with
-            | Adjustable kT -> kT
-            | Cycle phases -> phases[0].Temperature
-
     /// Runs one sweep.
-    let private runSweep model =
+    let private runSweep (model : Model) =
 
             // update world
         let world =
             let parms =
                 {
-                    Temperature = getTemperature model
+                    Temperature = model.Temperature
                     BondParameterMap = model.Scenario.BondParameterMap
                 }
             World.sweep parms model.Scenario.Random model.World
