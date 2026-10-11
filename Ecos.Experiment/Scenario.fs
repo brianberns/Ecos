@@ -77,7 +77,7 @@ module Scenario =
         let nTemplate = 10
         let dist = 6
 
-        let world = addBox 80 80 World.empty
+        let world = addBox 120 120 World.empty
 
             // template
         let world, template =
@@ -100,13 +100,19 @@ module Scenario =
                 world, Array.empty
 
             // free weak partners w/ positive y-coord
-        let nFree = 2 * nTemplate
+        let nFree = 3 * nTemplate
         let world =
             let atomTypes = [| AtomType.X  |]
             (world, [ 0 .. nFree - 1 ])
                 ||> Seq.fold (fun world i ->
                     let x = 2 * i - nFree
                     addAtom rng atomTypes x dist false world)
+        let world =
+            let atomTypes = [| AtomType.X  |]
+            (world, [ 0 .. nFree - 1 ])
+                ||> Seq.fold (fun world i ->
+                    let x = 2 * i - nFree
+                    addAtom rng atomTypes x (2 * dist) false world)
 
             // free weak partners w/ negative y-coord
         let world =
@@ -115,6 +121,12 @@ module Scenario =
                 ||> Seq.fold (fun world i ->
                     let x = 2 * i - nFree
                     addAtom rng atomTypes x -dist false world)
+        let world =
+            let atomTypes = [| AtomType.Z |]
+            (world, [ 0 .. nFree - 1 ])
+                ||> Seq.fold (fun world i ->
+                    let x = 2 * i - nFree
+                    addAtom rng atomTypes x -(2 * dist) false world)
 
             // free strong partners w/ positive y-coord
         let world =
@@ -122,7 +134,13 @@ module Scenario =
             (world, [ 0 .. nFree - 1 ])
                 ||> Seq.fold (fun world i ->
                     let x = 2 * i - nFree
-                    addAtom rng atomTypes x (2 * dist) false world)
+                    addAtom rng atomTypes x (3 * dist) false world)
+        let world =
+            let atomTypes = [| AtomType.Y |]
+            (world, [ 0 .. nFree - 1 ])
+                ||> Seq.fold (fun world i ->
+                    let x = 2 * i - nFree
+                    addAtom rng atomTypes x (4 * dist) false world)
 
             // free strong partners w/ negative y-coord
         let world =
@@ -130,7 +148,13 @@ module Scenario =
             (world, [ 0 .. nFree - 1 ])
                 ||> Seq.fold (fun world i ->
                     let x = 2 * i - nFree
-                    addAtom rng atomTypes x -(2 * dist) false world)
+                    addAtom rng atomTypes x -(3 * dist) false world)
+        let world =
+            let atomTypes = [| AtomType.W |]
+            (world, [ 0 .. nFree - 1 ])
+                ||> Seq.fold (fun world i ->
+                    let x = 2 * i - nFree
+                    addAtom rng atomTypes x -(4 * dist) false world)
 
         let bondParamMap =
             Map [

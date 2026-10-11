@@ -92,7 +92,7 @@ module View =
         renderBonds Weak Brushes.HotPink 0.4 world
 
     let renderWorld (model : Model) =
-        let scale = 12.0
+        let scale = 8.0
         let background =
             if model.Temperature < 1.0 then Brush.Parse("#EAF3FB")
             else Brush.Parse("#FCEBEA")
