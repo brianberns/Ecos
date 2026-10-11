@@ -152,9 +152,11 @@ module PropertyTests =
                             |> List.forall (fun (idB, idC) ->
                                 not (isStronglyBonded world idB idC)))
 
-            // the occupancy map is exactly the atoms' locations
+            // the occupancy map is exactly the atoms' locations, and the
+            // cached atom count is right
         let occupancyConsistent =
             world.OccupancyMap.Count = world.AtomMap.Count
+                && world.AtomCount = world.AtomMap.Count
                 && atoms
                     |> Array.forall (fun (id, atom) ->
                         Dictionary.tryFind atom.Location world.OccupancyMap
@@ -410,6 +412,41 @@ module PropertyTests =
                         && segmentsIntersect (loc a) (loc b) (loc c) (loc d) then
                         (a, b), (c, d)
         ]
+
+    /// Points have hand-written equality, ordering and hashing (for
+    /// speed). They must behave exactly like their coordinates do:
+    /// equal when both coordinates are, ordered by X and then Y, and
+    /// with equal hashes when equal.
+    [<Fact>]
+    let ``Points compare like their coordinates`` () =
+        let points =
+            [
+                for x in -3 .. 3 do
+                    for y in -3 .. 3 do
+                        Point.create (x, y)
+            ]
+        for a in points do
+            for b in points do
+                let expectedEqual = (a.X, a.Y) = (b.X, b.Y)
+                let expectedOrder = compare (a.X, a.Y) (b.X, b.Y)
+                Assert.True(((a = b) = expectedEqual), $"{a} = {b}")
+                Assert.True((a.Equals(box b) = expectedEqual), $"{a} equals {b}")
+                Assert.True((sign (compare a b) = sign expectedOrder), $"{a} vs. {b}")
+                Assert.True(
+                    (sign ((a :> IComparable).CompareTo(box b)) = sign expectedOrder),
+                    $"{a} vs. {b}")
+                if expectedEqual then
+                    Assert.True((hash a = hash b), $"hash of {a}")
+
+            // distinct points mostly have distinct hashes
+        let nHashes = points |> List.map hash |> List.distinct |> List.length
+        Assert.True(nHashes > points.Length * 9 / 10, $"Only {nHashes} distinct hashes")
+
+            // sets and maps of points, which rely on the above
+        Assert.Equal(points.Length, (set (points @ points)).Count)
+        Assert.Equal<Point list>(
+            points |> List.sortBy (fun p -> p.X, p.Y),
+            Set.toList (set (List.rev points)))
 
     /// Adding atoms and walls one by one: each is accepted if and only
     /// if it doesn't overlap any atom or wall already present.
