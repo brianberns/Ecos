@@ -92,7 +92,7 @@ module View =
         renderBonds Weak Brushes.HotPink 0.4 world
 
     let renderWorld (model : Model) =
-        let scale = 8.0
+        let scale = 12.0
         Border.create [
             Border.clipToBounds true   // keep drawing inside the available space
             Border.child (
@@ -233,8 +233,9 @@ module View =
 
     let renderControlPanel (model : Model) dispatch =
         DockPanel.create [
-            DockPanel.dock Dock.Bottom
+            DockPanel.dock Dock.Right
             DockPanel.background Colors.LightGray
+            DockPanel.lastChildFill false
             DockPanel.children [
                 renderSweepCount model.SweepCount
                 renderTemperature model dispatch
@@ -246,9 +247,10 @@ module View =
     let render model dispatch =
         Window.create [
             Window.title "Ecos"
-            Window.width 1000
-            Window.height 900
+            Window.width 1300
+            Window.height 1000
             Window.background Brushes.WhiteSmoke
+            Window.windowStartupLocation WindowStartupLocation.CenterScreen
             Window.child (
                 DockPanel.create [
                     DockPanel.children [
