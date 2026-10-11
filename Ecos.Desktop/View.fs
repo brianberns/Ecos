@@ -56,7 +56,7 @@ module View =
                         Ellipse.fill brushMap[atom.Type]
                     else
                         Ellipse.stroke brushMap[atom.Type]
-                        Ellipse.strokeThickness 0.5
+                        Ellipse.strokeThickness 0.4
                     Ellipse.useLayoutRounding false   // don't snap to pixels before scaling
                 ] :> IView
         ]
@@ -173,7 +173,7 @@ module View =
                 renderLabel "Speed:" labelColumnWidth
                 NumericUpDown.create [
                     NumericUpDown.minimum 1
-                    NumericUpDown.maximum 50
+                    NumericUpDown.maximum 100
                     NumericUpDown.increment 1
                     NumericUpDown.value speed
                     NumericUpDown.formatString "F0"
