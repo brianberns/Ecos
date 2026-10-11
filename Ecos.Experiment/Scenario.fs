@@ -77,7 +77,7 @@ module Scenario =
         let nTemplate = 10
         let dist = 6
 
-        let world = addBox 120 120 World.empty
+        let world = addBox 160 160 World.empty
 
             // template
         let world, template =
@@ -100,7 +100,7 @@ module Scenario =
                 world, Array.empty
 
             // free weak partners w/ positive y-coord
-        let nFree = 3 * nTemplate
+        let nFree = 4 * nTemplate
         let world =
             let atomTypes = [| AtomType.X  |]
             (world, [ 0 .. nFree - 1 ])
