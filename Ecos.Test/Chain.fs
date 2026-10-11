@@ -102,22 +102,27 @@ module Bonds =
 
     /// Oracle: is the angle between an atom's two bonds of the given
     /// type wide enough, when the atom is at the given center and its
-    /// partners are at locations a and b? The dot product of the two
-    /// vectors from the center must be at most a limit that depends on
-    /// the bond type:
-    /// * Strong, -4: a strand can't bend sharply. Two of the shortest
-    ///   bonds must be exactly in line.
-    /// * Weak, -3: an atom's two weak partners are on roughly opposite
+    /// partners are at locations a and b? The rule depends on the bond
+    /// type:
+    /// * Strong: a strand can't bend sharply. The cosine of the angle
+    ///   between the two vectors from the center must be at most -0.8,
+    ///   whatever their lengths, so the strand bends by at most about
+    ///   37 degrees at each atom.
+    /// * Weak: an atom's two weak partners are on roughly opposite
     ///   sides of it (about 125 degrees or more apart), which is also
     ///   too far apart for them to be strongly bonded to each other.
+    ///   The dot product of the two vectors must be at most -3.
     let isAngleAllowed bondType (center : Point) (a : Point) (b : Point) =
         let da = a - center
         let db = b - center
-        let limit =
-            match bondType with
-                | Strong -> -4
-                | Weak -> -3
-        da.X * db.X + da.Y * db.Y <= limit
+        let dot = da.X * db.X + da.Y * db.Y
+        match bondType with
+            | Strong ->
+                let length (d : Point) =
+                    sqrt (float (d.X * d.X + d.Y * d.Y))
+                let cosine = float dot / (length da * length db)
+                cosine <= -0.8 + 1e-9   // some angles are exactly at the limit
+            | Weak -> dot <= -3
 
     /// Oracle: are locations a and b on roughly opposite sides of the
     /// given center? An atom's two weak partners must be.
