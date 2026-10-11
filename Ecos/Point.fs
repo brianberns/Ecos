@@ -1,7 +1,11 @@
 namespace Ecos
 
+open System
+open System.Collections.Generic
+
 /// Lattice point.
-[<Struct; StructuredFormatDisplay("{String}")>]
+[<Struct; CustomEquality; CustomComparison>]
+[<StructuredFormatDisplay("{String}")>]
 type Point =
     {
         /// X-coordinate.
@@ -10,6 +14,44 @@ type Point =
         /// Y-coordinate.
         Y : int
     }
+
+    /// Compares two points for equality.
+    member inline this.Equals(other) =
+        this.X = other.X
+            && this.Y = other.Y
+
+    /// Compares two points for equality.
+    override this.Equals(obj) =
+        this.Equals(obj :?> Point)
+
+    /// Hashes the point.
+    override this.GetHashCode() =
+        hash (struct (this.X, this.Y))
+
+    interface IEquatable<Point> with
+
+        /// Compares two points for equality.
+        member this.Equals(other) =
+            this.Equals(other)
+
+    /// Compares two points.
+    member inline this.CompareTo(other) =
+        let x = compare this.X other.X
+        if x = 0 then
+            compare this.Y other.Y
+        else x
+
+    interface IComparable<Point> with
+
+        /// Compares two points.
+        member this.CompareTo(other) =
+            this.CompareTo(other)
+
+    interface IComparable with
+
+        /// Compares two points.
+        member this.CompareTo(obj) =
+            this.CompareTo(obj :?> Point)
 
     /// Display string.
     member this.String = $"({this.X}, {this.Y})"
