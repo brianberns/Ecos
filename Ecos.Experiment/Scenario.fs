@@ -190,8 +190,8 @@ module Scenario =
 
         let tempType =
             Cycle [|
-                { Temperature = 0.3; NumSweeps = 50_000 }   // cold
-                { Temperature = 3.0; NumSweeps = 50_000 }   // hot
+                { Temperature = 0.3; NumSweeps =  50_000 }   // cold
+                { Temperature = 3.0; NumSweeps = 100_000 }   // hot
             |]
 
         let bondParamMap =
