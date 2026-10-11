@@ -94,11 +94,11 @@ module PropertyTests =
                         |> Array.forall (fun (idB, b) ->
                             idA = idB || not (overlaps a.Location b.Location))
                         && world.Walls
-                            |> Set.forall (fun wall -> not (overlaps a.Location wall)))
+                            |> Seq.forall (fun wall -> not (overlaps a.Location wall)))
                 && world.Walls
-                    |> Set.forall (fun wallA ->
+                    |> Seq.forall (fun wallA ->
                         world.Walls
-                            |> Set.forall (fun wallB ->
+                            |> Seq.forall (fun wallB ->
                                 wallA = wallB || not (overlaps wallA wallB)))
 
             // every strong bond is allowed and symmetric, no atom has
@@ -157,7 +157,8 @@ module PropertyTests =
             world.OccupancyMap.Count = world.AtomMap.Count
                 && atoms
                     |> Array.forall (fun (id, atom) ->
-                        world.OccupancyMap.TryFind atom.Location = Some id)
+                        Dictionary.tryFind atom.Location world.OccupancyMap
+                            = Some id)
 
         noOverlaps && strongBondsValid && bondSetsValid && noCrossings
             && weakBondsValid && weakPartnersValid && occupancyConsistent
@@ -187,7 +188,7 @@ module PropertyTests =
                             |> Map.forall (fun idB atomB ->
                                 idB = id || not (overlaps newLoc atomB.Location))
                             && world.Walls
-                                |> Set.forall (fun wall -> not (overlaps newLoc wall))
+                                |> Seq.forall (fun wall -> not (overlaps newLoc wall))
                     let strongBondsOk =
                         (Bonds.strongBondMap world)
                             |> Map.tryFind id
@@ -357,7 +358,7 @@ module PropertyTests =
         for KeyValue(idA, atomA) in world.AtomMap do
 
             for v in Chain.weakBondVectors do
-                match world.OccupancyMap.TryFind (atomA.Location + v) with
+                match Dictionary.tryFind (atomA.Location + v) world.OccupancyMap with
                     | Some idB ->
                         let nStacks = countStacks world idA idB
                         let energy =
@@ -370,7 +371,7 @@ module PropertyTests =
                     | None -> ()
 
             for v in Chain.bondVectors do
-                match world.OccupancyMap.TryFind (atomA.Location + v) with
+                match Dictionary.tryFind (atomA.Location + v) world.OccupancyMap with
                     | Some idB ->
                         let nStacks = countStacksStrong world idA idB
                         let energy =
@@ -423,7 +424,7 @@ module PropertyTests =
                             world.AtomMap
                                 |> Map.forall (fun _ atom -> not (overlaps loc atom.Location))
                                 && world.Walls
-                                    |> Set.forall (fun wall -> not (overlaps loc wall))
+                                    |> Seq.forall (fun wall -> not (overlaps loc wall))
                         let actual =
                             if isWall then World.tryAddWall loc world
                             else World.tryAddAtom (Atom.create loc) world

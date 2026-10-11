@@ -1,6 +1,7 @@
 namespace Ecos
 
 open System
+open System.Collections.Immutable
 
 /// Bond type-specific parameters.
 /// 
@@ -80,11 +81,28 @@ type World =
         BondTypeMap : Map<BondType, BondMap>
 
         /// Maps each atom's location to its ID.
-        OccupancyMap : Map<Point, AtomId>
+        OccupancyMap : ImmutableSortedDictionary<Point, AtomId>
 
         /// Immovable obstacles, each the size of an atom.
-        Walls : Set<Point>
+        Walls : ImmutableSortedSet<Point>
     }
+
+module Dictionary =
+
+    /// Tries to find the given key in the given dictionary.
+    let inline tryFind key (dict : ImmutableSortedDictionary<_, _>) =
+        match dict.TryGetValue(key) with
+            | true, value -> Some value
+            | false, _ -> None
+
+    /// Adds the given key to the given value in the given
+    /// dictionary.
+    let inline add key value (dict : ImmutableSortedDictionary<_, _>) =
+        dict.Add(key, value)
+
+    /// Removes the given key from the given dictionary.
+    let inline remove key (dict : ImmutableSortedDictionary<_, _>) =
+        dict.Remove(key)
 
 module World =
 
@@ -98,8 +116,8 @@ module World =
                     |> Seq.map (fun bondType ->
                         bondType, Map.empty)
                     |> Map
-            OccupancyMap = Map.empty
-            Walls = Set.empty
+            OccupancyMap = ImmutableSortedDictionary.Empty
+            Walls = ImmutableSortedSet.Empty
         }
 
     /// Moore neighborhood deltas, including center.
@@ -117,7 +135,7 @@ module World =
                 let neighbor = loc + delta
                 not (world.Walls.Contains(neighbor))
                     && world.OccupancyMap
-                        |> Map.tryFind neighbor
+                        |> Dictionary.tryFind neighbor
                         |> Option.map (fun id -> Some id = idOpt)   // an atom can occupy its own location
                         |> Option.defaultValue true)
 
@@ -132,7 +150,7 @@ module World =
                         Map.add id atom world.AtomMap
                     AtomCount = world.AtomCount + 1
                     OccupancyMap =
-                        Map.add atom.Location id world.OccupancyMap
+                        Dictionary.add atom.Location id world.OccupancyMap
             }
         else None
 
@@ -182,7 +200,7 @@ module World =
         behaviorMap[bondType].CrossBondDeltas
             |> Seq.exists (fun delta ->
                 world.OccupancyMap
-                    |> Map.tryFind (atomA.Location + delta)   // check A's neighborhood
+                    |> Dictionary.tryFind (atomA.Location + delta)   // check A's neighborhood
                     |> Option.map (fun idC ->
                         if idC = idA || idC = idB then false
                         else
@@ -362,8 +380,8 @@ module World =
                         |> Map.add id atomAfter   // replaces `atomBefore`
                 OccupancyMap =
                     world.OccupancyMap
-                        |> Map.remove atomBefore.Location
-                        |> Map.add atomAfter.Location id
+                        |> Dictionary.remove atomBefore.Location
+                        |> Dictionary.add atomAfter.Location id
         }
 
     /// Attempts to move an atom in the given world.
@@ -482,7 +500,7 @@ module World =
 
             // toggle bond with atom at that location?
         world.OccupancyMap
-            |> Map.tryFind (atom.Location + delta)
+            |> Dictionary.tryFind (atom.Location + delta)
             |> Option.bind (fun idB ->
                 tryToggleBond parms rng bondType idA idB world)
 
