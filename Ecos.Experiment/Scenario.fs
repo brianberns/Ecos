@@ -77,10 +77,7 @@ module Scenario =
         let nTemplate = 10
         let dist = 6
 
-        let world =
-            let width = 2 * nTemplate + 6 * dist
-            let height = width
-            addBox width height World.empty
+        let world = addBox 80 80 World.empty
 
             // template
         let world, template =
@@ -170,7 +167,7 @@ module Scenario =
         let tempType =
             Cycle [|
                 { Temperature = 0.3; NumSweeps = 50_000 }   // cold
-                { Temperature = 1.5; NumSweeps =  5_000 }   // hot
+                { Temperature = 1.5; NumSweeps = 50_000 }   // hot
             |]
 
         let bondParamMap =

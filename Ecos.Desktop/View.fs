@@ -92,7 +92,7 @@ module View =
         renderBonds Weak Brushes.HotPink 0.4 world
 
     let renderWorld (model : Model) =
-        let scale = 12.0
+        let scale = 8.0
         Border.create [
             Border.clipToBounds true   // keep drawing inside the available space
             Border.child (
@@ -173,7 +173,7 @@ module View =
                 renderLabel "Speed:" labelColumnWidth
                 NumericUpDown.create [
                     NumericUpDown.minimum 1
-                    NumericUpDown.maximum 100
+                    NumericUpDown.maximum 1000
                     NumericUpDown.increment 1
                     NumericUpDown.value speed
                     NumericUpDown.formatString "F0"
