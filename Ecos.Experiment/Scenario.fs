@@ -167,15 +167,15 @@ module Scenario =
         let tempType =
             Cycle [|
                 { Temperature = 0.3; NumSweeps = 50_000 }   // cold
-                { Temperature = 1.5; NumSweeps = 50_000 }   // hot
+                { Temperature = 3.0; NumSweeps = 50_000 }   // hot
             |]
 
         let bondParamMap =
             Map [
                 Strong, {
-                    Energy = 17
-                    Barrier = 10
-                    BarrierStackReduction = 10
+                    Energy = 34
+                    Barrier = 40
+                    BarrierStackReduction = 40
                 }
                 Weak, {
                     Energy = 1
