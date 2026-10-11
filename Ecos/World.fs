@@ -71,6 +71,11 @@ type World =
         /// Atoms in the world, mapped by their IDs.
         AtomMap : Map<AtomId, Atom>
 
+        /// Number of atoms in the world, cached for speed.
+        /// Assume for now that atoms are never removed, so
+        /// every atom has an ID less than this count.
+        AtomCount : int
+
         /// Bonds between atoms in the world, by type.
         BondTypeMap : Map<BondType, BondMap>
 
@@ -87,6 +92,7 @@ module World =
     let empty =
         {
             AtomMap = Map.empty
+            AtomCount = 0
             BondTypeMap =
                 BondType.all
                     |> Seq.map (fun bondType ->
@@ -117,12 +123,14 @@ module World =
 
     /// Adds the given atom to the given world if it is valid.
     let tryAddAtom atom world =
+        assert(world.AtomCount = world.AtomMap.Count)
         if isAvailable atom.Location None world then
-            let id = world.AtomMap.Count   // assume for now that atoms are never removed
+            let id = world.AtomCount
             Some {
                 world with
                     AtomMap =
                         Map.add id atom world.AtomMap
+                    AtomCount = world.AtomCount + 1
                     OccupancyMap =
                         Map.add atom.Location id world.OccupancyMap
             }
@@ -362,7 +370,8 @@ module World =
     let private tryUpdateAtom parms (rng : Random) world =
 
             // pick atom to move
-        let idA = rng.Next(world.AtomMap.Count)   // assume for now that atoms are never removed
+        assert(world.AtomCount = world.AtomMap.Count)
+        let idA = rng.Next(world.AtomCount)
         let atom = world.AtomMap[idA]
 
             // pick direction to move in
@@ -462,7 +471,8 @@ module World =
     let private tryUpdateBond parms (rng : Random) bondType world =
 
             // pick atom to bond
-        let idA = rng.Next(world.AtomMap.Count)   // assume for now that atoms are never removed
+        assert(world.AtomCount = world.AtomMap.Count)
+        let idA = rng.Next(world.AtomCount)
         let atom = world.AtomMap[idA]
 
             // pick a direction to bond in
@@ -510,6 +520,7 @@ module World =
     /// Some atoms might be updated more than once, or not at
     /// all.
     let sweep parms rng world =
-        (world, seq { 1 .. world.AtomMap.Count })
+        assert(world.AtomCount = world.AtomMap.Count)
+        (world, seq { 1 .. world.AtomCount })
             ||> Seq.fold (fun world _ ->
                 update parms rng world |> fst)
