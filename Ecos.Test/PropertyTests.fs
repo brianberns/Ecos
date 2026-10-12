@@ -101,16 +101,19 @@ module PropertyTests =
                             |> Seq.forall (fun wallB ->
                                 wallA = wallB || not (overlaps wallA wallB)))
 
-            // every strong bond is allowed and symmetric, no atom has
-            // more than two, and two at one atom don't bend too sharply
+            // every strong bond is allowed and symmetric, no atom has more
+            // than its type permits (one for a cap, otherwise two), no two
+            // caps are bonded, and two bonds at one atom don't bend too
+            // sharply
         let strongBondsValid =
             (Bonds.strongBondMap world)
                 |> Map.forall (fun idA ids ->
-                    ids.Count <= 2
+                    ids.Count <= Chain.strongValence world.AtomMap[idA].Type
                         && anglesAreAllowed Strong world loc idA
                         && ids
                             |> Set.forall (fun idB ->
                                 isBondVector (loc idB - loc idA)
+                                    && Chain.canJoin world.AtomMap[idA].Type world.AtomMap[idB].Type
                                     && isStronglyBonded world idB idA))
 
             // no atom is listed with an empty set of bonds
@@ -259,7 +262,8 @@ module PropertyTests =
             |> Option.defaultValue 0
 
     /// Oracle: can the given atoms form a new strong bond? They must
-    /// be in range, each have fewer than two strong bonds, and not
+    /// be in range, not both be caps, each have fewer strong bonds than
+    /// its type permits (one for a cap, otherwise two), and not
     /// already be bonded (strongly or weakly), and the new bond must
     /// not cross any existing bond or bend either atom's strand too
     /// sharply. Rings are allowed, if they're big enough to be that
@@ -268,8 +272,9 @@ module PropertyTests =
         let atomA = world.AtomMap[idA]
         let atomB = world.AtomMap[idB]
         isBondVector (atomB.Location - atomA.Location)
-            && strongBondCount world idA < 2
-            && strongBondCount world idB < 2
+            && Chain.canJoin atomA.Type atomB.Type
+            && strongBondCount world idA < Chain.strongValence atomA.Type
+            && strongBondCount world idB < Chain.strongValence atomB.Type
             && not (isStronglyBonded world idA idB)
             && not (Bonds.areWeaklyBonded world idA idB)
             && hasRoomAtAngle Strong world idA idB
@@ -490,7 +495,7 @@ module PropertyTests =
     /// every nearby separation.
     [<Fact>]
     let ``tryAddWeakBond accepts exactly complementary atoms in range`` () =
-        let types = [ AtomType.W; AtomType.X; AtomType.Y; AtomType.Z ]
+        let types = List.ofArray Chain.allTypes
         let origin = Point.create (0, 0)
         for typeA in types do
             for typeB in types do
@@ -581,6 +586,116 @@ module PropertyTests =
                 |> World.addWeakBond 0 1
         Assert.True((World.tryAddWeakBond 0 2 world).IsNone, "Free atom got a second weak bond")
         Assert.True((World.tryAddWeakBond 2 0 world).IsNone, "Free atom got a second weak bond")
+
+    /// Caps, exhaustively: atoms A, B and C lie in a row, close enough
+    /// for A-B and B-C to be strongly bonded. For every combination of
+    /// types:
+    /// * A-B is accepted if and only if A and B aren't both caps.
+    /// * Then B-C is accepted if and only if B isn't a cap, since a cap
+    ///   can have only one strong bond. C may be a cap: it's C's first
+    ///   bond, and B isn't a cap if the bond is allowed at all.
+    /// Each bond is tried from both ends.
+    [<Fact>]
+    let ``tryAddStrongBond gives a cap exactly one strong bond`` () =
+        let mutable nAccepted, nRejected = 0, 0
+        for typeA in Chain.allTypes do
+            for typeB in Chain.allTypes do
+                for typeC in Chain.allTypes do
+                    let world =
+                        World.empty
+                            |> World.addAtom (typedAtom typeA (Point.create (-3, 0)))   // 0
+                            |> World.addAtom (typedAtom typeB (Point.create (0, 0)))    // 1
+                            |> World.addAtom (typedAtom typeC (Point.create (3, 0)))    // 2
+
+                        // first bond
+                    let expected = not (Chain.isCap typeA && Chain.isCap typeB)
+                    for idFrom, idTo in [ 0, 1; 1, 0 ] do
+                        Assert.True(
+                            ((World.tryAddStrongBond idFrom idTo world).IsSome = expected),
+                            $"{typeA}-{typeB}: expected {expected}")
+
+                        // second bond
+                    if expected then
+                        let world = World.addStrongBond 0 1 world
+                        let expected = not (Chain.isCap typeB)
+                        for idFrom, idTo in [ 1, 2; 2, 1 ] do
+                            Assert.True(
+                                ((World.tryAddStrongBond idFrom idTo world).IsSome = expected),
+                                $"{typeA}-{typeB}, then {typeB}-{typeC}: expected {expected}")
+                        if expected then nAccepted <- nAccepted + 1
+                        else nRejected <- nRejected + 1
+
+            // make sure the check isn't vacuous
+        Assert.True(nAccepted > 0, "No accepted configurations checked")
+        Assert.True(nRejected > 0, "No rejected configurations checked")
+
+    /// A cap at the end of a strand pairs like any other atom in a
+    /// strand: with one partner on each side. P0 is strongly bonded to
+    /// W1, with Q2 above it and Q3 below.
+    [<Fact>]
+    let ``A cap in a strand can have two weak partners`` () =
+        let world =
+            World.empty
+                |> World.addAtom (typedAtom AtomType.P (Point.create (0, 0)))    // 0
+                |> World.addAtom (typedAtom AtomType.W (Point.create (2, 0)))    // 1
+                |> World.addAtom (typedAtom AtomType.Q (Point.create (0, 2)))    // 2
+                |> World.addAtom (typedAtom AtomType.Q (Point.create (0, -2)))   // 3
+                |> World.addWeakBond 0 2
+        Assert.True(
+            (World.tryAddWeakBond 0 3 world).IsNone,
+            "Free cap got a second weak bond")
+        let world = World.addStrongBond 0 1 world
+        Assert.True(
+            (World.tryAddWeakBond 0 3 world).IsSome,
+            "Cap in a strand was refused a second weak bond")
+
+    /// A capped strand is never extended. The strand P0-W1-W2-P3 sits
+    /// among free atoms of every type. Strong bonds have no barrier,
+    /// so the free atoms join each other, and the strand's inner
+    /// atoms, at every opportunity; and they're too strong to break.
+    /// After every update, the world must still be valid, which
+    /// includes each cap having at most one strong bond, and at the
+    /// end the strand must be exactly the same four atoms.
+    [<Fact>]
+    let ``A capped strand is never extended`` () =
+        let rng = Random(0)
+        let parms =
+            {
+                Temperature = 1.0
+                BondParameterMap =
+                    Map [
+                        Strong, { Energy = 30; Barrier = 0; BarrierStackReduction = 0 }
+                        Weak, { Energy = 1; Barrier = 0; BarrierStackReduction = 0 }
+                    ]
+            }
+        let mutable world =
+            World.empty
+                |> World.addAtom (typedAtom AtomType.P (Point.create (-3, 0)))   // 0
+                |> World.addAtom (typedAtom AtomType.W (Point.create (-1, 0)))   // 1
+                |> World.addAtom (typedAtom AtomType.W (Point.create (1, 0)))    // 2
+                |> World.addAtom (typedAtom AtomType.P (Point.create (3, 0)))    // 3
+                |> World.addStrongBond 0 1
+                |> World.addStrongBond 1 2
+                |> World.addStrongBond 2 3
+                |> Chain.addSoup rng 30
+                |> Chain.addBox 10
+        let strand = set [ 0; 1; 2; 3 ]
+        let strandBonds world =
+            strongBonds world
+                |> Set.filter (fun (idA, idB) ->
+                    strand.Contains idA || strand.Contains idB)
+        let expected = set [ 0, 1; 1, 2; 2, 3 ]
+        let mutable nJoins = 0
+        for _ in 1 .. 50000 do
+            let world' = World.updateWith parms rng world
+            nJoins <- nJoins + max 0 ((strongBonds world').Count - (strongBonds world).Count)
+            Assert.True(isValid world', "World became invalid")
+            world <- world'
+        Assert.Equal<Set<int * int>>(expected, strandBonds world)
+
+            // make sure the check isn't vacuous: free atoms did join each
+            // other, including some that started next to the strand
+        Assert.True(nJoins > 5, $"Only {nJoins} strong bonds formed")
 
     /// Opposite sides, exhaustively: atom A (type W, at the origin) is
     /// weakly bonded to B (type X). A second weak bond, to C (also type
@@ -1023,7 +1138,7 @@ module PropertyTests =
     let ``Strong bonds form and break at the expected rate`` () =
         let size = 4   // atom locations have |x| <= size and |y| <= size
         let rng = Random(0)
-        let types = [| AtomType.W; AtomType.X; AtomType.Y; AtomType.Z |]
+        let types = Chain.allTypes
         let rec addAtoms count world =
             if count = 0 then world
             else

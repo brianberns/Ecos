@@ -177,12 +177,37 @@ module Chain =
         bondVectors
             |> Array.filter (fun v -> v.X * v.X + v.Y * v.Y <= 8)
 
-    /// Oracle: can atoms of the given types form a weak bond?
+    /// Oracle: can atoms of the given types form a weak bond? Each
+    /// type pairs with exactly one other.
     let canPair typeA typeB =
         match typeA, typeB with
             | AtomType.W, AtomType.X | AtomType.X, AtomType.W
-            | AtomType.Y, AtomType.Z | AtomType.Z, AtomType.Y -> true
+            | AtomType.Y, AtomType.Z | AtomType.Z, AtomType.Y
+            | AtomType.P, AtomType.Q | AtomType.Q, AtomType.P -> true
             | _ -> false
+
+    /// Oracle: is the given type a cap? A cap ends a strand, because
+    /// it can have only one strong bond.
+    let isCap typ =
+        typ = AtomType.P || typ = AtomType.Q
+
+    /// Oracle: the most strong bonds an atom of the given type can
+    /// have.
+    let strongValence typ =
+        if isCap typ then 1 else 2
+
+    /// Oracle: can atoms of the given types form a strong bond? Any
+    /// two can, except two caps.
+    let canJoin typeA typeB =
+        not (isCap typeA && isCap typeB)
+
+    /// All atom types.
+    let allTypes =
+        [| AtomType.W; AtomType.X; AtomType.Y; AtomType.Z; AtomType.P; AtomType.Q |]
+
+    /// Atom types that aren't caps.
+    let codingTypes =
+        [| AtomType.W; AtomType.X; AtomType.Y; AtomType.Z |]
 
     /// Oracle: energy of one bond of the given type, with the given
     /// parameters. (World's parameters give the depth of the bond as a
@@ -213,19 +238,36 @@ module Chain =
     /// where A and A' are strongly bonded, and so are B and B'.
     let stackEnergy = -1.0
 
-    /// Gives every atom in the given world a random type. Only valid
-    /// for a world without weak bonds, since types determine which
-    /// weak bonds are allowed.
+    /// Gives every atom in the given world a random type. An atom
+    /// with two strong bonds is never made a cap, and neither is an
+    /// atom strongly bonded to a cap, since those would be invalid.
+    /// So caps appear at some ends of strands, and among free atoms.
+    ///
+    /// Only valid for a world without weak bonds, since types determine
+    /// which weak bonds are allowed.
     let withRandomTypes (rng : Random) (world : World) =
         assert (Bonds.weakBondMap world).IsEmpty
-        let types = [| AtomType.W; AtomType.X; AtomType.Y; AtomType.Z |]
-        {
-            world with
-                AtomMap =
-                    world.AtomMap
-                        |> Map.map (fun _ atom ->
-                            { atom with Type = types[rng.Next types.Length] })
-        }
+        let strongBondMap = Bonds.strongBondMap world
+        let strongPartners id =
+            strongBondMap
+                |> Map.tryFind id
+                |> Option.defaultValue Set.empty
+        let pick (types : AtomType[]) = types[rng.Next types.Length]
+        let atomMap =
+            (world.AtomMap, world.AtomMap.Keys |> Seq.toArray)
+                ||> Array.fold (fun atomMap id ->
+                    let partners = strongPartners id
+                    let canBeCap =
+                        partners.Count < 2
+                            && partners
+                                |> Set.forall (fun idPartner ->
+                                    idPartner > id   // not yet assigned
+                                        || not (isCap atomMap[idPartner].Type))
+                    let typ =
+                        if canBeCap then pick allTypes
+                        else pick codingTypes
+                    Map.add id { atomMap[id] with Type = typ } atomMap)
+        { world with AtomMap = atomMap }
 
     /// Tries to append atoms at the given locations to the end of the
     /// chain in the given world, bonding each to its predecessor. Fails
@@ -271,7 +313,7 @@ module Chain =
     /// locations near the origin, packed closely enough that weak
     /// bonds form and break often.
     let addSoup (rng : Random) n (world : World) =
-        let types = [| AtomType.W; AtomType.X; AtomType.Y; AtomType.Z |]
+        let types = allTypes
         let size = 2 + int (ceil (1.5 * sqrt (float n)))   // half-width of the box
         let rec loop count attempts world =
             if count = 0 then world
@@ -289,7 +331,7 @@ module Chain =
     /// other form stacks, while a dimer whose atoms pair with two
     /// unrelated atoms doesn't, so these exercise both cases.
     let addDimers (rng : Random) n (world : World) =
-        let types = [| AtomType.W; AtomType.X; AtomType.Y; AtomType.Z |]
+        let types = allTypes
         let size = 4 + int (ceil (2.0 * sqrt (float n)))   // half-width of the box
         let rec loop count attempts world =
             if count = 0 then world

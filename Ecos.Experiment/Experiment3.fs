@@ -100,6 +100,19 @@ module Experiment3 =
         | AtomType.X -> AtomType.W
         | AtomType.Y -> AtomType.Z
         | AtomType.Z -> AtomType.Y
+        | AtomType.P -> AtomType.Q
+        | AtomType.Q -> AtomType.P
+
+    /// Indicates whether the given strand is a chain with a cap at
+    /// each end, so that it can't be extended.
+    let private isCapped (world : World) strand =
+        let isCap id =
+            match world.AtomMap[id].Type with
+                | AtomType.P | AtomType.Q -> true
+                | _ -> false
+        not strand.IsRing
+            && isCap strand.AtomIds[0]
+            && isCap strand.AtomIds[strand.AtomIds.Length - 1]
 
     /// Indicates whether the given strand is a chain whose sequence
     /// is a contiguous piece of the given sequence, read from either
@@ -155,6 +168,9 @@ module Experiment3 =
             /// Atoms in the longest strand.
             Longest : int
 
+            /// Chains with a cap at each end, including the template.
+            Capped : int
+
             /// Fraction of the atoms in strands that are paired with
             /// an atom of a different strand.
             Paired : float
@@ -202,6 +218,10 @@ module Experiment3 =
             Same =
                 strands
                     |> Array.where (hasSequence sequence world)
+                    |> Array.length
+            Capped =
+                strands
+                    |> Array.where (isCapped world)
                     |> Array.length
             Longest =
                 strands
@@ -374,15 +394,15 @@ module Experiment3 =
                 bondParms.BarrierStackReduction
         printfn ""
         printfn "Strands"
-        printfn "                         |------------- at the end of the phase -------------|  |- during -|   |--- still intact ---|"
-        printfn "cycle    kT   sweeps     strands  copies   best   same  longest  paired        joins  breaks   strands  copies  template"
+        printfn "                         |----------------- at the end of the phase -----------------|  |- during -|   |--- still intact ---|"
+        printfn "cycle    kT   sweeps     strands  capped  copies   best   same  longest  paired        joins  breaks   strands  copies  template"
 
         use writer = new StreamWriter(csvPath)
         writer.WriteLine(
             "cycle,kT,sweeps,"
                 + "strands,copies,best_copy,same,longest,paired,"
                 + "joins,breaks,"
-                + "strands_intact_fraction,copies_intact_fraction,template_intact_fraction,"
+                + "strands_intact_fraction,copies_intact_fraction,template_intact_fraction,capped,"
                 + "joins_atom_atom,joins_atom_strand,joins_strand_strand,joins_untemplated,"
                 + "template_joins,template_joins_atom,template_joins_strand,template_joins_strand_size,"
                 + "template_splint_none,template_splint_short,template_splint_medium,template_splint_full")
@@ -478,11 +498,12 @@ module Experiment3 =
                         fraction _.CopySets
                         average (fun r ->
                             if r.After.TemplateIntact then 1.0 else 0.0)
+                        average (fun r -> float r.After.Capped)
                     |]
                 printfn
-                    "%5d  %4.2f  %7d     %7.2f  %6.2f  %5.2f  %5.2f  %7.2f  %6.2f       %6.2f  %6.2f   %7.2f  %6.2f  %8.2f"
+                    "%5d  %4.2f  %7d     %7.2f  %6.2f  %6.2f  %5.2f  %5.2f  %7.2f  %6.2f       %6.2f  %6.2f   %7.2f  %6.2f  %8.2f"
                     (iCycle + 1) v[1] phase.NumSweeps
-                    v[3] v[4] v[5] v[6] v[7] v[8]
+                    v[3] v[14] v[4] v[5] v[6] v[7] v[8]
                     v[9] v[10]
                     v[11] v[12] v[13]
                 writer.WriteLine(
@@ -495,7 +516,8 @@ module Experiment3 =
         printfn ""
         printfn "All columns are averages per run, except paired and the last three, which are fractions."
         printfn "strands: two or more atoms connected by strong bonds, including the template."
-        printfn "copies: chains whose sequence is the complement of the template's."
+        printfn "capped: chains with a cap at each end, including the template."
+        printfn "copies: chains whose sequence is the complement of the template's, caps included."
         printfn "best: atoms in the longest chain whose sequence is a piece of that complement (%d is a copy)." nTemplate
         printfn "same: chains with the template's own sequence, including the template."
         printfn "longest: atoms in the longest strand (the template has %d)." nTemplate
