@@ -85,7 +85,7 @@ module Model =
                 {
                     Temperature = model.Temperature
                     BondParameterMap = model.Scenario.BondParameterMap
-                    PeelEnergy = 6
+                    PeelBarrier = 6
                 }
             World.sweep parms model.Scenario.Random model.World
 

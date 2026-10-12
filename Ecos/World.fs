@@ -41,8 +41,9 @@ type Parameters =
         /// Bond type-specific parameters.
         BondParameterMap : Map<BondType, BondTypeParameters>
 
-        /// Peel energy.
-        PeelEnergy : float
+        /// Determines how often peeling happens. +Infinity
+        /// prevents peeling altogether.
+        PeelBarrier : float
     }
 
 /// An event in the world.
@@ -484,7 +485,7 @@ module World =
                     bondMap
             if isExposed then
                 rng.NextDouble() <=
-                    exp (-parms.PeelEnergy / parms.Temperature)
+                    exp (-parms.PeelBarrier / parms.Temperature)
             else false
 
             // create or break bond?
