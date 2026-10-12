@@ -194,6 +194,29 @@ module View =
             ]
         ]
 
+    let renderSeed (seed : int) dispatch =
+        StackPanel.create [
+            StackPanel.dock Dock.Top
+            StackPanel.orientation Orientation.Horizontal
+            StackPanel.children [
+                renderLabel "Seed:" labelColumnWidth
+                NumericUpDown.create [
+                    NumericUpDown.increment 1
+                    NumericUpDown.value seed
+                    NumericUpDown.formatString "F0"
+                    NumericUpDown.width 120
+                    NumericUpDown.margin margin
+                    NumericUpDown.horizontalContentAlignment
+                        HorizontalAlignment.Right
+                    NumericUpDown.onValueChanged (fun value ->
+                        if value.HasValue then
+                            int value.Value
+                                |> SetSeed
+                                |> dispatch)
+                ]
+            ]
+        ]
+
     let renderRun run dispatch =
         ToggleButton.create [
             ToggleButton.content "Run"
@@ -244,6 +267,7 @@ module View =
                 renderSweepCount model.SweepCount
                 renderTemperature model dispatch
                 renderSpeed model.Speed dispatch
+                renderSeed model.Seed dispatch
                 renderButtons model dispatch
             ]
         ]

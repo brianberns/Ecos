@@ -8,6 +8,9 @@ open Ecos.Experiment
 /// Elmish model.
 type Model =
     {
+        /// RNG seed.
+        Seed : int
+
         /// Initial scenario.
         Scenario : Scenario
 
@@ -48,22 +51,30 @@ type Message =
     /// Sets speed.
     | SetSpeed of int
 
+    /// Sets RNG seed.
+    | SetSeed of int
+
     /// Resets model.
     | Reset
 
 module Model =
 
-    /// Initializes a model.
-    let init () =
-        let scenario = Scenario.createExperiment3 0
+    /// Creates a model.
+    let create seed speed =
+        let scenario = Scenario.createExperiment3 seed
         {
+            Seed = seed
             Scenario = scenario
             World = scenario.World
             TemperatureType = scenario.TemperatureType
             Run = false
-            Speed = 200
+            Speed = speed
             SweepCount = 0
         }
+
+    /// Initializes a model.
+    let init () =
+        create 0 200
 
     /// Runs one sweep.
     let private runSweep (model : Model) =
@@ -131,9 +142,13 @@ module Model =
     let handleSetSpeed speed model =
         { model with Speed = speed }
 
+    /// Handles RNG seed change.
+    let handleSetSeed seed model =
+        { model with Seed = seed }
+
     /// Handles model reset.
     let handleReset model =
-        { init() with Speed = model.Speed }
+        create model.Seed model.Speed
 
     /// Handles a message.
     let update msg model =
@@ -142,6 +157,7 @@ module Model =
             | SetTemperature kT -> handleSetTemperature kT model
             | SetRun run -> handleSetRun run model
             | SetSpeed speed -> handleSetSpeed speed model
+            | SetSeed seed -> handleSetSeed seed model
             | Reset -> handleReset model
 
     /// Subscribable timer.
