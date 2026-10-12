@@ -4,7 +4,9 @@ open System
 
 /// Atom type.
 [<RequireQualifiedAccess>]
-type AtomType = W | X | Y | Z
+type AtomType =
+    | W | X | Y | Z   // coding atoms within a strand
+    | P | Q           // non-coding "cap" atoms at each end of complete strand
 
 /// An indivisible atom.
 type Atom =

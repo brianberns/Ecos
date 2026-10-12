@@ -20,6 +20,8 @@ module View =
             AtomType.X, "#2E7D32"
             AtomType.Y, "#B0006B"
             AtomType.Z, "#B26A00"
+            AtomType.P, "#000000"
+            AtomType.Q, "#808080"
         ]
             |> Seq.map (fun (typ, hex) ->
                 typ, Media.Brush.Parse(hex))

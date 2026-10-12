@@ -30,7 +30,7 @@ type private BondBehavior =
         /// Determines whether the given atom obeys this type's
         /// valence rule (which may involve other bond types as
         /// well, via the given map).
-        TestValence : AtomId -> Map<BondType, BondMap> -> bool
+        TestValence : AtomId -> Atom -> Map<BondType, BondMap> -> bool
 
         /// Determines whether the given atom types can form
         /// a bond of this type.
@@ -87,9 +87,22 @@ module private StrongBond =
     let crossBondDeltas = set deltas
 
     /// Strong bond valence test.
-    let testValence id (bondTypeMap : Map<_, _>) =
+    let testValence id atom (bondTypeMap : Map<_, _>) =
         let bonds = BondMap.getBonds id bondTypeMap[Strong]
-        bonds.Count <= 2
+        match atom.Type with
+            | AtomType.P | AtomType.Q -> bonds.Count <= 1   // caps can have at most one strong bond
+            | _ -> bonds.Count <= 2
+
+    /// Determines whether the given atom type acts as a
+    /// cap that prevents extension of a strand.
+    let private isCap = function
+        | AtomType.P | AtomType.Q -> true
+        | _ -> false
+
+    /// Determines whether the given atom types can form a
+    /// strong bond.
+    let areCompatible atomTypeA atomTypeB =
+        not (isCap atomTypeA && isCap atomTypeB)   // caps don't join to each other
 
     /// Counts stacks affected by the given (existing or 
     /// proposed) strong bond:
@@ -122,7 +135,7 @@ module private StrongBond =
             Deltas = deltas
             CrossBondDeltas = crossBondDeltas
             TestValence = testValence
-            AreCompatible = fun _ _ -> true
+            AreCompatible = areCompatible
             CountStacks = countStacks
             TestBondAngle = testBondAngle
         }
@@ -147,19 +160,20 @@ module private WeakBond =
             |> Neighborhood.toDeltas
             |> set
 
-    /// Determines whether the given atom types can form
-    /// a weak bond.
+    /// Determines whether the given atom types can form a
+    /// weak bond.
     let areCompatible atomTypeA atomTypeB =
         let atomTypeMin = min atomTypeA atomTypeB
         let atomTypeMax = max atomTypeA atomTypeB
         match atomTypeMin, atomTypeMax with
             | AtomType.W, AtomType.X
-            | AtomType.Y, AtomType.Z -> true
+            | AtomType.Y, AtomType.Z
+            | AtomType.P, AtomType.Q -> true
             | _ -> false
 
     /// Weak bond valence test. To have a second weak bond,
     /// an atom must have at least one strong bond.
-    let testValence id (bondTypeMap : Map<_, _>) =
+    let testValence id _atom (bondTypeMap : Map<_, _>) =
         let bonds = BondMap.getBonds id bondTypeMap[Weak]
         match bonds.Count with
             | 0 | 1 -> true

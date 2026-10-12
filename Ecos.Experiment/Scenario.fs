@@ -57,19 +57,22 @@ module Scenario =
             |> addVerticalWall -(width/2) -(height'/2) (height'/2)
             |> addVerticalWall (width/2) -(height'/2) (height'/2)
 
-    let private addAtom
-        (rng : Random) (atomTypes : _[]) x y withBond world =
+    let private addAtom atomType x y withBond world =
         assert(x % 2 = 0)
         assert(y % 2 = 0)
         let id = world.AtomMap.Count
-        let atomType =
-            atomTypes[rng.Next(atomTypes.Length)]
         let loc = Point.create (x, y)
         let atom = Atom.create atomType loc
         let world = World.addAtom atom world
         if withBond then
             World.addStrongBond (id - 1) id world
         else world
+
+    let private addAtomRnd
+        (rng : Random) (atomTypes : _[]) x y withBond world =
+        let atomType =
+            atomTypes[rng.Next(atomTypes.Length)]
+        addAtom atomType x y withBond world
 
     let private createScenario withTemplate seed =
 
@@ -82,17 +85,27 @@ module Scenario =
             // template
         let world, template =
             if withTemplate then
+
+                    // cap on start
+                let world =
+                    addAtom AtomType.P (2 * -1 - nTemplate) 0 false world
+
+                    // random sequence
                 let atomTypes = [| AtomType.W; AtomType.Y |]
                 let world =
                     (world, [ 0 .. nTemplate - 1 ])
                         ||> Seq.fold (fun world i ->
                             let x = 2 * i - nTemplate
-                            addAtom rng atomTypes x 0 (i > 0) world)
+                            addAtomRnd rng atomTypes x 0 true world)
+
+                    // cap on end
+                let world =
+                    addAtom AtomType.P (2 * nTemplate - nTemplate) 0 true world
+
+                    // gather IDs
                 let template =
                     world.AtomMap
                         |> Map.toSeq
-                        |> Seq.where (fun (id, atom) ->
-                            Array.contains atom.Type atomTypes)
                         |> Seq.map fst
                         |> Seq.toArray
                 world, template
@@ -100,61 +113,78 @@ module Scenario =
                 world, Array.empty
 
             // free weak partners w/ positive y-coord
-        let nFree = 4 * nTemplate
+        let nFree = 3 * nTemplate
         let world =
-            let atomTypes = [| AtomType.X  |]
             (world, [ 0 .. nFree - 1 ])
                 ||> Seq.fold (fun world i ->
                     let x = 2 * i - nFree
-                    addAtom rng atomTypes x dist false world)
+                    addAtom AtomType.X x dist false world)
         let world =
-            let atomTypes = [| AtomType.X  |]
             (world, [ 0 .. nFree - 1 ])
                 ||> Seq.fold (fun world i ->
                     let x = 2 * i - nFree
-                    addAtom rng atomTypes x (2 * dist) false world)
+                    addAtom AtomType.X x (2 * dist) false world)
 
             // free weak partners w/ negative y-coord
         let world =
-            let atomTypes = [| AtomType.Z |]
             (world, [ 0 .. nFree - 1 ])
                 ||> Seq.fold (fun world i ->
                     let x = 2 * i - nFree
-                    addAtom rng atomTypes x -dist false world)
+                    addAtom AtomType.Z x -dist false world)
         let world =
-            let atomTypes = [| AtomType.Z |]
             (world, [ 0 .. nFree - 1 ])
                 ||> Seq.fold (fun world i ->
                     let x = 2 * i - nFree
-                    addAtom rng atomTypes x -(2 * dist) false world)
+                    addAtom AtomType.Z x -(2 * dist) false world)
 
             // free strong partners w/ positive y-coord
         let world =
-            let atomTypes = [| AtomType.Y |]
             (world, [ 0 .. nFree - 1 ])
                 ||> Seq.fold (fun world i ->
                     let x = 2 * i - nFree
-                    addAtom rng atomTypes x (3 * dist) false world)
+                    addAtom AtomType.Y x (3 * dist) false world)
         let world =
-            let atomTypes = [| AtomType.Y |]
             (world, [ 0 .. nFree - 1 ])
                 ||> Seq.fold (fun world i ->
                     let x = 2 * i - nFree
-                    addAtom rng atomTypes x (4 * dist) false world)
+                    addAtom AtomType.Y x (4 * dist) false world)
 
             // free strong partners w/ negative y-coord
         let world =
-            let atomTypes = [| AtomType.W |]
             (world, [ 0 .. nFree - 1 ])
                 ||> Seq.fold (fun world i ->
                     let x = 2 * i - nFree
-                    addAtom rng atomTypes x -(3 * dist) false world)
+                    addAtom AtomType.W x -(3 * dist) false world)
         let world =
-            let atomTypes = [| AtomType.W |]
             (world, [ 0 .. nFree - 1 ])
                 ||> Seq.fold (fun world i ->
                     let x = 2 * i - nFree
-                    addAtom rng atomTypes x -(4 * dist) false world)
+                    addAtom AtomType.W x -(4 * dist) false world)
+
+            // free caps w/ positive y-coord
+        let world =
+            (world, [ 0 .. nFree - 1 ])
+                ||> Seq.fold (fun world i ->
+                    let x = 2 * i - nFree
+                    addAtom AtomType.P x (5 * dist) false world)
+        let world =
+            (world, [ 0 .. nFree - 1 ])
+                ||> Seq.fold (fun world i ->
+                    let x = 2 * i - nFree
+                    addAtom AtomType.P x (6 * dist) false world)
+
+            // free caps w/ negative y-coord
+        let world =
+            (world, [ 0 .. nFree - 1 ])
+                ||> Seq.fold (fun world i ->
+                    let x = 2 * i - nFree
+                    addAtom AtomType.Q x -(5 * dist) false world)
+        let world =
+            let atomTypes = [| AtomType.Q |]
+            (world, [ 0 .. nFree - 1 ])
+                ||> Seq.fold (fun world i ->
+                    let x = 2 * i - nFree
+                    addAtom AtomType.Q x -(6 * dist) false world)
 
         let bondParamMap =
             Map [

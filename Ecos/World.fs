@@ -256,8 +256,8 @@ module World =
             behavior.AreCompatible atomA.Type atomB.Type
                 && not (areBonded idA idB world)
                 && Neighborhood.testBond behavior.Neighborhood atomA atomB
-                && behavior.TestValence idA bondTypeMap
-                && behavior.TestValence idB bondTypeMap
+                && behavior.TestValence idA atomA bondTypeMap
+                && behavior.TestValence idB atomB bondTypeMap
                 && not (isCrossBond bondType idA atomA idB atomB world)
                 && testBondAngles bondType atomA atomB idsA world
                 && testBondAngles bondType atomB atomA idsB world
@@ -436,8 +436,10 @@ module World =
             BondType.all
                 |> Seq.forall (fun bondType ->
                     let behavior = behaviorMap[bondType]
-                    behavior.TestValence idA bondTypeMap
-                        && behavior.TestValence idB bondTypeMap)
+                    behavior.TestValence
+                        idA world.AtomMap[idA] bondTypeMap
+                        && behavior.TestValence
+                            idB world.AtomMap[idB] bondTypeMap)
 
         if isValid then
             Some { world with BondTypeMap = bondTypeMap }
