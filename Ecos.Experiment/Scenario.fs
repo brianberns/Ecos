@@ -167,11 +167,6 @@ module Scenario =
                 ||> Seq.fold (fun world i ->
                     let x = 2 * i - nFree
                     addAtom AtomType.P x (5 * dist) false world)
-        let world =
-            (world, [ 0 .. nFree - 1 ])
-                ||> Seq.fold (fun world i ->
-                    let x = 2 * i - nFree
-                    addAtom AtomType.P x (6 * dist) false world)
 
             // free caps w/ negative y-coord
         let world =
@@ -179,11 +174,6 @@ module Scenario =
                 ||> Seq.fold (fun world i ->
                     let x = 2 * i - nFree
                     addAtom AtomType.Q x -(5 * dist) false world)
-        let world =
-            (world, [ 0 .. nFree - 1 ])
-                ||> Seq.fold (fun world i ->
-                    let x = 2 * i - nFree
-                    addAtom AtomType.Q x -(6 * dist) false world)
 
         let bondParamMap =
             Map [
