@@ -180,7 +180,6 @@ module Scenario =
                     let x = 2 * i - nFree
                     addAtom AtomType.Q x -(5 * dist) false world)
         let world =
-            let atomTypes = [| AtomType.Q |]
             (world, [ 0 .. nFree - 1 ])
                 ||> Seq.fold (fun world i ->
                     let x = 2 * i - nFree
