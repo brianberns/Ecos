@@ -34,7 +34,7 @@ type private BondBehavior =
         /// Determines whether the given atom obeys this type's
         /// valence rule (which may involve other bond types as
         /// well, via the given map).
-        TestValence : AtomId -> Atom -> Map<BondType, BondMap> -> bool
+        TestValence : Atom -> Map<BondType, BondMap> -> bool
 
         /// Counts stacks adjacent to the given (existing or 
         /// proposed) bond.
@@ -45,7 +45,7 @@ type private BondBehavior =
         TestBondAngle : Point -> Point -> bool
 
         /// Determines whether to peel the given bond of this type.
-        TestBondPeel : AtomId -> Atom -> AtomId -> Atom -> BondMap -> bool
+        TestBondPeel : Atom -> Atom -> BondMap -> bool
     }
 
 module private BondBehavior =
@@ -101,8 +101,8 @@ module private StrongBond =
         not (isCap atomTypeA && isCap atomTypeB)   // caps don't join to each other
 
     /// Strong bond valence test.
-    let testValence id atom (bondTypeMap : Map<_, _>) =
-        let bonds = BondMap.getBonds id bondTypeMap[Strong]
+    let testValence atom (bondTypeMap : Map<_, _>) =
+        let bonds = BondMap.getBonds atom.Id bondTypeMap[Strong]
         match atom.Type with
             | AtomType.P | AtomType.Q -> bonds.Count <= 1   // caps can have at most one strong bond
             | _ -> bonds.Count <= 2
@@ -132,17 +132,17 @@ module private StrongBond =
             && 25 * dot * dot >= 16 * (u .* u) * (v .* v)   // 16/25 = abs((-4/5)^2) in cos <= -0.8 
 
     /// Uncapped strands have a chance of peeling.
-    let testBondPeel idA atomA idB atomB bondMap =
-        assert(BondMap.areBonded idA idB bondMap)
+    let testBondPeel atomA atomB bondMap =
+        assert(BondMap.areBonded atomA.Id atomB.Id bondMap)
 
-        let isExposed id atom =
+        let isExposed atom =
             if isCap atom.Type then false
             else
-                let bonds = BondMap.getBonds id bondMap
+                let bonds = BondMap.getBonds atom.Id bondMap
                 assert(bonds.Count >= 1)
                 bonds.Count <= 1
 
-        isExposed idA atomA || isExposed idB atomB
+        isExposed atomA || isExposed atomB
 
     /// Behavior of strong bonds.
     let behavior =
@@ -190,13 +190,13 @@ module private WeakBond =
 
     /// Weak bond valence test. To have a second weak bond,
     /// an atom must have at least one strong bond.
-    let testValence id _atom (bondTypeMap : Map<_, _>) =
-        let bonds = BondMap.getBonds id bondTypeMap[Weak]
+    let testValence atom (bondTypeMap : Map<_, _>) =
+        let bonds = BondMap.getBonds atom.Id bondTypeMap[Weak]
         match bonds.Count with
             | 0 | 1 -> true
             | 2 ->
                 let strongIds =
-                    BondMap.getBonds id bondTypeMap[Strong]
+                    BondMap.getBonds atom.Id bondTypeMap[Strong]
                 strongIds.Count > 0
             | _ -> false
 
@@ -225,7 +225,7 @@ module private WeakBond =
         u .* v <= -3
 
     /// Weak bonds never peel.
-    let testBondPeel _idA _atomA _idB _atomB _bondMap =
+    let testBondPeel _atomA _atomB _bondMap =
         false
 
     /// Behavior of weak bonds.

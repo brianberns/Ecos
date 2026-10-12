@@ -204,18 +204,18 @@ module World =
     /// Indicates whether a bond of the given type between the
     /// given atoms crosses any other bonds. This only needs to
     /// check the local neighborhood of one of the atoms.
-    let private isCrossBond bondType idA atomA idB atomB world =
+    let private isCrossBond bondType atomA atomB world =
         behaviorMap[bondType].CrossBondDeltas
             |> Seq.exists (fun delta ->
                 world.OccupancyMap
                     |> Dictionary.tryFind (atomA.Location + delta)   // check A's neighborhood
                     |> Option.map (fun idC ->
-                        if idC = idA || idC = idB then false
+                        if idC = atomA.Id || idC = atomB.Id then false
                         else
                             let atomC = world.AtomMap[idC]
                             getAllBonds idC world
                                 |> Seq.exists (fun idD ->
-                                    if idD = idA || idD = idB then false
+                                    if idD = atomA.Id || idD = atomB.Id then false
                                     else
                                         let atomD = world.AtomMap[idD]
                                         BondBehavior.testCrossBond
@@ -264,9 +264,9 @@ module World =
             behavior.AreCompatible atomA.Type atomB.Type
                 && not (areBonded idA idB world)
                 && Neighborhood.testBond behavior.Neighborhood atomA atomB
-                && behavior.TestValence idA atomA bondTypeMap
-                && behavior.TestValence idB atomB bondTypeMap
-                && not (isCrossBond bondType idA atomA idB atomB world)
+                && behavior.TestValence atomA bondTypeMap
+                && behavior.TestValence atomB bondTypeMap
+                && not (isCrossBond bondType atomA atomB world)
                 && testBondAngles bondType atomA atomB idsA world
                 && testBondAngles bondType atomB atomA idsB world
 
@@ -445,9 +445,9 @@ module World =
                 |> Seq.forall (fun bondType ->
                     let behavior = behaviorMap[bondType]
                     behavior.TestValence
-                        idA world.AtomMap[idA] bondTypeMap
+                        world.AtomMap[idA] bondTypeMap
                         && behavior.TestValence
-                            idB world.AtomMap[idB] bondTypeMap)
+                            world.AtomMap[idB] bondTypeMap)
 
         if isValid then
             Some { world with BondTypeMap = bondTypeMap }
@@ -484,8 +484,8 @@ module World =
         let testPeel () =
             let isExposed =
                 behavior.TestBondPeel
-                    idA world.AtomMap[idA]
-                    idB world.AtomMap[idB]
+                    world.AtomMap[idA]
+                    world.AtomMap[idB]
                     bondMap
             if isExposed then
                 rng.NextDouble() <=

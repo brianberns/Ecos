@@ -150,15 +150,17 @@ module PropertyTests =
                             |> List.forall (fun (idB, idC) ->
                                 not (isStronglyBonded world idB idC)))
 
-            // the occupancy map is exactly the atoms' locations, and the
-            // cached atom count is right
+            // every atom is stored under its own ID, the occupancy map is
+            // exactly the atoms' locations, and the cached atom count is
+            // right
         let occupancyConsistent =
             world.OccupancyMap.Count = world.AtomMap.Count
                 && world.AtomCount = world.AtomMap.Count
                 && atoms
                     |> Array.forall (fun (id, atom) ->
-                        Dictionary.tryFind atom.Location world.OccupancyMap
-                            = Some id)
+                        atom.Id = id
+                            && Dictionary.tryFind atom.Location world.OccupancyMap
+                                = Some id)
 
         noOverlaps && strongBondsValid && bondSetsValid && noCrossings
             && weakBondsValid && weakPartnersValid && occupancyConsistent
