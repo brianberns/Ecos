@@ -60,12 +60,10 @@ module Scenario =
     let private addAtom atomType x y withBond world =
         assert(x % 2 = 0)
         assert(y % 2 = 0)
-        let id = world.AtomMap.Count
         let loc = Point.create (x, y)
-        let atom = Atom.create atomType loc
-        let world = World.addAtom atom world
+        let world, atom = World.addAtom atomType loc world
         if withBond then
-            World.addStrongBond (id - 1) id world
+            World.addStrongBond (atom.Id - 1) atom.Id world
         else world
 
     let private addAtomRnd

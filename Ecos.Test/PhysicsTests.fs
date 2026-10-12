@@ -126,7 +126,7 @@ module PhysicsTests =
             (World.empty, [ 0 .. n - 1 ])
                 ||> List.fold (fun world i ->
                     let world =
-                        World.addAtom (Atom.create (Point.create (2 * i, 0))) world
+                        World.addAtomW (Point.create (2 * i, 0)) world
                     if i > 0 then World.addStrongBond (i - 1) i world
                     else world)
         let samples =
@@ -210,8 +210,10 @@ module PhysicsTests =
         let inBox (loc : Point) = abs loc.X <= size && abs loc.Y <= size
         let samples =
             World.empty
-                |> World.addAtom { Type = AtomType.W; Location = Point.create (-size, -size) }
-                |> World.addAtom { Type = AtomType.X; Location = Point.create (size, size) }
+                |> World.addAtom AtomType.W (Point.create (-size, -size))
+                |> fst
+                |> World.addAtom AtomType.X (Point.create (size, size))
+                |> fst
                 |> Chain.addBox size
                 |> sample
                     (TestParameters.create kT) 8 2000 1000 3000
@@ -330,14 +332,16 @@ module PhysicsTests =
             "No stacked states enumerated")
 
             // sample states, starting with the dimers apart
-        let atom typ (x, y) =
-            { Type = typ; Location = Point.create (x, y) }
         let samples =
             World.empty
-                |> World.addAtom (atom AtomType.W (-2, -2))   // 0
-                |> World.addAtom (atom AtomType.W (0, -2))    // 1
-                |> World.addAtom (atom AtomType.X (0, 2))     // 2
-                |> World.addAtom (atom AtomType.X (2, 2))     // 3
+                |> World.addAtom AtomType.W (Point.create(-2, -2))   // 0
+                |> fst
+                |> World.addAtom AtomType.W (Point.create(0, -2))    // 1
+                |> fst
+                |> World.addAtom AtomType.X (Point.create(0, 2))     // 2
+                |> fst
+                |> World.addAtom AtomType.X (Point.create(2, 2))     // 3
+                |> fst
                 |> World.addStrongBond 0 1
                 |> World.addStrongBond 2 3
                 |> Chain.addBox size

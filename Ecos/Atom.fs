@@ -14,6 +14,9 @@ type Atom =
         /// Atom type.
         Type : AtomType
 
+        /// Unique identifier of the atom in the world.
+        Id : int
+
         /// Location of the atom in the world.
         Location : Point
     }
@@ -21,8 +24,9 @@ type Atom =
 module Atom =
 
     /// Creates an atom.
-    let create typ location =
+    let create id typ location =
         {
+            Id = id
             Type = typ
             Location = location
         }

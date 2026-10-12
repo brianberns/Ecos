@@ -143,24 +143,28 @@ module World =
                         |> Option.map (fun id -> Some id = idOpt)   // an atom can occupy its own location
                         |> Option.defaultValue true)
 
-    /// Adds the given atom to the given world if it is valid.
-    let tryAddAtom atom world =
+    /// Adds an atom with the given attributes to the given world
+    /// if it is valid.
+    let tryAddAtom atomType location world =
         assert(world.AtomCount = world.AtomMap.Count)
-        if isAvailable atom.Location None world then
+        if isAvailable location None world then
             let id = world.AtomCount
-            Some {
-                world with
-                    AtomMap =
-                        Map.add id atom world.AtomMap
-                    AtomCount = world.AtomCount + 1
-                    OccupancyMap =
-                        Dictionary.add atom.Location id world.OccupancyMap
-            }
+            let atom = Atom.create id atomType location
+            let world =
+                {
+                    world with
+                        AtomMap =
+                            Map.add id atom world.AtomMap
+                        AtomCount = world.AtomCount + 1
+                        OccupancyMap =
+                            Dictionary.add atom.Location id world.OccupancyMap
+                }
+            Some (world, atom)
         else None
 
-    /// Adds the given atom to the given world.
-    let addAtom atom world =
-        match tryAddAtom atom world with
+    /// Adds an atom with the given attributes to the given world.
+    let addAtom atomType location world =
+        match tryAddAtom atomType location world with
             | Some world -> world
             | None -> failwith "Invalid location"
 

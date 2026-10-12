@@ -21,11 +21,6 @@ module PropertyTests =
     let private isBondVector (v : Point) =
         Array.contains v Chain.bondVectors
 
-    /// Creates an atom of the given type. (Atom.create is shadowed by
-    /// the single-type helper in Chain.fs.)
-    let private typedAtom typ loc : Atom =
-        { Type = typ; Location = loc }
-
     /// Are the given atoms strongly bonded?
     let private isStronglyBonded = Bonds.areStronglyBonded
 
@@ -491,7 +486,7 @@ module PropertyTests =
                                     |> Seq.forall (fun wall -> not (overlaps loc wall))
                         let actual =
                             if isWall then World.tryAddWall loc world
-                            else World.tryAddAtom (Atom.create loc) world
+                            else World.tryAddAtomW loc world
                         match actual, expected with
                             | Some world', true -> Some world'
                             | None, false -> Some world
@@ -507,8 +502,8 @@ module PropertyTests =
         not (overlaps origin v) ==> lazy (
             let world =
                 World.empty
-                    |> World.addAtom (Atom.create origin)
-                    |> World.addAtom (Atom.create v)
+                    |> World.addAtomW origin
+                    |> World.addAtomW v
             (World.tryAddStrongBond 0 1 world).IsSome = isBondVector v)
 
     /// A weak bond between two non-overlapping atoms is accepted if and
@@ -527,8 +522,10 @@ module PropertyTests =
                         if not (overlaps origin v) then
                             let world =
                                 World.empty
-                                    |> World.addAtom (typedAtom typeA origin)
-                                    |> World.addAtom (typedAtom typeB v)
+                                    |> World.addAtom typeA origin
+                                    |> fst
+                                    |> World.addAtom typeB v
+                                    |> fst
                             let expected =
                                 Chain.canPair typeA typeB
                                     && Array.contains v Chain.weakBondVectors
@@ -546,11 +543,16 @@ module PropertyTests =
             // X3 and X4 above and below it, all in range of W1
         let world =
             World.empty
-                |> World.addAtom (typedAtom AtomType.W (Point.create (-2, 0)))   // 0
-                |> World.addAtom (typedAtom AtomType.W (Point.create (0, 0)))    // 1
-                |> World.addAtom (typedAtom AtomType.W (Point.create (2, 0)))    // 2
-                |> World.addAtom (typedAtom AtomType.X (Point.create (0, 2)))    // 3
-                |> World.addAtom (typedAtom AtomType.X (Point.create (0, -2)))   // 4
+                |> World.addAtom AtomType.W (Point.create (-2, 0))   // 0
+                |> fst
+                |> World.addAtom AtomType.W (Point.create (0, 0))    // 1
+                |> fst
+                |> World.addAtom AtomType.W (Point.create (2, 0))    // 2
+                |> fst
+                |> World.addAtom AtomType.X (Point.create (0, 2))    // 3
+                |> fst
+                |> World.addAtom AtomType.X (Point.create (0, -2))   // 4
+                |> fst
 
             // strong bonds: a third one is rejected
         let world =
@@ -562,8 +564,10 @@ module PropertyTests =
             // a strongly bonded pair can't also pair weakly
         let pair =
             World.empty
-                |> World.addAtom (typedAtom AtomType.W (Point.create (0, 0)))
-                |> World.addAtom (typedAtom AtomType.X (Point.create (0, 2)))
+                |> World.addAtom AtomType.W (Point.create (0, 0))
+                |> fst
+                |> World.addAtom AtomType.X (Point.create (0, 2))
+                |> fst
         Assert.True((World.tryAddWeakBond 0 1 pair).IsSome, "Weak bond rejected")
         Assert.True(
             (World.tryAddWeakBond 0 1 (World.addStrongBond 0 1 pair)).IsNone,
@@ -587,11 +591,16 @@ module PropertyTests =
             // X3 also in range
         let world =
             World.empty
-                |> World.addAtom (typedAtom AtomType.W (Point.create (0, 0)))    // 0
-                |> World.addAtom (typedAtom AtomType.X (Point.create (0, 2)))    // 1
-                |> World.addAtom (typedAtom AtomType.X (Point.create (0, -2)))   // 2
-                |> World.addAtom (typedAtom AtomType.X (Point.create (2, 0)))    // 3
-                |> World.addAtom (typedAtom AtomType.Y (Point.create (-2, 0)))   // 4
+                |> World.addAtom AtomType.W (Point.create (0, 0))    // 0
+                |> fst
+                |> World.addAtom AtomType.X (Point.create (0, 2))    // 1
+                |> fst
+                |> World.addAtom AtomType.X (Point.create (0, -2))   // 2
+                |> fst
+                |> World.addAtom AtomType.X (Point.create (2, 0))    // 3
+                |> fst
+                |> World.addAtom AtomType.Y (Point.create (-2, 0))   // 4
+                |> fst
                 |> World.addStrongBond 0 4
                 |> World.addWeakBond 0 1
                 |> World.addWeakBond 0 2
@@ -602,9 +611,12 @@ module PropertyTests =
             // second one, even on the opposite side
         let world =
             World.empty
-                |> World.addAtom (typedAtom AtomType.W (Point.create (0, 0)))    // 0
-                |> World.addAtom (typedAtom AtomType.X (Point.create (0, 2)))    // 1
-                |> World.addAtom (typedAtom AtomType.X (Point.create (0, -2)))   // 2
+                |> World.addAtom AtomType.W (Point.create (0, 0))    // 0
+                |> fst
+                |> World.addAtom AtomType.X (Point.create (0, 2))    // 1
+                |> fst
+                |> World.addAtom AtomType.X (Point.create (0, -2))   // 2
+                |> fst
                 |> World.addWeakBond 0 1
         Assert.True((World.tryAddWeakBond 0 2 world).IsNone, "Free atom got a second weak bond")
         Assert.True((World.tryAddWeakBond 2 0 world).IsNone, "Free atom got a second weak bond")
@@ -625,9 +637,12 @@ module PropertyTests =
                 for typeC in Chain.allTypes do
                     let world =
                         World.empty
-                            |> World.addAtom (typedAtom typeA (Point.create (-3, 0)))   // 0
-                            |> World.addAtom (typedAtom typeB (Point.create (0, 0)))    // 1
-                            |> World.addAtom (typedAtom typeC (Point.create (3, 0)))    // 2
+                            |> World.addAtom typeA (Point.create (-3, 0))   // 0
+                            |> fst
+                            |> World.addAtom typeB (Point.create (0, 0))    // 1
+                            |> fst
+                            |> World.addAtom typeC (Point.create (3, 0))    // 2
+                            |> fst
 
                         // first bond
                     let expected = not (Chain.isCap typeA && Chain.isCap typeB)
@@ -658,10 +673,14 @@ module PropertyTests =
     let ``A cap in a strand can have two weak partners`` () =
         let world =
             World.empty
-                |> World.addAtom (typedAtom AtomType.P (Point.create (0, 0)))    // 0
-                |> World.addAtom (typedAtom AtomType.W (Point.create (2, 0)))    // 1
-                |> World.addAtom (typedAtom AtomType.Q (Point.create (0, 2)))    // 2
-                |> World.addAtom (typedAtom AtomType.Q (Point.create (0, -2)))   // 3
+                |> World.addAtom AtomType.P (Point.create (0, 0))    // 0
+                |> fst
+                |> World.addAtom AtomType.W (Point.create (2, 0))    // 1
+                |> fst
+                |> World.addAtom AtomType.Q (Point.create (0, 2))    // 2
+                |> fst
+                |> World.addAtom AtomType.Q (Point.create (0, -2))   // 3
+                |> fst
                 |> World.addWeakBond 0 2
         Assert.True(
             (World.tryAddWeakBond 0 3 world).IsNone,
@@ -693,10 +712,14 @@ module PropertyTests =
             }
         let mutable world =
             World.empty
-                |> World.addAtom (typedAtom AtomType.P (Point.create (-3, 0)))   // 0
-                |> World.addAtom (typedAtom AtomType.W (Point.create (-1, 0)))   // 1
-                |> World.addAtom (typedAtom AtomType.W (Point.create (1, 0)))    // 2
-                |> World.addAtom (typedAtom AtomType.P (Point.create (3, 0)))    // 3
+                |> World.addAtom AtomType.P (Point.create (-3, 0))   // 0
+                |> fst
+                |> World.addAtom AtomType.W (Point.create (-1, 0))   // 1
+                |> fst
+                |> World.addAtom AtomType.W (Point.create (1, 0))    // 2
+                |> fst
+                |> World.addAtom AtomType.P (Point.create (3, 0))    // 3
+                |> fst
                 |> World.addStrongBond 0 1
                 |> World.addStrongBond 1 2
                 |> World.addStrongBond 2 3
@@ -747,10 +770,14 @@ module PropertyTests =
                                 not (overlaps d b) && not (overlaps d c))
                     let world =
                         World.empty
-                            |> World.addAtom (typedAtom AtomType.W a)   // 0
-                            |> World.addAtom (typedAtom AtomType.X b)   // 1
-                            |> World.addAtom (typedAtom AtomType.X c)   // 2
-                            |> World.addAtom (typedAtom AtomType.Y d)   // 3
+                            |> World.addAtom AtomType.W a   // 0
+                            |> fst
+                            |> World.addAtom AtomType.X b   // 1
+                            |> fst
+                            |> World.addAtom AtomType.X c   // 2
+                            |> fst
+                            |> World.addAtom AtomType.Y d   // 3
+                            |> fst
                             |> World.addStrongBond 0 3
                             |> World.addWeakBond 0 1
                     let expected = Bonds.areOpposite a b c
@@ -783,9 +810,9 @@ module PropertyTests =
                 if not (overlaps b c) then
                     let world =
                         World.empty
-                            |> World.addAtom (Atom.create a)   // 0
-                            |> World.addAtom (Atom.create b)   // 1
-                            |> World.addAtom (Atom.create c)   // 2
+                            |> World.addAtomW a   // 0
+                            |> World.addAtomW b   // 1
+                            |> World.addAtomW c   // 2
                             |> World.addStrongBond 0 1
                     let expected = Bonds.isAngleAllowed Strong a b c
                     for idFrom, idTo in [ 0, 2; 2, 0 ] do
@@ -812,10 +839,14 @@ module PropertyTests =
         let parms = TestParameters.createFrozen 0.3   // cold, so that both bonds usually exist
         let mutable world =
             World.empty
-                |> World.addAtom (typedAtom AtomType.W (Point.create (0, 0)))    // 0
-                |> World.addAtom (typedAtom AtomType.X (Point.create (0, 2)))    // 1
-                |> World.addAtom (typedAtom AtomType.X (Point.create (0, -2)))   // 2
-                |> World.addAtom (typedAtom AtomType.Y (Point.create (2, 0)))    // 3
+                |> World.addAtom AtomType.W (Point.create (0, 0))    // 0
+                |> fst
+                |> World.addAtom AtomType.X (Point.create (0, 2))    // 1
+                |> fst
+                |> World.addAtom AtomType.X (Point.create (0, -2))   // 2
+                |> fst
+                |> World.addAtom AtomType.Y (Point.create (2, 0))    // 3
+                |> fst
                 |> World.addStrongBond 0 3
                 |> World.addWeakBond 0 1
                 |> World.addWeakBond 0 2
@@ -856,10 +887,14 @@ module PropertyTests =
             }
         let mutable world =
             World.empty
-                |> World.addAtom (typedAtom AtomType.W (Point.create (0, 0)))    // 0
-                |> World.addAtom (typedAtom AtomType.X (Point.create (0, 2)))    // 1
-                |> World.addAtom (typedAtom AtomType.X (Point.create (0, -2)))   // 2
-                |> World.addAtom (typedAtom AtomType.Y (Point.create (2, 0)))    // 3
+                |> World.addAtom AtomType.W (Point.create (0, 0))    // 0
+                |> fst
+                |> World.addAtom AtomType.X (Point.create (0, 2))    // 1
+                |> fst
+                |> World.addAtom AtomType.X (Point.create (0, -2))   // 2
+                |> fst
+                |> World.addAtom AtomType.Y (Point.create (2, 0))    // 3
+                |> fst
                 |> World.addStrongBond 0 3
                 |> World.addWeakBond 0 1
                 |> World.addWeakBond 0 2
@@ -900,10 +935,14 @@ module PropertyTests =
                         let d = c + bondCD
                         let atomsOpt =
                             Some World.empty
-                                |> Option.bind (World.tryAddAtom (typedAtom AtomType.W a))
-                                |> Option.bind (World.tryAddAtom (typedAtom AtomType.X b))
-                                |> Option.bind (World.tryAddAtom (typedAtom AtomType.Y c))
-                                |> Option.bind (World.tryAddAtom (typedAtom AtomType.Z d))
+                                |> Option.bind (World.tryAddAtom AtomType.W a)
+                                |> Option.map fst
+                                |> Option.bind (World.tryAddAtom AtomType.X b)
+                                |> Option.map fst
+                                |> Option.bind (World.tryAddAtom AtomType.Y c)
+                                |> Option.map fst
+                                |> Option.bind (World.tryAddAtom AtomType.Z d)
+                                |> Option.map fst
                         let worlds =
                             [
                                 atomsOpt |> Option.bind (World.tryAddStrongBond 2 3)
@@ -1116,10 +1155,14 @@ module PropertyTests =
         let rng = Random(0)
         let capped =
             World.empty
-                |> World.addAtom (typedAtom AtomType.P (Point.create (-3, 0)))   // 0
-                |> World.addAtom (typedAtom AtomType.W (Point.create (-1, 0)))   // 1
-                |> World.addAtom (typedAtom AtomType.W (Point.create (1, 0)))    // 2
-                |> World.addAtom (typedAtom AtomType.P (Point.create (3, 0)))    // 3
+                |> World.addAtom AtomType.P (Point.create (-3, 0))   // 0
+                |> fst
+                |> World.addAtom AtomType.W (Point.create (-1, 0))   // 1
+                |> fst
+                |> World.addAtom AtomType.W (Point.create (1, 0))    // 2
+                |> fst
+                |> World.addAtom AtomType.P (Point.create (3, 0))    // 3
+                |> fst
                 |> World.addStrongBond 0 1
                 |> World.addStrongBond 1 2
                 |> World.addStrongBond 2 3
@@ -1140,10 +1183,14 @@ module PropertyTests =
     let private stackingWorlds =
         let atoms =
             World.empty
-                |> World.addAtom (typedAtom AtomType.W (Point.create (-1, -1)))   // 0
-                |> World.addAtom (typedAtom AtomType.W (Point.create (1, -1)))    // 1
-                |> World.addAtom (typedAtom AtomType.X (Point.create (-1, 1)))    // 2
-                |> World.addAtom (typedAtom AtomType.X (Point.create (1, 1)))     // 3
+                |> World.addAtom AtomType.W (Point.create (-1, -1))   // 0
+                |> fst
+                |> World.addAtom AtomType.W (Point.create (1, -1))    // 1
+                |> fst
+                |> World.addAtom AtomType.X (Point.create (-1, 1))    // 2
+                |> fst
+                |> World.addAtom AtomType.X (Point.create (1, 1))     // 3
+                |> fst
                 |> World.addStrongBond 0 1
                 |> Chain.addBox 2
         [
@@ -1228,12 +1275,11 @@ module PropertyTests =
         let rec addAtoms (types : AtomType[]) count world =
             if count = 0 then world
             else
-                let atom =
-                    typedAtom
-                        types[rng.Next types.Length]
-                        (Point.create (rng.Next(-size, size + 1), rng.Next(-size, size + 1)))
-                match World.tryAddAtom atom world with
-                    | Some world -> addAtoms types (count - 1) world
+                let atomType = types[rng.Next types.Length]
+                let loc =
+                    Point.create (rng.Next(-size, size + 1), rng.Next(-size, size + 1))
+                match World.tryAddAtom atomType loc world with
+                    | Some (world, _) -> addAtoms types (count - 1) world
                     | None -> addAtoms types count world
         let createWorld types =
             World.empty

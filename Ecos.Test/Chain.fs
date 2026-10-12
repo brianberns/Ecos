@@ -1,12 +1,5 @@
 namespace Ecos
 
-module Atom =
-
-    /// Helper for creating monotype atoms. Type W can't pair with
-    /// itself, so worlds built from these atoms never form weak bonds.
-    let create loc =
-        Ecos.Atom.create AtomType.W loc
-
 /// Parameters used by the tests.
 module TestParameters =
 
@@ -43,10 +36,24 @@ module TestParameters =
 
 module World =
 
+    /// Helper for creating monotype atoms. Type W can't pair with
+    /// itself, so worlds built from these atoms never form weak bonds.
+    let tryAddAtomW loc world =
+        world
+            |> World.tryAddAtom AtomType.W loc
+            |> Option.map fst
+
+    /// Helper for creating monotype atoms. Type W can't pair with
+    /// itself, so worlds built from these atoms never form weak bonds.
+    let addAtomW loc world =
+        world
+            |> World.addAtom AtomType.W loc
+            |> fst
+
     /// Helper function for updating a world with the given
     /// parameters. Ignores event.
     let updateWith parms rng world =
-        Ecos.World.update parms rng world |> fst
+        World.update parms rng world |> fst
 
     /// Helper function for updating a world with standard parameters
     /// at the given temperature. Ignores event.
@@ -286,7 +293,7 @@ module Chain =
         (Some world, Array.indexed locs)
             ||> Array.fold (fun worldOpt (i, loc) ->
                 worldOpt
-                    |> Option.bind (World.tryAddAtom (Atom.create loc))
+                    |> Option.bind (World.tryAddAtomW loc)
                     |> Option.bind (fun world ->
                         let id = n0 + i
                         if id > 0 then World.tryAddStrongBond (id - 1) id world
@@ -313,7 +320,7 @@ module Chain =
                     | Some world -> extend 1000 world
                     | None -> extend (tries - 1) world
         let start =
-            World.addAtom (Atom.create (Point.create (0, 0))) World.empty
+            World.addAtomW Point.zero World.empty
         match extend 1000 start with
             | Some world -> world
             | None -> grow rng n
@@ -329,9 +336,9 @@ module Chain =
             elif attempts > 100000 then failwith "Soup box is too full"
             else
                 let loc = Point.create (rng.Next(-size, size + 1), rng.Next(-size, size + 1))
-                let atom = { Type = types[rng.Next types.Length]; Location = loc }
-                match World.tryAddAtom atom world with
-                    | Some world -> loop (count - 1) (attempts + 1) world
+                let atomType = types[rng.Next types.Length]
+                match Ecos.World.tryAddAtom atomType loc world with
+                    | Some (world, _) -> loop (count - 1) (attempts + 1) world
                     | None -> loop count (attempts + 1) world
         loop n 0 world
 
@@ -348,13 +355,17 @@ module Chain =
             else
                 let locA = Point.create (rng.Next(-size, size + 1), rng.Next(-size, size + 1))
                 let locB = locA + bondVectors[rng.Next bondVectors.Length]
-                let atom loc = { Type = types[rng.Next types.Length]; Location = loc }
                 let idA = world.AtomMap.Count
                 let worldOpt =
-                    Some world
-                        |> Option.bind (World.tryAddAtom (atom locA))
-                        |> Option.bind (World.tryAddAtom (atom locB))
-                        |> Option.bind (World.tryAddStrongBond idA (idA + 1))
+                    world
+                        |> World.tryAddAtom types[rng.Next types.Length] locA
+                        |> Option.bind (
+                            fun (world, atomA) ->
+                                world
+                                    |> World.tryAddAtom types[rng.Next types.Length] locB
+                                    |> Option.bind (fun (world, atomB) ->
+                                        world
+                                            |> World.tryAddStrongBond atomA.Id atomB.Id))
                 match worldOpt with
                     | Some world -> loop (count - 1) (attempts + 1) world
                     | None -> loop count (attempts + 1) world
