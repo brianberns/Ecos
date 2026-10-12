@@ -27,14 +27,14 @@ type private BondBehavior =
         /// Deltas to check for cross bonds.
         CrossBondDeltas : Set<Point>
 
+        /// Determines whether the given atom types can form
+        /// a bond of this type.
+        AreCompatible : AtomType -> AtomType -> bool
+
         /// Determines whether the given atom obeys this type's
         /// valence rule (which may involve other bond types as
         /// well, via the given map).
         TestValence : AtomId -> Atom -> Map<BondType, BondMap> -> bool
-
-        /// Determines whether the given atom types can form
-        /// a bond of this type.
-        AreCompatible : AtomType -> AtomType -> bool
 
         /// Counts stacks adjacent to the given (existing or 
         /// proposed) bond.
@@ -86,13 +86,6 @@ module private StrongBond =
     /// Possible cross bond deltas, as determined by Claude.
     let crossBondDeltas = set deltas
 
-    /// Strong bond valence test.
-    let testValence id atom (bondTypeMap : Map<_, _>) =
-        let bonds = BondMap.getBonds id bondTypeMap[Strong]
-        match atom.Type with
-            | AtomType.P | AtomType.Q -> bonds.Count <= 1   // caps can have at most one strong bond
-            | _ -> bonds.Count <= 2
-
     /// Determines whether the given atom type acts as a
     /// cap that prevents extension of a strand.
     let private isCap = function
@@ -103,6 +96,13 @@ module private StrongBond =
     /// strong bond.
     let areCompatible atomTypeA atomTypeB =
         not (isCap atomTypeA && isCap atomTypeB)   // caps don't join to each other
+
+    /// Strong bond valence test.
+    let testValence id atom (bondTypeMap : Map<_, _>) =
+        let bonds = BondMap.getBonds id bondTypeMap[Strong]
+        match atom.Type with
+            | AtomType.P | AtomType.Q -> bonds.Count <= 1   // caps can have at most one strong bond
+            | _ -> bonds.Count <= 2
 
     /// Counts stacks affected by the given (existing or 
     /// proposed) strong bond:
@@ -134,8 +134,8 @@ module private StrongBond =
             Neighborhood = neighborhood
             Deltas = deltas
             CrossBondDeltas = crossBondDeltas
-            TestValence = testValence
             AreCompatible = areCompatible
+            TestValence = testValence
             CountStacks = countStacks
             TestBondAngle = testBondAngle
         }
@@ -213,8 +213,8 @@ module private WeakBond =
             Neighborhood = neighborhood
             Deltas = deltas
             CrossBondDeltas = crossBondDeltas
-            TestValence = testValence
             AreCompatible = areCompatible
+            TestValence = testValence
             CountStacks = countStacks
             TestBondAngle = testBondAngle
         }
