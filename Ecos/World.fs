@@ -271,13 +271,7 @@ module World =
                 && testBondAngles bondType atomB atomA idsB world
 
         if isValid then
-            let bondMap = BondMap.createBond idB idA bondMap
-            Some {
-                world with
-                    BondTypeMap =
-                        world.BondTypeMap
-                            |> Map.add bondType bondMap
-            }
+            Some { world with BondTypeMap = bondTypeMap }
         else None
 
     /// Adds a strong bond between the given atoms in the given
