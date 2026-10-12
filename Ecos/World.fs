@@ -40,6 +40,9 @@ type Parameters =
 
         /// Bond type-specific parameters.
         BondParameterMap : Map<BondType, BondTypeParameters>
+
+        /// Peel energy.
+        PeelEnergy : float
     }
 
 /// An event in the world.
@@ -448,9 +451,6 @@ module World =
     /// Additional energy from a stacked weak bond.
     let private stackEnergy = 1.0
 
-    /// Peel energy.
-    let private peelEnergy = 6.0
-
     /// Attempts to toggle a bond of the given type between
     /// the atoms with the given IDs in the given world.
     let private tryToggleBond parms rng bondType idA idB world =
@@ -483,7 +483,8 @@ module World =
                     idB world.AtomMap[idB]
                     bondMap
             if isExposed then
-                rng.NextDouble() <= exp (-peelEnergy / parms.Temperature)
+                rng.NextDouble() <=
+                    exp (-parms.PeelEnergy / parms.Temperature)
             else false
 
             // create or break bond?
