@@ -55,7 +55,7 @@ module Model =
 
     /// Initializes a model.
     let init () =
-        let scenario = Scenario.createExperiment3 0
+        let scenario = Scenario.createExperiment3 1
         {
             Scenario = scenario
             World = scenario.World
