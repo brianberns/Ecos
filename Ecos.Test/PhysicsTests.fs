@@ -211,9 +211,7 @@ module PhysicsTests =
         let samples =
             World.empty
                 |> World.addAtom AtomType.W (Point.create (-size, -size))
-                |> fst
                 |> World.addAtom AtomType.X (Point.create (size, size))
-                |> fst
                 |> Chain.addBox size
                 |> sample
                     (TestParameters.create kT) 8 2000 1000 3000
@@ -335,13 +333,9 @@ module PhysicsTests =
         let samples =
             World.empty
                 |> World.addAtom AtomType.W (Point.create(-2, -2))   // 0
-                |> fst
                 |> World.addAtom AtomType.W (Point.create(0, -2))    // 1
-                |> fst
                 |> World.addAtom AtomType.X (Point.create(0, 2))     // 2
-                |> fst
                 |> World.addAtom AtomType.X (Point.create(2, 2))     // 3
-                |> fst
                 |> World.addStrongBond 0 1
                 |> World.addStrongBond 2 3
                 |> Chain.addBox size

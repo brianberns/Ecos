@@ -165,7 +165,7 @@ module World =
     /// Adds an atom with the given attributes to the given world.
     let addAtom atomType location world =
         match tryAddAtom atomType location world with
-            | Some world -> world
+            | Some (world, _) -> world
             | None -> failwith "Invalid location"
 
     /// Adds a wall to the given world if it is valid.

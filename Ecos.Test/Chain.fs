@@ -48,7 +48,6 @@ module World =
     let addAtomW loc world =
         world
             |> World.addAtom AtomType.W loc
-            |> fst
 
     /// Helper function for updating a world with the given
     /// parameters. Ignores event.

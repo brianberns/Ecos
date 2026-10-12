@@ -61,7 +61,10 @@ module Scenario =
         assert(x % 2 = 0)
         assert(y % 2 = 0)
         let loc = Point.create (x, y)
-        let world, atom = World.addAtom atomType loc world
+        let world, atom =
+            match World.tryAddAtom atomType loc world with
+                | Some pair -> pair
+                | None -> failwith "Unexpected"
         if withBond then
             World.addStrongBond (atom.Id - 1) atom.Id world
         else world

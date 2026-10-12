@@ -523,9 +523,7 @@ module PropertyTests =
                             let world =
                                 World.empty
                                     |> World.addAtom typeA origin
-                                    |> fst
                                     |> World.addAtom typeB v
-                                    |> fst
                             let expected =
                                 Chain.canPair typeA typeB
                                     && Array.contains v Chain.weakBondVectors
@@ -544,15 +542,10 @@ module PropertyTests =
         let world =
             World.empty
                 |> World.addAtom AtomType.W (Point.create (-2, 0))   // 0
-                |> fst
                 |> World.addAtom AtomType.W (Point.create (0, 0))    // 1
-                |> fst
                 |> World.addAtom AtomType.W (Point.create (2, 0))    // 2
-                |> fst
                 |> World.addAtom AtomType.X (Point.create (0, 2))    // 3
-                |> fst
                 |> World.addAtom AtomType.X (Point.create (0, -2))   // 4
-                |> fst
 
             // strong bonds: a third one is rejected
         let world =
@@ -565,9 +558,7 @@ module PropertyTests =
         let pair =
             World.empty
                 |> World.addAtom AtomType.W (Point.create (0, 0))
-                |> fst
                 |> World.addAtom AtomType.X (Point.create (0, 2))
-                |> fst
         Assert.True((World.tryAddWeakBond 0 1 pair).IsSome, "Weak bond rejected")
         Assert.True(
             (World.tryAddWeakBond 0 1 (World.addStrongBond 0 1 pair)).IsNone,
@@ -592,15 +583,10 @@ module PropertyTests =
         let world =
             World.empty
                 |> World.addAtom AtomType.W (Point.create (0, 0))    // 0
-                |> fst
                 |> World.addAtom AtomType.X (Point.create (0, 2))    // 1
-                |> fst
                 |> World.addAtom AtomType.X (Point.create (0, -2))   // 2
-                |> fst
                 |> World.addAtom AtomType.X (Point.create (2, 0))    // 3
-                |> fst
                 |> World.addAtom AtomType.Y (Point.create (-2, 0))   // 4
-                |> fst
                 |> World.addStrongBond 0 4
                 |> World.addWeakBond 0 1
                 |> World.addWeakBond 0 2
@@ -612,11 +598,8 @@ module PropertyTests =
         let world =
             World.empty
                 |> World.addAtom AtomType.W (Point.create (0, 0))    // 0
-                |> fst
                 |> World.addAtom AtomType.X (Point.create (0, 2))    // 1
-                |> fst
                 |> World.addAtom AtomType.X (Point.create (0, -2))   // 2
-                |> fst
                 |> World.addWeakBond 0 1
         Assert.True((World.tryAddWeakBond 0 2 world).IsNone, "Free atom got a second weak bond")
         Assert.True((World.tryAddWeakBond 2 0 world).IsNone, "Free atom got a second weak bond")
@@ -638,11 +621,8 @@ module PropertyTests =
                     let world =
                         World.empty
                             |> World.addAtom typeA (Point.create (-3, 0))   // 0
-                            |> fst
                             |> World.addAtom typeB (Point.create (0, 0))    // 1
-                            |> fst
                             |> World.addAtom typeC (Point.create (3, 0))    // 2
-                            |> fst
 
                         // first bond
                     let expected = not (Chain.isCap typeA && Chain.isCap typeB)
@@ -674,13 +654,9 @@ module PropertyTests =
         let world =
             World.empty
                 |> World.addAtom AtomType.P (Point.create (0, 0))    // 0
-                |> fst
                 |> World.addAtom AtomType.W (Point.create (2, 0))    // 1
-                |> fst
                 |> World.addAtom AtomType.Q (Point.create (0, 2))    // 2
-                |> fst
                 |> World.addAtom AtomType.Q (Point.create (0, -2))   // 3
-                |> fst
                 |> World.addWeakBond 0 2
         Assert.True(
             (World.tryAddWeakBond 0 3 world).IsNone,
@@ -713,13 +689,9 @@ module PropertyTests =
         let mutable world =
             World.empty
                 |> World.addAtom AtomType.P (Point.create (-3, 0))   // 0
-                |> fst
                 |> World.addAtom AtomType.W (Point.create (-1, 0))   // 1
-                |> fst
                 |> World.addAtom AtomType.W (Point.create (1, 0))    // 2
-                |> fst
                 |> World.addAtom AtomType.P (Point.create (3, 0))    // 3
-                |> fst
                 |> World.addStrongBond 0 1
                 |> World.addStrongBond 1 2
                 |> World.addStrongBond 2 3
@@ -771,13 +743,9 @@ module PropertyTests =
                     let world =
                         World.empty
                             |> World.addAtom AtomType.W a   // 0
-                            |> fst
                             |> World.addAtom AtomType.X b   // 1
-                            |> fst
                             |> World.addAtom AtomType.X c   // 2
-                            |> fst
                             |> World.addAtom AtomType.Y d   // 3
-                            |> fst
                             |> World.addStrongBond 0 3
                             |> World.addWeakBond 0 1
                     let expected = Bonds.areOpposite a b c
@@ -840,13 +808,9 @@ module PropertyTests =
         let mutable world =
             World.empty
                 |> World.addAtom AtomType.W (Point.create (0, 0))    // 0
-                |> fst
                 |> World.addAtom AtomType.X (Point.create (0, 2))    // 1
-                |> fst
                 |> World.addAtom AtomType.X (Point.create (0, -2))   // 2
-                |> fst
                 |> World.addAtom AtomType.Y (Point.create (2, 0))    // 3
-                |> fst
                 |> World.addStrongBond 0 3
                 |> World.addWeakBond 0 1
                 |> World.addWeakBond 0 2
@@ -888,13 +852,9 @@ module PropertyTests =
         let mutable world =
             World.empty
                 |> World.addAtom AtomType.W (Point.create (0, 0))    // 0
-                |> fst
                 |> World.addAtom AtomType.X (Point.create (0, 2))    // 1
-                |> fst
                 |> World.addAtom AtomType.X (Point.create (0, -2))   // 2
-                |> fst
                 |> World.addAtom AtomType.Y (Point.create (2, 0))    // 3
-                |> fst
                 |> World.addStrongBond 0 3
                 |> World.addWeakBond 0 1
                 |> World.addWeakBond 0 2
@@ -1156,13 +1116,9 @@ module PropertyTests =
         let capped =
             World.empty
                 |> World.addAtom AtomType.P (Point.create (-3, 0))   // 0
-                |> fst
                 |> World.addAtom AtomType.W (Point.create (-1, 0))   // 1
-                |> fst
                 |> World.addAtom AtomType.W (Point.create (1, 0))    // 2
-                |> fst
                 |> World.addAtom AtomType.P (Point.create (3, 0))    // 3
-                |> fst
                 |> World.addStrongBond 0 1
                 |> World.addStrongBond 1 2
                 |> World.addStrongBond 2 3
@@ -1184,13 +1140,9 @@ module PropertyTests =
         let atoms =
             World.empty
                 |> World.addAtom AtomType.W (Point.create (-1, -1))   // 0
-                |> fst
                 |> World.addAtom AtomType.W (Point.create (1, -1))    // 1
-                |> fst
                 |> World.addAtom AtomType.X (Point.create (-1, 1))    // 2
-                |> fst
                 |> World.addAtom AtomType.X (Point.create (1, 1))     // 3
-                |> fst
                 |> World.addStrongBond 0 1
                 |> Chain.addBox 2
         [
