@@ -330,18 +330,18 @@ module World =
 
     /// Tests angles in which the atom isn't central: A-B-C.
     let private testPeripheralBonds
-        behavior id atom bondMap partnerIds world =
+        behavior atom bondMap partnerIds world =
         partnerIds
             |> Seq.forall (fun idB ->
                 let atomB = world.AtomMap[idB]
                 BondMap.getBonds idB bondMap
-                    |> Seq.where ((<>) id)
+                    |> Seq.where ((<>) atom.Id)
                     |> Seq.forall (fun idC ->
                         world.AtomMap[idC]
                             |> testBondAngle behavior atomB atom))
 
     /// Determines whether the given atom's bonds are valid.
-    let private testBonds id atom world =
+    let private testBonds atom world =
         behaviorMap
             |> Map.toSeq
             |> Seq.forall (fun (bondType, behavior) ->
@@ -349,7 +349,7 @@ module World =
                     // test the atom's bonds
                 let bondMap = world.BondTypeMap[bondType]
                 let partnerIds =
-                    BondMap.getBonds id bondMap
+                    BondMap.getBonds atom.Id bondMap
                         |> Seq.toArray
                 let isValid =
                     partnerIds
@@ -363,7 +363,7 @@ module World =
                     testCentralBonds
                         behavior atom partnerIds world
                         && testPeripheralBonds
-                            behavior id atom bondMap partnerIds world
+                            behavior atom bondMap partnerIds world
                 else false)
 
     /// Applies the Metropolis rule:
@@ -378,9 +378,11 @@ module World =
 
     /// Updates the given atom's location in the given
     /// world.
-    let private moveAtom id atomBefore atomAfter world =
-        assert(world.AtomMap[id] = atomBefore)
-        assert(world.OccupancyMap[atomBefore.Location] = id)
+    let private moveAtom atomBefore atomAfter world =
+        assert(atomBefore.Id = atomAfter.Id)
+        assert(world.AtomMap[atomBefore.Id] = atomBefore)
+        assert(world.OccupancyMap[atomBefore.Location] = atomBefore.Id)
+        let id = atomBefore.Id
         {
             world with
                 AtomMap =
@@ -411,10 +413,10 @@ module World =
             // move the atom permanently?
         let isValid =
             isAvailable atom'.Location (Some idA) world     // avoids overlap with other atoms? (to-do: check only the leading edge)
-                && testBonds idA atom' world                // all of the atom's bonds are still valid?
+                && testBonds atom' world                    // all of the atom's bonds are still valid?
                 && testMetropolis parms.Temperature rng 0   // possible to-do: add position-dependent energy term
         if isValid then
-            let world = moveAtom idA atom atom' world
+            let world = moveAtom atom atom' world
             let event = MoveAtom idA
             Some (world, event)
         else None
