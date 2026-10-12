@@ -314,6 +314,15 @@ module PropertyTests =
                 (Bonds.weakPartners world id).Count < 2
                     || (partners Strong world id).Count > 1)
 
+    /// Oracle: is the strong bond between the given atoms at an exposed
+    /// end of a strand? It is if either atom has no other strong bond
+    /// and isn't a cap. Such a bond can peel.
+    let private isExposed (world : World) idA idB =
+        [ idA; idB ]
+            |> List.exists (fun id ->
+                not (Chain.isCap world.AtomMap[id].Type)
+                    && (partners Strong world id).Count = 1)
+
     /// Is the given bond vector longer than any weak bond?
     let private isLong (v : Point) =
         not (Array.contains v Chain.weakBondVectors)
@@ -347,6 +356,11 @@ module PropertyTests =
     /// Metropolis probability for its energy change. That change is
     /// the energy of the bond plus that of the stacks that depend on
     /// it, gained on forming and lost on breaking.
+    ///
+    /// A strong bond at an exposed end of a strand has a second way to
+    /// break: it peels, with probability exp(-peel barrier / kT),
+    /// whatever its energy. Nothing reverses that, so it takes the
+    /// model out of equilibrium.
     let private toggleProbabilities (parms : Parameters) (world : World) =
         let kT = parms.Temperature
         let nAtoms = float world.AtomMap.Count
@@ -385,9 +399,17 @@ module PropertyTests =
                             Chain.bondEnergy parms Strong
                                 + Chain.stackEnergy * float nStacks
                         if isStronglyBonded world idA idB then
+
+                                // the bond breaks if the usual test passes or,
+                                // failing that, if it peels
                             let p =
                                 if canBreakStrongBond world idA idB then
-                                    accept Strong nStacks -energy
+                                    let pBreak = accept Strong nStacks -energy
+                                    let pPeel =
+                                        if isExposed world idA idB then
+                                            exp (-Chain.peelBarrier parms Strong / kT)
+                                        else 0.0
+                                    pBreak + (1.0 - pBreak) * pPeel
                                 else 0.0
                             strongBreak <- strongBreak + p
                             if isLong v then longBreak <- longBreak + p
@@ -667,6 +689,7 @@ module PropertyTests =
                         Strong, { Energy = 30; Barrier = 0; BarrierStackReduction = 0 }
                         Weak, { Energy = 1; Barrier = 0; BarrierStackReduction = 0 }
                     ]
+                PeelBarrier = Double.PositiveInfinity   // no peeling
             }
         let mutable world =
             World.empty
@@ -829,6 +852,7 @@ module PropertyTests =
                         Strong, { Energy = 0; Barrier = 0; BarrierStackReduction = 0 }
                         Weak, { Energy = 3; Barrier = 0; BarrierStackReduction = 0 }
                     ]
+                PeelBarrier = Double.PositiveInfinity   // no peeling
             }
         let mutable world =
             World.empty
@@ -1049,6 +1073,62 @@ module PropertyTests =
                     |> Chain.addObstacles rng 10
                     |> checkEventRates $"N = {length}" (TestParameters.create kT) 20000 rng
 
+    /// Peeling: with strong bonds otherwise frozen (an impassable
+    /// barrier), the only way one can break is by peeling from an
+    /// exposed end, and none can form.
+    /// * In crowded worlds of uncapped chains and dimers, strong bonds
+    ///   break at the expected rate until few are left. (See
+    ///   toggleProbabilities.)
+    /// * A capped strand, P0-W1-W2-P3, never loses a bond.
+    /// * With peeling turned off, nothing breaks at all.
+    [<Fact>]
+    let ``Exposed ends peel at the expected rate, and capped ends never do`` () =
+        let frozen = TestParameters.createFrozen 1.0
+        let peeling = { frozen with PeelBarrier = 0.5 }
+
+            // uncapped chains and dimers peel
+        for seed in 0 .. 2 do
+            let rng = Random(seed)
+            let world =
+                Chain.grow rng 20
+                    |> Chain.withRandomTypes rng
+                    |> Chain.addDimers rng 5
+                    |> Chain.addSoup rng 10
+            let nBefore = (strongBonds world).Count
+            checkEventRates $"Peeling, seed {seed}" peeling 60000 rng world
+
+                // make sure the check isn't vacuous
+            let mutable peeled = world
+            for _ in 1 .. 60000 do
+                peeled <- World.updateWith peeling rng peeled
+            let nAfter = (strongBonds peeled).Count
+            Assert.True(
+                nAfter <= nBefore - 5,   // all five dimers, at least (a chain can be capped)
+                $"Seed {seed}: only {nBefore - nAfter} of {nBefore} strong bonds peeled")
+
+                // nothing breaks with peeling off
+            let mutable unpeeled = world
+            for _ in 1 .. 20000 do
+                unpeeled <- World.updateWith frozen rng unpeeled
+            Assert.Equal<Set<int * int>>(strongBonds world, strongBonds unpeeled)
+
+            // a capped strand doesn't
+        let rng = Random(0)
+        let capped =
+            World.empty
+                |> World.addAtom (typedAtom AtomType.P (Point.create (-3, 0)))   // 0
+                |> World.addAtom (typedAtom AtomType.W (Point.create (-1, 0)))   // 1
+                |> World.addAtom (typedAtom AtomType.W (Point.create (1, 0)))    // 2
+                |> World.addAtom (typedAtom AtomType.P (Point.create (3, 0)))    // 3
+                |> World.addStrongBond 0 1
+                |> World.addStrongBond 1 2
+                |> World.addStrongBond 2 3
+                |> Chain.addSoup rng 10
+        let mutable world = capped
+        for _ in 1 .. 50000 do
+            world <- World.updateWith { peeling with PeelBarrier = 0.0 } rng world
+        Assert.Equal<Set<int * int>>(strongBonds capped, strongBonds world)
+
     /// Worlds for testing stacking: four atoms confined to a small box,
     /// so that bonds between them form and break constantly.
     ///
@@ -1102,6 +1182,7 @@ module PropertyTests =
                         Strong, { Energy = 0; Barrier = 0; BarrierStackReduction = 0 }
                         Weak, { Energy = 3; Barrier = 0; BarrierStackReduction = 0 }
                     ]
+                PeelBarrier = Double.PositiveInfinity   // no peeling
             }
         for label, world in stackingWorlds do
             checkEventRates label parms 200000 (Random(0)) world
@@ -1124,6 +1205,7 @@ module PropertyTests =
                         Strong, { Energy = 0; Barrier = 3; BarrierStackReduction = 3 }
                         Weak, { Energy = 3; Barrier = 0; BarrierStackReduction = 0 }
                     ]
+                PeelBarrier = Double.PositiveInfinity   // no peeling
             }
         for label, world in stackingWorlds do
             checkEventRates label parms 200000 (Random(1)) world
@@ -1134,12 +1216,16 @@ module PropertyTests =
     /// and rings (including triangles) all come and go, so this covers
     /// the barrier, the strong bond vectors, valence, crossing, and
     /// breaking one bond of an atom that has two.
+    ///
+    /// Run once without peeling and once with it. With peeling, bonds
+    /// re-form as fast as they peel, so there are enough peeling events
+    /// to pin down the peeling probability.
     [<Fact>]
     let ``Strong bonds form and break at the expected rate`` () =
         let size = 4   // atom locations have |x| <= size and |y| <= size
         let rng = Random(0)
-        let types = Chain.allTypes
-        let rec addAtoms count world =
+
+        let rec addAtoms (types : AtomType[]) count world =
             if count = 0 then world
             else
                 let atom =
@@ -1147,12 +1233,31 @@ module PropertyTests =
                         types[rng.Next types.Length]
                         (Point.create (rng.Next(-size, size + 1), rng.Next(-size, size + 1)))
                 match World.tryAddAtom atom world with
-                    | Some world -> addAtoms (count - 1) world
-                    | None -> addAtoms count world
-        World.empty
-            |> Chain.addBox size
-            |> addAtoms 8
-            |> checkEventRates "Box" (TestParameters.create hotKT) 100000 rng
+                    | Some world -> addAtoms types (count - 1) world
+                    | None -> addAtoms types count world
+        let createWorld types =
+            World.empty
+                |> Chain.addBox size
+                |> addAtoms types 8
+        let parms = TestParameters.create hotKT
+        checkEventRates "Box" parms 100000 rng (createWorld Chain.allTypes)
+
+            // with peeling: strong bonds form freely and are too strong to
+            // break in the usual way, so every break is a peel. No caps
+            // here: with caps, the atoms soon settle into capped strands
+            // that never peel.
+        let peeling =
+            {
+                Temperature = 1.0
+                BondParameterMap =
+                    Map [
+                        Strong, { Energy = 30; Barrier = 0; BarrierStackReduction = 0 }
+                        Weak, { Energy = 1; Barrier = 0; BarrierStackReduction = 0 }
+                    ]
+                PeelBarrier = 1.0   // peels with probability 1/e
+            }
+        checkEventRates
+            "Box, with peeling" peeling 400000 rng (createWorld Chain.codingTypes)
 
     /// Topology, exhaustively: atom A (at the origin) is bonded to B
     /// and steps to A'; C and D are bonded to each other. For every

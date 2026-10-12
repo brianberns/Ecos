@@ -23,6 +23,7 @@ module TestParameters =
         {
             Temperature = kT
             BondParameterMap = standardBondParameterMap
+            PeelBarrier = System.Double.PositiveInfinity   // no peeling
         }
 
     /// Standard parameters at the given temperature, except that
@@ -37,6 +38,7 @@ module TestParameters =
             Temperature = kT
             BondParameterMap =
                 Map.add Strong strong standardBondParameterMap
+            PeelBarrier = System.Double.PositiveInfinity   // no peeling
         }
 
 module World =
@@ -225,6 +227,13 @@ module Chain =
         let bondParms = parms.BondParameterMap[bondType]
         bondParms.Barrier - bondParms.BarrierStackReduction * float nStacks
             |> max 0.0
+
+    /// Oracle: barrier to peeling a bond of the given type from an
+    /// exposed end of a strand. Only strong bonds peel.
+    let peelBarrier (parms : Parameters) bondType =
+        match bondType with
+            | Strong -> parms.PeelBarrier
+            | Weak -> Double.PositiveInfinity
 
     /// Oracle: energy of one weak bond, with the standard parameters.
     let weakBondEnergy =

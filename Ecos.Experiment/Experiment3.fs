@@ -25,6 +25,10 @@ module Experiment3 =
 
             /// Number of times to run through the scenario's phases.
             NumCycles : int
+
+            /// Barrier to peeling a strong bond from an exposed end of a
+            /// strand. (The desktop app uses the same value.)
+            PeelBarrier : float
         }
 
     /// Default settings.
@@ -32,6 +36,7 @@ module Experiment3 =
         {
             NumRuns = 24
             NumCycles = 3
+            PeelBarrier = 6.0
         }
 
     /// A strand: two or more atoms connected by strong bonds.
@@ -368,6 +373,7 @@ module Experiment3 =
                         {
                             Temperature = phase.Temperature
                             BondParameterMap = scenario.BondParameterMap
+                            PeelBarrier = settings.PeelBarrier
                         }
                     let world', joins, nBreaks =
                         runPhase template parms rng phase.NumSweeps world
@@ -409,7 +415,7 @@ module Experiment3 =
                     results[iCycle * phases.Length + iPhase])
 
         printfn "Experiment 3: temperature cycling"
-        printfn "%d runs of %d cycles" settings.NumRuns settings.NumCycles
+        printfn "%d runs of %d cycles; peel barrier %g" settings.NumRuns settings.NumCycles settings.PeelBarrier
         for bondType in BondType.all do
             let bondParms = scenario.BondParameterMap[bondType]
             printfn
