@@ -215,6 +215,58 @@ module Experiment3 =
             CopySets = copies |> Seq.map atomSet |> set
         }
 
+    /// A join: a strong bond that formed between two atoms.
+    type private Join =
+        {
+            /// Number of atoms in the strand that each of the two atoms
+            /// belonged to before they joined, smaller first. (A free
+            /// atom counts as 1.)
+            SmallerSize : int
+            LargerSize : int
+
+            /// Whether either strand contained an atom of the original
+            /// template.
+            InvolvesTemplate : bool
+
+            /// Number of atoms in the strand that templated the join:
+            /// one that had adjacent atoms paired with each of the
+            /// two atoms joined. Zero if there was none. (If there
+            /// were two, one on each side, this is the larger.)
+            SplintSize : int
+        }
+
+    /// The atoms of the strand that the given atom belongs to. A free
+    /// atom is a strand of one, for this purpose.
+    let private getStrandOf (world : World) id =
+        let rec visit (seen : Set<AtomId>) = function
+            | [] -> seen
+            | id :: rest when seen.Contains id -> visit seen rest
+            | id :: rest ->
+                let partners = getPartners Strong world id |> Set.toList
+                visit (seen.Add id) (partners @ rest)
+        visit Set.empty [ id ]
+
+    /// Describes a join that is about to happen between the given
+    /// atoms in the given world.
+    let private getJoin (template : Set<AtomId>) (world : World) idA idB =
+        let strandA = getStrandOf world idA
+        let strandB = getStrandOf world idB
+        let splintSizes =
+            [
+                for idA' in getPartners Weak world idA do
+                    for idB' in getPartners Weak world idB do
+                        if (getPartners Strong world idA').Contains idB' then
+                            (getStrandOf world idA').Count
+            ]
+        {
+            SmallerSize = min strandA.Count strandB.Count
+            LargerSize = max strandA.Count strandB.Count
+            InvolvesTemplate =
+                not (Set.intersect template strandA).IsEmpty
+                    || not (Set.intersect template strandB).IsEmpty
+            SplintSize = List.fold max 0 splintSizes
+        }
+
     /// Result of one phase of one run.
     type private PhaseResult =
         {
@@ -224,27 +276,30 @@ module Experiment3 =
             /// Census at the end of the phase.
             After : Census
 
-            /// Strong bonds formed and broken during the phase.
-            Joins : int
+            /// Strong bonds formed during the phase.
+            Joins : Join[]
+
+            /// Number of strong bonds broken during the phase.
             Breaks : int
         }
 
     /// Runs the given number of sweeps. (One sweep is one update per
-    /// atom.) Answers the resulting world and the number of strong
-    /// bonds formed and broken.
-    let private runPhase parms rng nSweeps (world : World) =
+    /// atom.) Answers the resulting world, the strong bonds formed,
+    /// and the number broken.
+    let private runPhase template parms rng nSweeps (world : World) =
         let nAtoms = world.AtomMap.Count
         let mutable world = world
-        let mutable nJoins = 0
+        let joins = ResizeArray()
         let mutable nBreaks = 0
         for _ in 1 .. nSweeps * nAtoms do
             let world', eventOpt = Ecos.World.update parms rng world
             match eventOpt with
-                | Some (CreateBond (Strong, _, _)) -> nJoins <- nJoins + 1
+                | Some (CreateBond (Strong, idA, idB)) ->
+                    joins.Add(getJoin template world idA idB)
                 | Some (BreakBond (Strong, _, _)) -> nBreaks <- nBreaks + 1
                 | _ -> ()
             world <- world'
-        world, nJoins, nBreaks
+        world, joins.ToArray(), nBreaks
 
     /// The phases of the given scenario.
     let private getPhases scenario =
@@ -257,6 +312,7 @@ module Experiment3 =
     let private runOne settings seed =
         let scenario = Scenario.createExperiment3 seed
         let rng = scenario.Random
+        let template = set scenario.Template
         let mutable world = scenario.World
         let mutable census = getCensus scenario.Template world
         [|
@@ -267,20 +323,20 @@ module Experiment3 =
                             Temperature = phase.Temperature
                             BondParameterMap = scenario.BondParameterMap
                         }
-                    let world', nJoins, nBreaks =
-                        runPhase parms rng phase.NumSweeps world
+                    let world', joins, nBreaks =
+                        runPhase template parms rng phase.NumSweeps world
                     let census' = getCensus scenario.Template world'
                     {
                         Before = census
                         After = census'
-                        Joins = nJoins
+                        Joins = joins
                         Breaks = nBreaks
                     }
                     world <- world'
                     census <- census'
         |]
 
-    /// Runs the experiment, prints a table of results, and writes them
+    /// Runs the experiment, prints tables of results, and writes them
     /// to the given CSV file.
     let run (settings : Settings) (csvPath : string) =
 
@@ -288,6 +344,7 @@ module Experiment3 =
         if scenario.Template.Length = 0 then
             failwith "Scenario has no template"
         let phases = getPhases scenario
+        let nTemplate = scenario.Template.Length
 
             // run every seed in parallel
         let mutable nDone = 0
@@ -298,6 +355,12 @@ module Experiment3 =
                     let n = Interlocked.Increment(&nDone)
                     eprintfn "Finished run %d of %d" n settings.NumRuns
                     results)
+
+        /// Results of the given phase of the given cycle, one per run.
+        let getResults iCycle iPhase =
+            runs
+                |> Array.map (fun results ->
+                    results[iCycle * phases.Length + iPhase])
 
         printfn "Experiment 3: temperature cycling"
         printfn "%d runs of %d cycles" settings.NumRuns settings.NumCycles
@@ -310,6 +373,7 @@ module Experiment3 =
                 bondParms.Barrier
                 bondParms.BarrierStackReduction
         printfn ""
+        printfn "Strands"
         printfn "                         |------------- at the end of the phase -------------|  |- during -|   |--- still intact ---|"
         printfn "cycle    kT   sweeps     strands  copies   best   same  longest  paired        joins  breaks   strands  copies  template"
 
@@ -318,15 +382,64 @@ module Experiment3 =
             "cycle,kT,sweeps,"
                 + "strands,copies,best_copy,same,longest,paired,"
                 + "joins,breaks,"
-                + "strands_intact_fraction,copies_intact_fraction,template_intact_fraction")
+                + "strands_intact_fraction,copies_intact_fraction,template_intact_fraction,"
+                + "joins_atom_atom,joins_atom_strand,joins_strand_strand,joins_untemplated,"
+                + "template_joins,template_joins_atom,template_joins_strand,template_joins_strand_size,"
+                + "template_splint_none,template_splint_short,template_splint_medium,template_splint_full")
+
+        /// Joins per run that satisfy the given test.
+        let joinsPerRun (results : PhaseResult[]) test =
+            results
+                |> Array.averageBy (fun result ->
+                    result.Joins
+                        |> Array.where test
+                        |> Array.length
+                        |> float)
+
+        /// Join statistics for the given results.
+        let getJoinValues (results : PhaseResult[]) =
+            let onTemplate (join : Join) = join.InvolvesTemplate
+            let attached =
+                results
+                    |> Array.collect _.Joins
+                    |> Array.where (fun join ->
+                        onTemplate join && join.SmallerSize > 1)
+            [|
+                    // all joins, by what was joined
+                joinsPerRun results (fun join -> join.LargerSize = 1)
+                joinsPerRun results (fun join ->
+                    join.SmallerSize = 1 && join.LargerSize > 1)
+                joinsPerRun results (fun join -> join.SmallerSize > 1)
+                joinsPerRun results (fun join -> join.SplintSize = 0)
+
+                    // joins onto the template's strand, by what was joined
+                joinsPerRun results onTemplate
+                joinsPerRun results (fun join ->
+                    onTemplate join && join.SmallerSize = 1)
+                joinsPerRun results (fun join ->
+                    onTemplate join && join.SmallerSize > 1)
+                (if attached.Length = 0 then nan
+                 else attached |> Array.averageBy (fun join -> float join.SmallerSize))
+
+                    // joins onto the template's strand, by size of splint
+                joinsPerRun results (fun join ->
+                    onTemplate join && join.SplintSize = 0)
+                joinsPerRun results (fun join ->
+                    onTemplate join
+                        && join.SplintSize > 0
+                        && join.SplintSize < nTemplate / 2)
+                joinsPerRun results (fun join ->
+                    onTemplate join
+                        && join.SplintSize >= nTemplate / 2
+                        && join.SplintSize < nTemplate)
+                joinsPerRun results (fun join ->
+                    onTemplate join && join.SplintSize >= nTemplate)
+            |]
 
         for iCycle in 0 .. settings.NumCycles - 1 do
             for iPhase in 0 .. phases.Length - 1 do
                 let phase = phases[iPhase]
-                let results =
-                    runs
-                        |> Array.map (fun results ->
-                            results[iCycle * phases.Length + iPhase])
+                let results = getResults iCycle iPhase
                 let average (f : PhaseResult -> float) =
                     Array.averageBy f results
 
@@ -348,7 +461,7 @@ module Experiment3 =
                                         |> Set.count)
                         float nAfter / float nBefore
 
-                let values =
+                let v =
                     [|
                         float (iCycle + 1)
                         phase.Temperature
@@ -359,14 +472,13 @@ module Experiment3 =
                         average (fun r -> float r.After.Same)
                         average (fun r -> float r.After.Longest)
                         average (fun r -> r.After.Paired)
-                        average (fun r -> float r.Joins)
+                        average (fun r -> float r.Joins.Length)
                         average (fun r -> float r.Breaks)
                         fraction _.StrandSets
                         fraction _.CopySets
                         average (fun r ->
                             if r.After.TemplateIntact then 1.0 else 0.0)
                     |]
-                let v = values
                 printfn
                     "%5d  %4.2f  %7d     %7.2f  %6.2f  %5.2f  %5.2f  %7.2f  %6.2f       %6.2f  %6.2f   %7.2f  %6.2f  %8.2f"
                     (iCycle + 1) v[1] phase.NumSweeps
@@ -376,7 +488,7 @@ module Experiment3 =
                 writer.WriteLine(
                     String.Join(
                         ",",
-                        values
+                        Array.append v (getJoinValues results)
                             |> Seq.map (fun (x : float) ->
                                 x.ToString(Globalization.CultureInfo.InvariantCulture))))
 
@@ -384,12 +496,37 @@ module Experiment3 =
         printfn "All columns are averages per run, except paired and the last three, which are fractions."
         printfn "strands: two or more atoms connected by strong bonds, including the template."
         printfn "copies: chains whose sequence is the complement of the template's."
-        printfn "best: atoms in the longest chain whose sequence is a piece of that complement (%d is a copy)." scenario.Template.Length
+        printfn "best: atoms in the longest chain whose sequence is a piece of that complement (%d is a copy)." nTemplate
         printfn "same: chains with the template's own sequence, including the template."
-        printfn "longest: atoms in the longest strand (the template has %d)." scenario.Template.Length
+        printfn "longest: atoms in the longest strand (the template has %d)." nTemplate
         printfn "paired: fraction of the atoms in strands that are paired with an atom of another strand."
         printfn "joins, breaks: strong bonds formed and broken during the phase."
         printfn "still intact: of the strands (and of the copies) at the start of the phase, the fraction"
         printfn "   unchanged at the end of it; and the fraction of runs in which the template is still a"
         printfn "   strand by itself at the end of it. NaN means there were none."
+
+        printfn ""
+        printfn "Joins during each phase (averages per run)"
+        printfn "                         |---------- all joins ----------|   |------------- joins onto the template's strand -------------|"
+        printfn "                           atom    atom  strand                         what was joined          size of the splint"
+        printfn "cycle    kT   sweeps      +atom  +strand +strand  no splint    total   atom  strand  (atoms)    none  short  medium   full"
+        for iCycle in 0 .. settings.NumCycles - 1 do
+            for iPhase in 0 .. phases.Length - 1 do
+                let phase = phases[iPhase]
+                let j = getJoinValues (getResults iCycle iPhase)
+                printfn
+                    "%5d  %4.2f  %7d     %6.2f  %6.2f  %6.2f     %6.2f   %6.2f %6.2f  %6.2f   %6.1f  %6.2f %6.2f  %6.2f %6.2f"
+                    (iCycle + 1) phase.Temperature phase.NumSweeps
+                    j[0] j[1] j[2] j[3]
+                    j[4] j[5] j[6] j[7]
+                    j[8] j[9] j[10] j[11]
+        printfn ""
+        printfn "atom+atom: two free atoms joined, starting a strand."
+        printfn "atom+strand: a free atom joined the end of a strand."
+        printfn "strand+strand: two strands joined end to end."
+        printfn "splint: the strand that templated a join. It has adjacent atoms paired with each of"
+        printfn "   the two atoms joined. Short is under %d atoms, medium is %d to %d, full is %d or more."
+            (nTemplate / 2) (nTemplate / 2) (nTemplate - 1) nTemplate
+        printfn "template's strand: the strand containing the atoms of the original template."
+        printfn "   'strand (atoms)' is the average size of the strands attached to it."
         printfn "Results written to %s" (Path.GetFullPath csvPath)
