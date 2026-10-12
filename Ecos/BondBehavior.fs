@@ -43,6 +43,9 @@ type private BondBehavior =
         /// Determines whether the angle defined the given vectors
         /// is valid for a bond of this type.
         TestBondAngle : Point -> Point -> bool
+
+        /// Determines whether to peel the given bond of this type.
+        TestBondPeel : AtomId -> Atom -> AtomId -> Atom -> BondMap -> bool
     }
 
 module private BondBehavior =
@@ -128,6 +131,19 @@ module private StrongBond =
         dot < 0
             && 25 * dot * dot >= 16 * (u .* u) * (v .* v)   // 16/25 = abs((-4/5)^2) in cos <= -0.8 
 
+    /// Uncapped strands have a chance of peeling.
+    let testBondPeel idA atomA idB atomB bondMap =
+        assert(BondMap.areBonded idA idB bondMap)
+
+        let isExposed id atom =
+            if isCap atom.Type then false
+            else
+                let bonds = BondMap.getBonds id bondMap
+                assert(bonds.Count >= 1)
+                bonds.Count <= 1
+
+        isExposed idA atomA || isExposed idB atomB
+
     /// Behavior of strong bonds.
     let behavior =
         {
@@ -138,6 +154,7 @@ module private StrongBond =
             TestValence = testValence
             CountStacks = countStacks
             TestBondAngle = testBondAngle
+            TestBondPeel = testBondPeel
         }
 
 module private WeakBond =
@@ -207,6 +224,10 @@ module private WeakBond =
     let testBondAngle u v =
         u .* v <= -3
 
+    /// Weak bonds never peel.
+    let testBondPeel _idA _atomA _idB _atomB _bondMap =
+        false
+
     /// Behavior of weak bonds.
     let behavior =
         {
@@ -217,4 +238,5 @@ module private WeakBond =
             TestValence = testValence
             CountStacks = countStacks
             TestBondAngle = testBondAngle
+            TestBondPeel = testBondPeel
         }

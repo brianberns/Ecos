@@ -448,18 +448,23 @@ module World =
     /// Additional energy from a stacked weak bond.
     let private stackEnergy = 1.0
 
+    /// Peel energy.
+    let private peelEnergy = 6.0
+
     /// Attempts to toggle a bond of the given type between
     /// the atoms with the given IDs in the given world.
     let private tryToggleBond parms rng bondType idA idB world =
 
-            // count adjacent stacks
+            // prepare to work with this bond type
         let bondParms = parms.BondParameterMap[bondType]
-        let nStacks =
-            behaviorMap[bondType].CountStacks
-                idA idB world.BondTypeMap
+        let bondMap = world.BondTypeMap[bondType]
+        let behavior = behaviorMap[bondType]
+
+            // count adjacent stacks
+        let nStacks = behavior.CountStacks idA idB world.BondTypeMap
 
         /// Applies Metropolis tests to the given bond energy.
-        let test energy =
+        let testBond energy =
             let barrier =
                 bondParms.Barrier
                     - bondParms.BarrierStackReduction * float nStacks
@@ -470,16 +475,27 @@ module World =
         let bondEnergy =
             bondParms.Energy + stackEnergy * float nStacks
 
+        /// Peel this bond?
+        let testPeel () =
+            let isExposed =
+                behavior.TestBondPeel
+                    idA world.AtomMap[idA]
+                    idB world.AtomMap[idB]
+                    bondMap
+            if isExposed then
+                rng.NextDouble() <= exp (-peelEnergy / parms.Temperature)
+            else false
+
             // create or break bond?
-        if BondMap.areBonded idA idB world.BondTypeMap[bondType] then
-            if test bondEnergy then
+        if BondMap.areBonded idA idB bondMap then
+            if testBond bondEnergy || testPeel () then
                 tryBreakBond bondType idA idB world
                     |> Option.map (fun world ->
                         let event = BreakBond (bondType, idA, idB)
                         world, event)
             else None
         else
-            if test -bondEnergy then
+            if testBond -bondEnergy then
                 tryAddBond bondType idA idB world
                     |> Option.map (fun world ->
                         let event = CreateBond (bondType, idA, idB)
