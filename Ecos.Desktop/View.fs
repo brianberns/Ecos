@@ -96,8 +96,8 @@ module View =
     let renderWorld (model : Model) =
         let scale = 6.0
         let background =
-            if model.Temperature < 1.0 then Brush.Parse("#EAF3FB")
-            else Brush.Parse("#FCEBEA")
+            if model.Temperature < 1.0 then Brush.Parse("#CBCDF2")
+            else Brush.Parse("#F2CBCB")
         Border.create [
             Border.clipToBounds true   // keep drawing inside the available space
             Border.background background
