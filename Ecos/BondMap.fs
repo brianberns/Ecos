@@ -73,8 +73,8 @@ module BondMap =
 
     /// Tests validity of the given atom's bonds.
     let testBonds
-        neighborhood id atom (atomMap : Map<_, _>) bondMap =
-        getBonds id bondMap
+        neighborhood atom (atomMap : Map<_, _>) bondMap =
+        getBonds atom.Id bondMap
             |> Seq.forall (fun idB ->
                 let atomB = atomMap[idB]
                 Neighborhood.testBond neighborhood atom atomB)
