@@ -117,6 +117,18 @@ module Experiment3 =
     /// Indicates whether the given strand is a chain whose sequence
     /// is a contiguous piece of the given sequence, read from either
     /// end.
+    /// A key shared by all chains that could be copies of each other,
+    /// directly or through further copies: those with the given
+    /// sequence, or its complement, read from either end.
+    let private getFamily (sequence : AtomType[]) =
+        let complemented = Array.map complement sequence
+        List.min [
+            List.ofArray sequence
+            List.ofArray (Array.rev sequence)
+            List.ofArray complemented
+            List.ofArray (Array.rev complemented)
+        ]
+
     let private hasPieceOf (sequence : AtomType[]) (world : World) strand =
         if strand.IsRing then false
         else
@@ -171,12 +183,18 @@ module Experiment3 =
             /// Chains with a cap at each end, including the template.
             Capped : int
 
+            /// Family of each capped chain. (See getFamily.)
+            CappedFamilies : List<AtomType>[]
+
             /// Fraction of the atoms in strands that are paired with
             /// an atom of a different strand.
             Paired : float
 
             /// Whether the template is still a strand by itself.
             TemplateIntact : bool
+
+            /// Family of the template. (Each run has its own template.)
+            TemplateFamily : List<AtomType>
 
             /// Atom sets of all strands.
             StrandSets : Set<Set<AtomId>>
@@ -219,6 +237,13 @@ module Experiment3 =
                 strands
                     |> Array.where (hasSequence sequence world)
                     |> Array.length
+            CappedFamilies =
+                strands
+                    |> Array.where (isCapped world)
+                    |> Array.map (fun strand ->
+                        strand.AtomIds
+                            |> Array.map (fun id -> world.AtomMap[id].Type)
+                            |> getFamily)
             Capped =
                 strands
                     |> Array.where (isCapped world)
@@ -231,6 +256,7 @@ module Experiment3 =
                 if strandMap.Count = 0 then 0.0
                 else float nPaired / float strandMap.Count
             TemplateIntact = strandSets.Contains (set template)
+            TemplateFamily = getFamily sequence
             StrandSets = strandSets
             CopySets = copies |> Seq.map atomSet |> set
         }
@@ -551,4 +577,73 @@ module Experiment3 =
             (nTemplate / 2) (nTemplate / 2) (nTemplate - 1) nTemplate
         printfn "template's strand: the strand containing the atoms of the original template."
         printfn "   'strand (atoms)' is the average size of the strands attached to it."
+
+        printfn ""
+        printfn "Capped chains at the end of each phase (averages per run)"
+        printfn "                         |---------------- number, by atoms in the chain ----------------|   |--- families other than the template's ---|"
+        printfn "cycle    kT   sweeps      total      3    4-5    6-8  9-%-3d   %4d  over %-3d   average     families  with copies  largest  its atoms"
+            (nTemplate - 1) nTemplate nTemplate
+        for iCycle in 0 .. settings.NumCycles - 1 do
+            for iPhase in 0 .. phases.Length - 1 do
+                let phase = phases[iPhase]
+                let results = getResults iCycle iPhase
+
+                /// Capped chains per run whose length satisfies the
+                /// given test.
+                let perRun test =
+                    results
+                        |> Array.averageBy (fun result ->
+                            result.After.CappedFamilies
+                                |> Array.where (fun family -> test family.Length)
+                                |> Array.length
+                                |> float)
+                let lengths =
+                    results
+                        |> Array.collect (fun result ->
+                            result.After.CappedFamilies
+                                |> Array.map (fun family -> float family.Length))
+
+                    // families other than the template's, in each run:
+                    // family and number of chains, largest first
+                let otherFamilies =
+                    results
+                        |> Array.map (fun result ->
+                            result.After.CappedFamilies
+                                |> Array.where ((<>) result.After.TemplateFamily)
+                                |> Array.countBy id
+                                |> Array.sortByDescending snd)
+                let averageOfLargest (f : List<AtomType> * int -> float) =
+                    let largest =
+                        otherFamilies
+                            |> Array.choose Array.tryHead
+                    if largest.Length = 0 then nan
+                    else Array.averageBy f largest
+
+                printfn
+                    "%5d  %4.2f  %7d     %6.2f  %5.2f  %5.2f  %5.2f  %5.2f  %5.2f    %5.2f    %6.2f       %6.2f       %6.2f   %6.2f     %6.2f"
+                    (iCycle + 1) phase.Temperature phase.NumSweeps
+                    (perRun (fun _ -> true))
+                    (perRun (fun n -> n = 3))
+                    (perRun (fun n -> n >= 4 && n <= 5))
+                    (perRun (fun n -> n >= 6 && n <= 8))
+                    (perRun (fun n -> n >= 9 && n < nTemplate))
+                    (perRun (fun n -> n = nTemplate))
+                    (perRun (fun n -> n > nTemplate))
+                    (if lengths.Length = 0 then nan else Array.average lengths)
+                    (otherFamilies |> Array.averageBy (Array.length >> float))
+                    (otherFamilies
+                        |> Array.averageBy (fun families ->
+                            families
+                                |> Array.where (fun (_, count) -> count > 1)
+                                |> Array.length
+                                |> float))
+                    (averageOfLargest (snd >> float))
+                    (averageOfLargest (fun (family, _) -> float family.Length))
+        printfn ""
+        printfn "family: chains that could be copies of each other, directly or through further copies."
+        printfn "   They have the same sequence, or its complement, read from either end."
+        printfn "families: number of families, not counting the template's. 'with copies' is how many of"
+        printfn "   them have more than one chain."
+        printfn "largest: number of chains in the largest of those families, and the atoms in each chain"
+        printfn "   (averaged over the runs that have one)."
         printfn "Results written to %s" (Path.GetFullPath csvPath)
