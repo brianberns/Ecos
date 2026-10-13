@@ -22,7 +22,9 @@ type Point =
 
     /// Compares two points for equality.
     override this.Equals(obj) =
-        this.Equals(obj :?> Point)
+        match obj with
+            | :? Point as other -> this.Equals(other)
+            | _ -> false
 
     /// Hashes the point.
     override this.GetHashCode() =
