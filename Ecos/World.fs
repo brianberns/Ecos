@@ -349,6 +349,26 @@ module World =
             Some (world, event)
         else None
 
+    /// Additional energy from a stacked weak bond.
+    let private stackEnergy = 1.0
+
+    /// Applies Metropolis tests to the given bond energy.
+    let private testBond
+        rng kT barrier reduction entropy energy nStacks =
+        let barrier =
+            barrier - reduction * float nStacks
+        testMetropolis rng kT 0 barrier
+            && testMetropolis rng kT entropy energy
+
+    /// Determines whether to peel the given bond.
+    let private testPeel (rng : Random) parms behavior atomA atomB bondMap =
+        let isExposed =
+            behavior.TestBondPeel atomA atomB bondMap
+        if isExposed then
+            rng.NextDouble() <=
+                exp (-parms.PeelBarrier / parms.Temperature)
+        else false
+
     /// Attempts to break the bond of the given type between the
     /// given atoms in the given world.
     let private tryBreakBond bondType atomA atomB world =
@@ -372,26 +392,6 @@ module World =
         if isValid then
             Some { world with BondTypeMap = bondTypeMap }
         else None
-
-    /// Additional energy from a stacked weak bond.
-    let private stackEnergy = 1.0
-
-    /// Applies Metropolis tests to the given bond energy.
-    let private testBond
-        rng kT barrier reduction entropy energy nStacks =
-        let barrier =
-            barrier - reduction * float nStacks
-        testMetropolis rng kT 0 barrier
-            && testMetropolis rng kT entropy energy
-
-    /// Determines whether to peel the given bond.
-    let private testPeel (rng : Random) parms behavior atomA atomB bondMap =
-        let isExposed =
-            behavior.TestBondPeel atomA atomB bondMap
-        if isExposed then
-            rng.NextDouble() <=
-                exp (-parms.PeelBarrier / parms.Temperature)
-        else false
 
     /// Attempts to toggle a bond of the given type between
     /// the atoms with the given IDs in the given world.
