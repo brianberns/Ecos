@@ -73,13 +73,8 @@ type Event =
 /// * Stacking of bonded pairs (a la DNA)
 type World =
     {
-        /// Atoms in the world, mapped by their IDs.
-        AtomMap : Map<AtomId, Atom>
-
-        /// Number of atoms in the world, cached for speed.
-        /// Assume for now that atoms are never removed, so
-        /// every atom has an ID less than this count.
-        AtomCount : int
+        /// Atoms in the world, indexed by their IDs.
+        Atoms : ImmutableList<Atom>
 
         /// Bonds between atoms in the world, by type.
         BondTypeMap : Map<BondType, BondMap>
@@ -113,8 +108,7 @@ module World =
     /// An empty world.
     let empty =
         {
-            AtomMap = Map.empty
-            AtomCount = 0
+            Atoms = ImmutableList.Empty
             BondTypeMap =
                 BondType.all
                     |> Seq.map (fun bondType ->
@@ -146,16 +140,13 @@ module World =
     /// Adds an atom with the given attributes to the given world
     /// if it is valid.
     let tryAddAtom atomType location world =
-        assert(world.AtomCount = world.AtomMap.Count)
         if isAvailable location None world then
-            let id = world.AtomCount
+            let id = world.Atoms.Count
             let atom = Atom.create id atomType location
             let world =
                 {
                     world with
-                        AtomMap =
-                            Map.add id atom world.AtomMap
-                        AtomCount = world.AtomCount + 1
+                        Atoms = world.Atoms.Add(atom)
                         OccupancyMap =
                             Dictionary.add atom.Location id world.OccupancyMap
                 }
@@ -212,12 +203,12 @@ module World =
                     |> Option.map (fun idC ->
                         if idC = atomA.Id || idC = atomB.Id then false
                         else
-                            let atomC = world.AtomMap[idC]
+                            let atomC = world.Atoms[idC]
                             getAllBonds idC world
                                 |> Seq.exists (fun idD ->
                                     if idD = atomA.Id || idD = atomB.Id then false
                                     else
-                                        let atomD = world.AtomMap[idD]
+                                        let atomD = world.Atoms[idD]
                                         BondBehavior.testCrossBond
                                             (atomA, atomB)
                                             (atomC, atomD)))
@@ -238,7 +229,7 @@ module World =
     ///    C
     let private testBondAngles behavior atomA atomB idsC world =
         Seq.forall (fun idC ->
-            let atomC = world.AtomMap[idC]
+            let atomC = world.Atoms[idC]
             testBondAngle behavior atomA atomB atomC)
             idsC
 
@@ -277,7 +268,7 @@ module World =
     /// world if it is valid.
     let tryAddStrongBond idA idB world =
         tryAddBond
-            Strong world.AtomMap[idA] world.AtomMap[idB] world
+            Strong world.Atoms[idA] world.Atoms[idB] world
 
     /// Adds a strong bond between the given atoms in the given
     /// world.
@@ -290,7 +281,7 @@ module World =
     /// world if it is valid.
     let tryAddWeakBond idA idB world =
         tryAddBond
-            Weak world.AtomMap[idA] world.AtomMap[idB] world
+            Weak world.Atoms[idA] world.Atoms[idB] world
 
     /// Adds a weak bond between the given atoms in the given
     /// world.
@@ -318,8 +309,8 @@ module World =
                     partnerIds[i], partnerIds[j]
         }
             |> Seq.forall (fun (idB, idC) ->
-                let atomB = world.AtomMap[idB]
-                let atomC = world.AtomMap[idC]
+                let atomB = world.Atoms[idB]
+                let atomC = world.Atoms[idC]
                 testBondAngle behavior atom atomB atomC)
 
 
@@ -328,11 +319,11 @@ module World =
         behavior atom bondMap partnerIds world =
         partnerIds
             |> Seq.forall (fun idB ->
-                let atomB = world.AtomMap[idB]
+                let atomB = world.Atoms[idB]
                 BondMap.getBonds idB bondMap
                     |> Seq.where ((<>) atom.Id)
                     |> Seq.forall (fun idC ->
-                        world.AtomMap[idC]
+                        world.Atoms[idC]
                             |> testBondAngle behavior atomB atom))
 
     /// Determines whether the given atom's bonds are valid.
@@ -349,7 +340,7 @@ module World =
                 let isValid =
                     partnerIds
                         |> Seq.forall (fun idB ->
-                            let atomB = world.AtomMap[idB]
+                            let atomB = world.Atoms[idB]
                             Neighborhood.testBond
                                 behavior.Neighborhood atom atomB)
 
@@ -375,14 +366,13 @@ module World =
     /// world.
     let private moveAtom atomBefore atomAfter world =
         assert(atomBefore.Id = atomAfter.Id)
-        assert(world.AtomMap[atomBefore.Id] = atomBefore)
+        assert(world.Atoms[atomBefore.Id] = atomBefore)
         assert(world.OccupancyMap[atomBefore.Location] = atomBefore.Id)
         let id = atomBefore.Id
         {
             world with
-                AtomMap =
-                    world.AtomMap
-                        |> Map.add id atomAfter   // replaces `atomBefore`
+                Atoms =
+                    world.Atoms.SetItem(id, atomAfter)   // replaces `atomBefore`
                 OccupancyMap =
                     world.OccupancyMap
                         |> Dictionary.remove atomBefore.Location
@@ -393,9 +383,8 @@ module World =
     let private tryUpdateAtom parms (rng : Random) world =
 
             // pick atom to move
-        assert(world.AtomCount = world.AtomMap.Count)
-        let id = rng.Next(world.AtomCount)
-        let atom = world.AtomMap[id]
+        let id = rng.Next(world.Atoms.Count)
+        let atom = world.Atoms[id]
 
             // pick direction to move in
         let delta = getRandomDirection rng
@@ -500,9 +489,8 @@ module World =
     let private tryUpdateBond parms (rng : Random) bondType world =
 
             // pick atom to bond
-        assert(world.AtomCount = world.AtomMap.Count)
-        let idA = rng.Next(world.AtomCount)
-        let atomA = world.AtomMap[idA]
+        let idA = rng.Next(world.Atoms.Count)
+        let atomA = world.Atoms[idA]
 
             // pick a direction to bond in
         let delta =
@@ -513,7 +501,7 @@ module World =
         world.OccupancyMap
             |> Dictionary.tryFind (atomA.Location + delta)
             |> Option.bind (fun idB ->
-                let atomB = world.AtomMap[idB]
+                let atomB = world.Atoms[idB]
                 tryToggleBond parms rng bondType atomA atomB world)
 
     /// Fraction of updates that attempt to move an atom (aka "hop").
@@ -550,7 +538,6 @@ module World =
     /// Some atoms might be updated more than once, or not at
     /// all.
     let sweep parms rng world =
-        assert(world.AtomCount = world.AtomMap.Count)
-        (world, seq { 1 .. world.AtomCount })
+        (world, seq { 1 .. world.Atoms.Count })
             ||> Seq.fold (fun world _ ->
                 update parms rng world |> fst)

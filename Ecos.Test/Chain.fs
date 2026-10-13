@@ -268,27 +268,27 @@ module Chain =
                 |> Map.tryFind id
                 |> Option.defaultValue Set.empty
         let pick (types : AtomType[]) = types[rng.Next types.Length]
-        let atomMap =
-            (world.AtomMap, world.AtomMap.Keys |> Seq.toArray)
-                ||> Array.fold (fun atomMap id ->
+        let atoms =
+            (world.Atoms, world.Atoms |> Seq.map _.Id |> Seq.toArray)
+                ||> Array.fold (fun atoms id ->
                     let partners = strongPartners id
                     let canBeCap =
                         partners.Count < 2
                             && partners
                                 |> Set.forall (fun idPartner ->
                                     idPartner > id   // not yet assigned
-                                        || not (isCap atomMap[idPartner].Type))
+                                        || not (isCap atoms[idPartner].Type))
                     let typ =
                         if canBeCap then pick allTypes
                         else pick codingTypes
-                    Map.add id { atomMap[id] with Type = typ } atomMap)
-        { world with AtomMap = atomMap }
+                    atoms.SetItem(id, { atoms[id] with Type = typ }))
+        { world with Atoms = atoms }
 
     /// Tries to append atoms at the given locations to the end of the
     /// chain in the given world, bonding each to its predecessor. Fails
     /// if an atom would overlap another, or a bond would cross another.
     let private tryAppend (locs : Point[]) (world : World) =
-        let n0 = world.AtomMap.Count
+        let n0 = world.Atoms.Count
         (Some world, Array.indexed locs)
             ||> Array.fold (fun worldOpt (i, loc) ->
                 worldOpt
@@ -310,10 +310,10 @@ module Chain =
     /// not a sample from equilibrium.
     let rec grow (rng : Random) n : World =
         let rec extend tries (world : World) =
-            if world.AtomMap.Count = n then Some world
+            if world.Atoms.Count = n then Some world
             elif tries = 0 then None
             else
-                let last = world.AtomMap[world.AtomMap.Count - 1].Location
+                let last = world.Atoms[world.Atoms.Count - 1].Location
                 let loc = last + bondVectors[rng.Next bondVectors.Length]
                 match tryAppend [| loc |] world with
                     | Some world -> extend 1000 world
@@ -354,7 +354,7 @@ module Chain =
             else
                 let locA = Point.create (rng.Next(-size, size + 1), rng.Next(-size, size + 1))
                 let locB = locA + bondVectors[rng.Next bondVectors.Length]
-                let idA = world.AtomMap.Count
+                let idA = world.Atoms.Count
                 let worldOpt =
                     world
                         |> World.tryAddAtom types[rng.Next types.Length] locA
@@ -420,10 +420,10 @@ module Chain =
 
     /// Atom locations as floating-point (x, y) pairs, in ID order.
     let private locations (world : World) =
-        world.AtomMap
-            |> Map.toArray
-            |> Array.map (fun (_, atom) ->
+        world.Atoms
+            |> Seq.map (fun atom ->
                 float atom.Location.X, float atom.Location.Y)
+            |> Seq.toArray
 
     /// Center of mass of all atoms.
     let centerOfMass world =
@@ -432,8 +432,8 @@ module Chain =
 
     /// Squared distance between the chain's first and last atoms.
     let endToEndSquared (world : World) =
-        let first = world.AtomMap[0].Location
-        let last = world.AtomMap[world.AtomMap.Count - 1].Location
+        let first = world.Atoms[0].Location
+        let last = world.Atoms[world.Atoms.Count - 1].Location
         let d = last - first
         float (d.X * d.X + d.Y * d.Y)
 

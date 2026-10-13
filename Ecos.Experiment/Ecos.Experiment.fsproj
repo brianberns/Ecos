@@ -9,7 +9,6 @@
 
   <ItemGroup>
     <Compile Include="Scenario.fs" />
-    <Compile Include="World.fs" />
     <Compile Include="Experiment1.fs" />
     <Compile Include="Experiment2.fs" />
     <Compile Include="Experiment3.fs" />

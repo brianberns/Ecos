@@ -112,7 +112,7 @@ module Experiment3 =
     /// each end, so that it can't be extended.
     let private isCapped (world : World) strand =
         let isCap id =
-            match world.AtomMap[id].Type with
+            match world.Atoms[id].Type with
                 | AtomType.P | AtomType.Q -> true
                 | _ -> false
         not strand.IsRing
@@ -139,7 +139,7 @@ module Experiment3 =
         else
             let types =
                 strand.AtomIds
-                    |> Array.map (fun id -> world.AtomMap[id].Type)
+                    |> Array.map (fun id -> world.Atoms[id].Type)
             let isPiece (types : _[]) =
                 sequence
                     |> Seq.windowed types.Length
@@ -218,7 +218,7 @@ module Experiment3 =
                         id, iStrand
             } |> Map
         let sequence =
-            template |> Array.map (fun id -> world.AtomMap[id].Type)
+            template |> Array.map (fun id -> world.Atoms[id].Type)
         let complementSequence = Array.map complement sequence
         let atomSet strand = set strand.AtomIds
         let copies =
@@ -247,7 +247,7 @@ module Experiment3 =
                     |> Array.where (isCapped world)
                     |> Array.map (fun strand ->
                         strand.AtomIds
-                            |> Array.map (fun id -> world.AtomMap[id].Type)
+                            |> Array.map (fun id -> world.Atoms[id].Type)
                             |> getFamily)
             Capped =
                 strands
@@ -338,7 +338,7 @@ module Experiment3 =
     /// atom.) Answers the resulting world, the strong bonds formed,
     /// and the number broken.
     let private runPhase template parms rng nSweeps (world : World) =
-        let nAtoms = world.AtomMap.Count
+        let nAtoms = world.Atoms.Count
         let mutable world = world
         let joins = ResizeArray()
         let mutable nBreaks = 0

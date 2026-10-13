@@ -137,7 +137,7 @@ module Experiment2 =
     /// with free atoms, and how many of those have partners on the
     /// same side of the line through the two template atoms.
     let private countAdjacentPairs (template : AtomId[]) (free : Set<AtomId>) (world : World) =
-        let loc id = world.AtomMap[id].Location
+        let loc id = world.Atoms[id].Location
         let side (a : Point) (b : Point) (c : Point) =
             sign ((b.X - a.X) * (c.Y - a.Y) - (b.Y - a.Y) * (c.X - a.X))
         let pairs =
@@ -188,8 +188,8 @@ module Experiment2 =
             else Scenario.createExperiment2 seed
         let rng = scenario.Random
         let template = set scenario.Template
-        let free = Set.difference (set scenario.World.AtomMap.Keys) template
-        let nAtoms = scenario.World.AtomMap.Count
+        let free = Set.difference (scenario.World.Atoms |> Seq.map _.Id |> set) template
+        let nAtoms = scenario.World.Atoms.Count
         let mutable world = scenario.World
 
             // settle, with strong bonds frozen by an impassable barrier

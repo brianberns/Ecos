@@ -47,14 +47,14 @@ module View =
     let renderAtoms model =
         let templateIds = set model.Scenario.Template
         [
-            for id, atom in Map.toSeq model.World.AtomMap do
+            for atom in model.World.Atoms do
                 Ellipse.create [
                     Ellipse.width 2
                     Ellipse.height 2
                     let pt = atom.Location - Point.create (1, 1)   // every atom is 2x2 centered on its location
                     Ellipse.left pt.X
                     Ellipse.top pt.Y
-                    if templateIds.Contains(id) then
+                    if templateIds.Contains(atom.Id) then
                         Ellipse.fill brushMap[atom.Type]
                     else
                         Ellipse.stroke brushMap[atom.Type]
@@ -70,8 +70,8 @@ module View =
                 Seq.choose (fun idB ->
                     if idA < idB then
                         Some (
-                            world.AtomMap[idA],
-                            world.AtomMap[idB])
+                            world.Atoms[idA],
+                            world.Atoms[idB])
                     else None)
                     ids)
 

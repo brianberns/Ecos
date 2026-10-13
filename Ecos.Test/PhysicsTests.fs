@@ -135,7 +135,7 @@ module PhysicsTests =
                     (TestParameters.createFrozen Chain.athermalKT)
                     8 (200 * n) (20 * n) 5000
                     (fun world ->
-                        world.AtomMap[n - 1].Location - world.AtomMap[0].Location)
+                        world.Atoms[n - 1].Location - world.Atoms[0].Location)
 
         checkFit $"End-to-end vector, N = {n}" (toMap counts) samples
 
@@ -216,8 +216,8 @@ module PhysicsTests =
                 |> sample
                     (TestParameters.create kT) 8 2000 1000 3000
                     (fun world ->
-                        let a = world.AtomMap[0].Location
-                        let b = world.AtomMap[1].Location
+                        let a = world.Atoms[0].Location
+                        let b = world.Atoms[1].Location
                         Assert.True(inBox a && inBox b, $"Atom escaped the box: {a}, {b}")
                         let bond =
                             if Bonds.areStronglyBonded world 0 1 then StrongBond
@@ -343,7 +343,7 @@ module PhysicsTests =
                     (TestParameters.createFrozen kT) 8 2000 300 3000
                     (fun world ->
                         Set.toList (Bonds.weakBonds world),
-                        world.AtomMap[2].Location - world.AtomMap[0].Location)
+                        world.Atoms[2].Location - world.Atoms[0].Location)
 
         checkFit "Weak bonds" (toMap bondSetWeights) (Array.map fst samples)
         checkFit "Separation" (toMap separationWeights) (Array.map snd samples)

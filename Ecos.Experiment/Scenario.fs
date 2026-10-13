@@ -105,9 +105,8 @@ module Scenario =
 
                     // gather IDs
                 let template =
-                    world.AtomMap
-                        |> Map.toSeq
-                        |> Seq.map fst
+                    world.Atoms
+                        |> Seq.map _.Id
                         |> Seq.toArray
                 world, template
             else
