@@ -453,13 +453,12 @@ module World =
             behavior.CountStacks atomA.Id atomB.Id world.BondTypeMap
 
         /// Applies Metropolis tests to the given bond energy.
-        let testBond energy =
+        let testBond entropy energy =
             let barrier =
                 bondParms.Barrier
                     - bondParms.BarrierStackReduction * float nStacks
             testMetropolis rng parms.Temperature 0 barrier
-                && testMetropolis
-                    rng parms.Temperature bondParms.Entropy energy
+                && testMetropolis rng parms.Temperature entropy energy
 
             // compute bond energy
         let bondEnergy =
@@ -476,7 +475,7 @@ module World =
 
             // create or break bond?
         if BondMap.areBonded atomA.Id atomB.Id bondMap then
-            if testBond bondEnergy || testPeel () then
+            if testBond bondParms.Entropy bondEnergy || testPeel () then
                 tryBreakBond bondType atomA atomB world
                     |> Option.map (fun world ->
                         let event =
@@ -484,7 +483,7 @@ module World =
                         world, event)
             else None
         else
-            if testBond -bondEnergy then
+            if testBond -bondParms.Entropy -bondEnergy then
                 tryAddBond bondType atomA atomB world
                     |> Option.map (fun world ->
                         let event =
