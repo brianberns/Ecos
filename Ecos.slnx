@@ -1,4 +1,7 @@
 <Solution>
+  <Folder Name="/Solution Items/">
+    <File Path="README.md" />
+  </Folder>
   <Project Path="Avalonia.FuncUI/src/Avalonia.FuncUI.Elmish/Avalonia.FuncUI.Elmish.fsproj" />
   <Project Path="Avalonia.FuncUI/src/Avalonia.FuncUI/Avalonia.FuncUI.fsproj" />
   <Project Path="Ecos.Desktop/Ecos.Desktop.fsproj" />
