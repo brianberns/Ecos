@@ -113,7 +113,7 @@ module Scenario =
                 world, Array.empty
 
             // free weak partners w/ positive y-coord
-        let nFree = 3 * nTemplate
+        let nFree = 6 * nTemplate
         let world =
             (world, [ 0 .. nFree - 1 ])
                 ||> Seq.fold (fun world i ->
