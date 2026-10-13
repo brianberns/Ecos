@@ -30,6 +30,9 @@ type BondTypeParameters =
 
         /// Barrier reduction for completed stacks (δ).
         BarrierStackReduction : float
+
+        /// Implicit entropy in this bond type (s).
+        Entropy : float
     }
 
 /// Configurable update parameters.
@@ -355,12 +358,16 @@ module World =
     /// Applies the Metropolis rule:
     /// * A move that lowers the energy, or leaves it unchanged,
     ///   is always accepted.
-    /// * An uphill move is accepted with probability exp(−ΔE/kT),
-    ///   where kT is temperature scaled by Boltzmann's constant.
+    /// * An uphill move is accepted with probability exp(s − ΔE/kT),
+    ///   where kT is temperature scaled by Boltzmann's constant
+    ///   and s is entropy.
     let private testMetropolis
-        (kT : float) (rng : Random) (energyDelta : float) =
-        energyDelta <= 0
-            || rng.NextDouble() < exp (-energyDelta / kT)
+        (rng : Random)
+        (kT : float)
+        (entropy : float)
+        (energyDelta : float) =
+        let x = entropy - energyDelta / kT
+        x >= 0 || rng.NextDouble() < exp x
 
     /// Updates the given atom's location in the given
     /// world.
@@ -396,9 +403,9 @@ module World =
 
             // move the atom permanently?
         let isValid =
-            isAvailable atom'.Location (Some id) world      // avoids overlap with other atoms? (to-do: check only the leading edge)
-                && testBonds atom' world                    // all of the atom's bonds are still valid?
-                && testMetropolis parms.Temperature rng 0   // possible to-do: add position-dependent energy term
+            isAvailable atom'.Location (Some id) world        // avoids overlap with other atoms? (to-do: check only the leading edge)
+                && testBonds atom' world                      // all of the atom's bonds are still valid?
+                && testMetropolis rng parms.Temperature 0 0   // possible to-do: add position-dependent energy term
         if isValid then
             let world = moveAtom atom atom' world
             let event = MoveAtom id
@@ -450,8 +457,9 @@ module World =
             let barrier =
                 bondParms.Barrier
                     - bondParms.BarrierStackReduction * float nStacks
-            testMetropolis parms.Temperature rng barrier
-                && testMetropolis parms.Temperature rng energy
+            testMetropolis rng parms.Temperature 0 barrier
+                && testMetropolis
+                    rng parms.Temperature bondParms.Entropy energy
 
             // compute bond energy
         let bondEnergy =
