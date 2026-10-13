@@ -102,10 +102,10 @@ module private StrongBond =
 
     /// Strong bond valence test.
     let testValence atom (bondTypeMap : Map<_, _>) =
+        let valence =
+            if isCap atom.Type then 1 else 2       // caps can have at most one strong bond
         let bonds = BondMap.getBonds atom.Id bondTypeMap[Strong]
-        match atom.Type with
-            | AtomType.P | AtomType.Q -> bonds.Count <= 1   // caps can have at most one strong bond
-            | _ -> bonds.Count <= 2
+        bonds.Count <= valence
 
     /// Counts stacks affected by the given (existing or 
     /// proposed) strong bond:

@@ -204,8 +204,8 @@ module World =
     /// Indicates whether a bond of the given type between the
     /// given atoms crosses any other bonds. This only needs to
     /// check the local neighborhood of one of the atoms.
-    let private isCrossBond bondType atomA atomB world =
-        behaviorMap[bondType].CrossBondDeltas
+    let private isCrossBond behavior atomA atomB world =
+        behavior.CrossBondDeltas
             |> Seq.exists (fun delta ->
                 world.OccupancyMap
                     |> Dictionary.tryFind (atomA.Location + delta)   // check A's neighborhood
@@ -236,10 +236,10 @@ module World =
     ///  \
     ///   \
     ///    C
-    let private testBondAngles bondType atomA atomB idsC world =
+    let private testBondAngles behavior atomA atomB idsC world =
         Seq.forall (fun idC ->
             let atomC = world.AtomMap[idC]
-            testBondAngle behaviorMap[bondType] atomA atomB atomC)
+            testBondAngle behavior atomA atomB atomC)
             idsC
 
     /// Adds a bond of the given type between the given atoms in
@@ -265,9 +265,9 @@ module World =
                 && Neighborhood.testBond behavior.Neighborhood atomA atomB
                 && behavior.TestValence atomA bondTypeMap
                 && behavior.TestValence atomB bondTypeMap
-                && not (isCrossBond bondType atomA atomB world)
-                && testBondAngles bondType atomA atomB idsA world
-                && testBondAngles bondType atomB atomA idsB world
+                && not (isCrossBond behavior atomA atomB world)
+                && testBondAngles behavior atomA atomB idsA world
+                && testBondAngles behavior atomB atomA idsB world
 
         if isValid then
             Some { world with BondTypeMap = bondTypeMap }
@@ -394,8 +394,8 @@ module World =
 
             // pick atom to move
         assert(world.AtomCount = world.AtomMap.Count)
-        let idA = rng.Next(world.AtomCount)
-        let atom = world.AtomMap[idA]
+        let id = rng.Next(world.AtomCount)
+        let atom = world.AtomMap[id]
 
             // pick direction to move in
         let delta = getRandomDirection rng
@@ -407,12 +407,12 @@ module World =
 
             // move the atom permanently?
         let isValid =
-            isAvailable atom'.Location (Some idA) world     // avoids overlap with other atoms? (to-do: check only the leading edge)
+            isAvailable atom'.Location (Some id) world      // avoids overlap with other atoms? (to-do: check only the leading edge)
                 && testBonds atom' world                    // all of the atom's bonds are still valid?
                 && testMetropolis parms.Temperature rng 0   // possible to-do: add position-dependent energy term
         if isValid then
             let world = moveAtom atom atom' world
-            let event = MoveAtom idA
+            let event = MoveAtom id
             Some (world, event)
         else None
 
