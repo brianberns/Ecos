@@ -247,6 +247,16 @@ module PhysicsTests =
             |> TestParameters.withEntropy 1.5 2.0
             |> checkTwoAtomsInBox
 
+    /// Two atoms in a box, with a start barrier on both bond types.
+    /// Every bond here starts a strand, so every bond has the barrier.
+    /// It slows forming and breaking equally, so the distribution must
+    /// be exactly as it is without one.
+    [<Fact>]
+    let ``Two atoms in a box follow the Boltzmann distribution with a start barrier`` () =
+        TestParameters.create 12.0
+            |> TestParameters.withStartBarrier 6.0 6.0
+            |> checkTwoAtomsInBox
+
     /// Pairing, opposite sides, and stacking: two dimers (W0-W1 and
     /// X2-X3, each strongly bonded) are confined to a small box. Either
     /// W can pair with either X, so there are four possible weak bonds:

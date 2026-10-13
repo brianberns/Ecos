@@ -62,6 +62,7 @@ module Experiment2 =
                             Energy = 17.0
                             Barrier = 0.0                 // replaced
                             BarrierStackReduction = 0.0   // replaced
+                            StartBarrier = 0
                             Entropy = 0
                         }
                     Weak,
@@ -69,6 +70,7 @@ module Experiment2 =
                             Energy = 1.0
                             Barrier = 0.0
                             BarrierStackReduction = 0.0
+                            StartBarrier = 0
                             Entropy = 0
                         }
                 ]

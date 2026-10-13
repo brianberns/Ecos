@@ -7,8 +7,8 @@ module TestParameters =
     /// tests' temperatures are chosen to suit them.
     let standardBondParameterMap =
         Map [
-            Strong, { Energy = 12; Barrier = 6; BarrierStackReduction = 0; Entropy = 0 }
-            Weak, { Energy = 1; Barrier = 0; BarrierStackReduction = 0; Entropy = 0 }
+            Strong, { Energy = 12; Barrier = 6; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0 }
+            Weak, { Energy = 1; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0 }
         ]
 
     /// Standard parameters at the given temperature.
@@ -33,6 +33,17 @@ module TestParameters =
                 Map.add Strong strong standardBondParameterMap
             PeelBarrier = System.Double.PositiveInfinity   // no peeling
         }
+
+    /// The given parameters, with the given start barrier for each bond
+    /// type.
+    let withStartBarrier strongBarrier weakBarrier (parms : Parameters) =
+        let set bondType barrier (map : Map<BondType, BondTypeParameters>) =
+            Map.add bondType { map[bondType] with StartBarrier = barrier } map
+        { parms with
+            BondParameterMap =
+                parms.BondParameterMap
+                    |> set Strong strongBarrier
+                    |> set Weak weakBarrier }
 
     /// The given parameters, with the given entropy for each bond type.
     let withEntropy strongEntropy weakEntropy (parms : Parameters) =
@@ -236,13 +247,23 @@ module Chain =
     /// Oracle: barrier to forming or breaking a bond of the given type,
     /// with the given parameters, when the given number of stacks
     /// depend on that bond. Each such stack lowers the barrier, but not
-    /// below zero. Either event is first accepted with probability
-    /// exp(-barrier / kT), and then with the usual Metropolis
-    /// probability.
-    let bondBarrier (parms : Parameters) bondType nStacks =
+    /// below zero. Then, if the bond starts a strand (see below), the
+    /// bond type's start barrier is added. Either event is first
+    /// accepted with probability exp(-barrier / kT), and then with the
+    /// usual Metropolis probability.
+    ///
+    /// A bond starts a strand if neither of its atoms has any other
+    /// bond of the same type. That describes both forming a bond
+    /// between two atoms that have none, and breaking a bond that is
+    /// the only one either atom has, so the start barrier slows both
+    /// equally and doesn't change which state is favored.
+    let bondBarrier (parms : Parameters) bondType nStacks isStart =
         let bondParms = parms.BondParameterMap[bondType]
-        bondParms.Barrier - bondParms.BarrierStackReduction * float nStacks
-            |> max 0.0
+        let barrier =
+            bondParms.Barrier - bondParms.BarrierStackReduction * float nStacks
+                |> max 0.0
+        if isStart then barrier + bondParms.StartBarrier
+        else barrier
 
     /// Oracle: entropy lost when a bond of the given type forms, with
     /// the given parameters. A bonded state counts as exp(-entropy)

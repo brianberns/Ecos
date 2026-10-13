@@ -372,13 +372,19 @@ module PropertyTests =
             // type and energy that the given number of stacks depend on.
             // Forming changes the energy by the bond's (negative) energy and
             // loses the bond type's entropy; breaking does the reverse.
-        let acceptWith bondType nStacks energyDelta entropyDelta =
-            exp (-Chain.bondBarrier parms bondType nStacks / kT)
+        let acceptWith bondType nStacks isStart energyDelta entropyDelta =
+            exp (-Chain.bondBarrier parms bondType nStacks isStart / kT)
                 * min 1.0 (exp (entropyDelta - energyDelta / kT))
-        let acceptForm bondType nStacks energy =
-            acceptWith bondType nStacks energy -(Chain.bondEntropy parms bondType)
-        let acceptBreak bondType nStacks energy =
-            acceptWith bondType nStacks -energy (Chain.bondEntropy parms bondType)
+        let acceptForm bondType nStacks isStart energy =
+            acceptWith bondType nStacks isStart energy -(Chain.bondEntropy parms bondType)
+        let acceptBreak bondType nStacks isStart energy =
+            acceptWith bondType nStacks isStart -energy (Chain.bondEntropy parms bondType)
+
+            // does a bond of the given type between the given atoms start a
+            // strand? It does if neither atom has another bond of that type.
+        let isStart bondType idA idB =
+            (partners bondType world idA).Remove(idB).IsEmpty
+                && (partners bondType world idB).Remove(idA).IsEmpty
 
         for atomA in world.Atoms do
             let idA = atomA.Id
@@ -391,9 +397,9 @@ module PropertyTests =
                             Chain.bondEnergy parms Weak
                                 + Chain.stackEnergy * float nStacks
                         if Bonds.areWeaklyBonded world idA idB then
-                            weakBreak <- weakBreak + acceptBreak Weak nStacks energy
+                            weakBreak <- weakBreak + acceptBreak Weak nStacks (isStart Weak idA idB) energy
                         elif canFormWeakBond world idA idB then
-                            weakForm <- weakForm + acceptForm Weak nStacks energy
+                            weakForm <- weakForm + acceptForm Weak nStacks (isStart Weak idA idB) energy
                     | None -> ()
 
             for v in Chain.bondVectors do
@@ -409,7 +415,7 @@ module PropertyTests =
                                 // failing that, if it peels
                             let p =
                                 if canBreakStrongBond world idA idB then
-                                    let pBreak = acceptBreak Strong nStacks energy
+                                    let pBreak = acceptBreak Strong nStacks (isStart Strong idA idB) energy
                                     let pPeel =
                                         if isExposed world idA idB then
                                             exp (-Chain.peelBarrier parms Strong / kT)
@@ -420,7 +426,7 @@ module PropertyTests =
                             if isLong v then longBreak <- longBreak + p
                             if nStacks > 0 then stackedBreak <- stackedBreak + p
                         elif canFormStrongBond world idA idB then
-                            let p = acceptForm Strong nStacks energy
+                            let p = acceptForm Strong nStacks (isStart Strong idA idB) energy
                             strongForm <- strongForm + p
                             if isLong v then longForm <- longForm + p
                     | None -> ()
@@ -691,8 +697,8 @@ module PropertyTests =
                 Temperature = 1.0
                 BondParameterMap =
                     Map [
-                        Strong, { Energy = 30; Barrier = 0; BarrierStackReduction = 0; Entropy = 0 }
-                        Weak, { Energy = 1; Barrier = 0; BarrierStackReduction = 0; Entropy = 0 }
+                        Strong, { Energy = 30; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0 }
+                        Weak, { Energy = 1; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0 }
                     ]
                 PeelBarrier = Double.PositiveInfinity   // no peeling
             }
@@ -856,8 +862,8 @@ module PropertyTests =
                 Temperature = 1.0
                 BondParameterMap =
                     Map [
-                        Strong, { Energy = 0; Barrier = 0; BarrierStackReduction = 0; Entropy = 0 }
-                        Weak, { Energy = 3; Barrier = 0; BarrierStackReduction = 0; Entropy = 0 }
+                        Strong, { Energy = 0; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0 }
+                        Weak, { Energy = 3; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0 }
                     ]
                 PeelBarrier = Double.PositiveInfinity   // no peeling
             }
@@ -1216,8 +1222,8 @@ module PropertyTests =
                 Temperature = 1.0
                 BondParameterMap =
                     Map [
-                        Strong, { Energy = 0; Barrier = 0; BarrierStackReduction = 0; Entropy = 0 }
-                        Weak, { Energy = 3; Barrier = 0; BarrierStackReduction = 0; Entropy = 0 }
+                        Strong, { Energy = 0; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0 }
+                        Weak, { Energy = 3; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0 }
                     ]
                 PeelBarrier = Double.PositiveInfinity   // no peeling
             }
@@ -1239,8 +1245,8 @@ module PropertyTests =
                 Temperature = 1.0
                 BondParameterMap =
                     Map [
-                        Strong, { Energy = 0; Barrier = 3; BarrierStackReduction = 3; Entropy = 0 }
-                        Weak, { Energy = 3; Barrier = 0; BarrierStackReduction = 0; Entropy = 0 }
+                        Strong, { Energy = 0; Barrier = 3; BarrierStackReduction = 3; StartBarrier = 0; Entropy = 0 }
+                        Weak, { Energy = 3; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0 }
                     ]
                 PeelBarrier = Double.PositiveInfinity   // no peeling
             }
@@ -1262,8 +1268,8 @@ module PropertyTests =
                 Temperature = 1.0
                 BondParameterMap =
                     Map [
-                        Strong, { Energy = 2; Barrier = 0; BarrierStackReduction = 0; Entropy = strongEntropy }
-                        Weak, { Energy = 3; Barrier = 0; BarrierStackReduction = 0; Entropy = weakEntropy }
+                        Strong, { Energy = 2; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = strongEntropy }
+                        Weak, { Energy = 3; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = weakEntropy }
                     ]
                 PeelBarrier = Double.PositiveInfinity   // no peeling
             }
@@ -1277,6 +1283,66 @@ module PropertyTests =
                             200000
                             (Random(10 * iWorld + iCase))
                             world
+        |]
+
+    /// The start barrier, at the right rates. A bond that starts a
+    /// strand (one between two atoms with no other bond of its type)
+    /// has an extra barrier, to forming and to breaking alike.
+    /// * In the hot box, bonds of both types start and end constantly.
+    /// * In the same box when cooler, strands start slowly and then grow
+    ///   freely. Adding an atom to a strand is not a start.
+    /// * In the stacking worlds, a stack takes more off the barrier than
+    ///   there is, which must leave zero, not less, for the start
+    ///   barrier to be added to. Otherwise a stacked start would have no
+    ///   barrier at all.
+    [<Fact>]
+    let ``Bonds that start a strand form and break at the expected rate`` () =
+        let size = 4   // atom locations have |x| <= size and |y| <= size
+        let rng = Random(3)
+        let rec addAtoms count world =
+            if count = 0 then world
+            else
+                let atomType = Chain.codingTypes[rng.Next Chain.codingTypes.Length]
+                let loc = Point.create (rng.Next(-size, size + 1), rng.Next(-size, size + 1))
+                match World.tryAddAtom atomType loc world with
+                    | Some (world, _) -> addAtoms (count - 1) world
+                    | None -> addAtoms count world
+        let box =
+            World.empty
+                |> Chain.addBox size
+                |> addAtoms 8
+        let hot =
+            TestParameters.create hotKT
+                |> TestParameters.withStartBarrier hotKT (hotKT / 2.0)
+        let stacked =
+            {
+                Temperature = 1.0
+                BondParameterMap =
+                    Map [
+                        Strong, { Energy = 0; Barrier = 3; BarrierStackReduction = 5; StartBarrier = 1.5; Entropy = 0 }
+                        Weak, { Energy = 3; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0.5; Entropy = 0 }
+                    ]
+                PeelBarrier = Double.PositiveInfinity   // no peeling
+            }
+            // strands start slowly but then grow freely, so most strong bonds
+            // formed extend a strand and must not get the start barrier
+        let growing =
+            {
+                Temperature = 1.0
+                BondParameterMap =
+                    Map [
+                        Strong, { Energy = 2; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 2; Entropy = 0 }
+                        Weak, { Energy = 1; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0 }
+                    ]
+                PeelBarrier = Double.PositiveInfinity   // no peeling
+            }
+        inParallel [|
+            fun () -> checkEventRates "Box, strands growing" growing 150000 (Random(9)) box
+            fun () -> checkEventRates "Box, with start barriers" hot 150000 (Random(4)) box
+            for i, (label, world) in List.indexed stackingWorlds do
+                fun () ->
+                    checkEventRates
+                        $"{label}, with start barriers" stacked 200000 (Random(5 + i)) world
         |]
 
     /// Strong bonds, at the right rates: eight atoms of random types
@@ -1320,8 +1386,8 @@ module PropertyTests =
                 Temperature = 1.0
                 BondParameterMap =
                     Map [
-                        Strong, { Energy = 30; Barrier = 0; BarrierStackReduction = 0; Entropy = 0 }
-                        Weak, { Energy = 1; Barrier = 0; BarrierStackReduction = 0; Entropy = 0 }
+                        Strong, { Energy = 30; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0 }
+                        Weak, { Energy = 1; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0 }
                     ]
                 PeelBarrier = 1.0   // peels with probability 1/e
             }
