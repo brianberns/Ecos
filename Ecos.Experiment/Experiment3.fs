@@ -188,6 +188,9 @@ module Experiment3 =
             /// Chains with a cap at each end, including the template.
             Capped : int
 
+            /// Number of atoms of each type with no strong bond.
+            FreeAtoms : Map<AtomType, int>
+
             /// Family of each capped chain. (See getFamily.)
             CappedFamilies : List<AtomType>[]
 
@@ -242,6 +245,11 @@ module Experiment3 =
                 strands
                     |> Array.where (hasSequence sequence world)
                     |> Array.length
+            FreeAtoms =
+                world.Atoms
+                    |> Seq.where (fun atom -> not (strandMap.ContainsKey atom.Id))
+                    |> Seq.countBy _.Type
+                    |> Map
             CappedFamilies =
                 strands
                     |> Array.where (isCapped world)
@@ -653,4 +661,31 @@ module Experiment3 =
         printfn "   them have more than one chain."
         printfn "largest: number of chains in the largest of those families, and the atoms in each chain"
         printfn "   (averaged over the runs that have one)."
+
+            // free atoms, by type
+        let atomTypes =
+            [| AtomType.W; AtomType.X; AtomType.Y; AtomType.Z; AtomType.P; AtomType.Q |]
+        printfn ""
+        printfn "Free atoms at the end of each phase (averages per run, of %d atoms in all)"
+            scenario.World.Atoms.Count
+        printfn "cycle    kT   sweeps          W       X       Y       Z       P       Q     total"
+        for iCycle in 0 .. settings.NumCycles - 1 do
+            for iPhase in 0 .. phases.Length - 1 do
+                let phase = phases[iPhase]
+                let results = getResults iCycle iPhase
+                let free atomType =
+                    results
+                        |> Array.averageBy (fun result ->
+                            result.After.FreeAtoms
+                                |> Map.tryFind atomType
+                                |> Option.defaultValue 0
+                                |> float)
+                let counts = Array.map free atomTypes
+                printfn
+                    "%5d  %4.2f  %7d     %6.1f  %6.1f  %6.1f  %6.1f  %6.1f  %6.1f    %6.1f"
+                    (iCycle + 1) phase.Temperature phase.NumSweeps
+                    counts[0] counts[1] counts[2] counts[3] counts[4] counts[5]
+                    (Array.sum counts)
+        printfn ""
+        printfn "free: not strongly bonded to anything."
         printfn "Results written to %s" (Path.GetFullPath csvPath)
