@@ -244,25 +244,24 @@ module World =
 
     /// Adds a bond of the given type between the given atoms in
     /// the given world if it is valid.
-    let private tryAddBond bondType idA idB world =
+    let private tryAddBond bondType atomA atomB world =
 
             // get existing bond map
         let bondMap = world.BondTypeMap[bondType]
 
             // create bond provisionally                
         let bondTypeMap =
-            let bondMap = BondMap.createBond idB idA bondMap
+            let bondMap =
+                BondMap.createBond atomA.Id atomB.Id bondMap
             Map.add bondType bondMap world.BondTypeMap
 
             // new bond is valid?
         let isValid =
-            let atomA = world.AtomMap[idA]
-            let atomB = world.AtomMap[idB]
             let behavior = behaviorMap[bondType]
-            let idsA = BondMap.getBonds idA bondMap
-            let idsB = BondMap.getBonds idB bondMap
+            let idsA = BondMap.getBonds atomA.Id bondMap
+            let idsB = BondMap.getBonds atomB.Id bondMap
             behavior.AreCompatible atomA.Type atomB.Type
-                && not (areBonded idA idB world)
+                && not (areBonded atomA.Id atomB.Id world)
                 && Neighborhood.testBond behavior.Neighborhood atomA atomB
                 && behavior.TestValence atomA bondTypeMap
                 && behavior.TestValence atomB bondTypeMap
@@ -277,7 +276,8 @@ module World =
     /// Adds a strong bond between the given atoms in the given
     /// world if it is valid.
     let tryAddStrongBond idA idB world =
-        tryAddBond Strong idA idB world
+        tryAddBond
+            Strong world.AtomMap[idA] world.AtomMap[idB] world
 
     /// Adds a strong bond between the given atoms in the given
     /// world.
@@ -289,7 +289,8 @@ module World =
     /// Adds a weak bond between the given atoms in the given
     /// world if it is valid.
     let tryAddWeakBond idA idB world =
-        tryAddBond Weak idA idB world
+        tryAddBond
+            Weak world.AtomMap[idA] world.AtomMap[idB] world
 
     /// Adds a weak bond between the given atoms in the given
     /// world.
@@ -416,23 +417,15 @@ module World =
         else None
 
     /// Attempts to break the bond of the given type between the
-    /// atoms with the given IDs in the given world.
-    let private tryBreakBond bondType idA idB world =
-
-        /// Removes atom B from atom A's bond set.
-        let remove idA idB (bondMap : BondMap) : BondMap =
-            let ids = bondMap[idA].Remove(idB)
-            if ids.IsEmpty then
-                Map.remove idA bondMap
-            else
-                Map.add idA ids bondMap
+    /// given atoms in the given world.
+    let private tryBreakBond bondType atomA atomB world =
 
             // remove the bond provisionally
         let bondTypeMap =
             let bondMap =
                 world.BondTypeMap[bondType]
-                    |> remove idA idB
-                    |> remove idB idA
+                    |> BondMap.remove atomA.Id atomB.Id
+                    |> BondMap.remove atomB.Id atomA.Id
             Map.add bondType bondMap world.BondTypeMap
 
             // enforce valence rules
@@ -440,10 +433,8 @@ module World =
             BondType.all
                 |> Seq.forall (fun bondType ->
                     let behavior = behaviorMap[bondType]
-                    behavior.TestValence
-                        world.AtomMap[idA] bondTypeMap
-                        && behavior.TestValence
-                            world.AtomMap[idB] bondTypeMap)
+                    behavior.TestValence atomA bondTypeMap
+                        && behavior.TestValence atomB bondTypeMap)
 
         if isValid then
             Some { world with BondTypeMap = bondTypeMap }
@@ -454,7 +445,7 @@ module World =
 
     /// Attempts to toggle a bond of the given type between
     /// the atoms with the given IDs in the given world.
-    let private tryToggleBond parms rng bondType idA idB world =
+    let private tryToggleBond parms rng bondType atomA atomB world =
 
             // prepare to work with this bond type
         let bondParms = parms.BondParameterMap[bondType]
@@ -462,7 +453,8 @@ module World =
         let behavior = behaviorMap[bondType]
 
             // count adjacent stacks
-        let nStacks = behavior.CountStacks idA idB world.BondTypeMap
+        let nStacks =
+            behavior.CountStacks atomA.Id atomB.Id world.BondTypeMap
 
         /// Applies Metropolis tests to the given bond energy.
         let testBond energy =
@@ -479,28 +471,27 @@ module World =
         /// Peel this bond?
         let testPeel () =
             let isExposed =
-                behavior.TestBondPeel
-                    world.AtomMap[idA]
-                    world.AtomMap[idB]
-                    bondMap
+                behavior.TestBondPeel atomA atomB bondMap
             if isExposed then
                 rng.NextDouble() <=
                     exp (-parms.PeelBarrier / parms.Temperature)
             else false
 
             // create or break bond?
-        if BondMap.areBonded idA idB bondMap then
+        if BondMap.areBonded atomA.Id atomB.Id bondMap then
             if testBond bondEnergy || testPeel () then
-                tryBreakBond bondType idA idB world
+                tryBreakBond bondType atomA atomB world
                     |> Option.map (fun world ->
-                        let event = BreakBond (bondType, idA, idB)
+                        let event =
+                            BreakBond (bondType, atomA.Id, atomB.Id)
                         world, event)
             else None
         else
             if testBond -bondEnergy then
-                tryAddBond bondType idA idB world
+                tryAddBond bondType atomA atomB world
                     |> Option.map (fun world ->
-                        let event = CreateBond (bondType, idA, idB)
+                        let event =
+                            CreateBond (bondType, atomA.Id, atomB.Id)
                         world, event)
             else None
 
@@ -511,7 +502,7 @@ module World =
             // pick atom to bond
         assert(world.AtomCount = world.AtomMap.Count)
         let idA = rng.Next(world.AtomCount)
-        let atom = world.AtomMap[idA]
+        let atomA = world.AtomMap[idA]
 
             // pick a direction to bond in
         let delta =
@@ -520,9 +511,10 @@ module World =
 
             // toggle bond with atom at that location?
         world.OccupancyMap
-            |> Dictionary.tryFind (atom.Location + delta)
+            |> Dictionary.tryFind (atomA.Location + delta)
             |> Option.bind (fun idB ->
-                tryToggleBond parms rng bondType idA idB world)
+                let atomB = world.AtomMap[idB]
+                tryToggleBond parms rng bondType atomA atomB world)
 
     /// Fraction of updates that attempt to move an atom (aka "hop").
     let moveAtomRate = 0.5

@@ -71,19 +71,11 @@ module BondMap =
                 (getBonds idB bondMap).Contains(idA))
         (getBonds idA bondMap).Contains(idB)
 
-    /// Tests validity of the given atom's bonds.
-    let testBonds
-        neighborhood atom (atomMap : Map<_, _>) bondMap =
-        getBonds atom.Id bondMap
-            |> Seq.forall (fun idB ->
-                let atomB = atomMap[idB]
-                Neighborhood.testBond neighborhood atom atomB)
-
     /// Creates a bidirectional bond between the given atoms. If
     /// the bond already exists, this is a no-op.
     let createBond idA idB bondMap =
 
-        let impl idA idB bondMap =
+        let impl idA idB (bondMap : BondMap) : BondMap =
             let ids =
                 Map.tryFind idA bondMap
                     |> Option.defaultValue Set.empty
@@ -93,3 +85,11 @@ module BondMap =
         bondMap
             |> impl idA idB
             |> impl idB idA
+
+    /// Removes atom B from atom A's bond set.
+    let remove idA idB (bondMap : BondMap) : BondMap =
+        let ids = bondMap[idA].Remove(idB)
+        if ids.IsEmpty then
+            Map.remove idA bondMap
+        else
+            Map.add idA ids bondMap
