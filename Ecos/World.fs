@@ -376,9 +376,17 @@ module World =
     /// Additional energy from a stacked weak bond.
     let private stackEnergy = 1.0
 
+    /// Applies Metropolis tests to the given bond energy.
+    let private testBond
+        rng kT barrier reduction entropy energy nStacks =
+        let barrier =
+            barrier - reduction * float nStacks
+        testMetropolis rng kT 0 barrier
+            && testMetropolis rng kT entropy energy
+
     /// Attempts to toggle a bond of the given type between
     /// the atoms with the given IDs in the given world.
-    let private tryToggleBond parms rng bondType atomA atomB world =
+    let private tryToggleBond parms (rng : Random) bondType atomA atomB world =
 
             // prepare to work with this bond type
         let bondParms = parms.BondParameterMap[bondType]
@@ -388,14 +396,6 @@ module World =
             // count adjacent stacks
         let nStacks =
             behavior.CountStacks atomA.Id atomB.Id world.BondTypeMap
-
-        /// Applies Metropolis tests to the given bond energy.
-        let testBond entropy energy =
-            let barrier =
-                bondParms.Barrier
-                    - bondParms.BarrierStackReduction * float nStacks
-            testMetropolis rng parms.Temperature 0 barrier
-                && testMetropolis rng parms.Temperature entropy energy
 
             // compute bond energy
         let bondEnergy =
@@ -411,8 +411,15 @@ module World =
             else false
 
             // create or break bond?
+        let testBond =
+            testBond
+                rng
+                parms.Temperature
+                bondParms.Barrier
+                bondParms.BarrierStackReduction
         if BondMap.areBonded atomA.Id atomB.Id bondMap then
-            if testBond bondParms.Entropy bondEnergy || testPeel () then
+            if testBond bondParms.Entropy bondEnergy nStacks
+                || testPeel () then
                 tryBreakBond bondType atomA atomB world
                     |> Option.map (fun world ->
                         let event =
@@ -420,7 +427,7 @@ module World =
                         world, event)
             else None
         else
-            if testBond -bondParms.Entropy -bondEnergy then
+            if testBond -bondParms.Entropy -bondEnergy nStacks then
                 tryAddBond bondType atomA atomB world
                     |> Option.map (fun world ->
                         let event =
