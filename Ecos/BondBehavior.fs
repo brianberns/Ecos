@@ -70,6 +70,18 @@ module private BondBehavior =
             orient locC locD locA * orient locC locD locB < 0
         cdOpp && abOpp
 
+    /// Determines whether a bond between the given atoms starts
+    /// a new strand.
+    let testStrandStart atomA atomB bondMap =
+        [
+            atomA, atomB
+            atomB, atomA
+        ]
+            |> Seq.forall (fun (atom, other) ->
+                (BondMap.getBonds atom.Id bondMap)
+                    .Remove(other.Id)
+                    .IsEmpty)
+
 module private StrongBond =
 
     /// All normalized strong bond vectors.

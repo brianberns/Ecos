@@ -30,6 +30,9 @@ type BondTypeParameters =
         /// Barrier reduction for completed stacks (δ).
         BarrierStackReduction : float
 
+        /// Barrier to starting a strand of this bond type.
+        StartBarrier : float
+
         /// Implicit entropy in this bond type (s).
         Entropy : float
     }

@@ -181,12 +181,14 @@ module Scenario =
                     Energy = 17
                     Barrier = 3
                     BarrierStackReduction = 3
+                    StartBarrier = 1
                     Entropy = 0
                 }
                 Weak, {
                     Energy = 2
                     Barrier = 0
                     BarrierStackReduction = 0
+                    StartBarrier = 0
                     Entropy = 3
                 }
             ]
@@ -221,12 +223,14 @@ module Scenario =
                     Energy = 34
                     Barrier = 40
                     BarrierStackReduction = 40
+                    StartBarrier = 1
                     Entropy = 0
                 }
                 Weak, {
                     Energy = 2
                     Barrier = 0
                     BarrierStackReduction = 0
+                    StartBarrier = 0
                     Entropy = 3
                 }
             ]

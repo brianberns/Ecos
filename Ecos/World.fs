@@ -353,10 +353,11 @@ module World =
     let private stackEnergy = 1.0
 
     /// Applies Metropolis tests to the given bond energy.
-    let private testBond
-        rng kT barrier reduction entropy energy nStacks =
+    let private testBondEnergy
+        rng kT energyBarrier reduction startBarrier nStacks entropy energy =
         let barrier =
-            barrier - reduction * float nStacks
+            (max 0.0 (energyBarrier - reduction * float nStacks))
+                + startBarrier
         testMetropolis rng kT 0 barrier
             && testMetropolis rng kT entropy energy
 
@@ -407,16 +408,25 @@ module World =
         let bondEnergy =
             bondParms.Energy + stackEnergy * float nStacks
 
+            // compute start barrier
+        let bondMap = world.BondTypeMap[bondType]
+        let startBarrier =
+            if bondParms.StartBarrier > 0
+                && BondBehavior.testStrandStart atomA atomB bondMap then
+                bondParms.StartBarrier
+            else 0.0
+
             // create or break bond?
         let testBond =
-            testBond
+            testBondEnergy
                 rng
                 parms.Temperature
                 bondParms.Barrier
                 bondParms.BarrierStackReduction
-        let bondMap = world.BondTypeMap[bondType]
+                startBarrier
+                nStacks
         if BondMap.areBonded atomA.Id atomB.Id bondMap then
-            if testBond bondParms.Entropy bondEnergy nStacks
+            if testBond bondParms.Entropy bondEnergy
                 || testPeel rng parms behavior atomA atomB bondMap then
                 tryBreakBond bondType atomA atomB world
                     |> Option.map (fun world ->
@@ -425,7 +435,7 @@ module World =
                         world, event)
             else None
         else
-            if testBond -bondParms.Entropy -bondEnergy nStacks then
+            if testBond -bondParms.Entropy -bondEnergy then
                 tryAddBond bondType atomA atomB world
                     |> Option.map (fun world ->
                         let event =
