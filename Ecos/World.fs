@@ -397,19 +397,15 @@ module World =
     /// the atoms with the given IDs in the given world.
     let private tryToggleBond parms (rng : Random) bondType atomA atomB world =
 
-            // prepare to work with this bond type
-        let bondParms = parms.BondParameterMap[bondType]
-        let bondMap = world.BondTypeMap[bondType]
-        let behavior = behaviorMap[bondType]
-
             // count adjacent stacks
+        let behavior = behaviorMap[bondType]
         let nStacks =
             behavior.CountStacks atomA.Id atomB.Id world.BondTypeMap
 
             // compute bond energy
+        let bondParms = parms.BondParameterMap[bondType]
         let bondEnergy =
             bondParms.Energy + stackEnergy * float nStacks
-
 
             // create or break bond?
         let testBond =
@@ -418,6 +414,7 @@ module World =
                 parms.Temperature
                 bondParms.Barrier
                 bondParms.BarrierStackReduction
+        let bondMap = world.BondTypeMap[bondType]
         if BondMap.areBonded atomA.Id atomB.Id bondMap then
             if testBond bondParms.Entropy bondEnergy nStacks
                 || testPeel rng parms behavior atomA atomB bondMap then
