@@ -384,6 +384,15 @@ module World =
         testMetropolis rng kT 0 barrier
             && testMetropolis rng kT entropy energy
 
+    /// Determines whether to peel the given bond.
+    let private testPeel (rng : Random) parms behavior atomA atomB bondMap =
+        let isExposed =
+            behavior.TestBondPeel atomA atomB bondMap
+        if isExposed then
+            rng.NextDouble() <=
+                exp (-parms.PeelBarrier / parms.Temperature)
+        else false
+
     /// Attempts to toggle a bond of the given type between
     /// the atoms with the given IDs in the given world.
     let private tryToggleBond parms (rng : Random) bondType atomA atomB world =
@@ -401,14 +410,6 @@ module World =
         let bondEnergy =
             bondParms.Energy + stackEnergy * float nStacks
 
-        /// Peel this bond?
-        let testPeel () =
-            let isExposed =
-                behavior.TestBondPeel atomA atomB bondMap
-            if isExposed then
-                rng.NextDouble() <=
-                    exp (-parms.PeelBarrier / parms.Temperature)
-            else false
 
             // create or break bond?
         let testBond =
@@ -419,7 +420,7 @@ module World =
                 bondParms.BarrierStackReduction
         if BondMap.areBonded atomA.Id atomB.Id bondMap then
             if testBond bondParms.Entropy bondEnergy nStacks
-                || testPeel () then
+                || testPeel rng parms behavior atomA atomB bondMap then
                 tryBreakBond bondType atomA atomB world
                     |> Option.map (fun world ->
                         let event =
