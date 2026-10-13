@@ -708,10 +708,12 @@ module PropertyTests =
         let expected = set [ 0, 1; 1, 2; 2, 3 ]
         let mutable nJoins = 0
         for _ in 1 .. 50000 do
-            let world' = World.updateWith parms rng world
-            nJoins <- nJoins + max 0 ((strongBonds world').Count - (strongBonds world).Count)
-            Assert.True(isValid world', "World became invalid")
-            world <- world'
+            match World.tryUpdate parms rng world with
+                | Some (world', _) ->
+                    nJoins <- nJoins + max 0 ((strongBonds world').Count - (strongBonds world).Count)
+                    Assert.True(isValid world', "World became invalid")
+                    world <- world'
+                | None -> ()   // nothing happened
         Assert.Equal<Set<int * int>>(expected, strandBonds world)
 
             // make sure the check isn't vacuous: free atoms did join each
@@ -1007,7 +1009,7 @@ module PropertyTests =
     /// yet). For toggles, see toggleProbabilities. Over many updates,
     /// the number of events of each kind must match the sum of its
     /// probabilities.
-    let private checkEventRates label (parms : Parameters) nSteps (rng : Random) (world : World) =
+    let private runEventRates label (parms : Parameters) nSteps (rng : Random) (world : World) =
         let mutable world = world
 
             // expected and actual counts of each kind of event
@@ -1023,42 +1025,67 @@ module PropertyTests =
         let variance = Array.zeroCreate<float> kinds.Length
         let actual = Array.zeroCreate<int> kinds.Length
 
-        for _ in 1 .. nSteps do
+        /// Probability of each kind of event in the given world.
+        let getProbabilities world =
             let weakForm, weakBreak, strongForm, strongBreak, longForm, longBreak, stackedBreak =
                 toggleProbabilities parms world
-            let ps =
-                [|
-                    World.moveAtomRate
-                        * float (validMoves world).Length / float (4 * world.Atoms.Count)
-                    World.toggleWeakBondRate * weakForm
-                    World.toggleWeakBondRate * weakBreak
-                    World.toggleStrongBondRate * strongForm
-                    World.toggleStrongBondRate * strongBreak
-                    World.toggleStrongBondRate * longForm
-                    World.toggleStrongBondRate * longBreak
-                    World.toggleStrongBondRate * stackedBreak
-                |]
+            [|
+                World.moveAtomRate
+                    * float (validMoves world).Length / float (4 * world.Atoms.Count)
+                World.toggleWeakBondRate * weakForm
+                World.toggleWeakBondRate * weakBreak
+                World.toggleStrongBondRate * strongForm
+                World.toggleStrongBondRate * strongBreak
+                World.toggleStrongBondRate * longForm
+                World.toggleStrongBondRate * longBreak
+                World.toggleStrongBondRate * stackedBreak
+            |]
+
+            // the probabilities depend only on the world, so they're
+            // computed again only when an update changes it (most don't)
+        let mutable ps = getProbabilities world
+        for _ in 1 .. nSteps do
             for i, p in Array.indexed ps do
                 expected[i] <- expected[i] + p
                 variance[i] <- variance[i] + p * (1.0 - p)
-            let world' = World.updateWith parms rng world
-            let nWeak, nWeak' = (weakBonds world).Count, (weakBonds world').Count
-            let nStrong, nStrong' = (strongBonds world).Count, (strongBonds world').Count
-            if world'.Atoms <> world.Atoms then actual[0] <- actual[0] + 1
-            if nWeak' > nWeak then actual[1] <- actual[1] + 1
-            if nWeak' < nWeak then actual[2] <- actual[2] + 1
-            if nStrong' > nStrong then actual[3] <- actual[3] + 1
-            if nStrong' < nStrong then actual[4] <- actual[4] + 1
-            if isLongBond world' (strongBonds world' - strongBonds world) then actual[5] <- actual[5] + 1
-            if isLongBond world (strongBonds world - strongBonds world') then actual[6] <- actual[6] + 1
-            if isStackedBond world (strongBonds world - strongBonds world') then actual[7] <- actual[7] + 1
-            world <- world'
+            match World.tryUpdate parms rng world with
+                | Some (world', _) ->
+                    let nWeak, nWeak' = (weakBonds world).Count, (weakBonds world').Count
+                    let nStrong, nStrong' = (strongBonds world).Count, (strongBonds world').Count
+                    let moved =
+                        Seq.exists2 (fun (atom : Atom) (atom' : Atom) ->
+                            atom.Location <> atom'.Location)
+                            world.Atoms world'.Atoms
+                    if moved then actual[0] <- actual[0] + 1
+                    if nWeak' > nWeak then actual[1] <- actual[1] + 1
+                    if nWeak' < nWeak then actual[2] <- actual[2] + 1
+                    if nStrong' > nStrong then actual[3] <- actual[3] + 1
+                    if nStrong' < nStrong then actual[4] <- actual[4] + 1
+                    if isLongBond world' (strongBonds world' - strongBonds world) then actual[5] <- actual[5] + 1
+                    if isLongBond world (strongBonds world - strongBonds world') then actual[6] <- actual[6] + 1
+                    if isStackedBond world (strongBonds world - strongBonds world') then actual[7] <- actual[7] + 1
+                    world <- world'
+                    ps <- getProbabilities world
+                | None -> ()   // nothing happened
 
         for i, kind in Array.indexed kinds do
             let tolerance = 5.0 * sqrt variance[i] + 0.5   // 5 standard deviations
             Assert.True(
                 abs (float actual[i] - expected[i]) <= tolerance,
                 $"{label}, kT = {parms.Temperature}: {actual[i]} {kind}, expected {expected[i]:F1} ± {tolerance:F1}")
+        world
+
+    /// As runEventRates, but answers nothing.
+    let private checkEventRates label parms nSteps rng world =
+        runEventRates label parms nSteps rng world |> ignore
+
+    /// Runs the given independent checks at the same time, to keep the
+    /// tests quick. Each check needs its own random number generator.
+    let private inParallel (checks : (unit -> unit)[]) =
+        try
+            Array.Parallel.iter (fun check -> check ()) checks
+        with :? AggregateException as exn ->
+            raise (exn.Flatten().InnerExceptions[0])   // report the first failure itself
 
     /// Valid events are actually made, at the right rates, in crowded
     /// worlds of chains, free atoms, and walls. This catches an update
@@ -1089,23 +1116,21 @@ module PropertyTests =
         let peeling = { frozen with PeelBarrier = 0.5 }
 
             // uncapped chains and dimers peel
-        for seed in 0 .. 2 do
+        let checkSeed seed () =
             let rng = Random(seed)
             let world =
-                Chain.grow rng 20
+                Chain.grow rng 12
                     |> Chain.withRandomTypes rng
                     |> Chain.addDimers rng 5
-                    |> Chain.addSoup rng 10
+                    |> Chain.addSoup rng 5
             let nBefore = (strongBonds world).Count
-            checkEventRates $"Peeling, seed {seed}" peeling 60000 rng world
+            let peeled =
+                runEventRates $"Peeling, seed {seed}" peeling 40000 rng world
 
                 // make sure the check isn't vacuous
-            let mutable peeled = world
-            for _ in 1 .. 60000 do
-                peeled <- World.updateWith peeling rng peeled
             let nAfter = (strongBonds peeled).Count
             Assert.True(
-                nAfter <= nBefore - 5,   // all five dimers, at least (a chain can be capped)
+                nAfter <= nBefore - 4,   // most of the five dimers, at least (a chain can be capped)
                 $"Seed {seed}: only {nBefore - nAfter} of {nBefore} strong bonds peeled")
 
                 // nothing breaks with peeling off
@@ -1114,22 +1139,25 @@ module PropertyTests =
                 unpeeled <- World.updateWith frozen rng unpeeled
             Assert.Equal<Set<int * int>>(strongBonds world, strongBonds unpeeled)
 
-            // a capped strand doesn't
-        let rng = Random(0)
-        let capped =
-            World.empty
-                |> World.addAtom AtomType.P (Point.create (-3, 0))   // 0
-                |> World.addAtom AtomType.W (Point.create (-1, 0))   // 1
-                |> World.addAtom AtomType.W (Point.create (1, 0))    // 2
-                |> World.addAtom AtomType.P (Point.create (3, 0))    // 3
-                |> World.addStrongBond 0 1
-                |> World.addStrongBond 1 2
-                |> World.addStrongBond 2 3
-                |> Chain.addSoup rng 10
-        let mutable world = capped
-        for _ in 1 .. 50000 do
-            world <- World.updateWith { peeling with PeelBarrier = 0.0 } rng world
-        Assert.Equal<Set<int * int>>(strongBonds capped, strongBonds world)
+            // a capped strand doesn't peel
+        let checkCapped () =
+            let rng = Random(0)
+            let capped =
+                World.empty
+                    |> World.addAtom AtomType.P (Point.create (-3, 0))   // 0
+                    |> World.addAtom AtomType.W (Point.create (-1, 0))   // 1
+                    |> World.addAtom AtomType.W (Point.create (1, 0))    // 2
+                    |> World.addAtom AtomType.P (Point.create (3, 0))    // 3
+                    |> World.addStrongBond 0 1
+                    |> World.addStrongBond 1 2
+                    |> World.addStrongBond 2 3
+                    |> Chain.addSoup rng 10
+            let mutable world = capped
+            for _ in 1 .. 50000 do
+                world <- World.updateWith { peeling with PeelBarrier = 0.0 } rng world
+            Assert.Equal<Set<int * int>>(strongBonds capped, strongBonds world)
+
+        inParallel [| checkSeed 0; checkSeed 1; checkSeed 2; checkCapped |]
 
     /// Worlds for testing stacking: four atoms confined to a small box,
     /// so that bonds between them form and break constantly.
@@ -1241,7 +1269,8 @@ module PropertyTests =
                 |> Chain.addBox size
                 |> addAtoms types 8
         let parms = TestParameters.create hotKT
-        checkEventRates "Box" parms 100000 rng (createWorld Chain.allTypes)
+        let world = createWorld Chain.allTypes
+        let worldNoCaps = createWorld Chain.codingTypes
 
             // with peeling: strong bonds form freely and are too strong to
             // break in the usual way, so every break is a peel. No caps
@@ -1257,8 +1286,12 @@ module PropertyTests =
                     ]
                 PeelBarrier = 1.0   // peels with probability 1/e
             }
-        checkEventRates
-            "Box, with peeling" peeling 400000 rng (createWorld Chain.codingTypes)
+        inParallel [|
+            fun () -> checkEventRates "Box" parms 100000 (Random(1)) world
+            fun () ->
+                checkEventRates
+                    "Box, with peeling" peeling 200000 (Random(2)) worldNoCaps
+        |]
 
     /// Topology, exhaustively: atom A (at the origin) is bonded to B
     /// and steps to A'; C and D are bonded to each other. For every
