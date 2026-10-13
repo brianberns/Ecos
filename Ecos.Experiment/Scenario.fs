@@ -184,10 +184,10 @@ module Scenario =
                     Entropy = 0
                 }
                 Weak, {
-                    Energy = 1
+                    Energy = 2
                     Barrier = 0
                     BarrierStackReduction = 0
-                    Entropy = 0
+                    Entropy = 3
                 }
             ]
 
@@ -224,10 +224,10 @@ module Scenario =
                     Entropy = 0
                 }
                 Weak, {
-                    Energy = 1
+                    Energy = 2
                     Barrier = 0
                     BarrierStackReduction = 0
-                    Entropy = 0
+                    Entropy = 3
                 }
             ]
 
