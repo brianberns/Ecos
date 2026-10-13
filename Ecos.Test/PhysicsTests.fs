@@ -166,13 +166,17 @@ module PhysicsTests =
     /// match the Boltzmann distribution, and must never produce a state
     /// that isn't in the box.
     ///
+    /// A bond with entropy counts as exp(-entropy) states, so its
+    /// weight is multiplied by that.
+    ///
     /// The barrier to strong bonds affects only how fast they form and
     /// break, not this distribution, so this also checks that it's
     /// applied equally in both directions.
-    [<Fact>]
-    let ``Two atoms in a box follow the Boltzmann distribution`` () =
+    let private checkTwoAtomsInBox (parms : Parameters) =
         let size = 2   // atom locations have |x| <= size and |y| <= size
-        let kT = 12.0
+        let kT = parms.Temperature
+        let weight bondType =
+            exp (-Chain.bondEnergy parms bondType / kT - Chain.bondEntropy parms bondType)
 
             // exact Boltzmann weight of each (separation, bond) state
         let locs =
@@ -193,9 +197,9 @@ module PhysicsTests =
                     [
                         (d, NoBond), float count
                         if Array.contains d Chain.weakBondVectors then
-                            (d, WeakBond), float count * exp (-Chain.weakBondEnergy / kT)
+                            (d, WeakBond), float count * weight Weak
                         if Array.contains d Chain.bondVectors then
-                            (d, StrongBond), float count * exp (-Chain.strongBondEnergy / kT)
+                            (d, StrongBond), float count * weight Strong
                     ])
                 |> Map.ofList
 
@@ -214,7 +218,7 @@ module PhysicsTests =
                 |> World.addAtom AtomType.X (Point.create (size, size))
                 |> Chain.addBox size
                 |> sample
-                    (TestParameters.create kT) 8 2000 1000 3000
+                    parms 8 2000 1000 3000
                     (fun world ->
                         let a = world.Atoms[0].Location
                         let b = world.Atoms[1].Location
@@ -226,6 +230,22 @@ module PhysicsTests =
                         b - a, bond)
 
         checkFit "Separation and bond" exact samples
+
+    /// Two atoms in a box, with the standard parameters: bonds have
+    /// energy but no entropy.
+    [<Fact>]
+    let ``Two atoms in a box follow the Boltzmann distribution`` () =
+        checkTwoAtomsInBox (TestParameters.create 12.0)
+
+    /// Two atoms in a box, with bond entropy. At this temperature a
+    /// bond's entropy outweighs its energy, so a pair in range is
+    /// usually unbonded. Without entropy it would be bonded at least
+    /// half the time, however hot.
+    [<Fact>]
+    let ``Two atoms in a box follow the Boltzmann distribution with bond entropy`` () =
+        TestParameters.create 12.0
+            |> TestParameters.withEntropy 1.5 2.0
+            |> checkTwoAtomsInBox
 
     /// Pairing, opposite sides, and stacking: two dimers (W0-W1 and
     /// X2-X3, each strongly bonded) are confined to a small box. Either

@@ -7,8 +7,8 @@ module TestParameters =
     /// tests' temperatures are chosen to suit them.
     let standardBondParameterMap =
         Map [
-            Strong, { Energy = 12; Barrier = 6; BarrierStackReduction = 0 }
-            Weak, { Energy = 1; Barrier = 0; BarrierStackReduction = 0 }
+            Strong, { Energy = 12; Barrier = 6; BarrierStackReduction = 0; Entropy = 0 }
+            Weak, { Energy = 1; Barrier = 0; BarrierStackReduction = 0; Entropy = 0 }
         ]
 
     /// Standard parameters at the given temperature.
@@ -33,6 +33,16 @@ module TestParameters =
                 Map.add Strong strong standardBondParameterMap
             PeelBarrier = System.Double.PositiveInfinity   // no peeling
         }
+
+    /// The given parameters, with the given entropy for each bond type.
+    let withEntropy strongEntropy weakEntropy (parms : Parameters) =
+        let set bondType entropy (map : Map<BondType, BondTypeParameters>) =
+            Map.add bondType { map[bondType] with Entropy = entropy } map
+        { parms with
+            BondParameterMap =
+                parms.BondParameterMap
+                    |> set Strong strongEntropy
+                    |> set Weak weakEntropy }
 
 module World =
 
@@ -233,6 +243,15 @@ module Chain =
         let bondParms = parms.BondParameterMap[bondType]
         bondParms.Barrier - bondParms.BarrierStackReduction * float nStacks
             |> max 0.0
+
+    /// Oracle: entropy lost when a bond of the given type forms, with
+    /// the given parameters. A bonded state counts as exp(-entropy)
+    /// states, as if only that fraction of an atom's hidden internal
+    /// positions allowed the bond. So a bond's weight is
+    /// exp(-energy / kT - entropy), and above kT = -energy / entropy
+    /// the bond is more likely broken than not.
+    let bondEntropy (parms : Parameters) bondType =
+        parms.BondParameterMap[bondType].Entropy
 
     /// Oracle: barrier to peeling a bond of the given type from an
     /// exposed end of a strand. Only strong bonds peel.

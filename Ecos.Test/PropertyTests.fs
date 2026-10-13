@@ -352,7 +352,9 @@ module PropertyTests =
     /// probability exp(-barrier / kT), and is then accepted with the
     /// Metropolis probability for its energy change. That change is
     /// the energy of the bond plus that of the stacks that depend on
-    /// it, gained on forming and lost on breaking.
+    /// it, gained on forming and lost on breaking, less kT times the
+    /// bond type's entropy, which is lost on forming and gained on
+    /// breaking.
     ///
     /// A strong bond at an exposed end of a strand has a second way to
     /// break: it peels, with probability exp(-peel barrier / kT),
@@ -366,12 +368,17 @@ module PropertyTests =
         let mutable longForm, longBreak = 0.0, 0.0
         let mutable stackedBreak = 0.0
 
-            // probability of accepting a toggle of a bond that the given
-            // number of stacks depend on, which changes the energy by the
-            // given amount
-        let accept bondType nStacks energyDelta =
+            // probability of forming, or of breaking, a bond of the given
+            // type and energy that the given number of stacks depend on.
+            // Forming changes the energy by the bond's (negative) energy and
+            // loses the bond type's entropy; breaking does the reverse.
+        let acceptWith bondType nStacks energyDelta entropyDelta =
             exp (-Chain.bondBarrier parms bondType nStacks / kT)
-                * min 1.0 (exp (-energyDelta / kT))
+                * min 1.0 (exp (entropyDelta - energyDelta / kT))
+        let acceptForm bondType nStacks energy =
+            acceptWith bondType nStacks energy -(Chain.bondEntropy parms bondType)
+        let acceptBreak bondType nStacks energy =
+            acceptWith bondType nStacks -energy (Chain.bondEntropy parms bondType)
 
         for atomA in world.Atoms do
             let idA = atomA.Id
@@ -384,9 +391,9 @@ module PropertyTests =
                             Chain.bondEnergy parms Weak
                                 + Chain.stackEnergy * float nStacks
                         if Bonds.areWeaklyBonded world idA idB then
-                            weakBreak <- weakBreak + accept Weak nStacks -energy
+                            weakBreak <- weakBreak + acceptBreak Weak nStacks energy
                         elif canFormWeakBond world idA idB then
-                            weakForm <- weakForm + accept Weak nStacks energy
+                            weakForm <- weakForm + acceptForm Weak nStacks energy
                     | None -> ()
 
             for v in Chain.bondVectors do
@@ -402,7 +409,7 @@ module PropertyTests =
                                 // failing that, if it peels
                             let p =
                                 if canBreakStrongBond world idA idB then
-                                    let pBreak = accept Strong nStacks -energy
+                                    let pBreak = acceptBreak Strong nStacks energy
                                     let pPeel =
                                         if isExposed world idA idB then
                                             exp (-Chain.peelBarrier parms Strong / kT)
@@ -413,7 +420,7 @@ module PropertyTests =
                             if isLong v then longBreak <- longBreak + p
                             if nStacks > 0 then stackedBreak <- stackedBreak + p
                         elif canFormStrongBond world idA idB then
-                            let p = accept Strong nStacks energy
+                            let p = acceptForm Strong nStacks energy
                             strongForm <- strongForm + p
                             if isLong v then longForm <- longForm + p
                     | None -> ()
@@ -684,8 +691,8 @@ module PropertyTests =
                 Temperature = 1.0
                 BondParameterMap =
                     Map [
-                        Strong, { Energy = 30; Barrier = 0; BarrierStackReduction = 0 }
-                        Weak, { Energy = 1; Barrier = 0; BarrierStackReduction = 0 }
+                        Strong, { Energy = 30; Barrier = 0; BarrierStackReduction = 0; Entropy = 0 }
+                        Weak, { Energy = 1; Barrier = 0; BarrierStackReduction = 0; Entropy = 0 }
                     ]
                 PeelBarrier = Double.PositiveInfinity   // no peeling
             }
@@ -849,8 +856,8 @@ module PropertyTests =
                 Temperature = 1.0
                 BondParameterMap =
                     Map [
-                        Strong, { Energy = 0; Barrier = 0; BarrierStackReduction = 0 }
-                        Weak, { Energy = 3; Barrier = 0; BarrierStackReduction = 0 }
+                        Strong, { Energy = 0; Barrier = 0; BarrierStackReduction = 0; Entropy = 0 }
+                        Weak, { Energy = 3; Barrier = 0; BarrierStackReduction = 0; Entropy = 0 }
                     ]
                 PeelBarrier = Double.PositiveInfinity   // no peeling
             }
@@ -1209,8 +1216,8 @@ module PropertyTests =
                 Temperature = 1.0
                 BondParameterMap =
                     Map [
-                        Strong, { Energy = 0; Barrier = 0; BarrierStackReduction = 0 }
-                        Weak, { Energy = 3; Barrier = 0; BarrierStackReduction = 0 }
+                        Strong, { Energy = 0; Barrier = 0; BarrierStackReduction = 0; Entropy = 0 }
+                        Weak, { Energy = 3; Barrier = 0; BarrierStackReduction = 0; Entropy = 0 }
                     ]
                 PeelBarrier = Double.PositiveInfinity   // no peeling
             }
@@ -1232,13 +1239,45 @@ module PropertyTests =
                 Temperature = 1.0
                 BondParameterMap =
                     Map [
-                        Strong, { Energy = 0; Barrier = 3; BarrierStackReduction = 3 }
-                        Weak, { Energy = 3; Barrier = 0; BarrierStackReduction = 0 }
+                        Strong, { Energy = 0; Barrier = 3; BarrierStackReduction = 3; Entropy = 0 }
+                        Weak, { Energy = 3; Barrier = 0; BarrierStackReduction = 0; Entropy = 0 }
                     ]
                 PeelBarrier = Double.PositiveInfinity   // no peeling
             }
         for label, world in stackingWorlds do
             checkEventRates label parms 200000 (Random(1)) world
+
+    /// Bond entropy, at the right rates: the stacking worlds again,
+    /// with entropy on both bond types. Two cases:
+    /// * Entropy smaller than a bond's energy over kT: bonds still
+    ///   form freely, and break more easily than without entropy.
+    /// * Entropy larger than that, even for a stacked bond: bonds
+    ///   break freely, and it's forming one that is hard. Without
+    ///   this case, an update that ignored entropy when forming a
+    ///   bond would pass.
+    [<Fact>]
+    let ``Bonds with entropy form and break at the expected rate`` () =
+        let parms weakEntropy strongEntropy =
+            {
+                Temperature = 1.0
+                BondParameterMap =
+                    Map [
+                        Strong, { Energy = 2; Barrier = 0; BarrierStackReduction = 0; Entropy = strongEntropy }
+                        Weak, { Energy = 3; Barrier = 0; BarrierStackReduction = 0; Entropy = weakEntropy }
+                    ]
+                PeelBarrier = Double.PositiveInfinity   // no peeling
+            }
+        inParallel [|
+            for iWorld, (label, world) in List.indexed stackingWorlds do
+                for iCase, (weakEntropy, strongEntropy) in List.indexed [ 1.5, 1.0; 6.0, 5.0 ] do
+                    fun () ->
+                        checkEventRates
+                            $"{label}, entropy {weakEntropy} and {strongEntropy}"
+                            (parms weakEntropy strongEntropy)
+                            200000
+                            (Random(10 * iWorld + iCase))
+                            world
+        |]
 
     /// Strong bonds, at the right rates: eight atoms of random types
     /// are sealed in a box, at a temperature high enough that strong
@@ -1281,8 +1320,8 @@ module PropertyTests =
                 Temperature = 1.0
                 BondParameterMap =
                     Map [
-                        Strong, { Energy = 30; Barrier = 0; BarrierStackReduction = 0 }
-                        Weak, { Energy = 1; Barrier = 0; BarrierStackReduction = 0 }
+                        Strong, { Energy = 30; Barrier = 0; BarrierStackReduction = 0; Entropy = 0 }
+                        Weak, { Energy = 1; Barrier = 0; BarrierStackReduction = 0; Entropy = 0 }
                     ]
                 PeelBarrier = 1.0   // peels with probability 1/e
             }

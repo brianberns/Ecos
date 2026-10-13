@@ -419,9 +419,10 @@ module Experiment3 =
         for bondType in BondType.all do
             let bondParms = scenario.BondParameterMap[bondType]
             printfn
-                "%A bonds: energy %g, barrier %g, barrier reduction per stack %g"
+                "%A bonds: energy %g, entropy %g, barrier %g, barrier reduction per stack %g"
                 bondType
                 bondParms.Energy
+                bondParms.Entropy
                 bondParms.Barrier
                 bondParms.BarrierStackReduction
         printfn ""
