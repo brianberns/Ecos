@@ -3,64 +3,6 @@ namespace Ecos
 open System
 open System.Collections.Immutable
 
-/// Bond type-specific parameters.
-/// 
-/// Energy
-///   |            ----  <- barrier: in-between state
-///   |           /    \
-///   |   E_b    /      \
-///   |  --------        \
-///   |  unbonded         \      E_b + S
-///   |                    \
-///   |                     -------- bonded (lower by S)
-///   |
-///    ----------------------------------
-/// 
-/// The barrier affects how fast the system moves between the
-/// states, not which one it favors.
-/// 
-/// (Drawing by Claude, with my edits.)
-type BondTypeParameters =
-    {
-        /// Energy delta of this bond type (S).
-        Energy : float
-
-        /// Energy barrier to bond formation (E_b).
-        Barrier : float
-
-        /// Barrier reduction for completed stacks (δ).
-        BarrierStackReduction : float
-
-        /// Implicit entropy in this bond type (s).
-        Entropy : float
-    }
-
-/// Configurable update parameters.
-type Parameters =
-    {
-        /// Temperature scaled by Boltzmann's constant (kT).
-        Temperature : float
-
-        /// Bond type-specific parameters.
-        BondParameterMap : Map<BondType, BondTypeParameters>
-
-        /// Determines how often peeling happens. +Infinity
-        /// prevents peeling altogether.
-        PeelBarrier : float
-    }
-
-/// An event in the world.
-type Event =
-
-    /// An atom moved.
-    | MoveAtom of AtomId
-
-    /// A bond was created between two atoms.
-    | CreateBond of BondType * AtomId * AtomId
-
-    /// A bond was broken between two atoms.
-    | BreakBond of BondType * AtomId * AtomId
-
 /// A lattice world containing atoms bonded into molecules.
 /// Every atom occupies a 2x2 square around its central
 /// location on the lattice, so in the drawing below, the
@@ -89,22 +31,17 @@ type World =
         Walls : ImmutableSortedSet<Point>
     }
 
-module Dictionary =
+/// An event in the world.
+type Event =
 
-    /// Tries to find the given key in the given dictionary.
-    let inline tryFind key (dict : ImmutableSortedDictionary<_, _>) =
-        match dict.TryGetValue(key) with
-            | true, value -> Some value
-            | false, _ -> None
+    /// An atom moved.
+    | MoveAtom of AtomId
 
-    /// Adds the given key to the given value in the given
-    /// dictionary.
-    let inline add key value (dict : ImmutableSortedDictionary<_, _>) =
-        dict.Add(key, value)
+    /// A bond was created between two atoms.
+    | CreateBond of BondType * AtomId * AtomId
 
-    /// Removes the given key from the given dictionary.
-    let inline remove key (dict : ImmutableSortedDictionary<_, _>) =
-        dict.Remove(key)
+    /// A bond was broken between two atoms.
+    | BreakBond of BondType * AtomId * AtomId
 
 module World =
 
