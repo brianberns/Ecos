@@ -101,7 +101,7 @@ module Scenario =
 
                     // cap on end
                 let world =
-                    addAtom AtomType.P (2 * nTemplate - nTemplate) 0 true world
+                    addAtom AtomType.Q (2 * nTemplate - nTemplate) 0 true world
 
                     // gather IDs
                 let template =
