@@ -374,7 +374,7 @@ module Experiment3 =
     /// Runs one world through the cycles. Answers a result for each
     /// phase of each cycle, in order.
     let private runOne settings seed =
-        let scenario = Scenario.createExperiment3 seed
+        let scenario = Scenario.createScenarioB true seed
         let rng = scenario.Random
         let template = set scenario.Template
         let mutable world = scenario.World
@@ -407,7 +407,7 @@ module Experiment3 =
     /// to the given CSV file.
     let run (settings : Settings) (csvPath : string) =
 
-        let scenario = Scenario.createExperiment3 0
+        let scenario = Scenario.createScenarioB true 0
         if scenario.Template.Length = 0 then
             failwith "Scenario has no template"
         let phases = getPhases scenario

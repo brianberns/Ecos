@@ -61,7 +61,7 @@ module Model =
 
     /// Creates a model.
     let create seed speed =
-        let scenario = Scenario.createExperiment3 seed
+        let scenario = Scenario.createScenarioB false seed
         {
             Seed = seed
             Scenario = scenario
@@ -86,7 +86,7 @@ module Model =
                     Temperature = model.Temperature
                     BondParameterMap = model.Scenario.BondParameterMap
                     PeelBarrier = 6
-                    CapPeelBarrier = 27
+                    CapPeelBarrier = 20
                 }
             World.sweep parms model.Scenario.Random model.World
 

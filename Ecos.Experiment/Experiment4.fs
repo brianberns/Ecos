@@ -90,8 +90,8 @@ module Experiment4 =
     let private runOne settings barrier seed =
 
             // free atoms only, with experiment 3's parameters and cycle
-        let scenario = Scenario.createExperiment2 seed
-        let cycled = Scenario.createExperiment3 seed
+        let scenario = Scenario.createScenarioA false seed
+        let cycled = Scenario.createScenarioB true seed
         let phases = getPhases cycled
         let bondParameterMap =
             let strongParms =
@@ -163,13 +163,13 @@ module Experiment4 =
                     barrier, Array.map snd group)
                 |> Map
 
-        let cycled = Scenario.createExperiment3 0
+        let cycled = Scenario.createScenarioB true 0
         let phases = getPhases cycled
         printfn "Experiment 4: emergence of strands from free atoms, with no template"
         printfn
             "%d runs of %d cycles with each barrier; %d atoms; peel barrier %g; cap peel barrier %g"
             settings.NumRuns settings.NumCycles
-            (Scenario.createExperiment2 0).World.Atoms.Count
+            (Scenario.createScenarioA false 0).World.Atoms.Count
             settings.PeelBarrier settings.CapPeelBarrier
         for phase in phases do
             printfn "Phase: kT %g for %d sweeps" phase.Temperature phase.NumSweeps

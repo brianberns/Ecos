@@ -187,9 +187,7 @@ module Experiment2 =
     /// Runs one world, with or without a template, using the given
     /// parameters.
     let private runOne settings withTemplate (parms : Parameters) seed =
-        let scenario =
-            if withTemplate then Scenario.createExperiment1 seed
-            else Scenario.createExperiment2 seed
+        let scenario = Scenario.createScenarioA withTemplate seed
         let rng = scenario.Random
         let template = set scenario.Template
         let free = Set.difference (scenario.World.Atoms |> Seq.map _.Id |> set) template

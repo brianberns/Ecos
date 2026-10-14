@@ -75,45 +75,34 @@ module Scenario =
             atomTypes[rng.Next(atomTypes.Length)]
         addAtom atomType x y withBond world
 
-    let private createScenario withTemplate seed =
+    let private addTemplate rng nTemplate world =
 
-        let rng = Random(seed)
-        let nTemplate = 10
-        let dist = 6
+            // cap on start
+        let world =
+            addAtom AtomType.P (2 * -1 - nTemplate) 0 false world
 
-        let world = addBox 160 160 World.empty
+            // random sequence
+        let atomTypes = [| AtomType.W; AtomType.Y |]
+        let world =
+            (world, [ 0 .. nTemplate - 1 ])
+                ||> Seq.fold (fun world i ->
+                    let x = 2 * i - nTemplate
+                    addAtomRnd rng atomTypes x 0 true world)
 
-            // template
-        let world, template =
-            if withTemplate then
+            // cap on end
+        let world =
+            addAtom AtomType.Q (2 * nTemplate - nTemplate) 0 true world
 
-                    // cap on start
-                let world =
-                    addAtom AtomType.P (2 * -1 - nTemplate) 0 false world
+            // gather IDs
+        let template =
+            world.Atoms
+                |> Seq.map _.Id
+                |> Seq.toArray
+        world, template
 
-                    // random sequence
-                let atomTypes = [| AtomType.W; AtomType.Y |]
-                let world =
-                    (world, [ 0 .. nTemplate - 1 ])
-                        ||> Seq.fold (fun world i ->
-                            let x = 2 * i - nTemplate
-                            addAtomRnd rng atomTypes x 0 true world)
-
-                    // cap on end
-                let world =
-                    addAtom AtomType.Q (2 * nTemplate - nTemplate) 0 true world
-
-                    // gather IDs
-                let template =
-                    world.Atoms
-                        |> Seq.map _.Id
-                        |> Seq.toArray
-                world, template
-            else
-                world, Array.empty
+    let private addFreeAtoms nFree dist world =
 
             // free weak partners w/ positive y-coord
-        let nFree = 6 * nTemplate
         let world =
             (world, [ 0 .. nFree - 1 ])
                 ||> Seq.fold (fun world i ->
@@ -167,6 +156,11 @@ module Scenario =
                 ||> Seq.fold (fun world i ->
                     let x = 2 * i - nFree
                     addAtom AtomType.P x (5 * dist) false world)
+        let world =
+            (world, [ 0 .. nFree - 1 ])
+                ||> Seq.fold (fun world i ->
+                    let x = 2 * i - nFree
+                    addAtom AtomType.P x (6 * dist) false world)
 
             // free caps w/ negative y-coord
         let world =
@@ -174,7 +168,34 @@ module Scenario =
                 ||> Seq.fold (fun world i ->
                     let x = 2 * i - nFree
                     addAtom AtomType.Q x -(5 * dist) false world)
+        let world =
+            (world, [ 0 .. nFree - 1 ])
+                ||> Seq.fold (fun world i ->
+                    let x = 2 * i - nFree
+                    addAtom AtomType.Q x -(6 * dist) false world)
 
+        world
+
+    let createScenarioA withTemplate seed =
+
+        let rng = Random(seed)
+        let nTemplate = 10
+        let dist = 6
+
+            // box
+        let world = addBox 160 160 World.empty
+
+            // template?
+        let world, template =
+            if withTemplate then
+                addTemplate rng nTemplate world
+            else
+                world, Array.empty
+
+            // free atoms
+        let world = addFreeAtoms (6 * nTemplate) dist world
+
+            // parameters
         let bondParamMap =
             Map [
                 Strong, {
@@ -201,20 +222,14 @@ module Scenario =
             Random = rng
         }
 
-    let createExperiment1 seed =
-        createScenario true seed
+    let createScenarioB withTemplate seed =
 
-    let createExperiment2 seed =
-        createScenario false seed
-
-    let createExperiment3 seed =
-
-        let scenario = createExperiment1 seed
+        let scenario = createScenarioA withTemplate seed
 
         let tempType =
             Cycle [|
-                { Temperature = 0.3; NumSweeps = 100_000 }   // cold
-                { Temperature = 3.0; NumSweeps = 100_000 }   // hot
+                { Temperature = 0.3; NumSweeps = 90_000 }   // cold
+                { Temperature = 3.0; NumSweeps = 10_000 }   // hot
             |]
 
         let bondParamMap =

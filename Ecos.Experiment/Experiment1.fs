@@ -80,7 +80,7 @@ module Experiment1 =
 
     /// Runs one world with the given parameters.
     let private runOne settings parms seed =
-        let scenario = Scenario.createExperiment1 seed
+        let scenario = Scenario.createScenarioA true seed
         let rng = scenario.Random
         let nAtoms = scenario.World.Atoms.Count
         let mutable world = scenario.World
