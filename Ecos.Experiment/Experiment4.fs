@@ -86,7 +86,7 @@ module Experiment4 =
         let rng = scenario.Random
         let mutable world = scenario.World
         [|
-            for _ in 1 .. settings.NumCycles do
+            for iCycle in 1 .. settings.NumCycles do
                 let mutable nStrandsBeforeHeat = 0
                 for iPhase, phase in Array.indexed phases do
                     let parms =
@@ -99,6 +99,7 @@ module Experiment4 =
                         world <- World.sweep parms rng world
                     if iPhase = 0 then
                         nStrandsBeforeHeat <- (getStrands world).Length
+                eprintfn "Barrier %g, seed %d: finished cycle %d of %d" barrier seed iCycle settings.NumCycles
                 {
                     Families = getCappedFamilies world
                     StrandsBeforeHeat = nStrandsBeforeHeat

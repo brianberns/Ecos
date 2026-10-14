@@ -375,7 +375,7 @@ module Experiment3 =
         let mutable world = scenario.World
         let mutable census = getCensus scenario.Template world
         [|
-            for _ in 1 .. settings.NumCycles do
+            for iCycle in 1 .. settings.NumCycles do
                 for phase in getPhases scenario do
                     let parms =
                         {
@@ -394,6 +394,7 @@ module Experiment3 =
                     }
                     world <- world'
                     census <- census'
+                eprintfn "Seed %d: finished cycle %d of %d" seed iCycle settings.NumCycles
         |]
 
     /// Runs the experiment, prints tables of results, and writes them

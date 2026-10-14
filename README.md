@@ -12,6 +12,8 @@ Replication is not scripted. The rules describe only local physics and chemistry
 
 A single strand placed among free atoms is copied, the copies separate when heated and are copied in turn, and the population grows until the world is full. One strand becomes about 3, then 6, then 9 or 10 over three cycles, after which space and free atoms run short.
 
+Replicators also arise without any template. In a soup of free atoms, short capped strands occasionally form by chance during the hot phase, and once one exists it is copied and its lineage multiplies. This is the model's version of abiogenesis.
+
 | Milestone | Status |
 |---|---|
 | Polymer physics that matches exact enumeration | Done |
@@ -20,12 +22,19 @@ A single strand placed among free atoms is copied, the copies separate when heat
 | Copy separates cleanly from the template when heated | Done |
 | Finished strands survive repeated cycles unchanged | Done |
 | Population multiplies from cycle to cycle | Done, until the world fills up |
-| Sustained exponential growth in a large world | Being measured |
-| Turnover, so that a full world keeps changing | Not started |
+| Sustained exponential growth in a large world | Partly: growth continues, but slows as the colony spreads |
+| Replicators arise from free atoms with no template | Done, though only very short ones |
+| Turnover, so that a full world keeps changing | Next |
 | Sequences that differ in fitness, and selection between them | Not started |
 | A phenotype beyond a strand's own copying rate | Not started |
 
-Copying is not perfectly faithful. After three cycles roughly four capped strands in five are full length; most of the rest are one to three atoms short. These deletion mutants are capped and can be copied, so they are heritable variation, which nothing yet selects for or against.
+**Growth in a large world.** In a world four times the area, with four times the atoms, one strand became about 4, 8, 15, 24 and 37 capped strands over five cycles. The world was far from full, with five atoms in six still free, yet the growth factor fell steadily from 2.1 to 1.5. The counts fit a square law, which is what a colony spreading outward from one spot would give: strands separate cleanly but drift slowly, so the population stays crowded near where it started. Exponential growth would need the strands to disperse.
+
+**Emergence from the soup.** With no template, whether replicators arise depends on the strong-bond barrier, which sets how often two atoms join without a template. At a barrier of 20, a capped strand appeared in 3 runs out of 8 within ten cycles; each was then copied into a family of about 30. At 15 or below, they arise in every run within a few cycles, and the world fills with them until the caps run out. Almost all are three atoms long (a cap, one coding atom, a cap), and none is longer than five.
+
+**Copying fidelity.** Copying is not perfectly faithful. Most errors are deletions, leaving a strand one to three atoms short. These mutants are capped and copied like any other strand, so they are heritable variation. In the large world their share rose from 9% to 24% of all capped strands over five cycles. Nothing restores a deleted atom, so their share can only grow even if they have no advantage.
+
+**Length and copying speed.** Without the barrier to starting a strand, a four-atom template is copied about three times as fast as a twelve-atom one, since a short strand needs fewer joins. With the barrier, the two are copied at about the same rate: every copy needs one start, a short template has few places for one, and that becomes its bottleneck. The barrier therefore removes most of the speed advantage of short strands, though not the fact that chance produces them far more often.
 
 ## The model
 
@@ -88,7 +97,8 @@ Three ideas were tried and dropped because measurement did not support them: req
 ## Open problems
 
 - **A full world stops.** Capped strands last forever, so once space and atoms are used up nothing more happens. Evolution in a finite world needs turnover: strands must sometimes be destroyed and their atoms released, so that new copies replace old ones.
-- **Short strands have an advantage.** A shorter strand needs fewer atoms and fewer joins. With turnover in place, the deletion mutants would be expected to take over. Something has to make length, or sequence, worth having.
+- **The simplest replicator wins.** Strands that arise from the soup are three atoms long, and nothing favors anything longer. Lineages seeded with a long template drift shorter through deletions. Something has to make length, or sequence, worth having.
+- **Strands don't spread.** A lineage stays near where it started, so growth in a large world is limited by the colony's edge, not by the supply of atoms.
 - **No phenotype yet.** The candidates are different pairing strengths for the two letter pairs, strands that fold into shapes that do something, and closed rings that act as compartments. Folding would need strands that are flexible when single and stiff when paired; at present they are stiff always.
 - **Two partners can share a face at a bend.** The weak angle rule keeps an atom's two partners on opposite sides of the atom, which at a sharp bend is not the same as opposite sides of the strand. It is rare and corrects itself, so it has been left alone.
 
@@ -133,8 +143,11 @@ dotnet run -c Release --project Ecos.Experiment -- experiment3 results.csv
 | `experiment1` | What fraction of a template is paired at each temperature? |
 | `experiment2` | How much faster do free atoms join when a template is present? |
 | `experiment3` | Under temperature cycling, do copies form, separate intact, and multiply? |
+| `experiment4` | With no template, do replicators arise from free atoms, and do they multiply? |
 
 Experiment 3 takes roughly twenty minutes. For each phase of each cycle it reports the number of strands, complete copies and capped strands, what was joined to what, the lengths of the capped strands, and the free atoms of each type.
+
+Experiment 4 takes about two hours. For each strong-bond barrier and each cycle it reports the capped strands that exist, their lengths, and how many belong to families with more than one member, which is the sign of copying.
 
 ## How the model is tested
 
