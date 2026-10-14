@@ -140,6 +140,7 @@ module Experiment1 =
                             Temperature = kT
                             BondParameterMap = settings.BondParameterMap
                             PeelBarrier = Double.PositiveInfinity   // no peeling
+                            CapPeelBarrier = Double.PositiveInfinity   // no peeling
                         }
                     kT, runOne settings parms seed)
                 |> Array.groupBy fst

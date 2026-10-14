@@ -17,6 +17,7 @@ module TestParameters =
             Temperature = kT
             BondParameterMap = standardBondParameterMap
             PeelBarrier = System.Double.PositiveInfinity   // no peeling
+            CapPeelBarrier = System.Double.PositiveInfinity   // no peeling
         }
 
     /// Standard parameters at the given temperature, except that
@@ -32,6 +33,7 @@ module TestParameters =
             BondParameterMap =
                 Map.add Strong strong standardBondParameterMap
             PeelBarrier = System.Double.PositiveInfinity   // no peeling
+            CapPeelBarrier = System.Double.PositiveInfinity   // no peeling
         }
 
     /// The given parameters, with the given start barrier for each bond
@@ -279,6 +281,15 @@ module Chain =
     let peelBarrier (parms : Parameters) bondType =
         match bondType with
             | Strong -> parms.PeelBarrier
+            | Weak -> Double.PositiveInfinity
+
+    /// Oracle: barrier to a cap coming off the strand it ends. A strong
+    /// bond between a cap and the atom it caps breaks with probability
+    /// exp(-barrier / kT), whatever its energy, after which the strand
+    /// has an exposed end and peels. Only strong bonds have caps.
+    let capPeelBarrier (parms : Parameters) bondType =
+        match bondType with
+            | Strong -> parms.CapPeelBarrier
             | Weak -> Double.PositiveInfinity
 
     /// Oracle: energy of one weak bond, with the standard parameters.

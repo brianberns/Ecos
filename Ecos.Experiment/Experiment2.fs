@@ -280,6 +280,7 @@ module Experiment2 =
                             BondParameterMap =
                                 Map.add Strong strongParms settings.BondParameterMap
                             PeelBarrier = Double.PositiveInfinity   // no peeling
+                            CapPeelBarrier = Double.PositiveInfinity   // no peeling
                         }
                     (barrier, reduction, kT),
                     (withTemplate, runOne settings withTemplate parms seed))

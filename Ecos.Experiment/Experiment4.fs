@@ -36,6 +36,10 @@ module Experiment4 =
             /// Barrier to peeling a strong bond from an exposed end of a
             /// strand. (The desktop app uses the same value.)
             PeelBarrier : float
+
+            /// Barrier to a cap coming off the strand it ends, after which
+            /// the strand peels. Infinity means caps never come off.
+            CapPeelBarrier : float
         }
 
     /// Default settings.
@@ -45,6 +49,19 @@ module Experiment4 =
             NumRuns = 8
             NumCycles = 10
             PeelBarrier = 6.0
+            CapPeelBarrier = Double.PositiveInfinity
+        }
+
+    /// Settings for a living world: strands arise from free atoms and
+    /// also die, since their caps can come off, so the population turns
+    /// over. Run for many cycles, to see what a world settles into.
+    let livingWorldSettings =
+        {
+            StrongBarriers = [| 20.0; 15.0 |]
+            NumRuns = 8
+            NumCycles = 30
+            PeelBarrier = 6.0
+            CapPeelBarrier = 27.0
         }
 
     /// What a world contains at the end of a cycle.
@@ -94,6 +111,7 @@ module Experiment4 =
                             Temperature = phase.Temperature
                             BondParameterMap = bondParameterMap
                             PeelBarrier = settings.PeelBarrier
+                            CapPeelBarrier = settings.CapPeelBarrier
                         }
                     for _ in 1 .. phase.NumSweeps do
                         world <- World.sweep parms rng world
@@ -149,10 +167,10 @@ module Experiment4 =
         let phases = getPhases cycled
         printfn "Experiment 4: emergence of strands from free atoms, with no template"
         printfn
-            "%d runs of %d cycles with each barrier; %d atoms; peel barrier %g"
+            "%d runs of %d cycles with each barrier; %d atoms; peel barrier %g; cap peel barrier %g"
             settings.NumRuns settings.NumCycles
             (Scenario.createExperiment2 0).World.Atoms.Count
-            settings.PeelBarrier
+            settings.PeelBarrier settings.CapPeelBarrier
         for phase in phases do
             printfn "Phase: kT %g for %d sweeps" phase.Temperature phase.NumSweeps
         for bondType in BondType.all do
@@ -223,6 +241,42 @@ module Experiment4 =
                         values
                             |> Seq.map (fun (x : float) ->
                                 x.ToString(Globalization.CultureInfo.InvariantCulture))))
+
+
+                // turnover: families present, and those gained and lost
+                // since the previous cycle
+            printfn ""
+            printfn "Turnover (averages per run)"
+            printfn "cycle      families   gained   lost   share of the largest"
+            for iCycle in 0 .. settings.NumCycles - 1 do
+                let familySets =
+                    runs
+                        |> Array.map (fun cycles ->
+                            let now = set cycles[iCycle].Families
+                            let before =
+                                if iCycle = 0 then Set.empty
+                                else set cycles[iCycle - 1].Families
+                            now, before, cycles[iCycle])
+                let average f = Array.averageBy f familySets
+                let share =
+                    familySets
+                        |> Array.choose (fun (_, _, result) ->
+                            if result.Families.Length = 0 then None
+                            else
+                                let largest =
+                                    result.Families
+                                        |> Array.countBy id
+                                        |> Array.map snd
+                                        |> Array.max
+                                Some (float largest / float result.Families.Length))
+                printfn
+                    "%5d       %6.2f   %6.2f %6.2f        %s"
+                    (iCycle + 1)
+                    (average (fun (now, _, _) -> float now.Count))
+                    (average (fun (now, before, _) -> float (Set.difference now before).Count))
+                    (average (fun (now, before, _) -> float (Set.difference before now).Count))
+                    (if share.Length = 0 then "   -"
+                     else sprintf "%6.2f" (Array.average share))
 
                 // when things first appeared
             let firstCycle test =
