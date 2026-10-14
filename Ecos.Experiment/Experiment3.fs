@@ -40,7 +40,7 @@ module Experiment3 =
         }
 
     /// A strand: two or more atoms connected by strong bonds.
-    type private Strand =
+    type Strand =
         {
             /// The strand's atoms. If the strand is a chain, they're
             /// in order from one end to the other.
@@ -51,14 +51,14 @@ module Experiment3 =
         }
 
     /// The atoms that the given atom is bonded to.
-    let private getPartners bondType (world : World) id =
+    let getPartners bondType (world : World) id =
         world.BondTypeMap[bondType]
             |> Map.tryFind id
             |> Option.defaultValue Set.empty
 
     /// All strands in the given world. An atom has at most two strong
     /// bonds, so every strand is either a chain or a ring.
-    let private getStrands (world : World) =
+    let getStrands (world : World) =
 
         /// Walks along a strand from the given atom, away from the
         /// previous one.
@@ -100,7 +100,7 @@ module Experiment3 =
         Array.append chains (List.toArray rings)
 
     /// The type that pairs with the given type.
-    let private complement = function
+    let complement = function
         | AtomType.W -> AtomType.X
         | AtomType.X -> AtomType.W
         | AtomType.Y -> AtomType.Z
@@ -110,7 +110,7 @@ module Experiment3 =
 
     /// Indicates whether the given strand is a chain with a cap at
     /// each end, so that it can't be extended.
-    let private isCapped (world : World) strand =
+    let isCapped (world : World) strand =
         let isCap id =
             match world.Atoms[id].Type with
                 | AtomType.P | AtomType.Q -> true
@@ -125,7 +125,7 @@ module Experiment3 =
     /// A key shared by all chains that could be copies of each other,
     /// directly or through further copies: those with the given
     /// sequence, or its complement, read from either end.
-    let private getFamily (sequence : AtomType[]) =
+    let getFamily (sequence : AtomType[]) =
         let complemented = Array.map complement sequence
         List.min [
             List.ofArray sequence
@@ -361,7 +361,7 @@ module Experiment3 =
         world, joins.ToArray(), nBreaks
 
     /// The phases of the given scenario.
-    let private getPhases scenario =
+    let getPhases scenario =
         match scenario.TemperatureType with
             | Cycle phases -> phases
             | Adjustable _ -> failwith "Scenario has no temperature cycle"
