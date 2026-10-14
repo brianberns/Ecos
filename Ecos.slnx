@@ -4,6 +4,7 @@
   </Folder>
   <Project Path="Avalonia.FuncUI/src/Avalonia.FuncUI.Elmish/Avalonia.FuncUI.Elmish.fsproj" />
   <Project Path="Avalonia.FuncUI/src/Avalonia.FuncUI/Avalonia.FuncUI.fsproj" />
+  <Project Path="Ecos.Benchmark/Ecos.Benchmark.fsproj" />
   <Project Path="Ecos.Desktop/Ecos.Desktop.fsproj" />
   <Project Path="Ecos.Experiment/Ecos.Experiment.fsproj" Id="1ed381a3-3289-4c9e-88e4-6f1bcf666e93" />
   <Project Path="Ecos.Test/Ecos.Test.fsproj" />
