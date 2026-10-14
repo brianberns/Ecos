@@ -135,9 +135,16 @@ module private StrongBond =
         assert(BondMap.areBonded atomA.Id atomB.Id bondMap)
 
         let isExposed atom =
+
+                // cap can peel?
             if isCap atom.Type then
                 assert((BondMap.getBonds atom.Id bondMap).Count = 1)
                 capPeel
+
+                // non-cap can't cap-peel
+            elif capPeel then false
+
+                // non-cap can peel?
             else
                 let bonds = BondMap.getBonds atom.Id bondMap
                 assert(bonds.Count >= 1)
