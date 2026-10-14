@@ -363,12 +363,17 @@ module World =
 
     /// Determines whether to peel the given bond.
     let private testPeel (rng : Random) parms behavior atomA atomB bondMap =
-        let isExposed =
-            behavior.TestBondPeel atomA atomB bondMap
-        if isExposed then
-            rng.NextDouble() <=
-                exp (-parms.PeelBarrier / parms.Temperature)
-        else false
+
+        let impl capPeel barrier =
+            let isExposed =
+                behavior.TestPeel capPeel atomA atomB bondMap
+            if isExposed then
+                rng.NextDouble() <=
+                    exp (-barrier / parms.Temperature)
+            else false
+
+        impl false parms.PeelBarrier
+            || impl true parms.CapPeelBarrier
 
     /// Attempts to break the bond of the given type between the
     /// given atoms in the given world.
