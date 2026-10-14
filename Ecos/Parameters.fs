@@ -2,6 +2,20 @@ namespace Ecos
 
 open System
 
+/// Bond type.
+type BondType =
+
+    /// Long-term, long-range bonds.
+    | Strong
+
+    /// Short-term, short-range bonds.
+    | Weak
+
+module BondType =
+
+    /// All bond types.
+    let all = [| Strong; Weak |]
+
 /// Bond type-specific parameters.
 /// 
 /// Energy
