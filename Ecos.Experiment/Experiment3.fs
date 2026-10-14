@@ -26,23 +26,45 @@ module Experiment3 =
             /// Number of times to run through the scenario's phases.
             NumCycles : int
 
-            /// Barrier to peeling a strong bond from an exposed end of a
-            /// strand. (The desktop app uses the same value.)
-            PeelBarrier : float
-
-            /// Barrier to a cap coming off the strand it ends, after which
-            /// the strand peels. Infinity means caps never come off.
-            CapPeelBarrier : float
+            /// Overrides the scenario's barrier to a cap coming off the
+            /// strand it ends, if given. Infinity means caps never come
+            /// off.
+            CapPeelBarrier : float option
         }
 
-    /// Default settings.
+    /// Default settings. Caps never come off, so that the template
+    /// survives, since this experiment measures what happens to it.
     let defaultSettings =
         {
             NumRuns = 24
             NumCycles = 3
-            PeelBarrier = 6.0
-            CapPeelBarrier = Double.PositiveInfinity
+            CapPeelBarrier = Some Double.PositiveInfinity
         }
+
+    /// The given scenario's parameters at the given temperature, with
+    /// the given cap peel barrier instead of the scenario's, if any.
+    let getParameters (scenario : Scenario) capPeelBarrier kT =
+        let parms = { scenario.Parameters with Temperature = kT }
+        match capPeelBarrier with
+            | Some barrier -> { parms with CapPeelBarrier = barrier }
+            | None -> parms
+
+    /// Prints the given parameters, apart from temperature.
+    let printParameters (parms : Parameters) =
+        printfn
+            "Peel barrier %g; cap peel barrier %g"
+            parms.PeelBarrier
+            parms.CapPeelBarrier
+        for bondType in BondType.all do
+            let bondParms = parms.BondParameterMap[bondType]
+            printfn
+                "%A bonds: energy %g, entropy %g, barrier %g, barrier reduction per stack %g, start barrier %g"
+                bondType
+                bondParms.Energy
+                bondParms.Entropy
+                bondParms.Barrier
+                bondParms.BarrierStackReduction
+                bondParms.StartBarrier
 
     /// A strand: two or more atoms connected by strong bonds.
     type Strand =
@@ -383,12 +405,8 @@ module Experiment3 =
             for iCycle in 1 .. settings.NumCycles do
                 for phase in getPhases scenario do
                     let parms =
-                        {
-                            Temperature = phase.Temperature
-                            BondParameterMap = scenario.BondParameterMap
-                            PeelBarrier = settings.PeelBarrier
-                            CapPeelBarrier = settings.CapPeelBarrier
-                        }
+                        getParameters
+                            scenario settings.CapPeelBarrier phase.Temperature
                     let world', joins, nBreaks =
                         runPhase template parms rng phase.NumSweeps world
                     let census' = getCensus scenario.Template world'
@@ -430,17 +448,10 @@ module Experiment3 =
                     results[iCycle * phases.Length + iPhase])
 
         printfn "Experiment 3: temperature cycling"
-        printfn "%d runs of %d cycles; peel barrier %g; cap peel barrier %g" settings.NumRuns settings.NumCycles settings.PeelBarrier settings.CapPeelBarrier
-        for bondType in BondType.all do
-            let bondParms = scenario.BondParameterMap[bondType]
-            printfn
-                "%A bonds: energy %g, entropy %g, barrier %g, barrier reduction per stack %g, start barrier %g"
-                bondType
-                bondParms.Energy
-                bondParms.Entropy
-                bondParms.Barrier
-                bondParms.BarrierStackReduction
-                bondParms.StartBarrier
+        printfn "%d runs of %d cycles; %d atoms" settings.NumRuns settings.NumCycles scenario.World.Atoms.Count
+        for phase in phases do
+            printfn "Phase: kT %g for %d sweeps" phase.Temperature phase.NumSweeps
+        printParameters (getParameters scenario settings.CapPeelBarrier nan)
         printfn ""
         printfn "Strands"
         printfn "                         |----------------- at the end of the phase -----------------|  |- during -|   |--- still intact ---|"

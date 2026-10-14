@@ -33,36 +33,47 @@ module Experiment4 =
             /// Number of times to run through the scenario's phases.
             NumCycles : int
 
-            /// Barrier to peeling a strong bond from an exposed end of a
-            /// strand. (The desktop app uses the same value.)
-            PeelBarrier : float
-
-            /// Barrier to a cap coming off the strand it ends, after which
-            /// the strand peels. Infinity means caps never come off.
-            CapPeelBarrier : float
+            /// Overrides the scenario's barrier to a cap coming off the
+            /// strand it ends, if given. Infinity means caps never come
+            /// off.
+            CapPeelBarrier : float option
         }
 
-    /// Default settings.
+    /// Default settings. Caps never come off, so this measures how
+    /// strands arise and multiply, without any dying.
     let defaultSettings =
         {
             StrongBarriers = [| 20.0; 15.0; 12.0; 10.0 |]
             NumRuns = 8
             NumCycles = 10
-            PeelBarrier = 6.0
-            CapPeelBarrier = Double.PositiveInfinity
+            CapPeelBarrier = Some Double.PositiveInfinity
         }
 
     /// Settings for a living world: strands arise from free atoms and
-    /// also die, since their caps can come off, so the population turns
-    /// over. Run for many cycles, to see what a world settles into.
+    /// also die, since their caps come off as the scenario says, so the
+    /// population turns over. Run for many cycles, to see what a world
+    /// settles into.
     let livingWorldSettings =
         {
             StrongBarriers = [| 20.0; 15.0 |]
             NumRuns = 8
             NumCycles = 30
-            PeelBarrier = 6.0
-            CapPeelBarrier = 20.0
+            CapPeelBarrier = None
         }
+
+    /// The given scenario's parameters at the given temperature, with
+    /// the given strong bond barrier (and reduction per stack) and the
+    /// settings' cap peel barrier, if any.
+    let private getParameters settings scenario barrier kT =
+        let parms =
+            Experiment3.getParameters scenario settings.CapPeelBarrier kT
+        let strongParms =
+            { parms.BondParameterMap[Strong] with
+                Barrier = barrier
+                BarrierStackReduction = barrier }
+        { parms with
+            BondParameterMap =
+                Map.add Strong strongParms parms.BondParameterMap }
 
     /// What a world contains at the end of a cycle.
     type private CycleResult =
@@ -92,13 +103,6 @@ module Experiment4 =
             // free atoms only, with experiment 3's parameters and cycle
         let scenario = Scenario.createScenarioB false seed
         let phases = getPhases scenario
-        let bondParameterMap =
-            let strongParms =
-                { scenario.BondParameterMap[Strong] with
-                    Barrier = barrier
-                    BarrierStackReduction = barrier }
-            Map.add Strong strongParms scenario.BondParameterMap
-
         let rng = scenario.Random
         let mutable world = scenario.World
         [|
@@ -106,12 +110,8 @@ module Experiment4 =
                 let mutable nStrandsBeforeHeat = 0
                 for iPhase, phase in Array.indexed phases do
                     let parms =
-                        {
-                            Temperature = phase.Temperature
-                            BondParameterMap = bondParameterMap
-                            PeelBarrier = settings.PeelBarrier
-                            CapPeelBarrier = settings.CapPeelBarrier
-                        }
+                        getParameters
+                            settings scenario barrier phase.Temperature
                     for _ in 1 .. phase.NumSweeps do
                         world <- World.sweep parms rng world
                     if iPhase = 0 then
@@ -166,22 +166,14 @@ module Experiment4 =
         let phases = getPhases cycled
         printfn "Experiment 4: emergence of strands from free atoms, with no template"
         printfn
-            "%d runs of %d cycles with each barrier; %d atoms; peel barrier %g; cap peel barrier %g"
+            "%d runs of %d cycles with each barrier; %d atoms"
             settings.NumRuns settings.NumCycles
             cycled.World.Atoms.Count
-            settings.PeelBarrier settings.CapPeelBarrier
         for phase in phases do
             printfn "Phase: kT %g for %d sweeps" phase.Temperature phase.NumSweeps
-        for bondType in BondType.all do
-            let bondParms = cycled.BondParameterMap[bondType]
-            printfn
-                "%A bonds: energy %g, entropy %g, start barrier %g%s"
-                bondType
-                bondParms.Energy
-                bondParms.Entropy
-                bondParms.StartBarrier
-                (if bondType = Strong then "; barrier and reduction per stack as below"
-                 else $"; barrier {bondParms.Barrier}")
+        Experiment3.printParameters
+            (Experiment3.getParameters cycled settings.CapPeelBarrier nan)
+        printfn "(The strong bond barrier and its reduction per stack are replaced by each value below.)"
 
         use writer = new StreamWriter(csvPath)
         writer.WriteLine(
