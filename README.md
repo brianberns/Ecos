@@ -4,21 +4,28 @@ Ecos is an attempt to create digital life from simple chemistry. It simulates at
 
 Replication is not scripted. The rules describe only local physics and chemistry: how atoms move, which bonds can form, and what they cost. Anything that looks like copying has to emerge from those rules.
 
+![A world after five temperature cycles](images/ecosystem.png)
+
+*A world after five cold/hot cycles, during the sixth cold phase. It began with one 12-atom strand (the filled circles, centre) among free atoms. Every other strand is a descendant: a copy, or a copy of a copy. Black lines are strong bonds along a strand, pink lines are weak bonds between paired atoms, and the black and grey circles are the caps at each end of a strand.*
+
 ## Where it stands
 
-A strand placed among free atoms is copied, the copy separates from it when heated, and the number of complete strands grows from one temperature cycle to the next. That growth is steady, not exponential, so this is templated copying with heredity but not yet a population that doubles.
+A single strand placed among free atoms is copied, the copies separate when heated and are copied in turn, and the population grows until the world is full. One strand becomes about 3, then 6, then 9 or 10 over three cycles, after which space and free atoms run short.
 
 | Milestone | Status |
 |---|---|
 | Polymer physics that matches exact enumeration | Done |
 | Free atoms pair with a template strand | Done |
 | Paired atoms join into a copy, and only on a template | Done |
-| Copy separates from the template when heated | Partly: needs a long hot phase |
-| Template and copies survive repeated cycles unchanged | Done |
-| Complete strands increase every cycle | Done, but about one or two per cycle, not doubling |
-| Exponential growth | Not yet |
+| Copy separates cleanly from the template when heated | Done |
+| Finished strands survive repeated cycles unchanged | Done |
+| Population multiplies from cycle to cycle | Done, until the world fills up |
+| Sustained exponential growth in a large world | Being measured |
+| Turnover, so that a full world keeps changing | Not started |
 | Sequences that differ in fitness, and selection between them | Not started |
 | A phenotype beyond a strand's own copying rate | Not started |
+
+Copying is not perfectly faithful. After three cycles roughly four capped strands in five are full length; most of the rest are one to three atoms short. These deletion mutants are capped and can be copied, so they are heritable variation, which nothing yet selects for or against.
 
 ## The model
 
@@ -39,6 +46,7 @@ A strand placed among free atoms is copied, the copy separates from it when heat
 | Limit per atom | Two, or one for a cap | Two, and the second only for an atom in a strand |
 | Angle rule | Stiff: at most about 37° of bend at each atom | An atom's two partners must be on opposite sides of it |
 | Energy and barrier | Large energy, large barrier | Small energy, no barrier |
+| Entropy | None | Pairing costs entropy, so pairs melt when hot |
 
 No bond of either type may cross another.
 
@@ -47,7 +55,7 @@ No bond of either type may cross another.
 Time advances by single random events, accepted or rejected by the Metropolis rule at temperature kT:
 
 - **Hop:** an atom moves one site, if that leaves it clear of other atoms and keeps all its bonds legal.
-- **Toggle:** a bond between two atoms in range forms if absent or breaks if present. It must first cross the bond type's barrier and is then accepted according to its energy.
+- **Toggle:** a bond between two atoms in range forms if absent or breaks if present. It must first cross the bond type's barrier and is then accepted according to its energy and entropy.
 
 One *sweep* is one attempted event per atom.
 
@@ -55,9 +63,11 @@ One *sweep* is one attempted event per atom.
 
 - **Stacks.** When two neighboring atoms of one strand are each paired with neighboring atoms of another, the two pairs form a stack. A stack adds binding energy.
 - **Templated joining.** A stack also removes the barrier to the strong bond beside it. Two free atoms sitting side by side on a template therefore join readily, while two free atoms meeting anywhere else almost never do. This is the only route by which strands grow.
-- **Caps.** A cap can have only one strong bond, so a strand that ends in caps cannot be extended. A cap is copied like any other atom, by pairing with its complement, so strand length is inherited.
+- **A barrier to starting.** Joining two free atoms, which starts a new strand, keeps a small barrier even on a template. Adding an atom to an existing strand does not. A copy therefore tends to grow from a few starts instead of many, which wastes fewer atoms on fragments and makes copies more faithful.
+- **Caps.** A cap can have only one strong bond, so a strand that ends in caps cannot be extended. A cap is copied like any other atom, by pairing with its complement, so strand length is inherited. A strand has a P at one end and a Q at the other, which gives it a direction: read from P to Q, a copy is the reverse complement of its template.
 - **Peeling.** A strong bond at an uncapped end of a strand breaks at a rate that rises with temperature. Unfinished strands melt back into free atoms during the hot phase, and finished, capped strands are untouched.
-- **Temperature cycling.** A cold phase lets free atoms pair with strands and join into copies. A hot phase breaks the weak bonds so strands separate, and peels away the fragments.
+- **Bond entropy.** A weak bond has an entropy cost as well as an energy, so it has a melting point: stable when cold, and unlikely even between two atoms held in range when hot. Without this, paired strands stay stuck together at any temperature.
+- **Temperature cycling.** A cold phase lets free atoms pair with strands and join into copies. A hot phase melts the weak bonds so strands separate, and peels away the fragments.
 
 Every rule except peeling obeys detailed balance, so at a fixed temperature the model would settle into thermal equilibrium. Peeling is deliberately one-way. Together with the temperature cycle, it is what keeps the system out of equilibrium, with atoms flowing from the free pool into strands and back.
 
@@ -69,22 +79,24 @@ Each rule above was added to fix a specific failure that showed up in measuremen
 - **Free atoms kept switching roles between strand and partner.** Allowing a second weak partner only for an atom already in a strand fixed this.
 - **Random joining during the hot phase.** A high barrier that only a stack removes fixed this.
 - **Strands grew longer every cycle.** Measurement showed free atoms being added to strand ends, templated by a partner strand that had slid out of alignment. Caps fixed this.
-- **Fragments accumulated and used up the free atoms,** and many were completed into three-atom capped strands that then multiplied faster than full-length ones. Peeling removes the fragments and cut the short strands more than tenfold.
+- **Fragments accumulated and used up the free atoms,** and many were completed into three-atom capped strands that then multiplied faster than full-length ones. Peeling removes the fragments each cycle.
+- **Strands stayed stuck together when hot.** A pair of atoms in range was bonded at least half the time at any temperature, because pairing had an energy but no entropy cost. Bond entropy fixed this.
+- **Growth stalled for want of free atoms,** most of which were tied up in fragments during each cold phase. More atoms helped; the barrier to starting a strand cut the fragments by two thirds and removed most of the short and truncated copies as well.
 
-Two ideas were tried and dropped because measurement did not support them: requiring two strong bonds for a second weak partner, and four-letter templates.
+Three ideas were tried and dropped because measurement did not support them: requiring two strong bonds for a second weak partner, four-letter templates, and (more than once) the guess that strands clumping into sheets was what limited growth.
 
 ## Open problems
 
-- **Strands stick together when hot.** A weak bond between two atoms in range exists at least half the time at any temperature, because pairing has an energy but no entropy cost. Strands separate only slowly, and a stack of strands can add copies only on its two outer faces, which is why growth is steady and not doubling. The planned fix is an entropy term for weak bonds, giving them a true melting temperature.
-- **Copies start in too many places at once.** Pairing next to a growing copy is no easier than pairing anywhere else, so each template produces many fragments and few complete copies. The planned fix is a reward for neighboring pairs.
-- **Short strands have an advantage.** Nothing yet favors a long strand over a short one, so the shortest replicator tends to win. This needs sequences to matter.
-- **No phenotype yet.** The candidates are different pairing strengths for the two letter pairs, strands that fold into shapes that do something, and closed rings that act as compartments.
+- **A full world stops.** Capped strands last forever, so once space and atoms are used up nothing more happens. Evolution in a finite world needs turnover: strands must sometimes be destroyed and their atoms released, so that new copies replace old ones.
+- **Short strands have an advantage.** A shorter strand needs fewer atoms and fewer joins. With turnover in place, the deletion mutants would be expected to take over. Something has to make length, or sequence, worth having.
+- **No phenotype yet.** The candidates are different pairing strengths for the two letter pairs, strands that fold into shapes that do something, and closed rings that act as compartments. Folding would need strands that are flexible when single and stiff when paired; at present they are stiff always.
+- **Two partners can share a face at a bend.** The weak angle rule keeps an atom's two partners on opposite sides of the atom, which at a sharp bend is not the same as opposite sides of the strand. It is rare and corrects itself, so it has been left alone.
 
 ## Repository layout
 
 | Project | Contents |
 |---|---|
-| `Ecos` | The core library: atoms, bonds, the world, and the update rule |
+| `Ecos` | The core library: atoms, bonds, parameters, the world, and the update rule |
 | `Ecos.Desktop` | A desktop app (Avalonia) for watching a scenario run |
 | `Ecos.Experiment` | Scenarios shared with the desktop app, and console experiments that measure them |
 | `Ecos.Test` | Unit and property tests |
@@ -122,17 +134,17 @@ dotnet run -c Release --project Ecos.Experiment -- experiment3 results.csv
 | `experiment2` | How much faster do free atoms join when a template is present? |
 | `experiment3` | Under temperature cycling, do copies form, separate intact, and multiply? |
 
-Experiment 3 takes roughly ten minutes. It reports, for each phase of each cycle, the number of strands, complete copies and capped strands, what was joined to what, and the lengths of the capped strands.
+Experiment 3 takes roughly twenty minutes. For each phase of each cycle it reports the number of strands, complete copies and capped strands, what was joined to what, the lengths of the capped strands, and the free atoms of each type.
 
 ## How the model is tested
 
-- **Exact enumeration.** For systems small enough to list every state, the simulation's statistics are compared with the exact Boltzmann distribution.
+- **Exact enumeration.** For systems small enough to list every state, the simulation's statistics are compared with the exact Boltzmann distribution, with and without bond entropy and the start barrier.
 - **Independent oracles.** Each rule is restated separately in the tests, and the library is checked against that statement, exhaustively where the cases are few and by random worlds otherwise.
 - **Event rates.** In crowded random worlds, each kind of event must happen as often as the rules predict.
 - **Mutation checks.** Each new test is run against deliberately broken copies of the library, to confirm that it fails when it should.
 
 ## Background
 
-The lattice model is the Bond Fluctuation Model of polymer physics, with Metropolis dynamics. The approach follows Tim Hutton's artificial chemistry work on self-replicating molecules, with the aim of more realistic physics and less built-in machinery. Growth by layering and fragmentation is related to the crystal-based replicators of Schulman, Yurke and Winfree. The victory of short replicators echoes Spiegelman's experiments with RNA.
+The lattice model is the Bond Fluctuation Model of polymer physics, with Metropolis dynamics. The approach follows Tim Hutton's artificial chemistry work on self-replicating molecules, with the aim of more realistic physics and less built-in machinery. Growth by layering and fragmentation is related to the crystal-based replicators of Schulman, Yurke and Winfree. The advantage of short replicators echoes Spiegelman's experiments with RNA.
 
 The core library is written by Brian Berns. The tests and experiments are written with Claude.
