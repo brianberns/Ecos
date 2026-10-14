@@ -221,8 +221,8 @@ module Scenario =
             Map [
                 Strong, {
                     Energy = 34
-                    Barrier = 40
-                    BarrierStackReduction = 40
+                    Barrier = 20
+                    BarrierStackReduction = 20
                     StartBarrier = 1
                     Entropy = 0
                 }
