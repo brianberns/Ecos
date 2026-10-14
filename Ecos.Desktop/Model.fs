@@ -82,12 +82,8 @@ module Model =
             // update world
         let world =
             let parms =
-                {
-                    Temperature = model.Temperature
-                    BondParameterMap = model.Scenario.BondParameterMap
-                    PeelBarrier = 6
-                    CapPeelBarrier = 20
-                }
+                { model.Scenario.Parameters with
+                    Temperature = model.Temperature }
             World.sweep parms model.Scenario.Random model.World
 
             // update temperature

@@ -25,7 +25,7 @@ type Scenario =
         World : World
         Template : AtomId[]
         TemperatureType : TemperatureType
-        BondParameterMap : Map<BondType, BondTypeParameters>
+        Parameters : Parameters
         Random : Random
     }
 
@@ -196,7 +196,7 @@ module Scenario =
         let world = addFreeAtoms (6 * nTemplate) dist world
 
             // parameters
-        let bondParamMap =
+        let bondParmMap =
             Map [
                 Strong, {
                     Energy = 17
@@ -213,12 +213,19 @@ module Scenario =
                     Entropy = 3
                 }
             ]
+        let parms =
+            {
+                Temperature = -1   // caller should override
+                BondParameterMap = bondParmMap
+                PeelBarrier = 6
+                CapPeelBarrier = 20
+            }
 
         {
             World = world
             Template = template
             TemperatureType = Adjustable 0.25
-            BondParameterMap = bondParamMap
+            Parameters = parms
             Random = rng
         }
 
@@ -252,4 +259,6 @@ module Scenario =
 
         { scenario with
             TemperatureType = tempType
-            BondParameterMap = bondParamMap }
+            Parameters =
+                { scenario.Parameters with
+                    BondParameterMap = bondParamMap } }
