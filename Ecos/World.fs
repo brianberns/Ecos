@@ -253,7 +253,6 @@ module World =
                 let atomC = world.Atoms[idC]
                 testBondAngle behavior atom atomB atomC)
 
-
     /// Tests angles in which the atom isn't central: A-B-C.
     let private testPeripheralBonds
         behavior atom bondMap partnerIds world =
