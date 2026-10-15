@@ -1,7 +1,6 @@
 namespace Ecos
 
 open System
-open System.Collections.Immutable
 
 /// A lattice world containing atoms bonded into molecules.
 /// Every atom occupies a 2x2 square around its central
@@ -16,20 +15,23 @@ open System.Collections.Immutable
 /// * Metropolis dynamics
 /// * Pairing of complementary strands
 /// * Stacking of bonded pairs (a la DNA)
+/// 
+/// Walls are immovable obstacles, each the size of an atom.
 type World =
-    {
+    private {
         /// Atoms in the world, indexed by their IDs.
-        Atoms : ImmutableList<Atom>
+        _Atoms : Atom[]
 
         /// Bonds between atoms in the world, by type.
-        BondTypeMap : Map<BondType, BondMap>
+        _BondTypeMap : Map<BondType, BondMap>
 
-        /// Maps each atom's location to its ID.
-        OccupancyMap : ImmutableSortedDictionary<Point, AtomId>
-
-        /// Immovable obstacles, each the size of an atom.
-        Walls : ImmutableSortedSet<Point>
+        /// Occupant of each cell in the world.
+        Cells : Grid
     }
+
+    member this.Atoms = this._Atoms
+
+    member this.BondTypeMap = this._BondTypeMap
 
 /// An event in the world.
 type Event =
@@ -48,14 +50,13 @@ module World =
     /// An empty world.
     let empty =
         {
-            Atoms = ImmutableList.Empty
-            BondTypeMap =
+            _Atoms = Array.empty
+            _BondTypeMap =
                 BondType.all
                     |> Seq.map (fun bondType ->
                         bondType, Map.empty)
                     |> Map
-            OccupancyMap = ImmutableSortedDictionary.Empty
-            Walls = ImmutableSortedSet.Empty
+            Cells = Grid.empty
         }
 
     /// Moore neighborhood deltas, including center.
@@ -70,23 +71,23 @@ module World =
     let private isAvailable loc idOpt world =
         mooreDeltas
             |> Seq.forall (fun delta ->
-                let neighbor = loc + delta
-                not (world.Walls.Contains(neighbor))
-                    && world.OccupancyMap
-                        |> Dictionary.tryFind neighbor
-                        |> Option.map (fun id -> Some id = idOpt)   // an atom can occupy its own location
-                        |> Option.defaultValue true)
+                match world.Cells[loc + delta] with
+                    | Cell.Atom id ->
+                        Some id = idOpt   // an atom can occupy its own location
+                    | Cell.Wall -> false
+                    | Cell.Empty -> true)
 
     /// Adds an atom with the given attributes to the given world
     /// if it is valid.
     let tryAddAtom atomType location world =
         if isAvailable location None world then
-            let id = world.Atoms.Count
+            let id = world.Atoms.Length
             let atom = Atom.create id atomType location
+            let atoms = [| yield! world.Atoms; atom |]
             let world =
                 {
                     world with
-                        Atoms = world.Atoms.Add(atom)
+                        _Atoms = [| yield! world.Atoms; atom |]
                         OccupancyMap =
                             Dictionary.add atom.Location id world.OccupancyMap
                 }
