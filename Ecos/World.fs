@@ -230,15 +230,43 @@ module World =
             | Some world -> world
             | None -> failwith "Invalid bond"
 
+    /// Cardinal directions.
+    let private cardinalDirections =
+        [|
+            ( 1,  0)
+            ( 0, -1)
+            (-1,  0)
+            ( 0,  1)
+        |] |> Array.map Point.create
+
     /// Chooses a random cardinal direction.
     let private getRandomDirection (rng : Random) =
-        Point.create <|
-            match rng.Next(4) with
-                | 0 ->  1,  0
-                | 1 ->  0, -1
-                | 2 -> -1,  0
-                | 3 ->  0,  1
-                | _ -> failwith "Unexpected"
+        cardinalDirections[
+            rng.Next(cardinalDirections.Length)]
+
+    /// Determines whether the given atom, which has been moved
+    /// by the given unit delta, is now in an unoccupied 
+    /// location. Only the three cells that the delta brings into
+    /// the atom's neighborhood need checking, since (we assume)
+    /// the world was valid before the move.
+    let private canMove atom delta world =
+        assert(Array.contains delta cardinalDirections)
+
+        let ahead = atom.Location + delta
+        let perpendicular = Point.create (delta.Y, delta.X)   // (1, 0) <-> (0, 1)
+
+        let check (cell : Point) =
+            not (world.Walls.Contains(cell))
+                && not (world.OccupancyMap.ContainsKey(cell))
+
+        let result =
+            check ahead
+                && check (ahead + perpendicular)
+                && check (ahead - perpendicular)
+        assert(
+            result =
+                isAvailable atom.Location (Some atom.Id) world)
+        result
 
     /// Tests bond angles in which the atom is central: C-A-B.
     let private testCentralBonds
@@ -339,7 +367,7 @@ module World =
 
             // move the atom permanently?
         let isValid =
-            isAvailable atom'.Location (Some id) world        // avoids overlap with other atoms? (to-do: check only the leading edge)
+            canMove atom' delta world                         // avoids overlap with other atoms?
                 && testBonds atom' world                      // all of the atom's bonds are still valid?
                 && testMetropolis rng parms.Temperature 0 0   // possible to-do: add position-dependent energy term
         if isValid then
