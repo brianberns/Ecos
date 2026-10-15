@@ -301,23 +301,24 @@ module World =
 
                     // test the atom's bonds
                 let bondMap = world.BondTypeMap[bondType]
-                let partnerIds =
-                    BondMap.getBonds atom.Id bondMap
-                        |> Seq.toArray
-                let isValid =
-                    partnerIds
-                        |> Seq.forall (fun idB ->
-                            let atomB = world.Atoms[idB]
-                            Neighborhood.testBond
-                                behavior.Neighborhood atom atomB)
+                let partnerIds = BondMap.getBonds atom.Id bondMap
+                if partnerIds.IsEmpty then true   // performance optimization: early exit if unbonded
+                else
+                    let isValid =
+                        partnerIds
+                            |> Seq.forall (fun idB ->
+                                let atomB = world.Atoms[idB]
+                                Neighborhood.testBond
+                                    behavior.Neighborhood atom atomB)
 
-                    // test bond angles?
-                if isValid then
-                    testCentralBonds
-                        behavior atom partnerIds world
-                        && testPeripheralBonds
-                            behavior atom bondMap partnerIds world
-                else false)
+                        // test bond angles?
+                    if isValid then
+                        let partnerIds = Seq.toArray partnerIds
+                        testCentralBonds
+                            behavior atom partnerIds world
+                            && testPeripheralBonds
+                                behavior atom bondMap partnerIds world
+                    else false)
 
     /// Applies the Metropolis rule:
     /// * A move that lowers the energy, or leaves it unchanged,
