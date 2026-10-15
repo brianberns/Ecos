@@ -110,7 +110,7 @@ module RegressionTests =
         (world, free)
             ||> Array.fold (fun world (atomType, loc) ->
                 World.addAtom atomType loc world)
-            |> Chain.addBox 11
+            |> Chain.addBox 10
 
     /// Two strongly bonded pairs, W0-W1 and X2-X3, in a box so small
     /// that their weak bonds form and break constantly, making and
@@ -181,8 +181,8 @@ module RegressionTests =
             ("hot", 2), [ "982061cf7e519a8b"; "6922792d0ea555fb"; "704b3e0cab677587"; "bee4cc1e2b076a60" ]
             ("all rules", 1), [ "9d8f1fd1c9356dec"; "ddc4c7f87a4e811d"; "e887f5bf5c5a76de"; "b86efe849962f016" ]
             ("all rules", 2), [ "f252197b6585143d"; "f0d0f2260bc57dd9"; "3a0c9292eca50d0e"; "c3b189c914b2bcf3" ]
-            ("copying", 1), [ "e84f9122e437074b"; "f7d802d072268dba"; "7327980cec9797dc"; "e72ab0b488b96a5c" ]
-            ("copying", 2), [ "6ef7ed0cfc52c8bd"; "09c332e50eb96a0b"; "63ab3a345508a361"; "debddba66c1bdb50" ]
+            ("copying", 1), [ "f92246e2c215799f"; "ad3fa1b237d86f56"; "c3927add7c280ca2"; "1633185ae99d66fc" ]
+            ("copying", 2), [ "c08c578fc49996db"; "aace4ed31022884e"; "65e0577c7f093238"; "e7d41d1fb3f53b18" ]
             ("stacking", 1), [ "094b014f8bc984fd"; "5b2ca542c931b0ba"; "41d446eb7e5783fd"; "bffe4eed5950af4f" ]
             ("stacking", 2), [ "9043b8c20e432895"; "bc2fd2cd5ad61c0c"; "76933f8909c1d1c8"; "bbe6a98491608e45" ]
         ]
