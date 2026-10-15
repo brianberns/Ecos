@@ -13,7 +13,7 @@ type Cell =
     /// Empty space.
     | Empty
 
-/// A potentially infinite 2D grid of mutable cells.
+/// An infinite 2D grid of mutable cells.
 type Grid =
     private {
         Cells : Cell[(*x*), (*y*)]
@@ -51,7 +51,9 @@ module Grid =
     let empty =
         { Cells = Array2D.create 0 0 Cell.Empty }
 
-    let private adjust
+    /// Expands the given grid's backing to cover the given
+    /// extent.
+    let private expand
         (newBaseX, newBaseY) (newSizeX, newSizeY) (grid : Grid) =
         let (minX, minY), (maxX, maxY) = grid.Bounds
         let cells =
@@ -63,14 +65,19 @@ module Grid =
                     else Cell.Empty)
         { Cells = cells }
 
-    // an array with a dimension of size 0 reports a lower bound of 0 and an upper bound of -1 for that dimension, no matter what base it was created with
-    let private setValue location value (grid : Grid) =
+    /// Sets the value at the given location in the given grid,
+    /// expanding backing if necessary.
+    let setValue location value (grid : Grid) =
 
+            // an array with a dimension of size 0 reports a lower
+            // bound of 0 and an upper bound of -1 for that dimension,
+            // no matter what base it was created with
+        let len = grid.Cells.Length
+
+            // expand grid backing?
         let x, y = location.X, location.Y
-
         let grid =
             let (minX, minY), (maxX, maxY) = grid.Bounds
-            let len = grid.Cells.Length
             if len > 0
                 && x >= minX && x <= maxX
                 && y >= minY && y <= maxY then
@@ -82,7 +89,7 @@ module Grid =
                 let newMinY, newMaxY =
                     if len = 0 then y, y
                     else min minY y, max maxY y
-                adjust
+                expand
                     (newMinX, newMinY)
                     (newMaxX - newMinX + 1, newMaxY - newMinY + 1)
                     grid
@@ -91,11 +98,15 @@ module Grid =
 
         grid
 
+    /// Sets the given location to contain an atom with the given
+    /// ID.
     let setAtom location id grid =
         setValue location (Cell.Atom id) grid
 
+    /// Sets the given location to contain a wall.
     let setWall location grid =
         setValue location Cell.Wall grid
 
+    /// Sets the given location to be an empty space.
     let setEmpty location grid =
         setValue location Cell.Empty grid
