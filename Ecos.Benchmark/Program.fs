@@ -14,4 +14,5 @@ module Program =
     let runBenchmark () =
         BenchmarkRunner.Run<Benchmarks>() |> ignore
 
-    runDirect ()
+    // runDirect ()
+    runBenchmark ()
