@@ -100,9 +100,10 @@ module World =
         if isAvailable location None world then
             let id = world.Atoms.Length
             let atom = Atom.create id atomType location
-            let atoms = [| yield! world.Atoms; atom |]
-            let cells = Grid.setAtom location id world.Cells
-            let world = { world with _Atoms = atoms; Cells = cells }
+            let world =
+                { world with
+                    _Atoms = [| yield! world.Atoms; atom |]
+                    Cells = Grid.setAtom location id world.Cells }
             Some (world, atom)
         else None
 
@@ -115,9 +116,10 @@ module World =
     /// Adds a wall to the given world if it is valid.
     let tryAddWall location world =
         if isAvailable location None world then
-            let walls = [| yield! world.Walls; location |]
-            let cells = Grid.setWall location world.Cells
-            Some { world with _Walls = walls; Cells = cells }
+            Some
+                { world with
+                    _Walls = [| yield! world.Walls; location |]
+                    Cells = Grid.setWall location world.Cells }
         else None
 
     /// Adds a wall to the given world.
