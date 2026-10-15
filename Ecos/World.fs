@@ -33,6 +33,8 @@ type World =
 
     member this.BondTypeMap = this._BondTypeMap
 
+    member this.Walls = Grid.getWalls this.Cells
+
 /// An event in the world.
 type Event =
 

@@ -61,7 +61,7 @@ module Model =
 
     /// Creates a model.
     let create seed speed =
-        let scenario = Scenario.createScenarioB false seed
+        let scenario = Scenario.createScenarioB true seed
         {
             Seed = seed
             Scenario = scenario

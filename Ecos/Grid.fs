@@ -13,12 +13,12 @@ type Grid =
     }
 
     member internal this.Bounds =
-        (this.Cells.GetLowerBound(0), this.Cells.GetUpperBound(0)),
-        (this.Cells.GetLowerBound(1), this.Cells.GetUpperBound(1))
+        (this.Cells.GetLowerBound(0), this.Cells.GetLowerBound(1)),   // (minX, minY)
+        (this.Cells.GetUpperBound(0), this.Cells.GetUpperBound(1))    // (maxX, maxY)
 
     member this.Item(x, y) =
         let (minX, minY), (maxX, maxY) = this.Bounds
-        if x < minX || y > maxX
+        if x < minX || x > maxX
             || y < minY || y > maxY then
             Cell.Empty
         else
@@ -34,6 +34,17 @@ module Grid =
 
     let empty =
         { Cells = Array2D.create 0 0 Cell.Empty }
+
+    // SLOW
+    let getWalls (grid : Grid) =
+        let (minX, minY), (maxX, maxY) = grid.Bounds
+        seq {
+            for x in [ minX .. maxX ] do
+                for y in [ minY .. maxY ] do
+                    match grid[x, y] with
+                        | Cell.Wall -> yield Point.create(x, y)
+                        | _ -> ()
+        }
 
     let private adjust
         (newBaseX, newBaseY) (newSizeX, newSizeY) (grid : Grid) =
