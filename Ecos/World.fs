@@ -19,6 +19,7 @@ open System
 /// Walls are immovable obstacles, each the size of an atom.
 type World =
     private {
+
         /// Atoms in the world, indexed by their IDs.
         _Atoms : Atom[]
 
@@ -32,11 +33,22 @@ type World =
         Cells : Grid
     }
 
+    /// Atoms in the world, indexed by their IDs.
     member this.Atoms = this._Atoms
 
+    /// Locations of walls in the world.
+    member this.Walls = this._Walls
+
+    /// Bonds between atoms in the world, by type.
     member this.BondTypeMap = this._BondTypeMap
 
-    member this.Walls = this._Walls
+    /// Gets the occupant of the given location in this
+    /// world.
+    member this.Item(x, y) = this.Cells[x, y]
+
+    /// Gets the occupant of the given location in this
+    /// world.
+    member this.Item(location) = this.Cells[location]
 
 /// An event in the world.
 type Event =
@@ -74,10 +86,10 @@ module World =
         |]
 
     /// Determines whether the given location is available.
-    let private isAvailable loc idOpt world =
+    let private isAvailable loc idOpt (world : World) =
         mooreDeltas
             |> Seq.forall (fun delta ->
-                match world.Cells[loc + delta] with
+                match world[loc + delta] with
                     | Cell.Atom id -> Some id = idOpt   // an atom can occupy its own location
                     | Cell.Wall -> false
                     | Cell.Empty -> true)
@@ -135,17 +147,19 @@ module World =
     /// Indicates whether a bond of the given type between the
     /// given atoms crosses any other bonds. This only needs to
     /// check the local neighborhood of one of the atoms.
-    let private isCrossBond behavior atomA atomB world =
+    let private isCrossBond behavior atomA atomB (world : World) =
         behavior.CrossBondDeltas
             |> Seq.exists (fun delta ->
-                match world.Cells[atomA.Location + delta] with  // check A's neighborhood
+                match world[atomA.Location + delta] with  // check A's neighborhood
                     | Cell.Atom idC ->
-                        if idC = atomA.Id || idC = atomB.Id then false
+                        if idC = atomA.Id || idC = atomB.Id then
+                            false
                         else
                             let atomC = world.Atoms[idC]
                             getAllBonds idC world
                                 |> Seq.exists (fun idD ->
-                                    if idD = atomA.Id || idD = atomB.Id then false
+                                    if idD = atomA.Id
+                                        || idD = atomB.Id then false
                                     else
                                         let atomD = world.Atoms[idD]
                                         BondBehavior.testCrossBond
@@ -249,14 +263,14 @@ module World =
     /// location. Only the three cells that the delta brings into
     /// the atom's neighborhood need checking, since (we assume)
     /// the world was valid before the move.
-    let private canMove atom delta world =
+    let private canMove atom delta (world : World) =
         assert(Array.contains delta cardinalDirections)
 
         let ahead = atom.Location + delta
         let perpendicular = Point.create (delta.Y, delta.X)   // (1, 0) <-> (0, 1)
 
         let check location =
-            world.Cells[location].IsEmpty
+            world[location].IsEmpty
 
         let result =
             check ahead
@@ -338,7 +352,7 @@ module World =
     let private moveAtom atomBefore atomAfter (world : World) =
         assert(atomBefore.Id = atomAfter.Id)
         assert(world.Atoms[atomBefore.Id] = atomBefore)
-        assert(world.Cells[atomBefore.Location]
+        assert(world[atomBefore.Location]
             = Cell.Atom atomBefore.Id)
         let id = atomBefore.Id
         let atoms =
@@ -496,7 +510,7 @@ module World =
             deltas[rng.Next(deltas.Length)]
 
             // toggle bond with atom at that location?
-        match world.Cells[atomA.Location + delta] with
+        match world[atomA.Location + delta] with
             | Cell.Atom idB ->
                 let atomB = world.Atoms[idB]
                 tryToggleBond parms rng bondType atomA atomB world
