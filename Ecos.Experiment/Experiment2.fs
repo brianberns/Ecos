@@ -191,7 +191,7 @@ module Experiment2 =
         let rng = scenario.Random
         let template = set scenario.Template
         let free = Set.difference (scenario.World.Atoms |> Seq.map _.Id |> set) template
-        let nAtoms = scenario.World.Atoms.Count
+        let nAtoms = scenario.World.Atoms.Length
         let mutable world = scenario.World
 
             // settle, with strong bonds frozen by an impassable barrier

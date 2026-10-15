@@ -373,7 +373,7 @@ module Experiment3 =
     /// atom.) Answers the resulting world, the strong bonds formed,
     /// and the number broken.
     let private runPhase template parms rng nSweeps (world : World) =
-        let nAtoms = world.Atoms.Count
+        let nAtoms = world.Atoms.Length
         let mutable world = world
         let joins = ResizeArray()
         let mutable nBreaks = 0
@@ -448,7 +448,7 @@ module Experiment3 =
                     results[iCycle * phases.Length + iPhase])
 
         printfn "Experiment 3: temperature cycling"
-        printfn "%d runs of %d cycles; %d atoms" settings.NumRuns settings.NumCycles scenario.World.Atoms.Count
+        printfn "%d runs of %d cycles; %d atoms" settings.NumRuns settings.NumCycles scenario.World.Atoms.Length
         for phase in phases do
             printfn "Phase: kT %g for %d sweeps" phase.Temperature phase.NumSweeps
         printParameters (getParameters scenario settings.CapPeelBarrier nan)
@@ -686,7 +686,7 @@ module Experiment3 =
             [| AtomType.W; AtomType.X; AtomType.Y; AtomType.Z; AtomType.P; AtomType.Q |]
         printfn ""
         printfn "Free atoms at the end of each phase (averages per run, of %d atoms in all)"
-            scenario.World.Atoms.Count
+            scenario.World.Atoms.Length
         printfn "cycle    kT   sweeps          W       X       Y       Z       P       Q     total"
         for iCycle in 0 .. settings.NumCycles - 1 do
             for iPhase in 0 .. phases.Length - 1 do

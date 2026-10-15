@@ -27,6 +27,9 @@ type Grid =
     member this.Item(location) =
         this[location.X, location.Y]
 
+    member internal this.SetValue(x, y, cell) =
+        this.Cells[x, y] <- cell
+
 module Grid =
 
     let empty =
@@ -68,7 +71,8 @@ module Grid =
                     (newMaxX - newMinX + 1, newMaxY - newMinY + 1)
                     grid
 
-        grid[x, y] <- value   // MUTATION
+        grid.SetValue(x, y, value)   // MUTATION
+
         grid
 
     let setAtom location id grid =

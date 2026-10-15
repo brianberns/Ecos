@@ -30,7 +30,7 @@ module View =
     let private (~~)(ecosPt : Ecos.Point) =
         Avalonia.Point(ecosPt.X, ecosPt.Y)
 
-    let renderWalls world =
+    let renderWalls (world : World) =
         [
             for loc in world.Walls do
                 Rectangle.create [
@@ -63,7 +63,7 @@ module View =
                 ] :> IView
         ]
 
-    let private getBonds bondType world =
+    let private getBonds bondType (world : World) =
         world.BondTypeMap[bondType]
             |> Map.toSeq
             |> Seq.collect (fun (idA, ids) ->

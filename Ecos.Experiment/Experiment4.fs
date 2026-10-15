@@ -168,7 +168,7 @@ module Experiment4 =
         printfn
             "%d runs of %d cycles with each barrier; %d atoms"
             settings.NumRuns settings.NumCycles
-            cycled.World.Atoms.Count
+            cycled.World.Atoms.Length
         for phase in phases do
             printfn "Phase: kT %g for %d sweeps" phase.Temperature phase.NumSweeps
         Experiment3.printParameters
