@@ -22,6 +22,9 @@ type World =
         /// Atoms in the world, indexed by their IDs.
         _Atoms : Atom[]
 
+        /// Locations of walls in the world.
+        _Walls : Point[]
+
         /// Bonds between atoms in the world, by type.
         _BondTypeMap : Map<BondType, BondMap>
 
@@ -33,7 +36,7 @@ type World =
 
     member this.BondTypeMap = this._BondTypeMap
 
-    member this.Walls = Grid.getWalls this.Cells
+    member this.Walls = this._Walls
 
 /// An event in the world.
 type Event =
@@ -53,6 +56,7 @@ module World =
     let empty =
         {
             _Atoms = Array.empty
+            _Walls = Array.empty
             _BondTypeMap =
                 BondType.all
                     |> Seq.map (fun bondType ->
@@ -99,8 +103,9 @@ module World =
     /// Adds a wall to the given world if it is valid.
     let tryAddWall location world =
         if isAvailable location None world then
+            let walls = [| yield! world.Walls; location |]
             let cells = Grid.setWall location world.Cells
-            Some { world with Cells = cells }
+            Some { world with _Walls = walls; Cells = cells }
         else None
 
     /// Adds a wall to the given world.

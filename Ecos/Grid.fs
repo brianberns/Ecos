@@ -1,21 +1,32 @@
 namespace Ecos
 
+/// Types of cells in a grid.
 [<RequireQualifiedAccess>]
 type Cell =
+
+    /// Atom with the given unique ID.
     | Atom of AtomId
+
+    /// Immovable wall.
     | Wall
+
+    /// Empty space.
     | Empty
 
-/// A grid of cells.
+/// A potentially infinite 2D grid of mutable cells.
 type Grid =
     private {
         Cells : Cell[(*x*), (*y*)]
     }
 
+    /// Current min/max bounds of the grid for which memory
+    /// backing exists.
     member internal this.Bounds =
         (this.Cells.GetLowerBound(0), this.Cells.GetLowerBound(1)),   // (minX, minY)
         (this.Cells.GetUpperBound(0), this.Cells.GetUpperBound(1))    // (maxX, maxY)
 
+    /// Gets the cell at the given location. If the location
+    /// has no backing, it is assumed to be empty.
     member this.Item(x, y) =
         let (minX, minY), (maxX, maxY) = this.Bounds
         if x < minX || x > maxX
@@ -24,27 +35,21 @@ type Grid =
         else
             this.Cells[x, y]
 
+    /// Gets the cell at the given location. If the location
+    /// has no backing, it is assumed to be empty.
     member this.Item(location) =
         this[location.X, location.Y]
 
+    /// Sets the cell at the given location. The location
+    /// must have backing. This mutates the grid.
     member internal this.SetValue(x, y, cell) =
         this.Cells[x, y] <- cell
 
 module Grid =
 
+    /// An empty grid.
     let empty =
         { Cells = Array2D.create 0 0 Cell.Empty }
-
-    // SLOW
-    let getWalls (grid : Grid) =
-        let (minX, minY), (maxX, maxY) = grid.Bounds
-        seq {
-            for x in [ minX .. maxX ] do
-                for y in [ minY .. maxY ] do
-                    match grid[x, y] with
-                        | Cell.Wall -> yield Point.create(x, y)
-                        | _ -> ()
-        }
 
     let private adjust
         (newBaseX, newBaseY) (newSizeX, newSizeY) (grid : Grid) =
