@@ -9,6 +9,7 @@
     <Compile Include="Chain.fs" />
     <Compile Include="PhysicsTests.fs" />
     <Compile Include="PropertyTests.fs" />
+    <Compile Include="RegressionTests.fs" />
   </ItemGroup>
 
   <ItemGroup>
