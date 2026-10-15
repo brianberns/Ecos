@@ -28,7 +28,7 @@ type Point =
 
     /// Hashes the point.
     override this.GetHashCode() =
-        System.HashCode.Combine(this.X, this.Y)
+        HashCode.Combine(this.X, this.Y)
 
     interface IEquatable<Point> with
 
