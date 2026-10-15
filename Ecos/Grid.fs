@@ -13,8 +13,8 @@ type Grid =
     }
 
     member internal this.Bounds =
-        (this.Cells.GetLowerBound 0, this.Cells.GetUpperBound 0),
-        (this.Cells.GetLowerBound 1, this.Cells.GetUpperBound 1)
+        (this.Cells.GetLowerBound(0), this.Cells.GetUpperBound(0)),
+        (this.Cells.GetLowerBound(1), this.Cells.GetUpperBound(1))
 
     member this.Item(x, y) =
         let (minX, minY), (maxX, maxY) = this.Bounds
@@ -45,7 +45,7 @@ module Grid =
         { Cells = cells }
 
     // an array with a dimension of size 0 reports a lower bound of 0 and an upper bound of -1 for that dimension, no matter what base it was created with
-    let setValue location value (grid : Grid) =
+    let private setValue location value (grid : Grid) =
 
         let x, y = location.X, location.Y
 
@@ -70,3 +70,12 @@ module Grid =
 
         grid[x, y] <- value   // MUTATION
         grid
+
+    let setAtom location id grid =
+        setValue location (Cell.Atom id) grid
+
+    let setWall location grid =
+        setValue location Cell.Wall grid
+
+    let setEmpty location grid =
+        setValue location Cell.Empty grid

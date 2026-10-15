@@ -72,8 +72,7 @@ module World =
         mooreDeltas
             |> Seq.forall (fun delta ->
                 match world.Cells[loc + delta] with
-                    | Cell.Atom id ->
-                        Some id = idOpt   // an atom can occupy its own location
+                    | Cell.Atom id -> Some id = idOpt   // an atom can occupy its own location
                     | Cell.Wall -> false
                     | Cell.Empty -> true)
 
@@ -84,13 +83,8 @@ module World =
             let id = world.Atoms.Length
             let atom = Atom.create id atomType location
             let atoms = [| yield! world.Atoms; atom |]
-            let world =
-                {
-                    world with
-                        _Atoms = [| yield! world.Atoms; atom |]
-                        OccupancyMap =
-                            Dictionary.add atom.Location id world.OccupancyMap
-                }
+            let cells = Grid.setAtom location id world.Cells
+            let world = { world with _Atoms = atoms; Cells = cells }
             Some (world, atom)
         else None
 
@@ -101,28 +95,26 @@ module World =
             | None -> failwith "Invalid location"
 
     /// Adds a wall to the given world if it is valid.
-    let tryAddWall loc world =
-        if isAvailable loc None world then
-            Some {
-                world with
-                    Walls = world.Walls.Add(loc)
-            }
+    let tryAddWall location world =
+        if isAvailable location None world then
+            let cells = Grid.setWall location world.Cells
+            Some { world with Cells = cells }
         else None
 
     /// Adds a wall to the given world.
-    let addWall loc world =
-        match tryAddWall loc world with
+    let addWall location world =
+        match tryAddWall location world with
             | Some world -> world
             | None -> failwith "Invalid location"
 
     /// Answers the IDs of all atoms bonded with the given atom.
-    let private getAllBonds id world =
+    let private getAllBonds id (world : World) =
         world.BondTypeMap.Values
             |> Seq.collect (BondMap.getBonds id)
 
     /// Indicates whether the atoms with the given IDs are already
     /// bonded in the given world.
-    let private areBonded idA idB world =
+    let private areBonded idA idB (world : World) =
         world.BondTypeMap.Values
             |> Seq.exists (BondMap.areBonded idA idB)
 
@@ -139,9 +131,8 @@ module World =
     let private isCrossBond behavior atomA atomB world =
         behavior.CrossBondDeltas
             |> Seq.exists (fun delta ->
-                world.OccupancyMap
-                    |> Dictionary.tryFind (atomA.Location + delta)   // check A's neighborhood
-                    |> Option.map (fun idC ->
+                match world.Cells[atomA.Location + delta] with  // check A's neighborhood
+                    | Cell.Atom idC ->
                         if idC = atomA.Id || idC = atomB.Id then false
                         else
                             let atomC = world.Atoms[idC]
@@ -152,8 +143,8 @@ module World =
                                         let atomD = world.Atoms[idD]
                                         BondBehavior.testCrossBond
                                             (atomA, atomB)
-                                            (atomC, atomD)))
-                    |> Option.defaultValue false)
+                                            (atomC, atomD))
+                    | _ -> false)
 
     /// A -- B
     ///  \
@@ -168,7 +159,8 @@ module World =
     ///  \
     ///   \
     ///    C
-    let private testBondAngles behavior atomA atomB idsC world =
+    let private testBondAngles
+        behavior atomA atomB idsC (world : World) =
         Seq.forall (fun idC ->
             let atomC = world.Atoms[idC]
             testBondAngle behavior atomA atomB atomC)
@@ -176,7 +168,7 @@ module World =
 
     /// Adds a bond of the given type between the given atoms in
     /// the given world if it is valid.
-    let private tryAddBond bondType atomA atomB world =
+    let private tryAddBond bondType atomA atomB (world : World) =
 
             // get existing bond map
         let bondMap = world.BondTypeMap[bondType]
@@ -202,12 +194,12 @@ module World =
                 && testBondAngles behavior atomB atomA idsB world
 
         if isValid then
-            Some { world with BondTypeMap = bondTypeMap }
+            Some { world with _BondTypeMap = bondTypeMap }
         else None
 
     /// Adds a strong bond between the given atoms in the given
     /// world if it is valid.
-    let tryAddStrongBond idA idB world =
+    let tryAddStrongBond idA idB (world : World) =
         tryAddBond
             Strong world.Atoms[idA] world.Atoms[idB] world
 
@@ -220,7 +212,7 @@ module World =
 
     /// Adds a weak bond between the given atoms in the given
     /// world if it is valid.
-    let tryAddWeakBond idA idB world =
+    let tryAddWeakBond idA idB (world : World) =
         tryAddBond
             Weak world.Atoms[idA] world.Atoms[idB] world
 
@@ -256,9 +248,8 @@ module World =
         let ahead = atom.Location + delta
         let perpendicular = Point.create (delta.Y, delta.X)   // (1, 0) <-> (0, 1)
 
-        let check (cell : Point) =
-            not (world.Walls.Contains(cell))
-                && not (world.OccupancyMap.ContainsKey(cell))
+        let check location =
+            world.Cells[location].IsEmpty
 
         let result =
             check ahead
@@ -271,7 +262,7 @@ module World =
 
     /// Tests bond angles in which the atom is central: C-A-B.
     let private testCentralBonds
-        behavior atom (partnerIds : _[]) world =
+        behavior atom (partnerIds : _[]) (world : World) =
         seq {
             for i = 0 to partnerIds.Length - 2 do
                 for j = i + 1 to partnerIds.Length - 1 do
@@ -284,7 +275,7 @@ module World =
 
     /// Tests angles in which the atom isn't central: A-B-C.
     let private testPeripheralBonds
-        behavior atom bondMap partnerIds world =
+        behavior atom bondMap partnerIds (world : World) =
         partnerIds
             |> Seq.forall (fun idB ->
                 let atomB = world.Atoms[idB]
@@ -295,7 +286,7 @@ module World =
                             |> testBondAngle behavior atomB atom))
 
     /// Determines whether the given atom's bonds are valid.
-    let private testBonds atom world =
+    let private testBonds atom (world : World) =
         behaviorMap
             |> Map.toSeq
             |> Seq.forall (fun (bondType, behavior) ->
@@ -337,26 +328,31 @@ module World =
 
     /// Updates the given atom's location in the given
     /// world.
-    let private moveAtom atomBefore atomAfter world =
+    let private moveAtom atomBefore atomAfter (world : World) =
         assert(atomBefore.Id = atomAfter.Id)
         assert(world.Atoms[atomBefore.Id] = atomBefore)
-        assert(world.OccupancyMap[atomBefore.Location] = atomBefore.Id)
+        assert(world.Cells[atomBefore.Location]
+            = Cell.Atom atomBefore.Id)
         let id = atomBefore.Id
+        let atoms =
+            Array.init world.Atoms.Length (fun id' ->
+                if id' = id then atomAfter   // replaces `atomBefore`
+                else world.Atoms[id'])
+        let cells =
+            world.Cells
+                |> Grid.setEmpty atomBefore.Location
+                |> Grid.setAtom atomAfter.Location id
         {
             world with
-                Atoms =
-                    world.Atoms.SetItem(id, atomAfter)   // replaces `atomBefore`
-                OccupancyMap =
-                    world.OccupancyMap
-                        |> Dictionary.remove atomBefore.Location
-                        |> Dictionary.add atomAfter.Location id
+                _Atoms = atoms
+                Cells = cells
         }
 
     /// Attempts to move an atom in the given world.
-    let private tryUpdateAtom parms (rng : Random) world =
+    let private tryUpdateAtom parms (rng : Random) (world : World) =
 
             // pick atom to move
-        let id = rng.Next(world.Atoms.Count)
+        let id = rng.Next(world.Atoms.Length)
         let atom = world.Atoms[id]
 
             // pick direction to move in
@@ -406,7 +402,7 @@ module World =
 
     /// Attempts to break the bond of the given type between the
     /// given atoms in the given world.
-    let private tryBreakBond bondType atomA atomB world =
+    let private tryBreakBond bondType atomA atomB (world : World) =
 
             // remove the bond provisionally
         let bondTypeMap =
@@ -425,12 +421,13 @@ module World =
                         && behavior.TestValence atomB bondTypeMap)
 
         if isValid then
-            Some { world with BondTypeMap = bondTypeMap }
+            Some { world with _BondTypeMap = bondTypeMap }
         else None
 
     /// Attempts to toggle a bond of the given type between
     /// the atoms with the given IDs in the given world.
-    let private tryToggleBond parms (rng : Random) bondType atomA atomB world =
+    let private tryToggleBond
+        parms (rng : Random) bondType atomA atomB (world : World) =
 
             // count adjacent stacks
         let behavior = behaviorMap[bondType]
@@ -479,10 +476,11 @@ module World =
 
     /// Attempts to toggle a bond of the given type in the given
     /// world.
-    let private tryUpdateBond parms (rng : Random) bondType world =
+    let private tryUpdateBond
+        parms (rng : Random) bondType (world : World) =
 
             // pick atom to bond
-        let idA = rng.Next(world.Atoms.Count)
+        let idA = rng.Next(world.Atoms.Length)
         let atomA = world.Atoms[idA]
 
             // pick a direction to bond in
@@ -491,11 +489,11 @@ module World =
             deltas[rng.Next(deltas.Length)]
 
             // toggle bond with atom at that location?
-        world.OccupancyMap
-            |> Dictionary.tryFind (atomA.Location + delta)
-            |> Option.bind (fun idB ->
+        match world.Cells[atomA.Location + delta] with
+            | Cell.Atom idB ->
                 let atomB = world.Atoms[idB]
-                tryToggleBond parms rng bondType atomA atomB world)
+                tryToggleBond parms rng bondType atomA atomB world
+            | _ -> None
 
     /// Fraction of updates that attempt to move an atom (aka "hop").
     let moveAtomRate = 0.5
@@ -530,7 +528,7 @@ module World =
     /// Performs one update per atom in the world, on average.
     /// Some atoms might be updated more than once, or not at
     /// all.
-    let sweep parms rng world =
-        (world, seq { 1 .. world.Atoms.Count })
+    let sweep parms rng (world : World) =
+        (world, seq { 1 .. world.Atoms.Length })
             ||> Seq.fold (fun world _ ->
                 update parms rng world |> fst)
