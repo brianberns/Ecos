@@ -141,7 +141,7 @@ module View =
             ]
         ]
 
-    let renderFrameRate frameRate =
+    let renderUpdateRate frameRate =
         StackPanel.create [
             StackPanel.dock Dock.Top
             StackPanel.orientation Orientation.Horizontal
@@ -275,7 +275,7 @@ module View =
             DockPanel.lastChildFill false
             DockPanel.children [
                 renderSweepCount model.SweepCount
-                renderFrameRate model.FrameRate
+                renderUpdateRate model.UpdateRate
                 renderTemperature model dispatch
                 renderSpeed model.Speed dispatch
                 renderSeed model.Seed dispatch

@@ -33,8 +33,8 @@ type Model =
         /// Number of sweeps run so far.
         SweepCount : int
 
-        /// Number of frames per second.
-        FrameRate : float
+        /// Number of updates per second.
+        UpdateRate : float
     }
 
     /// Gets the model's current temperature.
@@ -77,7 +77,7 @@ module Model =
             Run = false
             Speed = speed
             SweepCount = 0
-            FrameRate = 0
+            UpdateRate = 0
         }
 
     /// Initializes a model.
@@ -132,6 +132,8 @@ module Model =
             TemperatureType = tempType
             SweepCount = model.SweepCount + model.Speed }
 
+    let private stopwatch = Stopwatch()
+
     /// Moves N random atoms per tick. Duplicates or omissions are
     /// possible.
     let handleTick model =
@@ -148,10 +150,11 @@ module Model =
                 | Adjustable _ -> runSweeps numSweeps model
 
         if model.Run then
-            let stopwatch = Stopwatch.StartNew()
+            let elapsed = stopwatch.Elapsed
             let model = loop model.Speed model
-            { model with
-                FrameRate = 1.0 / stopwatch.Elapsed.TotalSeconds }
+            let updateRate =
+                1.0 / (stopwatch.Elapsed - elapsed).TotalSeconds
+            { model with UpdateRate = updateRate }
         else model
 
     /// Handles temperature change.
@@ -161,6 +164,8 @@ module Model =
 
     /// Handles `run` flag change.
     let handleSetRun run model =
+        if run then stopwatch.Start()
+        else stopwatch.Stop()
         { model with Run = run }
 
     /// Handles speed change.
