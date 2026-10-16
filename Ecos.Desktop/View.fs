@@ -146,7 +146,7 @@ module View =
             StackPanel.dock Dock.Top
             StackPanel.orientation Orientation.Horizontal
             StackPanel.children [
-                renderLabel "Frame rate:" labelColumnWidth
+                renderLabel "Update rate:" labelColumnWidth
                 renderLabel $"{frameRate:F1}" labelColumnWidth
             ]
         ]

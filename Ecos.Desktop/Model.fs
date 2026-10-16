@@ -134,6 +134,8 @@ module Model =
 
     let private stopwatch = Stopwatch()
 
+    let mutable private lastElapsed = stopwatch.Elapsed
+
     /// Moves N random atoms per tick. Duplicates or omissions are
     /// possible.
     let handleTick model =
@@ -150,10 +152,11 @@ module Model =
                 | Adjustable _ -> runSweeps numSweeps model
 
         if model.Run then
-            let elapsed = stopwatch.Elapsed
             let model = loop model.Speed model
             let updateRate =
-                1.0 / (stopwatch.Elapsed - elapsed).TotalSeconds
+                let prev = lastElapsed
+                lastElapsed <- stopwatch.Elapsed
+                1.0 / (lastElapsed - prev).TotalSeconds
             { model with UpdateRate = updateRate }
         else model
 
@@ -164,7 +167,9 @@ module Model =
 
     /// Handles `run` flag change.
     let handleSetRun run model =
-        if run then stopwatch.Start()
+        if run then
+            stopwatch.Start()
+            lastElapsed <- stopwatch.Elapsed
         else stopwatch.Stop()
         { model with Run = run }
 
