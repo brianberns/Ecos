@@ -357,19 +357,12 @@ module World =
         assert(world[atomBefore.Location]
             = Cell.Atom atomBefore.Id)
         let id = atomBefore.Id
-        let atoms =
-            Array.init world.Atoms.Length (fun id' ->
-                if id' = id then atomAfter   // replaces `atomBefore`
-                else world.Atoms[id'])
+        world._Atoms[id] <- atomAfter   // MUTATION, replaces `atomBefore`
         let cells =
             world.Cells
                 |> Grid.setEmpty atomBefore.Location
                 |> Grid.setAtom atomAfter.Location id
-        {
-            world with
-                _Atoms = atoms
-                Cells = cells
-        }
+        { world with Cells = cells }
 
     /// Attempts to move an atom in the given world.
     let private tryUpdateAtom parms (rng : Random) (world : World) =
@@ -552,6 +545,15 @@ module World =
     /// Some atoms might be updated more than once, or not at
     /// all.
     let sweep parms rng (world : World) =
+
+            // make a separate copy of all mutable data structures
+        let world =
+            {
+                world with
+                    Cells = Grid.copy world.Cells
+                    _Walls = Array.copy world._Walls
+            }
+
         (world, seq { 1 .. world.Atoms.Length })
             ||> Seq.fold (fun world _ ->
                 update parms rng world |> fst)

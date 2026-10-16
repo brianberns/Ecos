@@ -67,7 +67,7 @@ module Grid =
 
     /// Sets the value at the given location in the given grid,
     /// expanding backing if necessary.
-    let setValue location value (grid : Grid) =
+    let setValue location value grid =
 
             // an array with a dimension of size 0 reports a lower
             // bound of 0 and an upper bound of -1 for that dimension,
@@ -110,3 +110,9 @@ module Grid =
     /// Sets the given location to be an empty space.
     let setEmpty location grid =
         setValue location Cell.Empty grid
+
+    /// Copies the given grid.
+    let copy grid =
+        {
+            Cells = Array2D.copy grid.Cells
+        }
