@@ -131,6 +131,26 @@ module View =
 
     let labelColumnWidth = 100
 
+    let renderSweepCount sweepCount =
+        StackPanel.create [
+            StackPanel.dock Dock.Top
+            StackPanel.orientation Orientation.Horizontal
+            StackPanel.children [
+                renderLabel "Sweeps:" labelColumnWidth
+                renderLabel $"{sweepCount:N0}" labelColumnWidth
+            ]
+        ]
+
+    let renderFrameRate frameRate =
+        StackPanel.create [
+            StackPanel.dock Dock.Top
+            StackPanel.orientation Orientation.Horizontal
+            StackPanel.children [
+                renderLabel "Frame rate:" labelColumnWidth
+                renderLabel $"{frameRate:F1}" labelColumnWidth
+            ]
+        ]
+
     let renderTemperature (model : Model) dispatch =
         let kT = model.Temperature
         StackPanel.create [
@@ -156,16 +176,6 @@ module View =
                     ]
                 else
                     renderLabel $"%0.2f{kT}" labelColumnWidth
-            ]
-        ]
-
-    let renderSweepCount sweepCount =
-        StackPanel.create [
-            StackPanel.dock Dock.Top
-            StackPanel.orientation Orientation.Horizontal
-            StackPanel.children [
-                renderLabel "Sweeps:" labelColumnWidth
-                renderLabel $"{sweepCount:N0}" labelColumnWidth
             ]
         ]
 
@@ -265,6 +275,7 @@ module View =
             DockPanel.lastChildFill false
             DockPanel.children [
                 renderSweepCount model.SweepCount
+                renderFrameRate model.FrameRate
                 renderTemperature model dispatch
                 renderSpeed model.Speed dispatch
                 renderSeed model.Seed dispatch

@@ -1,8 +1,12 @@
 ﻿namespace Ecos
 
 open System
+open System.Diagnostics
+
 open Elmish
+
 open Avalonia.Threading
+
 open Ecos.Experiment
 
 /// Elmish model.
@@ -28,6 +32,9 @@ type Model =
 
         /// Number of sweeps run so far.
         SweepCount : int
+
+        /// Number of frames per second.
+        FrameRate : float
     }
 
     /// Gets the model's current temperature.
@@ -70,6 +77,7 @@ module Model =
             Run = false
             Speed = speed
             SweepCount = 0
+            FrameRate = 0
         }
 
     /// Initializes a model.
@@ -140,7 +148,10 @@ module Model =
                 | Adjustable _ -> runSweeps numSweeps model
 
         if model.Run then
-            loop model.Speed model
+            let stopwatch = Stopwatch.StartNew()
+            let model = loop model.Speed model
+            { model with
+                FrameRate = 1.0 / stopwatch.Elapsed.TotalSeconds }
         else model
 
     /// Handles temperature change.
