@@ -78,7 +78,8 @@ module World =
         }
 
     /// Creates a copy of the given world with its own mutable
-    /// data structures.
+    /// data structures. This is used to protect against mutating
+    /// shared data.
     let private clone world =
         {
             world with
@@ -107,12 +108,13 @@ module World =
     /// if it is valid.
     let tryAddAtom atomType location world =
         if isAvailable location None world then
+            let world = clone world
             let id = world.Atoms.Length
             let atom = Atom.create id atomType location
             let world =
                 { world with
                     _Atoms = [| yield! world.Atoms; atom |]
-                    Cells = Grid.setAtom location id world.Cells }
+                    Cells = Grid.setAtom location id world.Cells }   // MUTATION
             Some (world, atom)
         else None
 
@@ -360,8 +362,6 @@ module World =
         x >= 0 || rng.NextDouble() < exp x
 
     /// Updates the given atom's location in the given world.
-    /// This is the only place where data structures are
-    /// mutated.
     let private moveAtom atomBefore atomAfter (world : World) =
         assert(atomBefore.Id = atomAfter.Id)
         assert(world.Atoms[atomBefore.Id] = atomBefore)
