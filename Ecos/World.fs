@@ -77,6 +77,15 @@ module World =
             Cells = Grid.empty
         }
 
+    /// Creates a copy of the given world with its own mutable
+    /// data structures.
+    let private clone world =
+        {
+            world with
+                Cells = Grid.copy world.Cells
+                _Walls = Array.copy world._Walls
+        }
+
     /// Moore neighborhood deltas, including center.
     let private mooreDeltas =
         [|
@@ -355,8 +364,7 @@ module World =
     let private moveAtom atomBefore atomAfter (world : World) =
         assert(atomBefore.Id = atomAfter.Id)
         assert(world.Atoms[atomBefore.Id] = atomBefore)
-        assert(world[atomBefore.Location]
-            = Cell.Atom atomBefore.Id)
+        assert(world[atomBefore.Location] = Cell.Atom atomBefore.Id)
 
         let id = atomBefore.Id
 
@@ -528,7 +536,7 @@ module World =
     let toggleWeakBondRate = 0.4
 
     /// Attempts to cause an event in the given world.
-    let tryUpdate parms (rng : Random) world =
+    let private tryUpdateImpl parms (rng : Random) world =
         assert(
             moveAtomRate
                 + toggleStrongBondRate
@@ -541,27 +549,29 @@ module World =
         else
             tryUpdateBond parms rng Weak world
 
+    /// Attempts to cause an event in the given world.
+    let tryUpdate parms rng world =
+        clone world
+            |> tryUpdateImpl parms rng
+
+    /// Causes an event in the given world, or is a no-op if
+    /// the event fails.
+    let private updateImpl parms rng world =
+        match tryUpdateImpl parms rng world with
+            | Some (world, event) -> world, Some event
+            | None -> world, None
+
     /// Causes an event in the given world, or is a no-op if
     /// the event fails.
     let update parms rng world =
-        match tryUpdate parms rng world with
-            | Some (world, event) -> world, Some event
-            | None -> world, None
+        clone world
+            |> updateImpl parms rng
 
     /// Performs one update per atom in the world, on average.
     /// Some atoms might be updated more than once, or not at
     /// all.
     let sweep parms rng numSweeps (world : World) =
-
-            // make a separate copy of all mutable data structures
-        let world =
-            {
-                world with
-                    Cells = Grid.copy world.Cells
-                    _Walls = Array.copy world._Walls
-            }
-
         let nUpdates = numSweeps * world.Atoms.Length
-        (world, seq { 1 .. nUpdates })
+        (clone world, seq { 1 .. nUpdates })
             ||> Seq.fold (fun world _ ->
-                update parms rng world |> fst)
+                updateImpl parms rng world |> fst)
