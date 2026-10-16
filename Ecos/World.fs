@@ -275,6 +275,7 @@ module World =
     /// the atom's neighborhood need checking, since (we assume)
     /// the world was valid before the move.
     let private canMove atom delta (world : World) =
+        assert(world[atom.Location - delta] = Cell.Atom atom.Id)
         assert(Array.contains delta cardinalDirections)
 
         let ahead = atom.Location + delta
