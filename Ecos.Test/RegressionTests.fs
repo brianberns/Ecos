@@ -224,3 +224,29 @@ module RegressionTests =
         for world, print in kept do
             Assert.Equal(print, fingerprint world)
         Assert.Equal(final, snd (run ()))
+
+    /// Building a world never changes the one it starts from: adding a
+    /// wall, an atom or a bond answers a new world and leaves the old
+    /// one as it was, including every cell. The new wall and atom are
+    /// placed inside the region the old world already covers.
+    [<Fact>]
+    let ``Adding to a world leaves the original unchanged`` () =
+        let world =
+            World.empty
+                |> World.addWall (Point.create (0, 0))
+                |> World.addWall (Point.create (12, 12))
+                |> World.addAtom AtomType.W (Point.create (4, 4))   // 0
+                |> World.addAtom AtomType.W (Point.create (6, 4))   // 1
+                |> World.addAtom AtomType.X (Point.create (4, 6))   // 2
+        let state (world : World) =
+            [ for x in -2 .. 14 do
+                for y in -2 .. 14 do
+                    string world[x, y] ],
+            fingerprint world,
+            List.ofArray world.Walls
+        let before = state world
+        World.addWall (Point.create (8, 8)) world |> ignore
+        World.addAtom AtomType.X (Point.create (8, 2)) world |> ignore
+        World.addStrongBond 0 1 world |> ignore
+        World.addWeakBond 0 2 world |> ignore
+        Assert.Equal(before, state world)

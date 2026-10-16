@@ -116,26 +116,26 @@ module Experiment2 =
 
     /// The given atom's weak bond partners (it can have two) that are
     /// among the given atoms.
-    let private getPartners (candidates : Set<AtomId>) (world : World) id =
-        world.BondTypeMap[Weak]
+    let private getPartners (candidates : Set<AtomId>) (bonds : Map<BondType, BondMap>) id =
+        bonds[Weak]
             |> Map.tryFind id
             |> Option.defaultValue Set.empty
             |> Set.intersect candidates
 
     /// Indicates whether the given atoms are strongly bonded.
-    let private areStronglyBonded (world : World) idA idB =
-        world.BondTypeMap[Strong]
+    let private areStronglyBonded (bonds : Map<BondType, BondMap>) idA idB =
+        bonds[Strong]
             |> Map.tryFind idA
             |> Option.exists (Set.contains idB)
 
     /// Indicates whether the given atoms are weakly bonded to template
     /// atoms that are strongly bonded to each other.
-    let private isTemplated template world idA idB =
+    let private isTemplated template bonds idA idB =
         Seq.allPairs
-            (getPartners template world idA)
-            (getPartners template world idB)
+            (getPartners template bonds idA)
+            (getPartners template bonds idB)
             |> Seq.exists (fun (idA', idB') ->
-                areStronglyBonded world idA' idB')
+                areStronglyBonded bonds idA' idB')
 
     /// Counts pairs of adjacent template atoms that are both paired
     /// with free atoms, and how many of those have partners on the
@@ -148,9 +148,9 @@ module Experiment2 =
             [
                 for idA in template do
                     for idB in template do
-                        if idA < idB && areStronglyBonded world idA idB then
-                            let idsA' = getPartners free world idA
-                            let idsB' = getPartners free world idB
+                        if idA < idB && areStronglyBonded world.BondTypeMap idA idB then
+                            let idsA' = getPartners free world.BondTypeMap idA
+                            let idsB' = getPartners free world.BondTypeMap idB
                             if not idsA'.IsEmpty && not idsB'.IsEmpty then
                                 Seq.allPairs idsA' idsB'
                                     |> Seq.exists (fun (idA', idB') ->
@@ -191,7 +191,6 @@ module Experiment2 =
         let rng = scenario.Random
         let template = set scenario.Template
         let free = Set.difference (scenario.World.Atoms |> Seq.map _.Id |> set) template
-        let nAtoms = scenario.World.Atoms.Length
         let mutable world = scenario.World
 
             // settle, with strong bonds frozen by an impassable barrier
@@ -217,20 +216,19 @@ module Experiment2 =
         let mutable nJoins = 0
         let mutable nTemplated = 0
         let mutable nTemplateEnd = 0
+        let onEvent event bonds =
+            match event with
+                | CreateBond (Strong, idA, idB) ->
+                    match template.Contains idA, template.Contains idB with
+                        | false, false ->
+                            nJoins <- nJoins + 1
+                            if isTemplated template bonds idA idB then   // a join doesn't change weak bonds
+                                nTemplated <- nTemplated + 1
+                        | true, true -> ()   // can't happen: template is a chain
+                        | _ -> nTemplateEnd <- nTemplateEnd + 1
+                | _ -> ()
         while nSweeps < settings.MaxSweeps && nJoins < settings.MaxJoins do
-            for _ in 1 .. nAtoms do
-                let world', eventOpt = Ecos.World.update parms rng world
-                match eventOpt with
-                    | Some (CreateBond (Strong, idA, idB)) ->
-                        match template.Contains idA, template.Contains idB with
-                            | false, false ->
-                                nJoins <- nJoins + 1
-                                if isTemplated template world' idA idB then
-                                    nTemplated <- nTemplated + 1
-                            | true, true -> ()   // can't happen: template is a chain
-                            | _ -> nTemplateEnd <- nTemplateEnd + 1
-                    | _ -> ()
-                world <- world'
+            world <- Ecos.World.sweepWith parms rng 1 onEvent world
             nSweeps <- nSweeps + 1
 
         {

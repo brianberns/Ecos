@@ -321,28 +321,34 @@ module Experiment3 =
             SplintSize : int
         }
 
+    /// The atoms that the given atom is bonded to, in the given bonds.
+    let private partnersIn (bonds : Map<BondType, BondMap>) bondType id =
+        bonds[bondType]
+            |> Map.tryFind id
+            |> Option.defaultValue Set.empty
+
     /// The atoms of the strand that the given atom belongs to. A free
     /// atom is a strand of one, for this purpose.
-    let private getStrandOf (world : World) id =
+    let private getStrandOf (bonds : Map<BondType, BondMap>) id =
         let rec visit (seen : Set<AtomId>) = function
             | [] -> seen
             | id :: rest when seen.Contains id -> visit seen rest
             | id :: rest ->
-                let partners = getPartners Strong world id |> Set.toList
+                let partners = partnersIn bonds Strong id |> Set.toList
                 visit (seen.Add id) (partners @ rest)
         visit Set.empty [ id ]
 
     /// Describes a join that is about to happen between the given
-    /// atoms in the given world.
-    let private getJoin (template : Set<AtomId>) (world : World) idA idB =
-        let strandA = getStrandOf world idA
-        let strandB = getStrandOf world idB
+    /// atoms, given the bonds just before it.
+    let private getJoin (template : Set<AtomId>) bonds idA idB =
+        let strandA = getStrandOf bonds idA
+        let strandB = getStrandOf bonds idB
         let splintSizes =
             [
-                for idA' in getPartners Weak world idA do
-                    for idB' in getPartners Weak world idB do
-                        if (getPartners Strong world idA').Contains idB' then
-                            (getStrandOf world idA').Count
+                for idA' in partnersIn bonds Weak idA do
+                    for idB' in partnersIn bonds Weak idB do
+                        if (partnersIn bonds Strong idA').Contains idB' then
+                            (getStrandOf bonds idA').Count
             ]
         {
             SmallerSize = min strandA.Count strandB.Count
@@ -373,18 +379,25 @@ module Experiment3 =
     /// atom.) Answers the resulting world, the strong bonds formed,
     /// and the number broken.
     let private runPhase template parms rng nSweeps (world : World) =
-        let nAtoms = world.Atoms.Length
-        let mutable world = world
         let joins = ResizeArray()
         let mutable nBreaks = 0
-        for _ in 1 .. nSweeps * nAtoms do
-            let world', eventOpt = Ecos.World.update parms rng world
-            match eventOpt with
-                | Some (CreateBond (Strong, idA, idB)) ->
-                    joins.Add(getJoin template world idA idB)
-                | Some (BreakBond (Strong, _, _)) -> nBreaks <- nBreaks + 1
+        let onEvent event (bonds : Map<BondType, BondMap>) =
+            match event with
+                | CreateBond (Strong, idA, idB) ->
+
+                        // these are the bonds just after the join, so
+                        // take it out again to see the strands as they
+                        // were just before
+                    let before =
+                        let strong =
+                            bonds[Strong]
+                                |> BondMap.remove idA idB
+                                |> BondMap.remove idB idA
+                        Map.add Strong strong bonds
+                    joins.Add(getJoin template before idA idB)
+                | BreakBond (Strong, _, _) -> nBreaks <- nBreaks + 1
                 | _ -> ()
-            world <- world'
+        let world = World.sweepWith parms rng nSweeps onEvent world
         world, joins.ToArray(), nBreaks
 
     /// The phases of the given scenario.

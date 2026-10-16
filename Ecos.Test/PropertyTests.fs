@@ -150,19 +150,34 @@ module PropertyTests =
                             |> List.forall (fun (idB, idC) ->
                                 not (isStronglyBonded world idB idC)))
 
-            // every atom is stored under its own ID, the occupancy map is
-            // exactly the atoms' locations, and the cached atom count is
-            // right
+            // every atom is stored under its own ID, and the world's cells
+            // say exactly where the atoms and walls are: each atom's and
+            // wall's cell holds it, and every other cell in the region they
+            // occupy (with a margin) is empty
         let occupancyConsistent =
-            (*
-            world.OccupancyMap.Count = world.Atoms.Length
-                && world.Atoms.Length = world.Atoms.Length
-                && atoms
-                    |> Array.forall (fun atom ->
-                        Dictionary.tryFind atom.Location world.OccupancyMap
-                            = Some atom.Id)
-            *)
-            true  // to-do: fix or delete
+            let walls = set world.Walls
+            let locations =
+                Array.append (atoms |> Array.map _.Location) world.Walls
+            let regionConsistent () =
+                let xs = locations |> Array.map _.X
+                let ys = locations |> Array.map _.Y
+                Seq.allPairs
+                    [ Array.min xs - 2 .. Array.max xs + 2 ]
+                    [ Array.min ys - 2 .. Array.max ys + 2 ]
+                    |> Seq.forall (fun (x, y) ->
+                        let loc = Point.create (x, y)
+                        match world[loc] with
+                            | Cell.Atom id ->
+                                id < atoms.Length && atoms[id].Location = loc
+                            | Cell.Wall -> walls.Contains loc
+                            | Cell.Empty -> true)
+            atoms
+                |> Array.indexed
+                |> Array.forall (fun (i, atom) ->
+                    atom.Id = i && world[atom.Location] = Cell.Atom atom.Id)
+                && world.Walls
+                    |> Array.forall (fun loc -> world[loc] = Cell.Wall)
+                && (locations.Length = 0 || regionConsistent ())
 
         noOverlaps && strongBondsValid && bondSetsValid && noCrossings
             && weakBondsValid && weakPartnersValid && occupancyConsistent
@@ -1166,8 +1181,7 @@ module PropertyTests =
 
                 // nothing breaks with peeling off
             let mutable unpeeled = world
-            for _ in 1 .. 20000 do
-                unpeeled <- World.updateWith frozen rng unpeeled
+            unpeeled <- Chain.updatesWith frozen rng 20000 unpeeled
             Assert.Equal<Set<int * int>>(strongBonds world, strongBonds unpeeled)
 
             // a capped strand doesn't peel
@@ -1184,8 +1198,7 @@ module PropertyTests =
                     |> World.addStrongBond 2 3
                     |> Chain.addSoup rng 10
             let mutable world = capped
-            for _ in 1 .. 50000 do
-                world <- World.updateWith { peeling with PeelBarrier = 0.0 } rng world
+            world <- Chain.updatesWith { peeling with PeelBarrier = 0.0 } rng 50000 world
             Assert.Equal<Set<int * int>>(strongBonds capped, strongBonds world)
 
             // a capped strand whose caps can come off is taken apart:
@@ -1203,8 +1216,7 @@ module PropertyTests =
                     |> World.addStrongBond 2 3
                     |> Chain.addSoup rng 10
             let mutable world = capped
-            for _ in 1 .. 100000 do
-                world <- World.updateWith { peeling with CapPeelBarrier = 1.0 } rng world
+            world <- Chain.updatesWith { peeling with CapPeelBarrier = 1.0 } rng 100000 world
             Assert.Empty(
                 strongBonds world
                     |> Set.filter (fun (idA, idB) -> idA <= 3 && idB <= 3))
@@ -1229,8 +1241,7 @@ module PropertyTests =
                     PeelBarrier = Double.PositiveInfinity
                     CapPeelBarrier = 0.0 }
             let mutable world = uncapped
-            for _ in 1 .. 50000 do
-                world <- World.updateWith parms rng world
+            world <- Chain.updatesWith parms rng 50000 world
             Assert.Equal<Set<int * int>>(strongBonds uncapped, strongBonds world)
 
         inParallel [| checkSeed 0; checkSeed 1; checkSeed 2; checkCapped; checkCapLoss; checkNoCaps |]

@@ -112,8 +112,7 @@ module Experiment4 =
                     let parms =
                         getParameters
                             settings scenario barrier phase.Temperature
-                    for _ in 1 .. phase.NumSweeps do
-                        world <- World.sweep parms rng 1 world
+                    world <- World.sweep parms rng phase.NumSweeps world
                     if iPhase = 0 then
                         nStrandsBeforeHeat <- (getStrands world).Length
                 eprintfn "Barrier %g, seed %d: finished cycle %d of %d" barrier seed iCycle settings.NumCycles

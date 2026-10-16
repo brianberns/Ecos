@@ -82,19 +82,18 @@ module Experiment1 =
     let private runOne settings parms seed =
         let scenario = Scenario.createScenarioA true seed
         let rng = scenario.Random
-        let nAtoms = scenario.World.Atoms.Length
         let mutable world = scenario.World
         let mutable nFormed = 0
         let mutable nBroken = 0
 
+        let onEvent event _ =
+            match event with
+                | CreateBond (Strong, _, _) -> nFormed <- nFormed + 1
+                | BreakBond (Strong, _, _) -> nBroken <- nBroken + 1
+                | _ -> ()
+
         let sweep nSweeps =
-            for _ in 1 .. nSweeps * nAtoms do
-                let world', eventOpt = Ecos.World.update parms rng world
-                match eventOpt with
-                    | Some (CreateBond (Strong, _, _)) -> nFormed <- nFormed + 1
-                    | Some (BreakBond (Strong, _, _)) -> nBroken <- nBroken + 1
-                    | _ -> ()
-                world <- world'
+            world <- Ecos.World.sweepWith parms rng nSweeps onEvent world
 
         sweep settings.EquilibrationSweeps
         let samples =

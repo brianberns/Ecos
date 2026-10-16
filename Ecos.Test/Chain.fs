@@ -313,30 +313,39 @@ module Chain =
     /// which weak bonds are allowed.
     let withRandomTypes (rng : Random) (world : World) =
         assert (Bonds.weakBondMap world).IsEmpty
-        (*
         let strongBondMap = Bonds.strongBondMap world
         let strongPartners id =
             strongBondMap
                 |> Map.tryFind id
                 |> Option.defaultValue Set.empty
         let pick (types : AtomType[]) = types[rng.Next types.Length]
-        let atoms =
-            (world.Atoms, world.Atoms |> Seq.map _.Id |> Seq.toArray)
-                ||> Array.fold (fun atoms id ->
-                    let partners = strongPartners id
-                    let canBeCap =
-                        partners.Count < 2
-                            && partners
-                                |> Set.forall (fun idPartner ->
-                                    idPartner > id   // not yet assigned
-                                        || not (isCap atoms[idPartner].Type))
-                    let typ =
-                        if canBeCap then pick allTypes
-                        else pick codingTypes
-                    atoms.SetItem(id, { atoms[id] with Type = typ }))
-        { world with Atoms = atoms }
-        *)
-        world   // to-do: fix
+
+            // choose types in ID order
+        let types = Array.zeroCreate<AtomType> world.Atoms.Length
+        for atom in world.Atoms do
+            let id = atom.Id
+            let partners = strongPartners id
+            let canBeCap =
+                partners.Count < 2
+                    && partners
+                        |> Set.forall (fun idPartner ->
+                            idPartner > id   // not yet assigned
+                                || not (isCap types[idPartner]))
+            types[id] <- if canBeCap then pick allTypes else pick codingTypes
+
+            // a world can't change an atom's type, so build a new one:
+            // the same walls, then the same atoms (so with the same IDs)
+            // with their new types, then the same strong bonds
+        let rebuilt =
+            (World.empty, world.Walls)
+                ||> Array.fold (fun rebuilt loc -> World.addWall loc rebuilt)
+        let rebuilt =
+            (rebuilt, world.Atoms)
+                ||> Array.fold (fun rebuilt atom ->
+                    World.addAtom types[atom.Id] atom.Location rebuilt)
+        (rebuilt, Bonds.strongBonds world)
+            ||> Seq.fold (fun rebuilt (idA, idB) ->
+                World.addStrongBond idA idB rebuilt)
 
     /// Tries to append atoms at the given locations to the end of the
     /// chain in the given world, bonding each to its predecessor. Fails
@@ -460,12 +469,16 @@ module Chain =
     let sweep kT rng (world : World) =
         Ecos.World.sweep (TestParameters.create kT) rng 1 world
 
+    /// Performs about the given number of updates with the given
+    /// parameters, as whole sweeps (rounding up). Much faster than
+    /// updating one at a time, which copies the world each time.
+    let updatesWith parms rng nUpdates (world : World) =
+        let nAtoms = world.Atoms.Length
+        Ecos.World.sweep parms rng ((nUpdates + nAtoms - 1) / nAtoms) world
+
     /// Performs the given number of sweeps with the given parameters.
     let sweepsWith parms rng count (world : World) =
-        let mutable world = world
-        for _ in 1 .. count do
-            world <- Ecos.World.sweep parms rng 1 world
-        world
+        Ecos.World.sweep parms rng count world
 
     /// Performs the given number of sweeps with the standard
     /// parameters at the given temperature.
