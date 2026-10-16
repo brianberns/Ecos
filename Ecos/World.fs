@@ -536,7 +536,8 @@ module World =
     /// Fraction of updates that attempt to toggle a weak bond.
     let toggleWeakBondRate = 0.4
 
-    /// Attempts to cause an event in the given world.
+    /// Attempts to cause an event in the given world without
+    /// cloning it.
     let private tryUpdateImpl parms (rng : Random) world =
         assert(
             moveAtomRate
@@ -555,8 +556,8 @@ module World =
         clone world
             |> tryUpdateImpl parms rng
 
-    /// Causes an event in the given world, or is a no-op if
-    /// the event fails.
+    /// Causes an event in the given world without cloning it,
+    /// or is a no-op if the event fails.
     let private updateImpl parms rng world =
         match tryUpdateImpl parms rng world with
             | Some (world, event) -> world, Some event
