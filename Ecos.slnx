@@ -1,5 +1,11 @@
 <Solution>
+  <Configurations>
+    <BuildType Name="Debug" />
+    <BuildType Name="Profiler" />
+    <BuildType Name="Release" />
+  </Configurations>
   <Folder Name="/Solution Items/">
+    <File Path="Directory.Build.props" />
     <File Path="README.md" />
   </Folder>
   <Project Path="Avalonia.FuncUI/src/Avalonia.FuncUI.Elmish/Avalonia.FuncUI.Elmish.fsproj" />

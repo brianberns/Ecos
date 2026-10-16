@@ -1,0 +1,23 @@
+<Project>
+
+  <!--
+    Profiler configuration: the same as Release, except that the core
+    library is built without tail calls. Release builds of F# turn calls
+    in tail position into true tail calls, which a sampling profiler often
+    can't walk through, so it charges their time to the wrong function.
+
+    These settings apply to every project under this folder except the
+    Avalonia.FuncUI submodule, which has its own Directory.Build.props.
+  -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Profiler'">
+    <Optimize>true</Optimize>
+    <DebugType>portable</DebugType>
+    <DebugSymbols>true</DebugSymbols>
+    <DefineConstants>$(DefineConstants);RELEASE</DefineConstants>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Profiler' and '$(MSBuildProjectName)' == 'Ecos'">
+    <Tailcalls>false</Tailcalls>
+  </PropertyGroup>
+
+</Project>
