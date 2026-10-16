@@ -80,7 +80,7 @@ module World =
     /// Creates a copy of the given world with its own mutable
     /// data structures. This is used to protect against mutating
     /// shared data.
-    let private clone world =
+    let private copy world =
         {
             world with
                 _Atoms = Array.copy world._Atoms
@@ -108,7 +108,7 @@ module World =
     /// if it is valid.
     let tryAddAtom atomType location world =
         if isAvailable location None world then
-            let world = clone world
+            let world = copy world
             let id = world.Atoms.Length
             let atom = Atom.create id atomType location
             let world =
@@ -127,7 +127,7 @@ module World =
     /// Adds a wall to the given world if it is valid.
     let tryAddWall location world =
         if isAvailable location None world then
-            let world = clone world
+            let world = copy world
             Some
                 { world with
                     _Walls = [| yield! world.Walls; location |]
@@ -554,7 +554,7 @@ module World =
 
     /// Attempts to cause an event in the given world.
     let tryUpdate parms rng world =
-        clone world
+        copy world
             |> tryUpdateImpl parms rng
 
     /// Causes an event in the given world without cloning it,
@@ -567,7 +567,7 @@ module World =
     /// Causes an event in the given world, or is a no-op if
     /// the event fails.
     let update parms rng world =
-        clone world
+        copy world
             |> updateImpl parms rng
 
     /// Performs the given number of sweeps, where each sweep
@@ -575,7 +575,7 @@ module World =
     /// atoms might be updated more than once, or not at all.
     let sweepWith parms rng numSweeps onEvent (world : World) =
         let nUpdates = numSweeps * world.Atoms.Length
-        (clone world, seq { 1 .. nUpdates })
+        (copy world, seq { 1 .. nUpdates })
             ||> Seq.fold (fun world _ ->
                 let world, eventOpt = updateImpl parms rng world
                 match eventOpt with

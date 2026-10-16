@@ -21,7 +21,7 @@ type Grid =
 
     /// Current min/max bounds of the grid for which memory
     /// backing exists.
-    member internal this.Bounds =
+    member inline internal this.Bounds =
         (this.Cells.GetLowerBound(0), this.Cells.GetLowerBound(1)),   // (minX, minY)
         (this.Cells.GetUpperBound(0), this.Cells.GetUpperBound(1))    // (maxX, maxY)
 
@@ -113,6 +113,4 @@ module Grid =
 
     /// Copies the given grid.
     let copy grid =
-        {
-            Cells = Array2D.copy grid.Cells
-        }
+        { Cells = Array2D.copy grid.Cells }
