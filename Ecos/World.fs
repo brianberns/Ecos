@@ -127,10 +127,11 @@ module World =
     /// Adds a wall to the given world if it is valid.
     let tryAddWall location world =
         if isAvailable location None world then
+            let world = clone world
             Some
                 { world with
                     _Walls = [| yield! world.Walls; location |]
-                    Cells = Grid.setWall location world.Cells }
+                    Cells = Grid.setWall location world.Cells }    // MUTATION
         else None
 
     /// Adds a wall to the given world.
