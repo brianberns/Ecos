@@ -76,15 +76,20 @@ module Model =
     let init () =
         create 0 200
 
-    /// Runs one sweep.
-    let private runSweep (model : Model) =
+    /// Runs the given number of sweeps.
+    let private runSweeps numSweeps (model : Model) =
+        assert(numSweeps > 0)
 
             // update world
         let world =
             let parms =
                 { model.Scenario.Parameters with
                     Temperature = model.Temperature }
-            World.sweep parms model.Scenario.Random model.World
+            World.sweep
+                parms
+                model.Scenario.Random
+                model.Speed
+                model.World
 
             // update temperature
         let tempType =
@@ -93,9 +98,11 @@ module Model =
 
                         // update current phase
                     let phase = phases[0]
+                    assert(numSweeps <= phase.NumSweeps)
                     assert(phase.NumSweeps > 0)
                     let phase =
-                        { phase with NumSweeps = phase.NumSweeps - 1 }
+                        { phase with
+                            NumSweeps = phase.NumSweeps - numSweeps }
 
                         // current phase is over?
                     if phase.NumSweeps = 0 then
@@ -115,15 +122,25 @@ module Model =
         { model with
             World = world
             TemperatureType = tempType
-            SweepCount = model.SweepCount + 1 }
+            SweepCount = model.SweepCount + model.Speed }
 
     /// Moves N random atoms per tick. Duplicates or omissions are
     /// possible.
     let handleTick model =
+
+        let rec loop numSweeps model =
+            match model.TemperatureType with
+                | Cycle phases ->
+                    let n = min numSweeps phases[0].NumSweeps
+                    let model = runSweeps n model
+                    let numSweeps = numSweeps - n
+                    if numSweeps > 0 then
+                        loop numSweeps model
+                    else model
+                | Adjustable _ -> runSweeps numSweeps model
+
         if model.Run then
-            (model, [ 1 .. model.Speed ])
-                ||> Seq.fold (fun model _ ->
-                    runSweep model)
+            loop model.Speed model
         else model
 
     /// Handles temperature change.
