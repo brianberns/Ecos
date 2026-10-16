@@ -154,7 +154,7 @@ module PhysicsTests =
     type private Bond = NoBond | WeakBond | StrongBond
 
     /// Walls, free atoms, and both bond types: two complementary atoms
-    /// (types W and X) are confined to a small box of walls, at a
+    /// of the given types are confined to a small box of walls, at a
     /// temperature high enough that strong bonds form and break many
     /// times. We can enumerate every state exactly: each placement of
     /// the two atoms in the box without overlap, and then
@@ -172,11 +172,11 @@ module PhysicsTests =
     /// The barrier to strong bonds affects only how fast they form and
     /// break, not this distribution, so this also checks that it's
     /// applied equally in both directions.
-    let private checkTwoAtomsInBox (parms : Parameters) =
+    let private checkTwoAtomsInBox (typeA, typeB) (parms : Parameters) =
         let size = 2   // atom locations have |x| <= size and |y| <= size
         let kT = parms.Temperature
         let weight bondType =
-            exp (-Chain.bondEnergy parms bondType / kT - Chain.bondEntropy parms bondType)
+            exp (-Chain.bondEnergy parms bondType typeA typeB / kT - Chain.bondEntropy parms bondType)
 
             // exact Boltzmann weight of each (separation, bond) state
         let locs =
@@ -214,8 +214,8 @@ module PhysicsTests =
         let inBox (loc : Point) = abs loc.X <= size && abs loc.Y <= size
         let samples =
             World.empty
-                |> World.addAtom AtomType.W (Point.create (-size, -size))
-                |> World.addAtom AtomType.X (Point.create (size, size))
+                |> World.addAtom typeA (Point.create (-size, -size))
+                |> World.addAtom typeB (Point.create (size, size))
                 |> Chain.addBox size
                 |> sample
                     parms 8 2000 1000 3000
@@ -235,7 +235,7 @@ module PhysicsTests =
     /// energy but no entropy.
     [<Fact>]
     let ``Two atoms in a box follow the Boltzmann distribution`` () =
-        checkTwoAtomsInBox (TestParameters.create 12.0)
+        checkTwoAtomsInBox (AtomType.W, AtomType.X) (TestParameters.create 12.0)
 
     /// Two atoms in a box, with bond entropy. At this temperature a
     /// bond's entropy outweighs its energy, so a pair in range is
@@ -245,7 +245,7 @@ module PhysicsTests =
     let ``Two atoms in a box follow the Boltzmann distribution with bond entropy`` () =
         TestParameters.create 12.0
             |> TestParameters.withEntropy 1.5 2.0
-            |> checkTwoAtomsInBox
+            |> checkTwoAtomsInBox (AtomType.W, AtomType.X)
 
     /// Two atoms in a box, with a start barrier on both bond types.
     /// Every bond here starts a strand, so every bond has the barrier.
@@ -255,7 +255,32 @@ module PhysicsTests =
     let ``Two atoms in a box follow the Boltzmann distribution with a start barrier`` () =
         TestParameters.create 12.0
             |> TestParameters.withStartBarrier 6.0 6.0
-            |> checkTwoAtomsInBox
+            |> checkTwoAtomsInBox (AtomType.W, AtomType.X)
+
+    /// Parameters with energies for particular pairs: Y-Z weak bonds
+    /// much deeper than the default, and strong bonds between Y and Z,
+    /// and between W and X, at their own depths.
+    let private pairEnergies =
+        TestParameters.create 12.0
+            |> TestParameters.withPairEnergies Weak [ (AtomType.Y, AtomType.Z), 12.0 ]
+            |> TestParameters.withPairEnergies Strong
+                [
+                    (AtomType.Y, AtomType.Z), 20.0
+                    (AtomType.W, AtomType.X), 4.0
+                ]
+
+    /// Two atoms in a box, Y and Z, whose bonds have energies of their
+    /// own: both bond types must use them.
+    [<Fact>]
+    let ``Two atoms in a box follow the Boltzmann distribution with pair energies`` () =
+        checkTwoAtomsInBox (AtomType.Z, AtomType.Y) pairEnergies
+
+    /// Two atoms in a box, W and X, with the same parameters: their
+    /// strong bond has an energy of its own, but their weak bond
+    /// doesn't, so it must use the default.
+    [<Fact>]
+    let ``Two atoms in a box use the default energy for pairs without one`` () =
+        checkTwoAtomsInBox (AtomType.W, AtomType.X) pairEnergies
 
     /// Pairing, opposite sides, and stacking: two dimers (W0-W1 and
     /// X2-X3, each strongly bonded) are confined to a small box. Either

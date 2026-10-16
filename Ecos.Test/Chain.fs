@@ -47,6 +47,17 @@ module TestParameters =
                     |> set Strong strongBarrier
                     |> set Weak weakBarrier }
 
+    /// The given parameters, with energies for particular pairs of atom
+    /// types.
+    let withPairEnergies bondType (pairs : ((AtomType * AtomType) * float) list) (parms : Parameters) =
+        let bondParms =
+            (parms.BondParameterMap[bondType], pairs)
+                ||> List.fold (fun bondParms ((typeA, typeB), energy) ->
+                    BondTypeParameters.addPairEnergy typeA typeB energy bondParms)
+        { parms with
+            BondParameterMap =
+                Map.add bondType bondParms parms.BondParameterMap }
+
     /// The given parameters, with the given entropy for each bond type.
     let withEntropy strongEntropy weakEntropy (parms : Parameters) =
         let set bondType entropy (map : Map<BondType, BondTypeParameters>) =
@@ -240,11 +251,21 @@ module Chain =
     let codingTypes =
         [| AtomType.W; AtomType.X; AtomType.Y; AtomType.Z |]
 
-    /// Oracle: energy of one bond of the given type, with the given
-    /// parameters. (World's parameters give the depth of the bond as a
+    /// Oracle: energy of one bond of the given type between atoms of
+    /// the given types, with the given parameters: the energy listed
+    /// for that pair of types, in either order, or else the bond type's
+    /// default. (World's parameters give the depth of the bond as a
     /// positive number, so the energy is its negative.)
-    let bondEnergy (parms : Parameters) bondType =
-        -float parms.BondParameterMap[bondType].Energy
+    let bondEnergy (parms : Parameters) bondType typeA typeB =
+        let bondParms = parms.BondParameterMap[bondType]
+        let depth =
+            match Map.tryFind (typeA, typeB) bondParms.PairEnergyMap with
+                | Some energy -> energy
+                | None ->
+                    match Map.tryFind (typeB, typeA) bondParms.PairEnergyMap with
+                        | Some energy -> energy
+                        | None -> bondParms.Energy
+        -depth
 
     /// Oracle: barrier to forming or breaking a bond of the given type,
     /// with the given parameters, when the given number of stacks
@@ -292,13 +313,15 @@ module Chain =
             | Strong -> parms.CapPeelBarrier
             | Weak -> Double.PositiveInfinity
 
-    /// Oracle: energy of one weak bond, with the standard parameters.
+    /// Oracle: energy of one weak bond between W and X, with the
+    /// standard parameters.
     let weakBondEnergy =
-        bondEnergy (TestParameters.create 1.0) Weak
+        bondEnergy (TestParameters.create 1.0) Weak AtomType.W AtomType.X
 
-    /// Oracle: energy of one strong bond, with the standard parameters.
+    /// Oracle: energy of one strong bond between W and X, with the
+    /// standard parameters.
     let strongBondEnergy =
-        bondEnergy (TestParameters.create 1.0) Strong
+        bondEnergy (TestParameters.create 1.0) Strong AtomType.W AtomType.X
 
     /// Oracle: energy of one stack, i.e. two weak bonds A-B and A'-B'
     /// where A and A' are strongly bonded, and so are B and B'.
