@@ -542,7 +542,7 @@ module World =
         assert(
             moveAtomRate
                 + toggleStrongBondRate
-                + toggleWeakBondRate= 1.0)
+                + toggleWeakBondRate = 1.0)
         let x = rng.NextDouble()
         if x <= moveAtomRate then
             tryUpdateAtom parms rng world
