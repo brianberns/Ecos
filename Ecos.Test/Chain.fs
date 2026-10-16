@@ -319,8 +319,9 @@ module Chain =
                 |> Map.tryFind id
                 |> Option.defaultValue Set.empty
         let pick (types : AtomType[]) = types[rng.Next types.Length]
+        let atoms = System.Collections.Immutable.ImmutableList.CreateRange(world.Atoms)
         let atoms =
-            (world.Atoms, world.Atoms |> Seq.map _.Id |> Seq.toArray)
+            (atoms, atoms |> Seq.map _.Id |> Seq.toArray)
                 ||> Array.fold (fun atoms id ->
                     let partners = strongPartners id
                     let canBeCap =
@@ -333,13 +334,19 @@ module Chain =
                         if canBeCap then pick allTypes
                         else pick codingTypes
                     atoms.SetItem(id, { atoms[id] with Type = typ }))
-        { world with Atoms = atoms }
+        let world =
+            (World.empty, world.Walls)
+                ||> Seq.fold (fun world location ->
+                    World.addWall location world)
+        (world, atoms)
+            ||> Seq.fold (fun world atom ->
+                World.addAtom atom.Type atom.Location world)
 
     /// Tries to append atoms at the given locations to the end of the
     /// chain in the given world, bonding each to its predecessor. Fails
     /// if an atom would overlap another, or a bond would cross another.
     let private tryAppend (locs : Point[]) (world : World) =
-        let n0 = world.Atoms.Count
+        let n0 = world.Atoms.Length
         (Some world, Array.indexed locs)
             ||> Array.fold (fun worldOpt (i, loc) ->
                 worldOpt
@@ -361,10 +368,10 @@ module Chain =
     /// not a sample from equilibrium.
     let rec grow (rng : Random) n : World =
         let rec extend tries (world : World) =
-            if world.Atoms.Count = n then Some world
+            if world.Atoms.Length = n then Some world
             elif tries = 0 then None
             else
-                let last = world.Atoms[world.Atoms.Count - 1].Location
+                let last = world.Atoms[world.Atoms.Length - 1].Location
                 let loc = last + bondVectors[rng.Next bondVectors.Length]
                 match tryAppend [| loc |] world with
                     | Some world -> extend 1000 world
@@ -399,13 +406,13 @@ module Chain =
     let addDimers (rng : Random) n (world : World) =
         let types = allTypes
         let size = 4 + int (ceil (2.0 * sqrt (float n)))   // half-width of the box
-        let rec loop count attempts world =
+        let rec loop count attempts (world : World) =
             if count = 0 then world
             elif attempts > 100000 then failwith "Dimer box is too full"
             else
                 let locA = Point.create (rng.Next(-size, size + 1), rng.Next(-size, size + 1))
                 let locB = locA + bondVectors[rng.Next bondVectors.Length]
-                let idA = world.Atoms.Count
+                let idA = world.Atoms.Length
                 let worldOpt =
                     world
                         |> World.tryAddAtom types[rng.Next types.Length] locA
@@ -455,13 +462,13 @@ module Chain =
     /// Performs one sweep with the standard parameters at the given
     /// temperature: N updates for N atoms.
     let sweep kT rng (world : World) =
-        Ecos.World.sweep (TestParameters.create kT) rng world
+        Ecos.World.sweep (TestParameters.create kT) rng 1 world
 
     /// Performs the given number of sweeps with the given parameters.
     let sweepsWith parms rng count (world : World) =
         let mutable world = world
         for _ in 1 .. count do
-            world <- Ecos.World.sweep parms rng world
+            world <- Ecos.World.sweep parms rng 1 world
         world
 
     /// Performs the given number of sweeps with the standard
@@ -484,7 +491,7 @@ module Chain =
     /// Squared distance between the chain's first and last atoms.
     let endToEndSquared (world : World) =
         let first = world.Atoms[0].Location
-        let last = world.Atoms[world.Atoms.Count - 1].Location
+        let last = world.Atoms[world.Atoms.Length - 1].Location
         let d = last - first
         float (d.X * d.X + d.Y * d.Y)
 

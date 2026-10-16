@@ -217,7 +217,7 @@ module RegressionTests =
                 for _ in 1 .. 1000 do
                     world <- World.updateWith allRules rng world
                 kept.Add(world, fingerprint world)
-                world <- Ecos.World.sweep allRules rng world
+                world <- Ecos.World.sweep allRules rng 1 world
             kept, fingerprint world
 
         let kept, final = run ()
