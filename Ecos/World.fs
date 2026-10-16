@@ -82,8 +82,8 @@ module World =
     let private clone world =
         {
             world with
+                _Atoms = Array.copy world._Atoms
                 Cells = Grid.copy world.Cells
-                _Walls = Array.copy world._Walls
         }
 
     /// Moore neighborhood deltas, including center.
