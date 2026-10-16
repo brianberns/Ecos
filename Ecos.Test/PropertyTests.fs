@@ -728,8 +728,8 @@ module PropertyTests =
                 Temperature = 1.0
                 BondParameterMap =
                     Map [
-                        Strong, { Energy = 30; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0 }
-                        Weak, { Energy = 1; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0 }
+                        Strong, { Energy = 30; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0 }
+                        Weak, { Energy = 1; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0 }
                     ]
                 PeelBarrier = Double.PositiveInfinity   // no peeling
                 CapPeelBarrier = Double.PositiveInfinity   // no peeling
@@ -894,8 +894,8 @@ module PropertyTests =
                 Temperature = 1.0
                 BondParameterMap =
                     Map [
-                        Strong, { Energy = 0; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0 }
-                        Weak, { Energy = 3; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0 }
+                        Strong, { Energy = 0; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0 }
+                        Weak, { Energy = 3; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0 }
                     ]
                 PeelBarrier = Double.PositiveInfinity   // no peeling
                 CapPeelBarrier = Double.PositiveInfinity   // no peeling
@@ -1296,8 +1296,8 @@ module PropertyTests =
                 Temperature = 1.0
                 BondParameterMap =
                     Map [
-                        Strong, { Energy = 0; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0 }
-                        Weak, { Energy = 3; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0 }
+                        Strong, { Energy = 0; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0 }
+                        Weak, { Energy = 3; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0 }
                     ]
                 PeelBarrier = Double.PositiveInfinity   // no peeling
                 CapPeelBarrier = Double.PositiveInfinity   // no peeling
@@ -1320,8 +1320,8 @@ module PropertyTests =
                 Temperature = 1.0
                 BondParameterMap =
                     Map [
-                        Strong, { Energy = 0; Barrier = 3; BarrierStackReduction = 3; StartBarrier = 0; Entropy = 0 }
-                        Weak, { Energy = 3; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0 }
+                        Strong, { Energy = 0; PairEnergyMap = Map.empty; Barrier = 3; BarrierStackReduction = 3; StartBarrier = 0; Entropy = 0 }
+                        Weak, { Energy = 3; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0 }
                     ]
                 PeelBarrier = Double.PositiveInfinity   // no peeling
                 CapPeelBarrier = Double.PositiveInfinity   // no peeling
@@ -1344,8 +1344,8 @@ module PropertyTests =
                 Temperature = 1.0
                 BondParameterMap =
                     Map [
-                        Strong, { Energy = 2; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = strongEntropy }
-                        Weak, { Energy = 3; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = weakEntropy }
+                        Strong, { Energy = 2; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = strongEntropy }
+                        Weak, { Energy = 3; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = weakEntropy }
                     ]
                 PeelBarrier = Double.PositiveInfinity   // no peeling
                 CapPeelBarrier = Double.PositiveInfinity   // no peeling
@@ -1396,8 +1396,8 @@ module PropertyTests =
                 Temperature = 1.0
                 BondParameterMap =
                     Map [
-                        Strong, { Energy = 0; Barrier = 3; BarrierStackReduction = 5; StartBarrier = 1.5; Entropy = 0 }
-                        Weak, { Energy = 3; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0.5; Entropy = 0 }
+                        Strong, { Energy = 0; PairEnergyMap = Map.empty; Barrier = 3; BarrierStackReduction = 5; StartBarrier = 1.5; Entropy = 0 }
+                        Weak, { Energy = 3; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0.5; Entropy = 0 }
                     ]
                 PeelBarrier = Double.PositiveInfinity   // no peeling
                 CapPeelBarrier = Double.PositiveInfinity   // no peeling
@@ -1409,8 +1409,8 @@ module PropertyTests =
                 Temperature = 1.0
                 BondParameterMap =
                     Map [
-                        Strong, { Energy = 2; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 2; Entropy = 0 }
-                        Weak, { Energy = 1; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0 }
+                        Strong, { Energy = 2; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 2; Entropy = 0 }
+                        Weak, { Energy = 1; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0 }
                     ]
                 PeelBarrier = Double.PositiveInfinity   // no peeling
                 CapPeelBarrier = Double.PositiveInfinity   // no peeling
@@ -1467,8 +1467,8 @@ module PropertyTests =
                 Temperature = 1.0
                 BondParameterMap =
                     Map [
-                        Strong, { Energy = 30; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0 }
-                        Weak, { Energy = 1; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0 }
+                        Strong, { Energy = 30; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0 }
+                        Weak, { Energy = 1; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0 }
                     ]
                 PeelBarrier = 1.0   // peels with probability 1/e
                 CapPeelBarrier = Double.PositiveInfinity   // no peeling

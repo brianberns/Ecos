@@ -35,8 +35,12 @@ module BondType =
 /// (Drawing by Claude, with my edits.)
 type BondTypeParameters =
     {
-        /// Energy delta of this bond type (S).
+        /// Default energy delta of this bond type (S).
         Energy : float
+
+        /// Atom type-specific energy deltas, which override
+        /// the default.
+        PairEnergyMap : Map<AtomType * AtomType, float>
 
         /// Energy barrier to bond formation (E_b).
         Barrier : float
@@ -50,6 +54,16 @@ type BondTypeParameters =
         /// Implicit entropy in this bond type (s).
         Entropy : float
     }
+
+module BondTypeParameters =
+
+    /// Gets the energy delta for the given pairing.
+    let getEnergy atomTypeA atomTypeB parms =
+        let pairEnergyOpt =
+            Map.tryFind (atomTypeA, atomTypeB) parms.PairEnergyMap
+        assert(pairEnergyOpt =
+            Map.tryFind (atomTypeB, atomTypeA) parms.PairEnergyMap)
+        Option.defaultValue parms.Energy pairEnergyOpt
 
 /// Configurable update parameters.
 type Parameters =

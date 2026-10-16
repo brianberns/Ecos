@@ -200,6 +200,7 @@ module Scenario =
             Map [
                 Strong, {
                     Energy = 17
+                    PairEnergyMap = Map.empty
                     Barrier = 3
                     BarrierStackReduction = 3
                     StartBarrier = 1
@@ -207,6 +208,7 @@ module Scenario =
                 }
                 Weak, {
                     Energy = 2
+                    PairEnergyMap = Map.empty
                     Barrier = 0
                     BarrierStackReduction = 0
                     StartBarrier = 0
@@ -243,6 +245,7 @@ module Scenario =
             Map [
                 Strong, {
                     Energy = 34
+                    PairEnergyMap = Map.empty
                     Barrier = 20
                     BarrierStackReduction = 20
                     StartBarrier = 1
@@ -250,6 +253,7 @@ module Scenario =
                 }
                 Weak, {
                     Energy = 2
+                    PairEnergyMap = Map.empty
                     Barrier = 0
                     BarrierStackReduction = 0
                     StartBarrier = 0

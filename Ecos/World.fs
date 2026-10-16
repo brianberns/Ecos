@@ -470,7 +470,9 @@ module World =
             // compute bond energy
         let bondParms = parms.BondParameterMap[bondType]
         let bondEnergy =
-            bondParms.Energy + stackEnergy * float nStacks
+            BondTypeParameters.getEnergy
+                atomA.Type atomB.Type bondParms
+                + stackEnergy * float nStacks
 
             // compute start barrier
         let bondMap = world.BondTypeMap[bondType]

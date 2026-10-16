@@ -60,6 +60,7 @@ module Experiment2 =
                     Strong,
                         {
                             Energy = 17.0
+                            PairEnergyMap = Map.empty
                             Barrier = 0.0                 // replaced
                             BarrierStackReduction = 0.0   // replaced
                             StartBarrier = 0
@@ -68,6 +69,7 @@ module Experiment2 =
                     Weak,
                         {
                             Energy = 1.0
+                            PairEnergyMap = Map.empty
                             Barrier = 0.0
                             BarrierStackReduction = 0.0
                             StartBarrier = 0
