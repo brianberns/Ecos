@@ -1,7 +1,7 @@
 namespace Ecos
 
 /// Types of cells in a grid.
-[<RequireQualifiedAccess>]
+[<Struct; RequireQualifiedAccess>]
 type Cell =
 
     /// Atom with the given unique ID.
