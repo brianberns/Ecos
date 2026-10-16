@@ -16,12 +16,12 @@ module View =
 
     let private brushMap =
         [
-            AtomType.W, "#1F4E9E"
-            AtomType.X, "#2E7D32"
-            AtomType.Y, "#B0006B"
-            AtomType.Z, "#B26A00"
-            AtomType.P, "#000000"
-            AtomType.Q, "#808080"
+            AtomType.W, "#1F4E9E"   // blue
+            AtomType.X, "#2E7D32"   // green
+            AtomType.Y, "#B0006B"   // red
+            AtomType.Z, "#B26A00"   // orange
+            AtomType.P, "#000000"   // black
+            AtomType.Q, "#808080"   // gray
         ]
             |> Seq.map (fun (typ, hex) ->
                 typ, Media.Brush.Parse(hex))
