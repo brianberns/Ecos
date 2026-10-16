@@ -20,7 +20,7 @@ type Benchmarks() =
                 runPhase parms rng phase world)
 
     let run parms rng phases world nCycles =
-        (world, [1 .. nCycles])
+        (world, [ 1 .. nCycles ])
             ||> Seq.fold (fun world _ ->
                 runCycle parms rng phases world)
 
@@ -33,7 +33,7 @@ type Benchmarks() =
                 | Cycle phases ->
                     Array.map (fun phase ->
                         { phase with
-                            NumSweeps = phase.NumSweeps / 10 })
+                            NumSweeps = phase.NumSweeps / 2 })
                         phases
         run
             scenario.Parameters
