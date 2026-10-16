@@ -204,7 +204,7 @@ module Experiment2 =
                 BondParameterMap =
                     Map.add Strong strongParms parms.BondParameterMap }
         for _ in 1 .. settings.EquilibrationSweeps do
-            world <- Ecos.World.sweep frozenParms rng world
+            world <- Ecos.World.sweep frozenParms rng 1 world
         let occupancy =
             if withTemplate then
                 Experiment1.getOccupancy scenario.Template world

@@ -551,7 +551,7 @@ module World =
     /// Performs one update per atom in the world, on average.
     /// Some atoms might be updated more than once, or not at
     /// all.
-    let sweep parms rng (world : World) =
+    let sweep parms rng numSweeps (world : World) =
 
             // make a separate copy of all mutable data structures
         let world =
@@ -561,6 +561,7 @@ module World =
                     _Walls = Array.copy world._Walls
             }
 
-        (world, seq { 1 .. world.Atoms.Length })
+        let nUpdates = numSweeps * world.Atoms.Length
+        (world, seq { 1 .. nUpdates })
             ||> Seq.fold (fun world _ ->
                 update parms rng world |> fst)

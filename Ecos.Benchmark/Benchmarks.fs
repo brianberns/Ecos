@@ -12,9 +12,7 @@ type Benchmarks() =
     let runPhase (parms : Parameters) rng phase world =
         let parms =
             { parms with Temperature = phase.Temperature }
-        (world, [1 .. phase.NumSweeps])
-            ||> Seq.fold (fun world _ ->
-                World.sweep parms rng world)
+        World.sweep parms rng phase.NumSweeps world
 
     let runCycle parms rng phases world =
         (world, phases)
