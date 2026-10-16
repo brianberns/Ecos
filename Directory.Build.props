@@ -9,6 +9,15 @@
     These settings apply to every project under this folder except the
     Avalonia.FuncUI submodule, which has its own Directory.Build.props.
   -->
+  <!--
+    Declare the configuration, so that Visual Studio offers it for each
+    project. Without this, it maps the solution's Profiler configuration
+    to each project's Debug configuration.
+  -->
+  <PropertyGroup>
+    <Configurations>Debug;Release;Profiler</Configurations>
+  </PropertyGroup>
+
   <PropertyGroup Condition="'$(Configuration)' == 'Profiler'">
     <Optimize>true</Optimize>
     <DebugType>portable</DebugType>
