@@ -421,7 +421,7 @@ module PropertyTests =
                     | Cell.Atom idB ->
                         let nStacks = countStacks world idA idB
                         let energy =
-                            Chain.bondEnergy parms Weak
+                            Chain.bondEnergy parms Weak atomA.Type world.Atoms[idB].Type
                                 + Chain.stackEnergy * float nStacks
                         if Bonds.areWeaklyBonded world idA idB then
                             weakBreak <- weakBreak + acceptBreak Weak nStacks (isStart Weak idA idB) energy
@@ -434,7 +434,7 @@ module PropertyTests =
                     | Cell.Atom idB ->
                         let nStacks = countStacksStrong world idA idB
                         let energy =
-                            Chain.bondEnergy parms Strong
+                            Chain.bondEnergy parms Strong atomA.Type world.Atoms[idB].Type
                                 + Chain.stackEnergy * float nStacks
                         if isStronglyBonded world idA idB then
 
@@ -1475,6 +1475,17 @@ module PropertyTests =
             }
         inParallel [|
             fun () -> checkEventRates "Box" parms 100000 (Random(1)) world
+            fun () ->
+                    // some pairs of types with energies of their own
+                let withPairs =
+                    parms
+                        |> TestParameters.withPairEnergies Weak [ (AtomType.Y, AtomType.Z), 15.0 ]
+                        |> TestParameters.withPairEnergies Strong
+                            [
+                                (AtomType.W, AtomType.Y), 4.0
+                                (AtomType.X, AtomType.Z), 30.0
+                            ]
+                checkEventRates "Box, with pair energies" withPairs 100000 (Random(4)) worldNoCaps
             fun () ->
                 checkEventRates
                     "Box, with peeling" peeling 200000 (Random(2)) worldNoCaps
