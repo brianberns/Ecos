@@ -313,15 +313,15 @@ module Chain =
     /// which weak bonds are allowed.
     let withRandomTypes (rng : Random) (world : World) =
         assert (Bonds.weakBondMap world).IsEmpty
+        (*
         let strongBondMap = Bonds.strongBondMap world
         let strongPartners id =
             strongBondMap
                 |> Map.tryFind id
                 |> Option.defaultValue Set.empty
         let pick (types : AtomType[]) = types[rng.Next types.Length]
-        let atoms = System.Collections.Immutable.ImmutableList.CreateRange(world.Atoms)
         let atoms =
-            (atoms, atoms |> Seq.map _.Id |> Seq.toArray)
+            (world.Atoms, world.Atoms |> Seq.map _.Id |> Seq.toArray)
                 ||> Array.fold (fun atoms id ->
                     let partners = strongPartners id
                     let canBeCap =
@@ -334,13 +334,9 @@ module Chain =
                         if canBeCap then pick allTypes
                         else pick codingTypes
                     atoms.SetItem(id, { atoms[id] with Type = typ }))
-        let world =
-            (World.empty, world.Walls)
-                ||> Seq.fold (fun world location ->
-                    World.addWall location world)
-        (world, atoms)
-            ||> Seq.fold (fun world atom ->
-                World.addAtom atom.Type atom.Location world)
+        { world with Atoms = atoms }
+        *)
+        world   // to-do: fix
 
     /// Tries to append atoms at the given locations to the end of the
     /// chain in the given world, bonding each to its predecessor. Fails
