@@ -167,7 +167,7 @@ module RegressionTests =
                     world <- World.updateWith parms rng world
                 fingerprint world
             for _ in 1 .. 20 do
-                world <- Ecos.World.sweep parms rng world
+                world <- Ecos.World.sweep parms rng 1 world
             fingerprint world
         ]
 
