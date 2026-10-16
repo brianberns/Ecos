@@ -570,11 +570,23 @@ module World =
         clone world
             |> updateImpl parms rng
 
-    /// Performs one update per atom in the world, on average.
-    /// Some atoms might be updated more than once, or not at
-    /// all.
-    let sweep parms rng numSweeps (world : World) =
+    /// Performs the given number of sweeps, where each sweep
+    /// is one update per atom in the world, on average. Some
+    /// atoms might be updated more than once, or not at all.
+    let sweepWith parms rng numSweeps onEvent (world : World) =
         let nUpdates = numSweeps * world.Atoms.Length
         (clone world, seq { 1 .. nUpdates })
             ||> Seq.fold (fun world _ ->
-                updateImpl parms rng world |> fst)
+                let world, eventOpt = updateImpl parms rng world
+                match eventOpt with
+                    | Some event ->
+                        onEvent event world.BondTypeMap
+                    | None -> ()
+                world)
+
+    /// Performs the given number of sweeps, where each sweep
+    /// is one update per atom in the world, on average. Some
+    /// atoms might be updated more than once, or not at all.
+    let sweep parms rng numSweeps world =
+        let onEvent _ _ = ()
+        sweepWith parms rng numSweeps onEvent world
