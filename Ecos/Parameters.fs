@@ -38,8 +38,8 @@ type BondTypeParameters =
         /// Default energy delta of this bond type (S).
         Energy : float
 
-        /// Atom type-specific energy deltas, which override
-        /// the default.
+        /// Bidirectional atom type-specific energy deltas, which
+        /// override the default.
         PairEnergyMap : Map<AtomType * AtomType, float>
 
         /// Energy barrier to bond formation (E_b).
@@ -64,6 +64,17 @@ module BondTypeParameters =
         assert(pairEnergyOpt =
             Map.tryFind (atomTypeB, atomTypeA) parms.PairEnergyMap)
         Option.defaultValue parms.Energy pairEnergyOpt
+
+    /// Adds the given energy delta for the given pair. This is
+    /// a bidirectional mapping.
+    let addPairEnergy atomTypeA atomTypeB energy parms =
+        {
+            parms with
+                PairEnergyMap =
+                    parms.PairEnergyMap
+                        |> Map.add (atomTypeA, atomTypeB) energy
+                        |> Map.add (atomTypeB, atomTypeA) energy
+        }
 
 /// Configurable update parameters.
 type Parameters =
