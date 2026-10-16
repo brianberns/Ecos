@@ -349,19 +349,26 @@ module World =
         let x = entropy - energyDelta / kT
         x >= 0 || rng.NextDouble() < exp x
 
-    /// Updates the given atom's location in the given
-    /// world.
+    /// Updates the given atom's location in the given world.
+    /// This is the only place where data structures are
+    /// mutated.
     let private moveAtom atomBefore atomAfter (world : World) =
         assert(atomBefore.Id = atomAfter.Id)
         assert(world.Atoms[atomBefore.Id] = atomBefore)
         assert(world[atomBefore.Location]
             = Cell.Atom atomBefore.Id)
+
         let id = atomBefore.Id
-        world._Atoms[id] <- atomAfter   // MUTATION, replaces `atomBefore`
+
+            // MUTATION
+        world._Atoms[id] <- atomAfter   // replaces `atomBefore`
+
+            // MUTATION
         let cells =
             world.Cells
                 |> Grid.setEmpty atomBefore.Location
                 |> Grid.setAtom atomAfter.Location id
+
         { world with Cells = cells }
 
     /// Attempts to move an atom in the given world.
