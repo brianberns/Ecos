@@ -17,7 +17,7 @@ type Phase =
 /// on the number of sweeps run so far, so a schedule holds no state.
 type Schedule =
 
-    /// A fixed temperature.
+    /// Fixed temperature scaled by Boltzmann's constant (kT).
     | Constant of float
 
     /// Phases that repeat in a loop.
@@ -33,13 +33,16 @@ module Schedule =
             | Constant kT -> kT, None
             | Cycle phases ->
                 assert(phases.Length > 0)
-                assert(phases |> Array.forall (fun phase -> phase.NumSweeps > 0))
-                let period = phases |> Array.sumBy _.NumSweeps
+                assert(Array.forall (fun phase ->
+                    phase.NumSweeps > 0) phases)
+
                 let rec loop t iPhase =
                     let phase = phases[iPhase]
                     if t < phase.NumSweeps then
                         phase.Temperature, Some (phase.NumSweeps - t)
                     else loop (t - phase.NumSweeps) (iPhase + 1)
+
+                let period = Array.sumBy _.NumSweeps phases
                 loop (numSweeps % period) 0
 
     /// The phases of the given schedule, if it cycles.
@@ -106,7 +109,8 @@ module Build =
         assert(x % 2 = 0)
         assert(y % 2 = 0)
         let world, atom =
-            match World.tryAddAtom atomType (Point.create (x, y)) world with
+            let location = Point.create (x, y)
+            match World.tryAddAtom atomType location world with
                 | Some pair -> pair
                 | None -> failwith "Location is not empty"
         if joinPrevious then
@@ -119,19 +123,25 @@ module Build =
     /// Answers the world and the template's atom IDs.
     let addTemplate (rng : Random) nCoding (world : World) =
         assert(world.Atoms.Length = 0)
-        let codingTypes = [| AtomType.W; AtomType.Y |]
+
+            // start cap
         let world =
-            world
-                |> addAtom AtomType.P (-2 - nCoding) 0 false
+            addAtom AtomType.P (-2 - nCoding) 0 false world
+
+            // coding atoms
+        let codingTypes = [| AtomType.W; AtomType.Y |]
         let world =
             (world, [ 0 .. nCoding - 1 ])
                 ||> Seq.fold (fun world i ->
-                    let atomType = codingTypes[rng.Next(codingTypes.Length)]
+                    let atomType =
+                        codingTypes[rng.Next(codingTypes.Length)]
                     addAtom atomType (2 * i - nCoding) 0 true world)
+
+            // end cap
         let world =
-            world
-                |> addAtom AtomType.Q nCoding 0 true
-        world, world.Atoms |> Seq.map _.Id |> Seq.toArray
+            addAtom AtomType.Q nCoding 0 true world
+
+        world, Array.map _.Id world.Atoms
 
     /// Adds rows of free atoms, each row the given number of atoms
     /// long, the given distance apart, in strips by type above and
@@ -140,40 +150,47 @@ module Build =
     let addFreeAtoms nPerRow dist world =
         let rows =
             [
-                AtomType.X, 1; AtomType.X, 2
+                AtomType.P,  5; AtomType.P,  6
+                AtomType.Y,  3; AtomType.Y,  4
+                AtomType.X,  1; AtomType.X,  2
                 AtomType.Z, -1; AtomType.Z, -2
-                AtomType.Y, 3; AtomType.Y, 4
                 AtomType.W, -3; AtomType.W, -4
-                AtomType.P, 5; AtomType.P, 6
                 AtomType.Q, -5; AtomType.Q, -6
             ]
         (world, rows)
             ||> Seq.fold (fun world (atomType, iRow) ->
                 (world, [ 0 .. nPerRow - 1 ])
                     ||> Seq.fold (fun world i ->
-                        addAtom atomType (2 * i - nPerRow) (iRow * dist) false world))
+                        addAtom atomType (2 * i - nPerRow)
+                            (iRow * dist) false world))
 
     /// Adds a horizontal strand of the given atom types, joined in
     /// order, at a random empty place within the given distance of
     /// the origin.
-    let addStrandAtRandom (rng : Random) maxDist (atomTypes : AtomType[]) world =
+    let addStrandAtRandom (rng : Random) maxDist (atomTypes : _[]) world =
         assert(atomTypes.Length >= 2)
+
+        let minX = -maxDist / 2
+        let minY = -maxDist / 2
+        let maxX = (maxDist - 2 * atomTypes.Length) / 2 + 1
+        let maxY = maxDist / 2 + 1
+
         let rec loop () =
-            let x = 2 * rng.Next(-maxDist / 2, (maxDist - 2 * atomTypes.Length) / 2 + 1)
-            let y = 2 * rng.Next(-maxDist / 2, maxDist / 2 + 1)
-            let worldOpt =
-                (Some world, Array.indexed atomTypes)
-                    ||> Array.fold (fun worldOpt (i, atomType) ->
-                        worldOpt
-                            |> Option.bind (fun world ->
-                                World.tryAddAtom atomType (Point.create (x + 2 * i, y)) world)
-                            |> Option.map (fun (world, atom) ->
-                                if i > 0 then
-                                    World.addStrongBond (atom.Id - 1) atom.Id world
-                                else world))
-            match worldOpt with
-                | Some world -> world
-                | None -> loop ()
+            let x = 2 * rng.Next(minX, maxX)
+            let y = 2 * rng.Next(minY, maxY)
+            (Some world, Array.indexed atomTypes)
+                ||> Array.fold (fun worldOpt (i, atomType) ->
+                    worldOpt
+                        |> Option.bind (fun world ->
+                            let loc = Point.create (x + 2 * i, y)
+                            World.tryAddAtom atomType loc world)
+                        |> Option.map (fun (world, atom) ->
+                            if i > 0 then
+                                World.addStrongBond
+                                    (atom.Id - 1) atom.Id world
+                            else world))
+                |> Option.defaultWith loop
+
         loop ()
 
 module Scenario =
@@ -186,7 +203,8 @@ module Scenario =
     let private build withTemplate (rng : Random) =
         let world = Build.addBox 160 160 World.empty
         let world, template =
-            if withTemplate then Build.addTemplate rng nCoding world
+            if withTemplate then
+                Build.addTemplate rng nCoding world
             else world, Array.empty
         let world = Build.addFreeAtoms (6 * nCoding) 6 world
         world, template
