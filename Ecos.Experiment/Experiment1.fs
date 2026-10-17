@@ -78,11 +78,25 @@ module Experiment1 =
             StrongBondsBroken : int
         }
 
+    /// Scenario A's world, with the settings' bond parameters, no
+    /// peeling, and the given fixed temperature.
+    let getScenario settings kT =
+        { Scenario.createScenarioA true with
+            Schedule = Constant kT }
+            |> Scenario.withName $"kT {kT}"
+            |> Scenario.mapParameters (fun parms ->
+                { parms with
+                    BondParameterMap = settings.BondParameterMap
+                    PeelBarrier = Double.PositiveInfinity   // no peeling
+                    CapPeelBarrier = Double.PositiveInfinity })
+
+    /// The experiment's scenarios: one for each temperature.
+    let getScenarios settings =
+        settings.Temperatures |> Array.map (getScenario settings)
+
     /// Runs one world with the given parameters.
-    let private runOne settings parms seed =
-        let scenario = Scenario.createScenarioA true seed
-        let rng = scenario.Random
-        let mutable world = scenario.World
+    let private runOne settings scenario seed =
+        let mutable run = Run.create seed scenario
         let mutable nFormed = 0
         let mutable nBroken = 0
 
@@ -93,13 +107,13 @@ module Experiment1 =
                 | _ -> ()
 
         let sweep nSweeps =
-            world <- Ecos.World.sweepWith parms rng nSweeps onEvent world
+            run <- Run.advanceWith onEvent nSweeps run
 
         sweep settings.EquilibrationSweeps
         let samples =
             Array.init settings.NumSamples (fun _ ->
                 sweep settings.SampleInterval
-                getOccupancy scenario.Template world)
+                getOccupancy run.Template run.World)
 
         let firstHalf, secondHalf =
             Array.splitAt (samples.Length / 2) samples
@@ -134,14 +148,7 @@ module Experiment1 =
                         kT, seed
             |]
                 |> Array.Parallel.map (fun (kT, seed) ->
-                    let parms =
-                        {
-                            Temperature = kT
-                            BondParameterMap = settings.BondParameterMap
-                            PeelBarrier = Double.PositiveInfinity   // no peeling
-                            CapPeelBarrier = Double.PositiveInfinity   // no peeling
-                        }
-                    kT, runOne settings parms seed)
+                    kT, runOne settings (getScenario settings kT) seed)
                 |> Array.groupBy fst
                 |> Array.map (fun (kT, group) -> kT, Array.map snd group)
                 |> Array.sortBy fst

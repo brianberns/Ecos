@@ -12,26 +12,27 @@ open Ecos.Experiment
 /// Elmish model.
 type Model =
     {
+        /// Index of the selected group of scenarios in the registry.
+        GroupIndex : int
+
+        /// Index of the selected scenario within its group.
+        ScenarioIndex : int
+
         /// RNG seed.
         Seed : int
 
-        /// Initial scenario.
-        Scenario : Scenario
+        /// The selected scenario, being run.
+        Run : Run
 
-        /// Current world state.
-        World : World
-
-        /// Current temperature.
-        TemperatureType : TemperatureType
+        /// Indicates whether the temperature is set by hand, instead
+        /// of by the scenario's schedule.
+        IsManual : bool
 
         /// Indicates whether updates are enabled.
-        Run : bool
+        IsRunning : bool
 
         /// Number of sweeps per timer tick.
         Speed : int
-
-        /// Number of sweeps run so far.
-        SweepCount : int
 
         /// Number of updates per second.
         UpdateRate : float
@@ -39,9 +40,7 @@ type Model =
 
     /// Gets the model's current temperature.
     member this.Temperature =
-        match this.TemperatureType with
-            | Adjustable kT -> kT
-            | Cycle phases -> phases[0].Temperature
+        Run.getTemperature this.Run
 
 /// Elmish messages.
 type Message =
@@ -49,7 +48,16 @@ type Message =
     /// Timer tick.
     | Tick
 
-    /// Sets temperature.
+    /// Selects a group of scenarios.
+    | SelectGroup of int
+
+    /// Selects a scenario within the current group.
+    | SelectScenario of int
+
+    /// Sets the temperature by hand, or by the scenario's schedule.
+    | SetManual of bool
+
+    /// Sets the temperature by hand.
     | SetTemperature of float
 
     /// Turns updates on or off.
@@ -66,112 +74,77 @@ type Message =
 
 module Model =
 
-    /// Creates a model.
-    let create seed speed =
-        let scenario = Scenario.createScenarioB true seed
+    /// Creates a model that runs the given scenario from the start.
+    let create groupIndex scenarioIndex seed speed =
+        let scenario =
+            Registry.groups[groupIndex].Scenarios[scenarioIndex]
         {
+            GroupIndex = groupIndex
+            ScenarioIndex = scenarioIndex
             Seed = seed
-            Scenario = scenario
-            World = scenario.World
-            TemperatureType = scenario.TemperatureType
-            Run = false
+            Run = Run.create seed scenario
+            IsManual = false
+            IsRunning = false
             Speed = speed
-            SweepCount = 0
             UpdateRate = 0
         }
 
     /// Initializes a model.
     let init () =
-        create 0 200
-
-    /// Runs the given number of sweeps.
-    let private runSweeps numSweeps (model : Model) =
-        assert(numSweeps > 0)
-
-            // update world
-        let world =
-            let parms =
-                { model.Scenario.Parameters with
-                    Temperature = model.Temperature }
-            World.sweep
-                parms
-                model.Scenario.Random
-                model.Speed
-                model.World
-
-            // update temperature
-        let tempType =
-            match model.TemperatureType with
-                | Cycle phases ->
-
-                        // update current phase
-                    let phase = phases[0]
-                    assert(numSweeps <= phase.NumSweeps)
-                    assert(phase.NumSweeps > 0)
-                    let phase =
-                        { phase with
-                            NumSweeps = phase.NumSweeps - numSweeps }
-
-                        // current phase is over?
-                    if phase.NumSweeps = 0 then
-                        if phases.Length = 1 then
-                            model.Scenario.TemperatureType   // start cycling from the beginning again
-                        else
-                            Cycle phases[1..]                // move to next phase
-                    else
-                        Cycle [|
-                            phase
-                            yield! phases[1..]
-                        |]
-
-                | tempType -> tempType
-
-            // update model
-        { model with
-            World = world
-            TemperatureType = tempType
-            SweepCount = model.SweepCount + model.Speed }
+        create 0 0 0 200
 
     let private stopwatch = Stopwatch()
 
     let mutable private lastElapsed = stopwatch.Elapsed
 
-    /// Moves N random atoms per tick. Duplicates or omissions are
-    /// possible.
+    /// Runs one tick's worth of sweeps.
     let handleTick model =
-
-        let rec loop numSweeps model =
-            match model.TemperatureType with
-                | Cycle phases ->
-                    let n = min numSweeps phases[0].NumSweeps
-                    let model = runSweeps n model
-                    let numSweeps = numSweeps - n
-                    if numSweeps > 0 then
-                        loop numSweeps model
-                    else model
-                | Adjustable _ -> runSweeps numSweeps model
-
-        if model.Run then
-            let model = loop model.Speed model
+        if model.IsRunning then
+            let run = Run.advance model.Speed model.Run
             let updateRate =
                 let prev = lastElapsed
                 lastElapsed <- stopwatch.Elapsed
                 1.0 / (lastElapsed - prev).TotalSeconds
-            { model with UpdateRate = updateRate }
+            { model with
+                Run = run
+                UpdateRate = updateRate }
         else model
+
+    /// Handles selection of a group of scenarios.
+    let handleSelectGroup groupIndex model =
+        if groupIndex = model.GroupIndex then model
+        else create groupIndex 0 model.Seed model.Speed
+
+    /// Handles selection of a scenario.
+    let handleSelectScenario scenarioIndex model =
+        if scenarioIndex = model.ScenarioIndex then model
+        else create model.GroupIndex scenarioIndex model.Seed model.Speed
+
+    /// Handles a switch between manual and scheduled temperature.
+    let handleSetManual isManual (model : Model) =
+        if isManual = model.IsManual then model
+        else
+            let schedule =
+                if isManual then Constant model.Temperature   // hold the current temperature
+                else model.Run.Scenario.Schedule
+            { model with
+                IsManual = isManual
+                Run = { model.Run with Schedule = schedule } }
 
     /// Handles temperature change.
     let handleSetTemperature kT (model : Model) =
-        { model with
-            TemperatureType = Adjustable kT }
+        if model.IsManual then
+            { model with
+                Run = { model.Run with Schedule = Constant kT } }
+        else model
 
     /// Handles `run` flag change.
-    let handleSetRun run model =
-        if run then
+    let handleSetRun isRunning model =
+        if isRunning then
             stopwatch.Start()
             lastElapsed <- stopwatch.Elapsed
         else stopwatch.Stop()
-        { model with Run = run }
+        { model with IsRunning = isRunning }
 
     /// Handles speed change.
     let handleSetSpeed speed model =
@@ -183,14 +156,17 @@ module Model =
 
     /// Handles model reset.
     let handleReset model =
-        create model.Seed model.Speed
+        create model.GroupIndex model.ScenarioIndex model.Seed model.Speed
 
     /// Handles a message.
     let update msg model =
         match msg with
             | Tick -> handleTick model
+            | SelectGroup index -> handleSelectGroup index model
+            | SelectScenario index -> handleSelectScenario index model
+            | SetManual isManual -> handleSetManual isManual model
             | SetTemperature kT -> handleSetTemperature kT model
-            | SetRun run -> handleSetRun run model
+            | SetRun isRunning -> handleSetRun isRunning model
             | SetSpeed speed -> handleSetSpeed speed model
             | SetSeed seed -> handleSetSeed seed model
             | Reset -> handleReset model

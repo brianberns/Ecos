@@ -41,13 +41,20 @@ module Experiment3 =
             CapPeelBarrier = Some Double.PositiveInfinity
         }
 
-    /// The given scenario's parameters at the given temperature, with
-    /// the given cap peel barrier instead of the scenario's, if any.
-    let getParameters (scenario : Scenario) capPeelBarrier kT =
-        let parms = { scenario.Parameters with Temperature = kT }
-        match capPeelBarrier with
-            | Some barrier -> { parms with CapPeelBarrier = barrier }
-            | None -> parms
+    /// Scenario B, with the settings' cap peel barrier instead of its
+    /// own, if any.
+    let getScenario settings =
+        let scenario = Scenario.createScenarioB true
+        match settings.CapPeelBarrier with
+            | Some barrier ->
+                scenario
+                    |> Scenario.withCapPeelBarrier barrier
+                    |> Scenario.withName $"cap peel barrier {barrier}"
+            | None -> scenario
+
+    /// The experiment's scenarios: just one.
+    let getScenarios settings =
+        [| getScenario settings |]
 
     /// Prints the given parameters, apart from temperature.
     let printParameters (parms : Parameters) =
@@ -376,9 +383,9 @@ module Experiment3 =
         }
 
     /// Runs the given number of sweeps. (One sweep is one update per
-    /// atom.) Answers the resulting world, the strong bonds formed,
+    /// atom.) Answers the resulting run, the strong bonds formed,
     /// and the number broken.
-    let private runPhase template parms rng nSweeps (world : World) =
+    let private runPhase template nSweeps run =
         let joins = ResizeArray()
         let mutable nBreaks = 0
         let onEvent event (bonds : Map<BondType, BondMap>) =
@@ -397,39 +404,33 @@ module Experiment3 =
                     joins.Add(getJoin template before idA idB)
                 | BreakBond (Strong, _, _) -> nBreaks <- nBreaks + 1
                 | _ -> ()
-        let world = World.sweepWith parms rng nSweeps onEvent world
-        world, joins.ToArray(), nBreaks
+        let run = Run.advanceWith onEvent nSweeps run
+        run, joins.ToArray(), nBreaks
 
     /// The phases of the given scenario.
-    let getPhases scenario =
-        match scenario.TemperatureType with
-            | Cycle phases -> phases
-            | Adjustable _ -> failwith "Scenario has no temperature cycle"
+    let getPhases (scenario : Scenario) =
+        Schedule.getPhases scenario.Schedule
 
     /// Runs one world through the cycles. Answers a result for each
     /// phase of each cycle, in order.
     let private runOne settings seed =
-        let scenario = Scenario.createScenarioB true seed
-        let rng = scenario.Random
-        let template = set scenario.Template
-        let mutable world = scenario.World
-        let mutable census = getCensus scenario.Template world
+        let scenario = getScenario settings
+        let mutable run = Run.create seed scenario
+        let template = set run.Template
+        let mutable census = getCensus run.Template run.World
         [|
             for iCycle in 1 .. settings.NumCycles do
                 for phase in getPhases scenario do
-                    let parms =
-                        getParameters
-                            scenario settings.CapPeelBarrier phase.Temperature
-                    let world', joins, nBreaks =
-                        runPhase template parms rng phase.NumSweeps world
-                    let census' = getCensus scenario.Template world'
+                    let run', joins, nBreaks =
+                        runPhase template phase.NumSweeps run
+                    let census' = getCensus run.Template run'.World
                     {
                         Before = census
                         After = census'
                         Joins = joins
                         Breaks = nBreaks
                     }
-                    world <- world'
+                    run <- run'
                     census <- census'
                 eprintfn "Seed %d: finished cycle %d of %d" seed iCycle settings.NumCycles
         |]
@@ -438,11 +439,12 @@ module Experiment3 =
     /// to the given CSV file.
     let run (settings : Settings) (csvPath : string) =
 
-        let scenario = Scenario.createScenarioB true 0
-        if scenario.Template.Length = 0 then
+        let scenario = getScenario settings
+        let example = Run.create 0 scenario
+        if example.Template.Length = 0 then
             failwith "Scenario has no template"
         let phases = getPhases scenario
-        let nTemplate = scenario.Template.Length
+        let nTemplate = example.Template.Length
 
             // run every seed in parallel
         let mutable nDone = 0
@@ -461,10 +463,10 @@ module Experiment3 =
                     results[iCycle * phases.Length + iPhase])
 
         printfn "Experiment 3: temperature cycling"
-        printfn "%d runs of %d cycles; %d atoms" settings.NumRuns settings.NumCycles scenario.World.Atoms.Length
+        printfn "%d runs of %d cycles; %d atoms" settings.NumRuns settings.NumCycles example.World.Atoms.Length
         for phase in phases do
             printfn "Phase: kT %g for %d sweeps" phase.Temperature phase.NumSweeps
-        printParameters (getParameters scenario settings.CapPeelBarrier nan)
+        printParameters scenario.Parameters
         printfn ""
         printfn "Strands"
         printfn "                         |----------------- at the end of the phase -----------------|  |- during -|   |--- still intact ---|"
@@ -699,7 +701,7 @@ module Experiment3 =
             [| AtomType.W; AtomType.X; AtomType.Y; AtomType.Z; AtomType.P; AtomType.Q |]
         printfn ""
         printfn "Free atoms at the end of each phase (averages per run, of %d atoms in all)"
-            scenario.World.Atoms.Length
+            example.World.Atoms.Length
         printfn "cycle    kT   sweeps          W       X       Y       Z       P       Q     total"
         for iCycle in 0 .. settings.NumCycles - 1 do
             for iPhase in 0 .. phases.Length - 1 do

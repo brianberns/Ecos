@@ -45,9 +45,9 @@ module View =
         ]
 
     let renderAtoms model =
-        let templateIds = set model.Scenario.Template
+        let templateIds = set model.Run.Template
         [
-            for atom in model.World.Atoms do
+            for atom in model.Run.World.Atoms do
                 Ellipse.create [
                     Ellipse.width 2
                     Ellipse.height 2
@@ -110,10 +110,10 @@ module View =
                     Canvas.renderTransform (ScaleTransform(scale, scale))
                     Canvas.renderTransformOrigin RelativePoint.TopLeft
                     Canvas.children [
-                        yield! renderWalls model.World
+                        yield! renderWalls model.Run.World
                         yield! renderAtoms model
-                        yield! renderStrongBonds model.World
-                        yield! renderWeakBonds model.World
+                        yield! renderStrongBonds model.Run.World
+                        yield! renderWeakBonds model.Run.World
                     ]
                 ])
         ]
@@ -151,6 +151,74 @@ module View =
             ]
         ]
 
+    /// Names of the scenario groups, and of the scenarios in each. These
+    /// are built once, so that the combo boxes see the same items on
+    /// every render.
+    let private groupNames =
+        Registry.groups |> Array.map _.Name
+
+    let private scenarioNames =
+        Registry.groups
+            |> Array.map (fun group ->
+                group.Scenarios |> Array.map _.Name)
+
+    /// A combo box of the given names. Its handler is attached only
+    /// once, so it must not capture anything that changes; the model
+    /// ignores a selection that is already current.
+    let private renderComboBox
+        key (names : string[]) (index : int) (onSelect : int -> unit) =
+        ComboBox.create [
+            ComboBox.dataItems names
+            ComboBox.selectedIndex index
+            ComboBox.width 260
+            ComboBox.margin margin
+            ComboBox.onSelectedIndexChanged (fun i ->
+                if i >= 0 then onSelect i)   // -1 means the selection was cleared
+        ]
+            |> View.withKey key   // a new key gives a new box, rather than one whose items change under it
+
+    let renderScenario (model : Model) dispatch =
+        StackPanel.create [
+            StackPanel.dock Dock.Top
+            StackPanel.orientation Orientation.Vertical
+            StackPanel.children [
+                StackPanel.create [
+                    StackPanel.orientation Orientation.Horizontal
+                    StackPanel.children [
+                        renderLabel "Group:" labelColumnWidth
+                        renderComboBox "groups"
+                            groupNames
+                            model.GroupIndex
+                            (SelectGroup >> dispatch)
+                    ]
+                ]
+                StackPanel.create [
+                    StackPanel.orientation Orientation.Horizontal
+                    StackPanel.children [
+                        renderLabel "Scenario:" labelColumnWidth
+                        renderComboBox $"scenarios {model.GroupIndex}"
+                            scenarioNames[model.GroupIndex]
+                            model.ScenarioIndex
+                            (SelectScenario >> dispatch)
+                    ]
+                ]
+            ]
+        ]
+
+    let renderManual isManual dispatch =
+        CheckBox.create [
+            CheckBox.content "Manual"
+            CheckBox.isChecked (isManual : bool)
+            CheckBox.margin margin
+            CheckBox.foreground Colors.Black
+            CheckBox.onIsCheckedChanged (fun args ->
+                let box = args.Source :?> CheckBox
+                if box.IsChecked.HasValue then
+                    box.IsChecked.Value
+                        |> SetManual
+                        |> dispatch)
+        ]
+
     let renderTemperature (model : Model) dispatch =
         let kT = model.Temperature
         StackPanel.create [
@@ -158,7 +226,7 @@ module View =
             StackPanel.orientation Orientation.Horizontal
             StackPanel.children [
                 renderLabel "Temperature:" labelColumnWidth
-                if model.TemperatureType.IsAdjustable then
+                if model.IsManual then
                     NumericUpDown.create [
                         NumericUpDown.minimum 0
                         NumericUpDown.maximum 5
@@ -176,6 +244,7 @@ module View =
                     ]
                 else
                     renderLabel $"%0.2f{kT}" labelColumnWidth
+                renderManual model.IsManual dispatch
             ]
         ]
 
@@ -263,7 +332,7 @@ module View =
             StackPanel.dock Dock.Top
             StackPanel.orientation Orientation.Horizontal
             StackPanel.children [
-                renderRun model.Run dispatch
+                renderRun model.IsRunning dispatch
                 renderReset dispatch
             ]
         ]
@@ -274,7 +343,8 @@ module View =
             DockPanel.background Colors.LightGray
             DockPanel.lastChildFill false
             DockPanel.children [
-                renderSweepCount model.SweepCount
+                renderScenario model dispatch
+                renderSweepCount model.Run.NumSweeps
                 renderUpdateRate model.UpdateRate
                 renderTemperature model dispatch
                 renderSpeed model.Speed dispatch

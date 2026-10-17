@@ -126,6 +126,8 @@ Run the desktop app:
 dotnet run -c Release --project Ecos.Desktop
 ```
 
+The app offers every scenario: the standard ones, and each experiment's variants. With the same scenario and seed, it replays exactly the world that an experiment ran. (The exception is experiment 2, which first lets its worlds settle with strong bonds frozen.)
+
 Run the tests:
 
 ```bash

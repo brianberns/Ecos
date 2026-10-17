@@ -10,6 +10,7 @@
     <Compile Include="PhysicsTests.fs" />
     <Compile Include="PropertyTests.fs" />
     <Compile Include="RegressionTests.fs" />
+    <Compile Include="ScenarioTests.fs" />
   </ItemGroup>
 
   <ItemGroup>
@@ -28,6 +29,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Ecos\Ecos.fsproj" />
+    <ProjectReference Include="..\Ecos.Experiment\Ecos.Experiment.fsproj" />
   </ItemGroup>
 
 </Project>

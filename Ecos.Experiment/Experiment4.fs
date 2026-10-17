@@ -61,19 +61,24 @@ module Experiment4 =
             CapPeelBarrier = None
         }
 
-    /// The given scenario's parameters at the given temperature, with
-    /// the given strong bond barrier (and reduction per stack) and the
-    /// settings' cap peel barrier, if any.
-    let private getParameters settings scenario barrier kT =
-        let parms =
-            Experiment3.getParameters scenario settings.CapPeelBarrier kT
-        let strongParms =
-            { parms.BondParameterMap[Strong] with
-                Barrier = barrier
-                BarrierStackReduction = barrier }
-        { parms with
-            BondParameterMap =
-                Map.add Strong strongParms parms.BondParameterMap }
+    /// Scenario B with no template, and the settings' cap peel barrier
+    /// instead of its own, if any.
+    let private getBaseScenario settings =
+        let scenario = Scenario.createScenarioB false
+        match settings.CapPeelBarrier with
+            | Some barrier -> Scenario.withCapPeelBarrier barrier scenario
+            | None -> scenario
+
+    /// The experiment's scenario for the given strong bond barrier (and
+    /// reduction per stack).
+    let getScenario settings barrier =
+        getBaseScenario settings
+            |> Scenario.withStrongBarrier barrier
+            |> Scenario.withName $"barrier {barrier}"
+
+    /// The experiment's scenarios: one for each strong bond barrier.
+    let getScenarios settings =
+        settings.StrongBarriers |> Array.map (getScenario settings)
 
     /// What a world contains at the end of a cycle.
     type private CycleResult =
@@ -101,23 +106,19 @@ module Experiment4 =
     let private runOne settings barrier seed =
 
             // free atoms only, with experiment 3's parameters and cycle
-        let scenario = Scenario.createScenarioB false seed
+        let scenario = getScenario settings barrier
         let phases = getPhases scenario
-        let rng = scenario.Random
-        let mutable world = scenario.World
+        let mutable run = Run.create seed scenario
         [|
             for iCycle in 1 .. settings.NumCycles do
                 let mutable nStrandsBeforeHeat = 0
                 for iPhase, phase in Array.indexed phases do
-                    let parms =
-                        getParameters
-                            settings scenario barrier phase.Temperature
-                    world <- World.sweep parms rng phase.NumSweeps world
+                    run <- Run.advance phase.NumSweeps run
                     if iPhase = 0 then
-                        nStrandsBeforeHeat <- (getStrands world).Length
+                        nStrandsBeforeHeat <- (getStrands run.World).Length
                 eprintfn "Barrier %g, seed %d: finished cycle %d of %d" barrier seed iCycle settings.NumCycles
                 {
-                    Families = getCappedFamilies world
+                    Families = getCappedFamilies run.World
                     StrandsBeforeHeat = nStrandsBeforeHeat
                 }
         |]
@@ -161,17 +162,18 @@ module Experiment4 =
                     barrier, Array.map snd group)
                 |> Map
 
-        let cycled = Scenario.createScenarioB false 0
+        let cycled = getBaseScenario settings
+        let example = Run.create 0 cycled
         let phases = getPhases cycled
         printfn "Experiment 4: emergence of strands from free atoms, with no template"
         printfn
             "%d runs of %d cycles with each barrier; %d atoms"
             settings.NumRuns settings.NumCycles
-            cycled.World.Atoms.Length
+            example.World.Atoms.Length
         for phase in phases do
             printfn "Phase: kT %g for %d sweeps" phase.Temperature phase.NumSweeps
         Experiment3.printParameters
-            (Experiment3.getParameters cycled settings.CapPeelBarrier nan)
+            cycled.Parameters
         printfn "(The strong bond barrier and its reduction per stack are replaced by each value below.)"
 
         use writer = new StreamWriter(csvPath)

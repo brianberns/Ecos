@@ -186,32 +186,62 @@ module Experiment2 =
                         Set.union seen chain, max longest chain.Count)
         longest
 
-    /// Runs one world, with or without a template, using the given
-    /// parameters.
-    let private runOne settings withTemplate (parms : Parameters) seed =
-        let scenario = Scenario.createScenarioA withTemplate seed
-        let rng = scenario.Random
-        let template = set scenario.Template
-        let free = Set.difference (scenario.World.Atoms |> Seq.map _.Id |> set) template
-        let mutable world = scenario.World
+    /// Scenario A's world, with or without a template, with the
+    /// settings' bond parameters, the given strong bond barrier and
+    /// reduction per stack, no peeling, and the given fixed temperature.
+    let getScenario settings barrier reduction kT withTemplate =
+        let name =
+            sprintf "barrier %g, reduction %g, kT %g%s"
+                barrier reduction kT (if withTemplate then "" else ", no template")
+        { Scenario.createScenarioA withTemplate with
+            Schedule = Constant kT }
+            |> Scenario.withName name
+            |> Scenario.mapParameters (fun parms ->
+                { parms with
+                    BondParameterMap = settings.BondParameterMap
+                    PeelBarrier = Double.PositiveInfinity   // no peeling
+                    CapPeelBarrier = Double.PositiveInfinity })
+            |> Scenario.mapBondParameters Strong (fun bondParms ->
+                { bondParms with
+                    Barrier = barrier
+                    BarrierStackReduction = reduction })
+
+    /// The experiment's scenarios: one for each combination of settings.
+    /// (The desktop app runs them without the experiment's settling
+    /// period.)
+    let getScenarios settings =
+        [|
+            for barrier in settings.StrongBondBarriers do
+                for reduction in settings.StrongBondBarrierStackReductions do
+                    for kT in settings.Temperatures do
+                        for withTemplate in [ false; true ] do
+                            getScenario settings barrier reduction kT withTemplate
+        |]
+
+    /// Runs one world of the given scenario.
+    let private runOne settings (scenario : Scenario) seed =
+        let run = Run.create seed scenario
+        let template = set run.Template
+        let free = Set.difference (run.World.Atoms |> Seq.map _.Id |> set) template
+        let withTemplate = not template.IsEmpty
 
             // settle, with strong bonds frozen by an impassable barrier
-        let frozenParms =
-            let strongParms =
-                { parms.BondParameterMap[Strong] with
-                    Barrier = Double.PositiveInfinity
-                    BarrierStackReduction = 0.0 }
-            { parms with
-                BondParameterMap =
-                    Map.add Strong strongParms parms.BondParameterMap }
-        for _ in 1 .. settings.EquilibrationSweeps do
-            world <- Ecos.World.sweep frozenParms rng 1 world
+        let frozen =
+            scenario
+                |> Scenario.mapBondParameters Strong (fun bondParms ->
+                    { bondParms with
+                        Barrier = Double.PositiveInfinity
+                        BarrierStackReduction = 0.0 })
+        let run =
+            { run with Scenario = frozen }
+                |> Run.advance settings.EquilibrationSweeps
+        let mutable run = { run with Scenario = scenario }
         let occupancy =
             if withTemplate then
-                Experiment1.getOccupancy scenario.Template world
+                Experiment1.getOccupancy run.Template run.World
             else 0.0
         let nAdjacent, nSameSide =
-            countAdjacentPairs scenario.Template free world
+            countAdjacentPairs run.Template free run.World
 
             // measure
         let mutable nSweeps = 0
@@ -230,7 +260,7 @@ module Experiment2 =
                         | _ -> nTemplateEnd <- nTemplateEnd + 1
                 | _ -> ()
         while nSweeps < settings.MaxSweeps && nJoins < settings.MaxJoins do
-            world <- Ecos.World.sweepWith parms rng 1 onEvent world
+            run <- Run.advanceWith onEvent 1 run
             nSweeps <- nSweeps + 1
 
         {
@@ -241,7 +271,7 @@ module Experiment2 =
             Joins = nJoins
             TemplatedJoins = nTemplated
             TemplateEndJoins = nTemplateEnd
-            LongestChain = getLongestChain free world
+            LongestChain = getLongestChain free run.World
         }
 
     /// Joins per 10,000 sweeps, pooled over the given runs, and the
@@ -268,20 +298,9 @@ module Experiment2 =
                                     barrier, reduction, kT, withTemplate, seed
             |]
                 |> Array.Parallel.map (fun (barrier, reduction, kT, withTemplate, seed) ->
-                    let parms =
-                        let strongParms =
-                            { settings.BondParameterMap[Strong] with
-                                Barrier = barrier
-                                BarrierStackReduction = reduction }
-                        {
-                            Temperature = kT
-                            BondParameterMap =
-                                Map.add Strong strongParms settings.BondParameterMap
-                            PeelBarrier = Double.PositiveInfinity   // no peeling
-                            CapPeelBarrier = Double.PositiveInfinity   // no peeling
-                        }
+                    let scenario = getScenario settings barrier reduction kT withTemplate
                     (barrier, reduction, kT),
-                    (withTemplate, runOne settings withTemplate parms seed))
+                    (withTemplate, runOne settings scenario seed))
                 |> Array.groupBy fst
                 |> Array.map (fun (key, group) ->
                     let runs = Array.map snd group

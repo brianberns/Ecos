@@ -63,17 +63,16 @@ module Experiment6 =
             Other : int
         }
 
-    /// The given scenario's parameters at the given temperature, with
-    /// the given strong bond barrier (and reduction per stack).
-    let private getParameters scenario barrier kT =
-        let parms = Experiment3.getParameters scenario None kT
-        let strongParms =
-            { parms.BondParameterMap[Strong] with
-                Barrier = barrier
-                BarrierStackReduction = barrier }
-        { parms with
-            BondParameterMap =
-                Map.add Strong strongParms parms.BondParameterMap }
+    /// Scenario B with the given strong bond barrier (and reduction per
+    /// stack).
+    let getScenario barrier =
+        Scenario.createScenarioB true
+            |> Scenario.withStrongBarrier barrier
+            |> Scenario.withName $"barrier {barrier}"
+
+    /// The experiment's scenarios: one for each strong bond barrier.
+    let getScenarios settings =
+        settings.StrongBarriers |> Array.map getScenario
 
     /// Sorts the capped chains in the given world.
     let private getCensus templateFamily (world : World) =
@@ -105,21 +104,18 @@ module Experiment6 =
     /// Runs one world through the cycles. Answers a result for each
     /// cycle.
     let private runOne settings barrier seed =
-        let scenario = Scenario.createScenarioB true seed
+        let scenario = getScenario barrier
+        let mutable run = Run.create seed scenario
         let templateFamily =
-            scenario.Template
-                |> Array.map (fun id -> scenario.World.Atoms[id].Type)
+            run.Template
+                |> Array.map (fun id -> run.World.Atoms[id].Type)
                 |> getFamily
-        let phases = getPhases scenario
-        let rng = scenario.Random
-        let mutable world = scenario.World
         [|
             for iCycle in 1 .. settings.NumCycles do
-                for phase in phases do
-                    let parms = getParameters scenario barrier phase.Temperature
-                    world <- World.sweep parms rng phase.NumSweeps world
+                for phase in getPhases scenario do
+                    run <- Run.advance phase.NumSweeps run
                 eprintfn "Barrier %g, seed %d: finished cycle %d of %d" barrier seed iCycle settings.NumCycles
-                getCensus templateFamily world
+                getCensus templateFamily run.World
         |]
 
     /// Runs the experiment, prints tables of results, and writes them
@@ -147,15 +143,16 @@ module Experiment6 =
                     barrier, Array.map snd group)
                 |> Map
 
-        let scenario = Scenario.createScenarioB true 0
+        let scenario = Scenario.createScenarioB true
+        let example = Run.create 0 scenario
         printfn "Experiment 6: competition between the template's lineage and chance replicators"
         printfn
             "%d runs of %d cycles with each barrier; %d atoms; template of %d atoms"
             settings.NumRuns settings.NumCycles
-            scenario.World.Atoms.Length scenario.Template.Length
+            example.World.Atoms.Length example.Template.Length
         for phase in getPhases scenario do
             printfn "Phase: kT %g for %d sweeps" phase.Temperature phase.NumSweeps
-        printParameters (Experiment3.getParameters scenario None nan)
+        printParameters scenario.Parameters
         printfn "(The strong bond barrier and its reduction per stack are replaced by each value below.)"
 
         use writer = new StreamWriter(csvPath)

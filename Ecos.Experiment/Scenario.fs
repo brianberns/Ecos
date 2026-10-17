@@ -3,6 +3,7 @@ namespace Ecos.Experiment
 open System
 open Ecos
 
+/// A stretch of time at one temperature.
 type Phase =
     {
         /// Temperature scaled by Boltzmann's constant (kT).
@@ -12,33 +13,73 @@ type Phase =
         NumSweeps : int
     }
 
-type TemperatureType =
+/// Temperature over time. The temperature at any moment depends only
+/// on the number of sweeps run so far, so a schedule holds no state.
+type Schedule =
 
-    /// Only the initial temperature is specified.
-    | Adjustable of float
+    /// A fixed temperature.
+    | Constant of float
 
-    /// Phases to run in a loop.
+    /// Phases that repeat in a loop.
     | Cycle of Phase[]
 
+module Schedule =
+
+    /// Answers the temperature after the given number of sweeps, and
+    /// the number of sweeps until it next changes, if it ever does.
+    let getTemperature numSweeps schedule =
+        assert(numSweeps >= 0)
+        match schedule with
+            | Constant kT -> kT, None
+            | Cycle phases ->
+                assert(phases.Length > 0)
+                assert(phases |> Array.forall (fun phase -> phase.NumSweeps > 0))
+                let period = phases |> Array.sumBy _.NumSweeps
+                let rec loop t iPhase =
+                    let phase = phases[iPhase]
+                    if t < phase.NumSweeps then
+                        phase.Temperature, Some (phase.NumSweeps - t)
+                    else loop (t - phase.NumSweeps) (iPhase + 1)
+                loop (numSweeps % period) 0
+
+    /// The phases of the given schedule, if it cycles.
+    let getPhases = function
+        | Cycle phases -> phases
+        | Constant _ -> failwith "Schedule has no phases"
+
+/// A description of a world to run: how to build it, its parameters,
+/// and its temperature over time. It holds no state, so the same
+/// scenario can be run any number of times, in parallel. (It holds a
+/// function, so two scenarios are equal only if they are the same one.)
+[<ReferenceEquality>]
 type Scenario =
     {
-        World : World
-        Template : AtomId[]
-        TemperatureType : TemperatureType
+        /// Name of the scenario.
+        Name : string
+
+        /// Builds the initial world, using the given random number
+        /// generator. Answers the world and the IDs of the atoms of
+        /// its template strand, if it has one.
+        Build : Random -> World * AtomId[]
+
+        /// Parameters, apart from temperature, which comes from the
+        /// schedule. (Their temperature is NaN.)
         Parameters : Parameters
-        Random : Random
+
+        /// Temperature over time.
+        Schedule : Schedule
     }
 
-module Scenario =
+/// Building blocks for a scenario's world.
+module Build =
 
     let private addVerticalWall x yStart yEnd world =
         assert(x % 2 = 0)
         assert(yStart % 2 = 0)
         assert(yEnd % 2 = 0)
-        (world, [ yStart .. 2.. yEnd ])
+        (world, [ yStart .. 2 .. yEnd ])
             ||> Seq.fold (fun world y ->
-                let loc = Point.create (x, y)
-                World.addWall loc world)
+                World.addWall (Point.create (x, y)) world)
 
     let private addHorizontalWall xStart xEnd y world =
         assert(xStart % 2 = 0)
@@ -46,10 +87,11 @@ module Scenario =
         assert(y % 2 = 0)
         (world, [ xStart .. 2 .. xEnd ])
             ||> Seq.fold (fun world x ->
-                let loc = Point.create (x, y)
-                World.addWall loc world)
+                World.addWall (Point.create (x, y)) world)
 
-    let private addBox width height world =
+    /// Adds a box of walls with the given outer size, centered on the
+    /// origin.
+    let addBox width height world =
         let height' = height - 2 * 2
         world
             |> addHorizontalWall -(width/2) (width/2) -(height/2)
@@ -57,212 +99,277 @@ module Scenario =
             |> addVerticalWall -(width/2) -(height'/2) (height'/2)
             |> addVerticalWall (width/2) -(height'/2) (height'/2)
 
-    let private addAtom atomType x y withBond world =
+    /// Adds an atom of the given type at the given location, which
+    /// must be empty, optionally joined to the atom added just before
+    /// it.
+    let private addAtom atomType x y joinPrevious world =
         assert(x % 2 = 0)
         assert(y % 2 = 0)
-        let loc = Point.create (x, y)
         let world, atom =
-            match World.tryAddAtom atomType loc world with
+            match World.tryAddAtom atomType (Point.create (x, y)) world with
                 | Some pair -> pair
-                | None -> failwith "Unexpected"
-        if withBond then
+                | None -> failwith "Location is not empty"
+        if joinPrevious then
             World.addStrongBond (atom.Id - 1) atom.Id world
         else world
 
-    let private addAtomRnd
-        (rng : Random) (atomTypes : _[]) x y withBond world =
-        let atomType =
-            atomTypes[rng.Next(atomTypes.Length)]
-        addAtom atomType x y withBond world
-
-    let private addTemplate rng nTemplate world =
-
-            // cap on start
+    /// Adds a horizontal template strand of the given number of
+    /// coding atoms, each a random W or Y, with a P cap at its start
+    /// and a Q cap at its end. The world must have no atoms yet.
+    /// Answers the world and the template's atom IDs.
+    let addTemplate (rng : Random) nCoding (world : World) =
+        assert(world.Atoms.Length = 0)
+        let codingTypes = [| AtomType.W; AtomType.Y |]
         let world =
-            addAtom AtomType.P (2 * -1 - nTemplate) 0 false world
-
-            // random sequence
-        let atomTypes = [| AtomType.W; AtomType.Y |]
+            world
+                |> addAtom AtomType.P (-2 - nCoding) 0 false
         let world =
-            (world, [ 0 .. nTemplate - 1 ])
+            (world, [ 0 .. nCoding - 1 ])
                 ||> Seq.fold (fun world i ->
-                    let x = 2 * i - nTemplate
-                    addAtomRnd rng atomTypes x 0 true world)
-
-            // cap on end
+                    let atomType = codingTypes[rng.Next(codingTypes.Length)]
+                    addAtom atomType (2 * i - nCoding) 0 true world)
         let world =
-            addAtom AtomType.Q (2 * nTemplate - nTemplate) 0 true world
+            world
+                |> addAtom AtomType.Q nCoding 0 true
+        world, world.Atoms |> Seq.map _.Id |> Seq.toArray
 
-            // gather IDs
-        let template =
-            world.Atoms
-                |> Seq.map _.Id
-                |> Seq.toArray
+    /// Adds rows of free atoms, each row the given number of atoms
+    /// long, the given distance apart, in strips by type above and
+    /// below the origin: weak partners of the template nearest to it,
+    /// then strong partners, then caps.
+    let addFreeAtoms nPerRow dist world =
+        let rows =
+            [
+                AtomType.X, 1; AtomType.X, 2
+                AtomType.Z, -1; AtomType.Z, -2
+                AtomType.Y, 3; AtomType.Y, 4
+                AtomType.W, -3; AtomType.W, -4
+                AtomType.P, 5; AtomType.P, 6
+                AtomType.Q, -5; AtomType.Q, -6
+            ]
+        (world, rows)
+            ||> Seq.fold (fun world (atomType, iRow) ->
+                (world, [ 0 .. nPerRow - 1 ])
+                    ||> Seq.fold (fun world i ->
+                        addAtom atomType (2 * i - nPerRow) (iRow * dist) false world))
+
+    /// Adds a horizontal strand of the given atom types, joined in
+    /// order, at a random empty place within the given distance of
+    /// the origin.
+    let addStrandAtRandom (rng : Random) maxDist (atomTypes : AtomType[]) world =
+        assert(atomTypes.Length >= 2)
+        let rec loop () =
+            let x = 2 * rng.Next(-maxDist / 2, (maxDist - 2 * atomTypes.Length) / 2 + 1)
+            let y = 2 * rng.Next(-maxDist / 2, maxDist / 2 + 1)
+            let worldOpt =
+                (Some world, Array.indexed atomTypes)
+                    ||> Array.fold (fun worldOpt (i, atomType) ->
+                        worldOpt
+                            |> Option.bind (fun world ->
+                                World.tryAddAtom atomType (Point.create (x + 2 * i, y)) world)
+                            |> Option.map (fun (world, atom) ->
+                                if i > 0 then
+                                    World.addStrongBond (atom.Id - 1) atom.Id world
+                                else world))
+            match worldOpt with
+                | Some world -> world
+                | None -> loop ()
+        loop ()
+
+module Scenario =
+
+    /// Number of coding atoms in a template.
+    let private nCoding = 10
+
+    /// Builds the standard world: a 160x160 box of free atoms, with or
+    /// without a template.
+    let private build withTemplate (rng : Random) =
+        let world = Build.addBox 160 160 World.empty
+        let world, template =
+            if withTemplate then Build.addTemplate rng nCoding world
+            else world, Array.empty
+        let world = Build.addFreeAtoms (6 * nCoding) 6 world
         world, template
 
-    let private addFreeAtoms nFree dist world =
-
-            // free weak partners w/ positive y-coord
-        let world =
-            (world, [ 0 .. nFree - 1 ])
-                ||> Seq.fold (fun world i ->
-                    let x = 2 * i - nFree
-                    addAtom AtomType.X x dist false world)
-        let world =
-            (world, [ 0 .. nFree - 1 ])
-                ||> Seq.fold (fun world i ->
-                    let x = 2 * i - nFree
-                    addAtom AtomType.X x (2 * dist) false world)
-
-            // free weak partners w/ negative y-coord
-        let world =
-            (world, [ 0 .. nFree - 1 ])
-                ||> Seq.fold (fun world i ->
-                    let x = 2 * i - nFree
-                    addAtom AtomType.Z x -dist false world)
-        let world =
-            (world, [ 0 .. nFree - 1 ])
-                ||> Seq.fold (fun world i ->
-                    let x = 2 * i - nFree
-                    addAtom AtomType.Z x -(2 * dist) false world)
-
-            // free strong partners w/ positive y-coord
-        let world =
-            (world, [ 0 .. nFree - 1 ])
-                ||> Seq.fold (fun world i ->
-                    let x = 2 * i - nFree
-                    addAtom AtomType.Y x (3 * dist) false world)
-        let world =
-            (world, [ 0 .. nFree - 1 ])
-                ||> Seq.fold (fun world i ->
-                    let x = 2 * i - nFree
-                    addAtom AtomType.Y x (4 * dist) false world)
-
-            // free strong partners w/ negative y-coord
-        let world =
-            (world, [ 0 .. nFree - 1 ])
-                ||> Seq.fold (fun world i ->
-                    let x = 2 * i - nFree
-                    addAtom AtomType.W x -(3 * dist) false world)
-        let world =
-            (world, [ 0 .. nFree - 1 ])
-                ||> Seq.fold (fun world i ->
-                    let x = 2 * i - nFree
-                    addAtom AtomType.W x -(4 * dist) false world)
-
-            // free caps w/ positive y-coord
-        let world =
-            (world, [ 0 .. nFree - 1 ])
-                ||> Seq.fold (fun world i ->
-                    let x = 2 * i - nFree
-                    addAtom AtomType.P x (5 * dist) false world)
-        let world =
-            (world, [ 0 .. nFree - 1 ])
-                ||> Seq.fold (fun world i ->
-                    let x = 2 * i - nFree
-                    addAtom AtomType.P x (6 * dist) false world)
-
-            // free caps w/ negative y-coord
-        let world =
-            (world, [ 0 .. nFree - 1 ])
-                ||> Seq.fold (fun world i ->
-                    let x = 2 * i - nFree
-                    addAtom AtomType.Q x -(5 * dist) false world)
-        let world =
-            (world, [ 0 .. nFree - 1 ])
-                ||> Seq.fold (fun world i ->
-                    let x = 2 * i - nFree
-                    addAtom AtomType.Q x -(6 * dist) false world)
-
-        world
-
-    let createScenarioA withTemplate seed =
-
-        let rng = Random(seed)
-        let nTemplate = 10
-        let dist = 6
-
-            // box
-        let world = addBox 160 160 World.empty
-
-            // template?
-        let world, template =
-            if withTemplate then
-                addTemplate rng nTemplate world
-            else
-                world, Array.empty
-
-            // free atoms
-        let world = addFreeAtoms (6 * nTemplate) dist world
-
-            // parameters
-        let bondParmMap =
-            Map [
-                Strong, {
-                    Energy = 17
-                    PairEnergyMap = Map.empty
-                    Barrier = 3
-                    BarrierStackReduction = 3
-                    StartBarrier = 1
-                    Entropy = 0
-                }
-                Weak, {
-                    Energy = 2
-                    PairEnergyMap = Map.empty
-                    Barrier = 0
-                    BarrierStackReduction = 0
-                    StartBarrier = 0
-                    Entropy = 3
-                }
-            ]
-        let parms =
-            {
-                Temperature = -1   // caller should override
-                BondParameterMap = bondParmMap
-                PeelBarrier = 6
-                CapPeelBarrier = 20
-            }
-
+    /// Scenario A: a fixed temperature, with soft strong bonds.
+    let createScenarioA withTemplate =
         {
-            World = world
-            Template = template
-            TemperatureType = Adjustable 0.25
-            Parameters = parms
-            Random = rng
+            Name = if withTemplate then "A" else "A, no template"
+            Build = build withTemplate
+            Parameters =
+                {
+                    Temperature = nan
+                    BondParameterMap =
+                        Map [
+                            Strong, {
+                                Energy = 17
+                                PairEnergyMap = Map.empty
+                                Barrier = 3
+                                BarrierStackReduction = 3
+                                StartBarrier = 1
+                                Entropy = 0
+                            }
+                            Weak, {
+                                Energy = 2
+                                PairEnergyMap = Map.empty
+                                Barrier = 0
+                                BarrierStackReduction = 0
+                                StartBarrier = 0
+                                Entropy = 3
+                            }
+                        ]
+                    PeelBarrier = 6
+                    CapPeelBarrier = 20
+                }
+            Schedule = Constant 0.25
         }
 
-    let createScenarioB withTemplate seed =
+    /// Scenario B: a cold/hot temperature cycle, with hard strong
+    /// bonds.
+    let createScenarioB withTemplate =
+        let scenario = createScenarioA withTemplate
+        {
+            scenario with
+                Name = if withTemplate then "B" else "B, no template"
+                Parameters =
+                    { scenario.Parameters with
+                        BondParameterMap =
+                            scenario.Parameters.BondParameterMap
+                                |> Map.add Strong {
+                                    Energy = 34
+                                    PairEnergyMap = Map.empty
+                                    Barrier = 20
+                                    BarrierStackReduction = 20
+                                    StartBarrier = 1
+                                    Entropy = 0
+                                } }
+                Schedule =
+                    Cycle [|
+                        { Temperature = 0.3; NumSweeps = 90_000 }   // cold
+                        { Temperature = 3.0; NumSweeps = 10_000 }   // hot
+                    |]
+        }
 
-        let scenario = createScenarioA withTemplate seed
+    /// Renames the given scenario.
+    let withName name scenario =
+        { scenario with Name = name }
 
-        let tempType =
-            Cycle [|
-                { Temperature = 0.3; NumSweeps = 90_000 }   // cold
-                { Temperature = 3.0; NumSweeps = 10_000 }   // hot
-            |]
+    /// Changes the given scenario's parameters.
+    let mapParameters f scenario =
+        { scenario with Parameters = f scenario.Parameters }
 
-        let bondParamMap =
-            Map [
-                Strong, {
-                    Energy = 34
-                    PairEnergyMap = Map.empty
-                    Barrier = 20
-                    BarrierStackReduction = 20
-                    StartBarrier = 1
-                    Entropy = 0
-                }
-                Weak, {
-                    Energy = 2
-                    PairEnergyMap = Map.empty
-                    Barrier = 0
-                    BarrierStackReduction = 0
-                    StartBarrier = 0
-                    Entropy = 3
-                }
-            ]
+    /// Changes the given scenario's parameters for the given bond type.
+    let mapBondParameters bondType f scenario =
+        scenario
+            |> mapParameters (fun parms ->
+                let bondParms = f parms.BondParameterMap[bondType]
+                { parms with
+                    BondParameterMap =
+                        Map.add bondType bondParms parms.BondParameterMap })
 
-        { scenario with
-            TemperatureType = tempType
-            Parameters =
-                { scenario.Parameters with
-                    BondParameterMap = bondParamMap } }
+    /// Sets the given scenario's strong bond barrier, and its
+    /// reduction per stack to the same value, so that a fully
+    /// templated join has no barrier (apart from the start barrier).
+    let withStrongBarrier barrier scenario =
+        scenario
+            |> mapBondParameters Strong (fun bondParms ->
+                { bondParms with
+                    Barrier = barrier
+                    BarrierStackReduction = barrier })
+
+    /// Sets the given scenario's barrier to a cap coming off the strand
+    /// it ends. Infinity means caps never come off.
+    let withCapPeelBarrier barrier scenario =
+        scenario
+            |> mapParameters (fun parms ->
+                { parms with CapPeelBarrier = barrier })
+
+    /// Sets the energy of the given type of bond between the given
+    /// atom types in the given scenario.
+    let withPairEnergy bondType atomTypeA atomTypeB energy scenario =
+        scenario
+            |> mapBondParameters bondType
+                (BondTypeParameters.addPairEnergy atomTypeA atomTypeB energy)
+
+    /// Adds a step to the end of building the given scenario's world.
+    let withBuildStep (step : Random -> World -> World) scenario =
+        let build rng =
+            let world, template = scenario.Build rng
+            step rng world, template
+        { scenario with Build = build }
+
+/// A scenario being run.
+type Run =
+    {
+        /// Scenario being run.
+        Scenario : Scenario
+
+        /// IDs of the atoms of the scenario's template, if any.
+        Template : AtomId[]
+
+        /// Current state of the world.
+        World : World
+
+        /// Temperature over time. This starts as the scenario's own,
+        /// but can be replaced, e.g. by a manual setting.
+        Schedule : Schedule
+
+        /// Random number generator. It is mutable, so a run must not
+        /// be advanced more than once.
+        Random : Random
+
+        /// Number of sweeps run so far. (One sweep is one update per
+        /// atom, on average.)
+        NumSweeps : int
+    }
+
+module Run =
+
+    /// Starts running the given scenario with the given seed.
+    let create seed scenario =
+        let rng = Random(seed)
+        let world, template = scenario.Build rng
+        {
+            Scenario = scenario
+            Template = template
+            World = world
+            Schedule = scenario.Schedule
+            Random = rng
+            NumSweeps = 0
+        }
+
+    /// Current temperature of the given run.
+    let getTemperature run =
+        Schedule.getTemperature run.NumSweeps run.Schedule |> fst
+
+    /// Current parameters of the given run, including its temperature.
+    let getParameters run =
+        { run.Scenario.Parameters with Temperature = getTemperature run }
+
+    /// Runs the given number of sweeps, changing temperature as the
+    /// schedule says, and calling the given function after each event.
+    /// (See World.sweepWith.)
+    let advanceWith onEvent numSweeps run =
+        assert(numSweeps >= 0)
+        let rec loop numSweeps run =
+            if numSweeps = 0 then run
+            else
+                let kT, untilChangeOpt =
+                    Schedule.getTemperature run.NumSweeps run.Schedule
+                let n =
+                    match untilChangeOpt with
+                        | Some untilChange -> min numSweeps untilChange
+                        | None -> numSweeps
+                let parms = { run.Scenario.Parameters with Temperature = kT }
+                let run =
+                    { run with
+                        World = World.sweepWith parms run.Random n onEvent run.World
+                        NumSweeps = run.NumSweeps + n }
+                loop (numSweeps - n) run
+        loop numSweeps run
+
+    /// Runs the given number of sweeps, changing temperature as the
+    /// schedule says.
+    let advance numSweeps run =
+        let onEvent _ _ = ()
+        advanceWith onEvent numSweeps run

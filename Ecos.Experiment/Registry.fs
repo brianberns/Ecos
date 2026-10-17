@@ -1,0 +1,64 @@
+namespace Ecos.Experiment
+
+/// Every scenario that can be run, in groups: the standard scenarios,
+/// then each experiment's, with its default settings. The desktop app
+/// offers them all, so that any world an experiment ran can be watched
+/// in it.
+module Registry =
+
+    /// A named group of scenarios.
+    type Group =
+        {
+            /// Name of the group.
+            Name : string
+
+            /// Scenarios in the group.
+            Scenarios : Scenario[]
+        }
+
+    /// All groups.
+    let groups =
+        [|
+            {
+                Name = "Standard"
+                Scenarios =
+                    [|
+                        Scenario.createScenarioB true
+                        Scenario.createScenarioB false
+                        Scenario.createScenarioA true
+                        Scenario.createScenarioA false
+                    |]
+            }
+            {
+                Name = "Experiment 1"
+                Scenarios = Experiment1.getScenarios Experiment1.defaultSettings
+            }
+            {
+                Name = "Experiment 2"
+                Scenarios = Experiment2.getScenarios Experiment2.defaultSettings
+            }
+            {
+                Name = "Experiment 3"
+                Scenarios = Experiment3.getScenarios Experiment3.defaultSettings
+            }
+            {
+                Name = "Experiment 4"
+                Scenarios = Experiment4.getScenarios Experiment4.defaultSettings
+            }
+            {
+                Name = "Experiment 5"
+                Scenarios = Experiment4.getScenarios Experiment4.livingWorldSettings
+            }
+            {
+                Name = "Experiment 6"
+                Scenarios = Experiment6.getScenarios Experiment6.defaultSettings
+            }
+            {
+                Name = "Experiment 7"
+                Scenarios = Experiment7.getScenarios Experiment7.defaultSettings
+            }
+            {
+                Name = "Experiment 8"
+                Scenarios = Experiment8.getScenarios Experiment8.defaultSettings
+            }
+        |]

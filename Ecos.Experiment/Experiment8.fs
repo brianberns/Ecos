@@ -48,64 +48,37 @@ module Experiment8 =
             NumCycles = 30
         }
 
-    /// The given scenario's parameters at the given temperature, with
-    /// the given energy for the weak Y-Z bond.
-    let private getParameters scenario yzEnergy kT =
-        let parms = Experiment3.getParameters scenario None kT
-        let weakParms =
-            BondTypeParameters.addPairEnergy
-                AtomType.Y AtomType.Z yzEnergy parms.BondParameterMap[Weak]
-        { parms with
-            BondParameterMap =
-                Map.add Weak weakParms parms.BondParameterMap }
-
-    /// Adds a three-atom strand, P-x-Q with the given coding atom type,
-    /// at a random empty place in the given world.
-    let private addStrand (rng : Random) codingType (world : World) =
-        let rec loop () =
-            let x = 2 * rng.Next(-35, 33)
-            let y = 2 * rng.Next(-35, 36)
-            let tryAdd atomType dx (worldOpt : Option<World * AtomId list>) =
-                worldOpt
-                    |> Option.bind (fun (world, ids) ->
-                        World.tryAddAtom atomType (Point.create (x + dx, y)) world
-                            |> Option.map (fun (world, atom) ->
-                                world, atom.Id :: ids))
-            let result =
-                Some (world, [])
-                    |> tryAdd AtomType.P 0
-                    |> tryAdd codingType 2
-                    |> tryAdd AtomType.Q 4
-            match result with
-                | Some (world, [ idQ; idCoding; idP ]) ->
+    /// Scenario B with no template, the given number of strands of
+    /// each kind (P-W-Q and P-Y-Q) added at random places, and the
+    /// given energy for the weak Y-Z bond.
+    let getScenario numSeeds yzEnergy =
+        let addStrands rng world =
+            (world, [ 1 .. numSeeds ])
+                ||> Seq.fold (fun world _ ->
                     world
-                        |> World.addStrongBond idP idCoding
-                        |> World.addStrongBond idCoding idQ
-                | _ -> loop ()
-        loop ()
+                        |> Build.addStrandAtRandom rng 70 [| AtomType.P; AtomType.W; AtomType.Q |]
+                        |> Build.addStrandAtRandom rng 70 [| AtomType.P; AtomType.Y; AtomType.Q |])
+        Scenario.createScenarioB false
+            |> Scenario.withBuildStep addStrands
+            |> Scenario.withPairEnergy Weak AtomType.Y AtomType.Z yzEnergy
+            |> Scenario.withName $"Y-Z energy {yzEnergy}"
+
+    /// The experiment's scenarios: one for each Y-Z energy.
+    let getScenarios settings =
+        settings.YZEnergies |> Array.map (getScenario settings.NumSeeds)
 
     /// Runs one world through the cycles. Answers a result for each
     /// cycle, starting with the world as seeded.
     let private runOne settings yzEnergy seed =
-        let scenario = Scenario.createScenarioB false seed
-        let world =
-            let rng = Random(seed + 1000)   // keep the scenario's own generator for the dynamics
-            (scenario.World, [ 1 .. settings.NumSeeds ])
-                ||> Seq.fold (fun world _ ->
-                    world
-                        |> addStrand rng AtomType.W
-                        |> addStrand rng AtomType.Y)
-        let phases = getPhases scenario
-        let rng = scenario.Random
-        let mutable world = world
+        let scenario = getScenario settings.NumSeeds yzEnergy
+        let mutable run = Run.create seed scenario
         [|
-            getCensus world
+            getCensus run.World
             for iCycle in 1 .. settings.NumCycles do
-                for phase in phases do
-                    let parms = getParameters scenario yzEnergy phase.Temperature
-                    world <- World.sweep parms rng phase.NumSweeps world
+                for phase in getPhases scenario do
+                    run <- Run.advance phase.NumSweeps run
                 eprintfn "Y-Z energy %g, seed %d: finished cycle %d of %d" yzEnergy seed iCycle settings.NumCycles
-                getCensus world
+                getCensus run.World
         |]
 
     /// Fraction of W/X and Y/Z chains together that are Y/Z.
@@ -138,15 +111,16 @@ module Experiment8 =
                     yzEnergy, Array.map snd group)
                 |> Map
 
-        let scenario = Scenario.createScenarioB false 0
+        let scenario = Scenario.createScenarioB false
+        let example = Run.create 0 scenario
         printfn "Experiment 8: head to head between W/X and Y/Z strands"
         printfn
             "%d runs of %d cycles with each Y-Z energy; %d free atoms; %d strands of each kind to start (P-W-Q and P-Y-Q)"
             settings.NumRuns settings.NumCycles
-            scenario.World.Atoms.Length settings.NumSeeds
+            example.World.Atoms.Length settings.NumSeeds
         for phase in getPhases scenario do
             printfn "Phase: kT %g for %d sweeps" phase.Temperature phase.NumSweeps
-        printParameters (Experiment3.getParameters scenario None nan)
+        printParameters scenario.Parameters
 
         use writer = new StreamWriter(csvPath)
         writer.WriteLine(

@@ -71,24 +71,20 @@ module Experiment7 =
             FreeYZ : int
         }
 
-    /// The given scenario's parameters at the given temperature, with
-    /// the settings' strong bond barrier (and reduction per stack) and
-    /// the given bonus to the weak Y-Z bond.
-    let private getParameters settings scenario bonus kT =
-        let parms = Experiment3.getParameters scenario None kT
-        let strongParms =
-            { parms.BondParameterMap[Strong] with
-                Barrier = settings.StrongBarrier
-                BarrierStackReduction = settings.StrongBarrier }
-        let weakParms = parms.BondParameterMap[Weak]
-        let weakParms =
-            BondTypeParameters.addPairEnergy
-                AtomType.Y AtomType.Z (weakParms.Energy + bonus) weakParms
-        { parms with
-            BondParameterMap =
-                parms.BondParameterMap
-                    |> Map.add Strong strongParms
-                    |> Map.add Weak weakParms }
+    /// Scenario B with no template, the settings' strong bond barrier
+    /// (and reduction per stack), and the given bonus to the weak Y-Z
+    /// bond.
+    let getScenario settings bonus =
+        let scenario = Scenario.createScenarioB false
+        let energy = scenario.Parameters.BondParameterMap[Weak].Energy + bonus
+        scenario
+            |> Scenario.withStrongBarrier settings.StrongBarrier
+            |> Scenario.withPairEnergy Weak AtomType.Y AtomType.Z energy
+            |> Scenario.withName $"Y-Z bonus {bonus}"
+
+    /// The experiment's scenarios: one for each Y-Z bonus.
+    let getScenarios settings =
+        settings.YZBonuses |> Array.map (getScenario settings)
 
     let isWX = function
         | AtomType.W | AtomType.X -> true
@@ -133,18 +129,14 @@ module Experiment7 =
     /// Runs one world through the cycles. Answers a result for each
     /// cycle.
     let private runOne settings bonus seed =
-        let scenario = Scenario.createScenarioB false seed
-        let phases = getPhases scenario
-        let rng = scenario.Random
-        let mutable world = scenario.World
+        let scenario = getScenario settings bonus
+        let mutable run = Run.create seed scenario
         [|
             for iCycle in 1 .. settings.NumCycles do
-                for phase in phases do
-                    let parms =
-                        getParameters settings scenario bonus phase.Temperature
-                    world <- World.sweep parms rng phase.NumSweeps world
+                for phase in getPhases scenario do
+                    run <- Run.advance phase.NumSweeps run
                 eprintfn "Bonus %g, seed %d: finished cycle %d of %d" bonus seed iCycle settings.NumCycles
-                getCensus world
+                getCensus run.World
         |]
 
     /// Runs the experiment, prints tables of results, and writes them
@@ -172,15 +164,16 @@ module Experiment7 =
                     bonus, Array.map snd group)
                 |> Map
 
-        let scenario = Scenario.createScenarioB false 0
+        let scenario = Scenario.createScenarioB false
+        let example = Run.create 0 scenario
         printfn "Experiment 7: selection between W/X and Y/Z pairing"
         printfn
             "%d runs of %d cycles with each Y-Z bonus; %d atoms; no template; strong bond barrier %g"
             settings.NumRuns settings.NumCycles
-            scenario.World.Atoms.Length settings.StrongBarrier
+            example.World.Atoms.Length settings.StrongBarrier
         for phase in getPhases scenario do
             printfn "Phase: kT %g for %d sweeps" phase.Temperature phase.NumSweeps
-        printParameters (Experiment3.getParameters scenario None nan)
+        printParameters scenario.Parameters
         printfn "(The strong bond barrier and its reduction per stack are replaced by the value above.)"
 
         use writer = new StreamWriter(csvPath)
