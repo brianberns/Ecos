@@ -53,7 +53,7 @@ module Experiment7 =
         }
 
     /// What a world contains at the end of a cycle.
-    type private CycleResult =
+    type CycleResult =
         {
             /// Capped chains whose coding atoms are all W or X.
             WX : int
@@ -90,17 +90,17 @@ module Experiment7 =
                     |> Map.add Strong strongParms
                     |> Map.add Weak weakParms }
 
-    let private isWX = function
+    let isWX = function
         | AtomType.W | AtomType.X -> true
         | _ -> false
 
-    let private isYZ = function
+    let isYZ = function
         | AtomType.Y | AtomType.Z -> true
         | _ -> false
 
     /// Sorts the capped chains in the given world, and counts its free
     /// coding atoms.
-    let private getCensus (world : World) =
+    let getCensus (world : World) =
         let strands = getStrands world
         let chains =
             strands
