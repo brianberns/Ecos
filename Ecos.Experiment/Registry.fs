@@ -25,6 +25,8 @@ module Registry =
                     [|
                         Scenario.createScenarioB true
                         Scenario.createScenarioB false
+                        Scenario.createScenarioC true
+                        Scenario.createScenarioC false
                         Scenario.createScenarioA true
                         Scenario.createScenarioA false
                     |]
@@ -39,7 +41,10 @@ module Registry =
             }
             {
                 Name = "Experiment 3"
-                Scenarios = Experiment3.getScenarios Experiment3.defaultSettings
+                Scenarios =
+                    Array.append
+                        (Experiment3.getScenarios Experiment3.defaultSettings)
+                        (Experiment3.getScenarios Experiment3.copyingSettings)
             }
             {
                 Name = "Experiment 4"

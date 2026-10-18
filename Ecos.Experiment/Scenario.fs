@@ -309,6 +309,23 @@ module Scenario =
             |> mapBondParameters bondType
                 (BondTypeParameters.addPairEnergy atomTypeA atomTypeB energy)
 
+    /// Scenario C: the most faithful copying of a template so far (as
+    /// of Oct 13). This is scenario B with a strong bond barrier high
+    /// enough that free atoms almost never join without a template,
+    /// caps that never come off, and a hot phase as long as the cold
+    /// one, so that copies have time to separate. Nothing arises by
+    /// chance and nothing dies, so it shows copying on its own.
+    let createScenarioC withTemplate =
+        { createScenarioB withTemplate with
+            Name = if withTemplate then "C" else "C, no template"
+            Schedule =
+                Cycle [|
+                    { Temperature = 0.3; NumSweeps = 100_000 }   // cold
+                    { Temperature = 3.0; NumSweeps = 100_000 }   // hot
+                |] }
+            |> withStrongBarrier 40
+            |> withCapPeelBarrier Double.PositiveInfinity
+
     /// Adds a step to the end of building the given scenario's world.
     let withBuildStep (step : Random -> World -> World) scenario =
         let build rng =

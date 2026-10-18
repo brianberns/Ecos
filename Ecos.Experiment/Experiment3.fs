@@ -26,30 +26,44 @@ module Experiment3 =
             /// Number of times to run through the scenario's phases.
             NumCycles : int
 
+            /// Scenario to run. It must have a template and a
+            /// temperature cycle.
+            Scenario : Scenario
+
             /// Overrides the scenario's barrier to a cap coming off the
             /// strand it ends, if given. Infinity means caps never come
             /// off.
             CapPeelBarrier : float option
         }
 
-    /// Default settings. Caps never come off, so that the template
-    /// survives, since this experiment measures what happens to it.
+    /// Default settings: scenario B. Caps never come off, so that the
+    /// template survives, since this experiment measures what happens
+    /// to it.
     let defaultSettings =
         {
             NumRuns = 24
             NumCycles = 3
+            Scenario = Scenario.createScenarioB true
             CapPeelBarrier = Some Double.PositiveInfinity
         }
 
-    /// Scenario B, with the settings' cap peel barrier instead of its
-    /// own, if any.
+    /// Settings for scenario C, which was designed for copying.
+    let copyingSettings =
+        {
+            defaultSettings with
+                Scenario = Scenario.createScenarioC true
+                CapPeelBarrier = None
+        }
+
+    /// The settings' scenario, with their cap peel barrier instead of
+    /// its own, if any.
     let getScenario settings =
-        let scenario = Scenario.createScenarioB true
+        let scenario = settings.Scenario
         match settings.CapPeelBarrier with
             | Some barrier ->
                 scenario
                     |> Scenario.withCapPeelBarrier barrier
-                    |> Scenario.withName $"cap peel barrier {barrier}"
+                    |> Scenario.withName $"{scenario.Name}, cap peel barrier {barrier}"
             | None -> scenario
 
     /// The experiment's scenarios: just one.
@@ -463,7 +477,7 @@ module Experiment3 =
                     results[iCycle * phases.Length + iPhase])
 
         printfn "Experiment 3: temperature cycling"
-        printfn "%d runs of %d cycles; %d atoms" settings.NumRuns settings.NumCycles example.World.Atoms.Length
+        printfn "Scenario %s: %d runs of %d cycles; %d atoms" scenario.Name settings.NumRuns settings.NumCycles example.World.Atoms.Length
         for phase in phases do
             printfn "Phase: kT %g for %d sweeps" phase.Temperature phase.NumSweeps
         printParameters scenario.Parameters

@@ -10,6 +10,7 @@ module Program =
         printfn "   experiment1   Fraction of template paired, by temperature"
         printfn "   experiment2   Joining of free atoms, with and without a template"
         printfn "   experiment3   Copying and separation under temperature cycling"
+        printfn "   experiment3c  The same, in scenario C (designed for copying)"
         printfn "   experiment4   Emergence of strands from free atoms, with no template"
         printfn "   experiment5   A living world: emergence, as in experiment 4, with turnover"
         printfn "   experiment6   Competition between the template and chance replicators"
@@ -36,6 +37,12 @@ module Program =
                 0
             | [ "experiment3"; csvPath ] ->
                 Experiment3.run Experiment3.defaultSettings csvPath
+                0
+            | [ "experiment3c" ] ->
+                Experiment3.run Experiment3.copyingSettings "experiment3c.csv"
+                0
+            | [ "experiment3c"; csvPath ] ->
+                Experiment3.run Experiment3.copyingSettings csvPath
                 0
             | [ "experiment4" ] ->
                 Experiment4.run Experiment4.defaultSettings "experiment4.csv"
