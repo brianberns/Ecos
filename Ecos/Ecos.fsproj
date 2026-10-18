@@ -7,6 +7,7 @@
   <ItemGroup>
     <Compile Include="Point.fs" />
     <Compile Include="Atom.fs" />
+    <Compile Include="Neighborhood.fs" />
     <Compile Include="BondMap.fs" />
     <Compile Include="Parameters.fs" />
     <Compile Include="BondBehavior.fs" />
