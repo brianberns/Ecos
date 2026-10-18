@@ -23,12 +23,12 @@ module Registry =
                 Name = "Standard"
                 Scenarios =
                     [|
+                        Scenario.createScenarioA true
+                        Scenario.createScenarioA false
                         Scenario.createScenarioB true
                         Scenario.createScenarioB false
                         Scenario.createScenarioC true
                         Scenario.createScenarioC false
-                        Scenario.createScenarioA true
-                        Scenario.createScenarioA false
                     |]
             }
             {
