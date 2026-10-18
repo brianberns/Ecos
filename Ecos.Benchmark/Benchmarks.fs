@@ -25,3 +25,4 @@ type Benchmarks() =
         (run, Schedule.getPhases schedule)
             ||> Seq.fold (fun run phase ->
                 Run.advance phase.NumSweeps run)
+            |> ignore
