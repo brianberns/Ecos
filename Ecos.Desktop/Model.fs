@@ -24,10 +24,6 @@ type Model =
         /// The selected scenario, being run.
         Run : Run
 
-        /// Indicates whether the temperature is set by hand, instead
-        /// of by the scenario's schedule.
-        IsManual : bool
-
         /// Indicates whether updates are enabled.
         IsRunning : bool
 
@@ -53,9 +49,6 @@ type Message =
 
     /// Selects a scenario within the current group.
     | SelectScenario of int
-
-    /// Sets the temperature by hand, or by the scenario's schedule.
-    | SetManual of bool
 
     /// Sets the temperature by hand.
     | SetTemperature of float
@@ -83,7 +76,6 @@ module Model =
             ScenarioIndex = scenarioIndex
             Seed = seed
             Run = Run.create seed scenario
-            IsManual = false
             IsRunning = false
             Speed = speed
             UpdateRate = 0
@@ -120,23 +112,10 @@ module Model =
         if scenarioIndex = model.ScenarioIndex then model
         else create model.GroupIndex scenarioIndex model.Seed model.Speed
 
-    /// Handles a switch between manual and scheduled temperature.
-    let handleSetManual isManual (model : Model) =
-        if isManual = model.IsManual then model
-        else
-            let schedule =
-                if isManual then Constant model.Temperature   // hold the current temperature
-                else model.Run.Scenario.Schedule
-            { model with
-                IsManual = isManual
-                Run = { model.Run with Schedule = schedule } }
-
     /// Handles temperature change.
     let handleSetTemperature kT (model : Model) =
-        if model.IsManual then
-            { model with
-                Run = { model.Run with Schedule = Constant kT } }
-        else model
+        { model with
+            Run = { model.Run with Schedule = Constant kT } }
 
     /// Handles `run` flag change.
     let handleSetRun isRunning model =
@@ -164,7 +143,6 @@ module Model =
             | Tick -> handleTick model
             | SelectGroup index -> handleSelectGroup index model
             | SelectScenario index -> handleSelectScenario index model
-            | SetManual isManual -> handleSetManual isManual model
             | SetTemperature kT -> handleSetTemperature kT model
             | SetRun isRunning -> handleSetRun isRunning model
             | SetSpeed speed -> handleSetSpeed speed model
