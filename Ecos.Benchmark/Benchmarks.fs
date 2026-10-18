@@ -9,36 +9,18 @@ open Ecos.Experiment
 
 type Benchmarks() =
 
-    let runPhase (parms : Parameters) rng phase world =
-        let parms =
-            { parms with Temperature = phase.Temperature }
-        World.sweep parms rng phase.NumSweeps world
-
-    let runCycle parms rng phases world =
-        (world, phases)
-            ||> Seq.fold (fun world phase ->
-                runPhase parms rng phase world)
-
-    let run parms rng phases world nCycles =
-        (world, [ 1 .. nCycles ])
-            ||> Seq.fold (fun world _ ->
-                runCycle parms rng phases world)
-
     [<Benchmark>]
     member this.Run() =
-        let scenario = Scenario.createScenarioB true 0
-        let phases =
-            match scenario.TemperatureType with
-                | Adjustable _ -> failwith "Not supported"
-                | Cycle phases ->
-                    Array.map (fun phase ->
-                        { phase with
-                            NumSweeps = phase.NumSweeps / 2 })
-                        phases
-        run
-            scenario.Parameters
-            scenario.Random
-            phases
-            scenario.World
-            1
-            |> ignore
+        let scenario = Scenario.createScenarioB true
+        let schedule =
+            Schedule.getPhases scenario.Schedule
+                |> Array.map (fun phase ->
+                    { phase with
+                        NumSweeps = phase.NumSweeps / 2 })
+                |> Cycle
+        let run =
+            { scenario with Schedule = schedule }
+                |> Run.create 0
+        (run, Schedule.getPhases schedule)
+            ||> Seq.fold (fun run phase ->
+                Run.advance phase.NumSweeps run)
