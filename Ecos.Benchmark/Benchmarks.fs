@@ -13,7 +13,8 @@ type Benchmarks() =
     member this.Run() =
         let scenario = Scenario.createScenarioB true
         let schedule =
-            Schedule.getPhases scenario.Schedule
+            scenario.Schedule
+                |> Schedule.getPhases
                 |> Array.map (fun phase ->
                     { phase with
                         NumSweeps = phase.NumSweeps / 2 })
