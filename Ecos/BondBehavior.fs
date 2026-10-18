@@ -73,7 +73,7 @@ module private StrongBond =
 
     /// All normalized strong bond vectors.
     let neighborhood : Neighborhood =
-        set [
+        Neighborhood.create [
             2, 0
             2, 1
             2, 2
@@ -169,7 +169,7 @@ module private WeakBond =
 
     /// All normalized weak bond vectors.
     let neighborhood : Neighborhood =
-        set [
+        Neighborhood.create [
             2, 0
             2, 1
             2, 2
@@ -181,7 +181,7 @@ module private WeakBond =
 
     /// Possible cross bond deltas, as determined by Claude.
     let crossBondDeltas =
-        set [ (2, 0) ]
+        Neighborhood.create [ (2, 0) ]
             |> Neighborhood.toDeltas
             |> set
 

@@ -1,14 +1,20 @@
 namespace Ecos
 
+open System.Collections.Generic
+
 /// Unique ID of an atom in a world.
 type AtomId = int
 
 /// A set of non-negative integer pairs that describe normalized
 /// offsets from a center. These are not necessarily (x, y)
 /// points.
-type Neighborhood = Set<int (*max*) * int (*min*)>
+type Neighborhood = HashSet<int (*max*) * int (*min*)>   // use HashSet for speed
 
 module Neighborhood =
+
+    /// Creates a neighborhood.
+    let create (pairs : seq<_>) : Neighborhood =
+        HashSet(pairs)
 
     /// Indicates whether the given neighborhood is valid.
     let isValid (neighborhood : Neighborhood) =
@@ -42,9 +48,8 @@ module Neighborhood =
     let testBond neighborhood atomA atomB =
         assert(isValid neighborhood)
         let diff = abs (atomA.Location - atomB.Location)
-        Set.contains
-            (max diff.X diff.Y, min diff.X diff.Y)
-            neighborhood
+        neighborhood.Contains(
+            max diff.X diff.Y, min diff.X diff.Y)
 
 /// Bidirectional bonds between atoms.
 type BondMap = Map<AtomId, Set<AtomId>>
