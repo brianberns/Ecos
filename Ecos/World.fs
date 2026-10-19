@@ -333,7 +333,7 @@ module World =
                 else
                     let isValid =
                         partnerIds
-                            |> Seq.forall (fun idB ->
+                            |> Set.forall (fun idB ->
                                 let atomB = world.Atoms[idB]
                                 Neighborhood.testBond
                                     atom atomB behavior.Neighborhood)
