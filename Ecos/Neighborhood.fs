@@ -45,5 +45,7 @@ module Neighborhood =
     let testBond atomA atomB neighborhood =
         assert(isValid neighborhood)
         let diff = abs (atomA.Location - atomB.Location)
-        neighborhood.Contains(
-            max diff.X diff.Y, min diff.X diff.Y)
+        let x, y =
+            if diff.X >= diff.Y then diff.X, diff.Y
+            else diff.Y, diff.X
+        neighborhood.Contains(x, y)
