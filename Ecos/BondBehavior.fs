@@ -13,15 +13,13 @@ type BondTypeMap =
     /// Weak bond indx.
     static member WeakIdx = 1
 
-    /// Gets the index of the given bond type.
-    static member inline GetIndex(bondType) =
-        match bondType with
-            | Strong -> BondTypeMap.StrongIdx
-            | Weak -> BondTypeMap.WeakIdx
-
     /// Gets the bond map associated with the given bond type.
     member inline this.Item(bondType) =
-        this.BondMaps[BondTypeMap.GetIndex(bondType)]
+        let idx =
+            match bondType with
+                | Strong -> BondTypeMap.StrongIdx
+                | Weak -> BondTypeMap.WeakIdx
+        this.BondMaps[idx]
 
     /// All bond maps in this bond type map.
     member this.Values =
