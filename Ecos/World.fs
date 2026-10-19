@@ -281,16 +281,17 @@ module World =
         assert(world[atom.Location - delta] = Cell.Atom atom.Id)
         assert(Array.contains delta cardinalDirections)
 
-        let ahead = atom.Location + delta
-        let perpendicular = Point.create (delta.Y, delta.X)   // (1, 0) <-> (0, 1)
-
         let inline check location =
             world[location].IsEmpty
 
         let result =
-            check ahead
-                && check (ahead + perpendicular)
-                && check (ahead - perpendicular)
+            let ahead = atom.Location + delta
+            if check ahead then
+                let perpendicular = Point.create (delta.Y, delta.X)   // (1, 0) <-> (0, 1)
+                check ahead
+                    && check (ahead + perpendicular)
+                    && check (ahead - perpendicular)
+            else false
         assert(
             result =
                 isAvailable atom.Location (Some atom.Id) world)
