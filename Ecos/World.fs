@@ -324,7 +324,7 @@ module World =
     /// Determines whether the given atom's bonds are valid.
     let private testBonds atom (world : World) =
         behaviorMap
-            |> Seq.forall (fun (KeyValue(bondType, behavior)) ->
+            |> Map.forall (fun bondType behavior ->
 
                     // test the atom's bonds
                 let bondMap = world.BondTypeMap[bondType]
