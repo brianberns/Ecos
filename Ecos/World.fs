@@ -138,13 +138,13 @@ module World =
 
     /// Answers the IDs of all atoms bonded with the given atom.
     let private getAllBonds id (world : World) =
-        world.BondTypeMap.Values
+        world.BondTypeMap.BondMaps
             |> Seq.collect (BondMap.getBonds id)
 
     /// Indicates whether the atoms with the given IDs are already
     /// bonded in the given world.
     let private areBonded idA idB (world : World) =
-        world.BondTypeMap.Values
+        world.BondTypeMap.BondMaps
             |> Seq.exists (BondMap.areBonded idA idB)
 
     /// Behavior of each bond type.

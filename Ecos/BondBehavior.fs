@@ -1,6 +1,6 @@
 namespace Ecos
 
-/// Maps bond types to bond maps.
+/// Associates bond types with bond maps. Optimized for performance.
 type BondTypeMap =
     {
         /// Bond maps in this bond type map.
@@ -20,10 +20,6 @@ type BondTypeMap =
                 | Strong -> BondTypeMap.StrongIdx
                 | Weak -> BondTypeMap.WeakIdx
         this.BondMaps[idx]
-
-    /// All bond maps in this bond type map.
-    member this.Values =
-        this.BondMaps
 
 module BondTypeMap =
 

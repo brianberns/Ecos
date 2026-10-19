@@ -113,7 +113,7 @@ module PropertyTests =
 
             // no atom is listed with an empty set of bonds
         let bondSetsValid =
-            world.BondTypeMap.Values
+            world.BondTypeMap.BondMaps
                 |> Seq.forall (Map.forall (fun _ ids -> not ids.IsEmpty))
 
             // no bond, strong or weak, crosses another
