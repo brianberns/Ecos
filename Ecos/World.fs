@@ -314,13 +314,13 @@ module World =
     let private testPeripheralBonds
         behavior atom bondMap partnerIds (world : World) =
         partnerIds
-            |> Seq.forall (fun idB ->
+            |> Array.forall (fun idB ->
                 let atomB = world.Atoms[idB]
                 BondMap.getBonds idB bondMap
-                    |> Seq.where ((<>) atom.Id)
-                    |> Seq.forall (fun idC ->
-                        world.Atoms[idC]
-                            |> testBondAngle behavior atomB atom))
+                    |> Set.forall (fun idC ->
+                        idC = atom.Id
+                            || world.Atoms[idC]
+                                |> testBondAngle behavior atomB atom))
 
     /// Determines whether the given atom's bonds are valid.
     let private testBonds atom (world : World) =
