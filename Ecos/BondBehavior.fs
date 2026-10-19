@@ -1,5 +1,50 @@
 namespace Ecos
 
+/// Maps bond types to bond maps.
+type BondTypeMap =
+    {
+        /// Bond maps in this bond type map.
+        BondMaps : BondMap[]
+    }
+
+    /// Strong bond index.
+    static member StrongIdx = 0
+
+    /// Weak bond indx.
+    static member WeakIdx = 1
+
+    /// Gets the index of the given bond type.
+    static member inline GetIndex(bondType) =
+        match bondType with
+            | Strong -> BondTypeMap.StrongIdx
+            | Weak -> BondTypeMap.WeakIdx
+
+    /// Gets the bond map associated with the given bond type.
+    member inline this.Item(bondType) =
+        this.BondMaps[BondTypeMap.GetIndex(bondType)]
+
+    /// All bond maps in this bond type map.
+    member this.Values =
+        this.BondMaps
+
+module BondTypeMap =
+
+    /// Empty bond type map.
+    let empty =
+        let bondMaps =
+            BondType.all
+                |> Array.map (fun _ -> Map.empty)
+        { BondMaps = bondMaps }
+
+    /// Sets the given bond type's bond map.
+    let setBondMap bondType bondMap (bondTypeMap : BondTypeMap) =
+        let bondMaps =
+            BondType.all
+                |> Array.map (fun bt ->
+                    if bt = bondType then bondMap
+                    else bondTypeMap[bt])
+        { BondMaps = bondMaps }
+
 /// Specific behavior of a bond type.
 type private BondBehavior =
     {
@@ -20,11 +65,11 @@ type private BondBehavior =
         /// Determines whether the given atom obeys this type's
         /// valence rule (which may involve other bond types as
         /// well, via the given map).
-        TestValence : Atom -> Map<BondType, BondMap> -> bool
+        TestValence : Atom -> BondTypeMap -> bool
 
         /// Counts stacks adjacent to the given (existing or 
         /// proposed) bond.
-        CountStacks : AtomId -> AtomId -> Map<BondType, BondMap> -> int
+        CountStacks : AtomId -> AtomId -> BondTypeMap -> int
 
         /// Determines whether the angle defined the given vectors
         /// is valid for a bond of this type.
@@ -100,7 +145,7 @@ module private StrongBond =
         not (isCap atomTypeA && isCap atomTypeB)   // caps don't join to each other
 
     /// Strong bond valence test.
-    let testValence atom (bondTypeMap : Map<_, _>) =
+    let testValence atom (bondTypeMap : BondTypeMap) =
         let valence =
             if isCap atom.Type then 1 else 2       // caps can have at most one strong bond
         let bonds = BondMap.getBonds atom.Id bondTypeMap[Strong]
@@ -113,7 +158,7 @@ module private StrongBond =
     ///    A  ═?═ B
     ///    ┆      ┆
     ///    A' ═══ B'
-    let countStacks idA idB (bondTypeMap : Map<_, _>) =
+    let countStacks idA idB (bondTypeMap : BondTypeMap) =
         let strongBondMap = bondTypeMap[Strong]
         let weakBondMap = bondTypeMap[Weak]
         let bPrimes = BondMap.getBonds idB weakBondMap
@@ -198,7 +243,7 @@ module private WeakBond =
 
     /// Weak bond valence test. To have a second weak bond,
     /// an atom must have at least one strong bond.
-    let testValence atom (bondTypeMap : Map<_, _>) =
+    let testValence atom (bondTypeMap : BondTypeMap) =
         let bonds = BondMap.getBonds atom.Id bondTypeMap[Weak]
         match bonds.Count with
             | 0 | 1 -> true
@@ -215,7 +260,7 @@ module private WeakBond =
     ///    ┆     ?    ┆
     ///    ┆     ┆    ┆
     ///    B' ══ B ══ B'
-    let countStacks idA idB (bondTypeMap : Map<_, _>) =
+    let countStacks idA idB (bondTypeMap : BondTypeMap) =
         let strongBondMap = bondTypeMap[Strong]
         let weakBondMap = bondTypeMap[Weak]
         let bPrimes = BondMap.getBonds idB strongBondMap

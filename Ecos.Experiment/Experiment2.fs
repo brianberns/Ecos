@@ -118,14 +118,14 @@ module Experiment2 =
 
     /// The given atom's weak bond partners (it can have two) that are
     /// among the given atoms.
-    let private getPartners (candidates : Set<AtomId>) (bonds : Map<BondType, BondMap>) id =
+    let private getPartners (candidates : Set<AtomId>) (bonds : BondTypeMap) id =
         bonds[Weak]
             |> Map.tryFind id
             |> Option.defaultValue Set.empty
             |> Set.intersect candidates
 
     /// Indicates whether the given atoms are strongly bonded.
-    let private areStronglyBonded (bonds : Map<BondType, BondMap>) idA idB =
+    let private areStronglyBonded (bonds : BondTypeMap) idA idB =
         bonds[Strong]
             |> Map.tryFind idA
             |> Option.exists (Set.contains idB)

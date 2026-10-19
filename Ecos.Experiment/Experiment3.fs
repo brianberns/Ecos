@@ -343,14 +343,14 @@ module Experiment3 =
         }
 
     /// The atoms that the given atom is bonded to, in the given bonds.
-    let private partnersIn (bonds : Map<BondType, BondMap>) bondType id =
+    let private partnersIn (bonds : BondTypeMap) bondType id =
         bonds[bondType]
             |> Map.tryFind id
             |> Option.defaultValue Set.empty
 
     /// The atoms of the strand that the given atom belongs to. A free
     /// atom is a strand of one, for this purpose.
-    let private getStrandOf (bonds : Map<BondType, BondMap>) id =
+    let private getStrandOf (bonds : BondTypeMap) id =
         let rec visit (seen : Set<AtomId>) = function
             | [] -> seen
             | id :: rest when seen.Contains id -> visit seen rest
@@ -402,7 +402,7 @@ module Experiment3 =
     let private runPhase template nSweeps run =
         let joins = ResizeArray()
         let mutable nBreaks = 0
-        let onEvent event (bonds : Map<BondType, BondMap>) =
+        let onEvent event (bonds : BondTypeMap) =
             match event with
                 | CreateBond (Strong, idA, idB) ->
 
@@ -414,7 +414,7 @@ module Experiment3 =
                             bonds[Strong]
                                 |> BondMap.remove idA idB
                                 |> BondMap.remove idB idA
-                        Map.add Strong strong bonds
+                        BondTypeMap.setBondMap Strong strong bonds
                     joins.Add(getJoin template before idA idB)
                 | BreakBond (Strong, _, _) -> nBreaks <- nBreaks + 1
                 | _ -> ()

@@ -27,7 +27,7 @@ type World =
         _Walls : Point[]
 
         /// Bonds between atoms in the world, by type.
-        _BondTypeMap : Map<BondType, BondMap>
+        _BondTypeMap : BondTypeMap
 
         /// Occupant of each cell in the world.
         Cells : Grid
@@ -69,11 +69,7 @@ module World =
         {
             _Atoms = Array.empty
             _Walls = Array.empty
-            _BondTypeMap =
-                BondType.all
-                    |> Seq.map (fun bondType ->
-                        bondType, Map.empty)
-                    |> Map
+            _BondTypeMap = BondTypeMap.empty
             Cells = Grid.empty
         }
 
@@ -212,7 +208,7 @@ module World =
         let bondTypeMap =
             let bondMap =
                 BondMap.createBond atomA.Id atomB.Id bondMap
-            Map.add bondType bondMap world.BondTypeMap
+            BondTypeMap.setBondMap bondType bondMap world.BondTypeMap
 
             // new bond is valid?
         let isValid =
@@ -443,7 +439,7 @@ module World =
                 world.BondTypeMap[bondType]
                     |> BondMap.remove atomA.Id atomB.Id
                     |> BondMap.remove atomB.Id atomA.Id
-            Map.add bondType bondMap world.BondTypeMap
+            BondTypeMap.setBondMap bondType bondMap world.BondTypeMap
 
             // enforce valence rules
         let isValid =
