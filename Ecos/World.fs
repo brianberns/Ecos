@@ -284,7 +284,7 @@ module World =
         let ahead = atom.Location + delta
         let perpendicular = Point.create (delta.Y, delta.X)   // (1, 0) <-> (0, 1)
 
-        let check location =
+        let inline check location =
             world[location].IsEmpty
 
         let result =
