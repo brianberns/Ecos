@@ -42,7 +42,7 @@ module Neighborhood =
 
     /// Determines whether a bond between the given atoms is valid
     /// for the given neighborhood.
-    let testBond neighborhood atomA atomB =
+    let testBond atomA atomB neighborhood =
         assert(isValid neighborhood)
         let diff = abs (atomA.Location - atomB.Location)
         neighborhood.Contains(
