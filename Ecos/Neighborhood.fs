@@ -5,7 +5,7 @@ open System.Collections.Generic
 /// A set of non-negative integer pairs that describe normalized
 /// offsets from a center. These are not necessarily (x, y)
 /// points.
-type Neighborhood = HashSet<int (*max*) * int (*min*)>   // use HashSet for speed
+type Neighborhood = HashSet<struct (int (*max*) * int (*min*))>   // use HashSet for speed
 
 module Neighborhood =
 
@@ -16,14 +16,14 @@ module Neighborhood =
     /// Indicates whether the given neighborhood is valid.
     let isValid (neighborhood : Neighborhood) =
         neighborhood
-            |> Seq.forall (fun (x, y) ->
+            |> Seq.forall (fun struct (x, y) ->
                 x >= y && x >= 0 && y >= 0)
 
     /// Creates full (x, y) deltas from the given normalized (max,
     /// min) neighborhood.
     let toDeltas (neighborhood : Neighborhood) =
         neighborhood
-            |> Seq.collect (fun (a, b) ->
+            |> Seq.collect (fun struct (a, b) ->
                 [|
                     (a, b)                            // e.g.  2,  1
                     if a <> 0 then (-a, b)            // e.g. -2,  1
