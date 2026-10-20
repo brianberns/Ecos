@@ -32,11 +32,13 @@ module WorldView =
     let private (~~)(ecosPt : Ecos.Point) =
         Avalonia.Point(ecosPt.X, ecosPt.Y)
 
-    let renderRectangle location (color : Color) =
+    let renderRectangle location size (color : Color) =
+        assert(size % 2 = 0)
+        let half = size / 2
         Rectangle.create [
-            Rectangle.width 2
-            Rectangle.height 2
-            let pt = location - Point.create (1, 1)
+            Rectangle.width size
+            Rectangle.height size
+            let pt = location - Point.create(half, half)
             Rectangle.left pt.X
             Rectangle.top pt.Y
             Rectangle.fill color
@@ -56,6 +58,16 @@ module WorldView =
         let rgb = ucolorMix.Rgb.Byte255
         Color.FromRgb(byte rgb.R, byte rgb.G, byte rgb.B)
 
+    let private memoize (f : 'a -> 'b) =
+        let cache = System.Collections.Generic.Dictionary<'a, 'b>()
+        fun (x : 'a) ->
+            match cache.TryGetValue(x) with
+                | true, value -> value
+                | _ ->
+                    let value = f x
+                    cache[x] <- value
+                    value
+
     let private renderTemperature model =
 
         let getColor temp =
@@ -66,27 +78,24 @@ module WorldView =
                             - ControlPanel.minTemperature)
             getGradientColor Colors.LightBlue Colors.Red distance
 
-        let locs =
-            let dist = 1
-            set [
-                for atom in model.Run.World.Atoms do
-                    for dx = -dist to dist do
-                        for dy = -dist to dist do
-                            atom.Location + Point.create(dx, dy)
-            ]
+        let getColor = memoize getColor
 
+        let spacing = 8
+        let width = 152
         [
-            for loc in locs do
-                loc
-                    |> Run.getTemperature model.Run 
-                    |> getColor
-                    |> renderRectangle loc
+            for x in -(width/2) .. spacing .. width/2 do
+                for y in -(width/2) .. spacing .. width/2 do
+                    let loc = Point.create(x, y)
+                    loc
+                        |> Run.getTemperature model.Run 
+                        |> getColor
+                        |> renderRectangle loc spacing
         ]
 
     let private renderWalls (world : World) =
         [
             for loc in world.Walls do
-                renderRectangle loc Colors.Gray
+                renderRectangle loc 2 Colors.Gray
         ]
 
     let private renderAtoms model =
