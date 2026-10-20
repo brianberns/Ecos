@@ -41,18 +41,16 @@ module RegressionTests =
         hash.ToString("x16")
 
     /// Parameters that use every rule: barriers with stack and start
-    /// reductions, entropy for both bond types, peeling, and caps coming
-    /// off.
+    /// reductions, entropy for both bond types, peeling, and hydrolysis.
     let private allRules =
         {
             GetTemperature = Parameters.getUniformTemperature 1.5
             BondParameterMap =
                 Map [
-                    Strong, { Energy = 12; PairEnergyMap = Map.empty; Barrier = 6; BarrierStackReduction = 3; StartBarrier = 1; Entropy = 0.5 }
-                    Weak, { Energy = 2; PairEnergyMap = Map.empty; Barrier = 0.5; BarrierStackReduction = 0; StartBarrier = 0.5; Entropy = 1 }
+                    Strong, { Energy = 12; PairEnergyMap = Map.empty; Barrier = 6; BarrierStackReduction = 3; StartBarrier = 1; Entropy = 0.5; HydrolysisRate = 0.02 }
+                    Weak, { Energy = 2; PairEnergyMap = Map.empty; Barrier = 0.5; BarrierStackReduction = 0; StartBarrier = 0.5; Entropy = 1; HydrolysisRate = 0 }
                 ]
             PeelBarrier = 2.0
-            CapPeelBarrier = 4.0
         }
 
     /// A crowded world with no enclosing box: a chain, free atoms,
@@ -74,11 +72,10 @@ module RegressionTests =
             GetTemperature = Parameters.getUniformTemperature 0.7
             BondParameterMap =
                 Map [
-                    Strong, { Energy = 12; PairEnergyMap = Map.empty; Barrier = 6; BarrierStackReduction = 6; StartBarrier = 0.5; Entropy = 0 }
-                    Weak, { Energy = 2; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 1 }
+                    Strong, { Energy = 12; PairEnergyMap = Map.empty; Barrier = 6; BarrierStackReduction = 6; StartBarrier = 0.5; Entropy = 0; HydrolysisRate = 0 }
+                    Weak, { Energy = 2; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 1; HydrolysisRate = 0 }
                 ]
             PeelBarrier = 3.0
-            CapPeelBarrier = Double.PositiveInfinity
         }
 
     /// A capped template strand in a box, with free atoms that can pair
@@ -132,11 +129,10 @@ module RegressionTests =
             GetTemperature = Parameters.getUniformTemperature 1.0
             BondParameterMap =
                 Map [
-                    Strong, { Energy = 2; PairEnergyMap = Map.empty; Barrier = 3; BarrierStackReduction = 2; StartBarrier = 0.5; Entropy = 0 }
-                    Weak, { Energy = 3; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0.5 }
+                    Strong, { Energy = 2; PairEnergyMap = Map.empty; Barrier = 3; BarrierStackReduction = 2; StartBarrier = 0.5; Entropy = 0; HydrolysisRate = 0 }
+                    Weak, { Energy = 3; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0.5; HydrolysisRate = 0 }
                 ]
             PeelBarrier = Double.PositiveInfinity
-            CapPeelBarrier = Double.PositiveInfinity
         }
 
     /// The cases: a name, parameters, a function that builds a world
@@ -171,20 +167,20 @@ module RegressionTests =
             fingerprint world
         ]
 
-    /// Fingerprints recorded from the model as it was before the world
-    /// stored its atoms and occupancy in arrays (commit 96e1595).
+    /// Fingerprints recorded from the model once strong bonds could
+    /// hydrolyze (commit 45ddcd6).
     let private expected =
         Map [
-            ("cold", 1), [ "6081c98f05226c6c"; "0df76910647c17ca"; "9a28e0c71d109cad"; "70e9bd331d848370" ]
-            ("cold", 2), [ "4be548fc409955f3"; "bbb5b2dd25899c02"; "772352ca28f390e1"; "9a9e152f2f2dace8" ]
-            ("hot", 1), [ "cbdf1af662353506"; "cbe51102928a5690"; "956bbc6cca9db2e6"; "2d97d9312c554ab6" ]
-            ("hot", 2), [ "982061cf7e519a8b"; "6922792d0ea555fb"; "704b3e0cab677587"; "bee4cc1e2b076a60" ]
-            ("all rules", 1), [ "9d8f1fd1c9356dec"; "ddc4c7f87a4e811d"; "e887f5bf5c5a76de"; "b86efe849962f016" ]
-            ("all rules", 2), [ "f252197b6585143d"; "f0d0f2260bc57dd9"; "3a0c9292eca50d0e"; "c3b189c914b2bcf3" ]
-            ("copying", 1), [ "f92246e2c215799f"; "ad3fa1b237d86f56"; "c3927add7c280ca2"; "1633185ae99d66fc" ]
-            ("copying", 2), [ "c08c578fc49996db"; "aace4ed31022884e"; "65e0577c7f093238"; "e7d41d1fb3f53b18" ]
-            ("stacking", 1), [ "094b014f8bc984fd"; "5b2ca542c931b0ba"; "41d446eb7e5783fd"; "bffe4eed5950af4f" ]
-            ("stacking", 2), [ "9043b8c20e432895"; "bc2fd2cd5ad61c0c"; "76933f8909c1d1c8"; "bbe6a98491608e45" ]
+            ("cold", 1), [ "39b648c110a17624"; "99ce0bfa34d59eb3"; "31b991455bb9c20c"; "ca699a36166ef37c" ]
+            ("cold", 2), [ "235be71c8731e8d4"; "e714ff43a59914d4"; "343d78326d527865"; "0442bd92fa09268b" ]
+            ("hot", 1), [ "1a179ff72bf65fde"; "e82b172c55646a34"; "43fe617d446bf4ca"; "491f194e8626d829" ]
+            ("hot", 2), [ "634be7d4781ce79d"; "2e4612460bad8ab6"; "e09408eb0a1812ab"; "8fec0e9eced65629" ]
+            ("all rules", 1), [ "a7dfd2b3d39d0c5c"; "704fa118c60c9d94"; "b88cce0943418f75"; "5e6e05223488425c" ]
+            ("all rules", 2), [ "587bcd6cb790917b"; "a360f2e65d2feec8"; "cd302bdcbfd0145c"; "b7f03e2cf82e1125" ]
+            ("copying", 1), [ "a7c6ff2eae63f7f4"; "9c525d3403942ad3"; "729ba3208c42eb17"; "b404136268009063" ]
+            ("copying", 2), [ "1ff9eca18af2d82a"; "c221658a85ba0bda"; "712999403e57158c"; "2f0f7893aa224dde" ]
+            ("stacking", 1), [ "a7d79956c3e49538"; "f462bac3b9350b3d"; "472f912a46f85b54"; "cb8aff596006fd6f" ]
+            ("stacking", 2), [ "3699e163ec09dfcc"; "9742142691cf2eff"; "8a4fbe5b8398f6cd"; "d0fbdd4aa440b5d0" ]
         ]
 
     /// Prints the fingerprints of every case, in the form used above.

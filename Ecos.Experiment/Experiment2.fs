@@ -65,6 +65,7 @@ module Experiment2 =
                             BarrierStackReduction = 0.0   // replaced
                             StartBarrier = 0
                             Entropy = 0
+                            HydrolysisRate = 0
                         }
                     Weak,
                         {
@@ -74,6 +75,7 @@ module Experiment2 =
                             BarrierStackReduction = 0.0
                             StartBarrier = 0
                             Entropy = 0
+                            HydrolysisRate = 0
                         }
                 ]
             NumRuns = 16
@@ -199,8 +201,7 @@ module Experiment2 =
             |> Scenario.mapParameters (fun parms ->
                 { parms with
                     BondParameterMap = settings.BondParameterMap
-                    PeelBarrier = Double.PositiveInfinity   // no peeling
-                    CapPeelBarrier = Double.PositiveInfinity })
+                    PeelBarrier = Double.PositiveInfinity })   // no peeling
             |> Scenario.mapBondParameters Strong (fun bondParms ->
                 { bondParms with
                     Barrier = barrier

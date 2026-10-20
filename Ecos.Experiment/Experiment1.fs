@@ -40,8 +40,8 @@ module Experiment1 =
             Temperatures = [| for i in 3 .. 20 -> float i / 10.0 |]   // 0.3 to 2.0
             BondParameterMap =
                 Map [
-                    Strong, { Energy = 12; PairEnergyMap = Map.empty; Barrier = 6; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0 }
-                    Weak, { Energy = 1; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0 }
+                    Strong, { Energy = 12; PairEnergyMap = Map.empty; Barrier = 6; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0 }
+                    Weak, { Energy = 1; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0 }
                 ]
             NumRuns = 16
             EquilibrationSweeps = 20000
@@ -87,8 +87,7 @@ module Experiment1 =
             |> Scenario.mapParameters (fun parms ->
                 { parms with
                     BondParameterMap = settings.BondParameterMap
-                    PeelBarrier = Double.PositiveInfinity   // no peeling
-                    CapPeelBarrier = Double.PositiveInfinity })
+                    PeelBarrier = Double.PositiveInfinity })   // no peeling
 
     /// The experiment's scenarios: one for each temperature.
     let getScenarios settings =

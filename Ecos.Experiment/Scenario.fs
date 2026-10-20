@@ -202,12 +202,11 @@ module Build =
 
         world, Array.map _.Id world.Atoms
 
-    /// Adds rows of free atoms, the given distance apart, in strips by
-    /// type above and below the origin: weak partners of the template
-    /// nearest to it, then strong partners, then caps. Each row of coding
-    /// atoms has the first given number of atoms, and each row of caps
-    /// the second, centered.
-    let addFreeAtomsWith nPerRow nCapsPerRow dist world =
+    /// Adds rows of free atoms, each row the given number of atoms
+    /// long, the given distance apart, in strips by type above and
+    /// below the origin: weak partners of the template nearest to it,
+    /// then strong partners, then caps.
+    let addFreeAtoms nPerRow dist world =
         let rows =
             [
                 AtomType.P,  5; AtomType.P,  6
@@ -219,21 +218,10 @@ module Build =
             ]
         (world, rows)
             ||> Seq.fold (fun world (atomType, iRow) ->
-                let n =
-                    match atomType with
-                        | AtomType.P | AtomType.Q -> nCapsPerRow
-                        | _ -> nPerRow
-                (world, [ 0 .. n - 1 ])
+                (world, [ 0 .. nPerRow - 1 ])
                     ||> Seq.fold (fun world i ->
-                        addAtom atomType (2 * i - n)
+                        addAtom atomType (2 * i - nPerRow)
                             (iRow * dist) false world))
-
-    /// Adds rows of free atoms, each row the given number of atoms
-    /// long, the given distance apart, in strips by type above and
-    /// below the origin: weak partners of the template nearest to it,
-    /// then strong partners, then caps.
-    let addFreeAtoms nPerRow dist world =
-        addFreeAtomsWith nPerRow nPerRow dist world
 
     /// Adds a horizontal strand of the given atom types, joined in
     /// order, with its first atom at the given location, if there is
@@ -270,21 +258,6 @@ module Build =
                 |> Option.defaultWith loop
         loop ()
 
-    /// Picks a random x coordinate at which a strand of the given length
-    /// can start, as addStrandAtRandom does.
-    let getRandomStart (rng : Random) maxDist length =
-        let minX, maxX = getStartRange maxDist length
-        2 * rng.Next(minX, maxX)
-
-    /// Adds a horizontal strand of the given atom types, joined in
-    /// order, starting at the given x coordinate and at a random empty
-    /// height within the given distance of the origin.
-    let addStrandAtRandomHeight (rng : Random) maxDist x (atomTypes : _[]) world =
-        let rec loop () =
-            let y = 2 * rng.Next(-maxDist / 2, maxDist / 2 + 1)
-            tryAddStrand x y atomTypes world
-                |> Option.defaultWith loop
-        loop ()
 
 module Scenario =
 
@@ -320,6 +293,7 @@ module Scenario =
                                 BarrierStackReduction = 3
                                 StartBarrier = 1
                                 Entropy = 0
+                                HydrolysisRate = 0
                             }
                             Weak, {
                                 Energy = 2
@@ -328,16 +302,17 @@ module Scenario =
                                 BarrierStackReduction = 0
                                 StartBarrier = 0
                                 Entropy = 3
+                                HydrolysisRate = 0
                             }
                         ]
                     PeelBarrier = 6
-                    CapPeelBarrier = 20
                 }
             Schedule = Constant 0.25
         }
 
     /// Scenario B: a cold/hot temperature cycle, with hard strong
-    /// bonds.
+    /// bonds that hydrolyze slowly, so that strands die and the world
+    /// turns over.
     let createScenarioB withTemplate =
         let scenario = createScenarioA withTemplate
         {
@@ -354,6 +329,7 @@ module Scenario =
                                     BarrierStackReduction = 20
                                     StartBarrier = 1
                                     Entropy = 0
+                                    HydrolysisRate = 1e-4   // about 5% of strong bonds break per cycle
                                 } }
                 Schedule =
                     Cycle [|
@@ -389,12 +365,12 @@ module Scenario =
                     Barrier = barrier
                     BarrierStackReduction = barrier })
 
-    /// Sets the given scenario's barrier to a cap coming off the strand
-    /// it ends. Infinity means caps never come off.
-    let withCapPeelBarrier barrier scenario =
+    /// Sets the given scenario's rate of hydrolysis of strong bonds. Zero
+    /// means strands never die.
+    let withHydrolysisRate rate scenario =
         scenario
-            |> mapParameters (fun parms ->
-                { parms with CapPeelBarrier = barrier })
+            |> mapBondParameters Strong (fun bondParms ->
+                { bondParms with HydrolysisRate = rate })
 
     /// Sets the energy of the given type of bond between the given
     /// atom types in the given scenario.
@@ -406,7 +382,7 @@ module Scenario =
     /// Scenario C: the most faithful copying of a template so far (as
     /// of Oct 13). This is scenario B with a strong bond barrier high
     /// enough that free atoms almost never join without a template,
-    /// caps that never come off, and a hot phase as long as the cold
+    /// no hydrolysis, and a hot phase as long as the cold
     /// one, so that copies have time to separate. Nothing arises by
     /// chance and nothing dies, so it shows copying on its own.
     let createScenarioC withTemplate =
@@ -418,7 +394,7 @@ module Scenario =
                     { Temperature = 3.0; NumSweeps = 100_000 }   // hot
                 |] }
             |> withStrongBarrier 40
-            |> withCapPeelBarrier Double.PositiveInfinity
+            |> withHydrolysisRate 0.0
 
     /// Adds a step to the end of building the given scenario's world.
     let withBuildStep (step : Random -> World -> World) scenario =
@@ -466,97 +442,6 @@ module Scenario =
             Name = name
             Schedule = Vent wallVent }
             |> withBuildStep addStrands
-            |> withPairEnergy Weak AtomType.Y AtomType.Z yzEnergy
-
-    /// Templates in a vent world: scenario C's conditions (a strong bond
-    /// barrier high enough that nothing joins without a template, caps
-    /// that never come off, and a hot phase as long as the cold one),
-    /// heated by the wall vent instead of uniformly. The world is seeded
-    /// with the given number of templates of each kind: ten W atoms
-    /// (whose copies are ten X's) or ten Y atoms, capped P...Q, at
-    /// random places. The weak Y-Z bond has the given energy.
-    ///
-    /// A long duplex melts only where a pulse brings its stacked pairs
-    /// near the point of coming apart, which is hotter for Y-Z pairs if
-    /// they are stronger. So W/X templates should be copied farther
-    /// from the vent than Y/Z ones.
-    let createVentTemplateScenario nTemplates yzEnergy =
-        let scenario = createScenarioC false
-        let build rng =
-            let world, _ = scenario.Build rng
-            let nBefore = world.Atoms.Length
-            let template codingType =
-                [|
-                    AtomType.P
-                    yield! Array.replicate nCoding codingType
-                    AtomType.Q
-                |]
-            let world =
-                (world, [ 1 .. nTemplates ])
-                    ||> Seq.fold (fun world _ ->
-                        world
-                            |> Build.addStrandAtRandom rng 74 (template AtomType.W)
-                            |> Build.addStrandAtRandom rng 74 (template AtomType.Y))
-            world, [| nBefore .. world.Atoms.Length - 1 |]
-        { scenario with
-            Name = $"Vent templates, Y-Z energy {yzEnergy}"
-            Build = build
-            Schedule =
-                Vent {
-                    wallVent with
-                        ColdSweeps = 100_000
-                        HotSweeps = 100_000 } }
-            |> withPairEnergy Weak AtomType.Y AtomType.Z yzEnergy
-
-    /// Templates in a vent world, with the vent's pulse centered on the
-    /// window between the melting points of the two kinds of duplex
-    /// (about kT 0.7 for W/X and 0.95 for Y/Z when Y-Z is stronger; see
-    /// experiment 11). During a pulse, kT is 1.5 at the left wall,
-    /// falling linearly to 0.3 at the right one, so Y/Z duplexes melt
-    /// only within about 75 of the vent, W/X ones within about 105, and
-    /// neither beyond that.
-    ///
-    /// Strands are copied only on a template (a strong bond barrier of
-    /// 40), and die when a cap comes off in the heat (a cap peel barrier
-    /// of 10, which at this vent's temperatures loses caps about as often
-    /// as scenario B does at its own). The world is seeded with the given
-    /// number of pairs of templates, ten W atoms and ten Y atoms, each
-    /// pair at the same distance from the vent. Each of the four rows of
-    /// free caps (two of P, two of Q) has the given number of atoms; the
-    /// standard world has 60, and fewer makes caps the resource that the
-    /// two kinds of strand compete for.
-    let createVentWindowScenario nCapsPerRow nPairs yzEnergy =
-        let scenario = createScenarioB false
-        let build rng =
-            let world =
-                Build.addBox 160 160 World.empty
-                    |> Build.addFreeAtomsWith (6 * nCoding) nCapsPerRow 6
-            let nBefore = world.Atoms.Length
-            let template codingType =
-                [|
-                    AtomType.P
-                    yield! Array.replicate nCoding codingType
-                    AtomType.Q
-                |]
-            let world =
-                (world, [ 1 .. nPairs ])
-                    ||> Seq.fold (fun world _ ->
-                        let x = Build.getRandomStart rng 74 (nCoding + 2)
-                        world
-                            |> Build.addStrandAtRandomHeight rng 74 x (template AtomType.W)
-                            |> Build.addStrandAtRandomHeight rng 74 x (template AtomType.Y))
-            world, [| nBefore .. world.Atoms.Length - 1 |]
-        { scenario with
-            Name =
-                if nCapsPerRow = 6 * nCoding then
-                    $"Vent window, Y-Z energy {yzEnergy}"
-                else
-                    $"Vent window, {2 * nCapsPerRow} caps of each type, Y-Z energy {yzEnergy}"
-            Build = build
-            Schedule =
-                Vent { wallVent with HotTemperature = 1.5 } }
-            |> withStrongBarrier 40
-            |> withCapPeelBarrier 10
             |> withPairEnergy Weak AtomType.Y AtomType.Z yzEnergy
 
 /// A scenario being run.

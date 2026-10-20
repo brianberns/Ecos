@@ -30,13 +30,12 @@ module Experiment3 =
             /// temperature cycle.
             Scenario : Scenario
 
-            /// Overrides the scenario's barrier to a cap coming off the
-            /// strand it ends, if given. Infinity means caps never come
-            /// off.
-            CapPeelBarrier : float option
+            /// Overrides the scenario's rate of hydrolysis of strong
+            /// bonds, if given. Zero means strands never die.
+            HydrolysisRate : float option
         }
 
-    /// Default settings: scenario B. Caps never come off, so that the
+    /// Default settings: scenario B. Nothing hydrolyzes, so that the
     /// template survives, since this experiment measures what happens
     /// to it.
     let defaultSettings =
@@ -44,7 +43,7 @@ module Experiment3 =
             NumRuns = 24
             NumCycles = 3
             Scenario = Scenario.createScenarioB true
-            CapPeelBarrier = Some Double.PositiveInfinity
+            HydrolysisRate = Some 0.0
         }
 
     /// Settings for scenario C, which was designed for copying.
@@ -52,18 +51,18 @@ module Experiment3 =
         {
             defaultSettings with
                 Scenario = Scenario.createScenarioC true
-                CapPeelBarrier = None
+                HydrolysisRate = None
         }
 
-    /// The settings' scenario, with their cap peel barrier instead of
+    /// The settings' scenario, with their hydrolysis rate instead of
     /// its own, if any.
     let getScenario settings =
         let scenario = settings.Scenario
-        match settings.CapPeelBarrier with
-            | Some barrier ->
+        match settings.HydrolysisRate with
+            | Some rate ->
                 scenario
-                    |> Scenario.withCapPeelBarrier barrier
-                    |> Scenario.withName $"{scenario.Name}, cap peel barrier {barrier}"
+                    |> Scenario.withHydrolysisRate rate
+                    |> Scenario.withName $"{scenario.Name}, hydrolysis rate {rate}"
             | None -> scenario
 
     /// The experiment's scenarios: just one.
@@ -73,19 +72,19 @@ module Experiment3 =
     /// Prints the given parameters, apart from temperature.
     let printParameters (parms : Parameters) =
         printfn
-            "Peel barrier %g; cap peel barrier %g"
+            "Peel barrier %g"
             parms.PeelBarrier
-            parms.CapPeelBarrier
         for bondType in BondType.all do
             let bondParms = parms.BondParameterMap[bondType]
             printfn
-                "%A bonds: energy %g, entropy %g, barrier %g, barrier reduction per stack %g, start barrier %g"
+                "%A bonds: energy %g, entropy %g, barrier %g, barrier reduction per stack %g, start barrier %g, hydrolysis rate %g"
                 bondType
                 bondParms.Energy
                 bondParms.Entropy
                 bondParms.Barrier
                 bondParms.BarrierStackReduction
                 bondParms.StartBarrier
+                bondParms.HydrolysisRate
 
     /// A strand: two or more atoms connected by strong bonds.
     type Strand =

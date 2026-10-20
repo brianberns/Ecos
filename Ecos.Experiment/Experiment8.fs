@@ -6,13 +6,12 @@ open System.Threading
 
 open Ecos
 open Ecos.Experiment.Experiment3
-open Ecos.Experiment.Experiment7
 
-/// Experiment 8: head to head. As in experiment 7, W/X strands compete
-/// with Y/Z strands in a living world, with the weak Y-Z bond at
-/// various energies. Here, though, every world starts with equal
-/// numbers of each kind (three-atom strands, P-W-Q and P-Y-Q), so the
-/// result doesn't depend on which kind happened to arise first.
+/// Experiment 8: head to head. W/X strands compete with Y/Z strands in
+/// a living world, with the weak Y-Z bond at various energies. Every
+/// world starts with equal numbers of each kind (three-atom strands,
+/// P-W-Q and P-Y-Q), so the result doesn't depend on which kind
+/// happened to arise first.
 ///
 /// A stronger Y-Z bond holds a free atom on its template for longer in
 /// the cold phase, which should help copying. In the hot phase, though,
@@ -46,6 +45,65 @@ module Experiment8 =
             NumSeeds = 8
             NumRuns = 12
             NumCycles = 30
+        }
+
+    /// What a world contains at the end of a cycle.
+    type CycleResult =
+        {
+            /// Capped chains whose coding atoms are all W or X.
+            WX : int
+
+            /// Capped chains whose coding atoms are all Y or Z.
+            YZ : int
+
+            /// Capped chains with coding atoms of both kinds.
+            Mixed : int
+
+            /// Free W and X atoms.
+            FreeWX : int
+
+            /// Free Y and Z atoms.
+            FreeYZ : int
+        }
+
+    let isWX = function
+        | AtomType.W | AtomType.X -> true
+        | _ -> false
+
+    let isYZ = function
+        | AtomType.Y | AtomType.Z -> true
+        | _ -> false
+
+    /// Sorts the capped chains in the given world, and counts its free
+    /// coding atoms.
+    let getCensus (world : World) =
+        let strands = getStrands world
+        let chains =
+            strands
+                |> Array.where (isCapped world)
+                |> Array.map (fun strand ->
+                    strand.AtomIds
+                        |> Array.map (fun id -> world.Atoms[id].Type)
+                        |> Array.where (fun typ -> isWX typ || isYZ typ))
+        let count test =
+            chains |> Array.where test |> Array.length
+        let inStrands =
+            strands
+                |> Seq.collect _.AtomIds
+                |> set
+        let free test =
+            world.Atoms
+                |> Seq.where (fun atom ->
+                    test atom.Type && not (inStrands.Contains atom.Id))
+                |> Seq.length
+        {
+            WX = count (Array.forall isWX)
+            YZ = count (Array.forall isYZ)
+            Mixed =
+                count (fun types ->
+                    Array.exists isWX types && Array.exists isYZ types)
+            FreeWX = free isWX
+            FreeYZ = free isYZ
         }
 
     /// Scenario B with no template, the given number of strands of

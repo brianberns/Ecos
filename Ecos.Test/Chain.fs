@@ -7,8 +7,8 @@ module TestParameters =
     /// tests' temperatures are chosen to suit them.
     let standardBondParameterMap =
         Map [
-            Strong, { Energy = 12; PairEnergyMap = Map.empty; Barrier = 6; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0 }
-            Weak, { Energy = 1; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0 }
+            Strong, { Energy = 12; PairEnergyMap = Map.empty; Barrier = 6; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0 }
+            Weak, { Energy = 1; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0 }
         ]
 
     /// Standard parameters at the given temperature.
@@ -17,7 +17,6 @@ module TestParameters =
             GetTemperature = Parameters.getUniformTemperature kT
             BondParameterMap = standardBondParameterMap
             PeelBarrier = System.Double.PositiveInfinity   // no peeling
-            CapPeelBarrier = System.Double.PositiveInfinity   // no peeling
         }
 
     /// Standard parameters at the given temperature, except that
@@ -33,7 +32,6 @@ module TestParameters =
             BondParameterMap =
                 Map.add Strong strong standardBondParameterMap
             PeelBarrier = System.Double.PositiveInfinity   // no peeling
-            CapPeelBarrier = System.Double.PositiveInfinity   // no peeling
         }
 
     /// The given parameters, with the given start barrier for each bond
@@ -46,6 +44,16 @@ module TestParameters =
                 parms.BondParameterMap
                     |> set Strong strongBarrier
                     |> set Weak weakBarrier }
+
+    /// The given parameters, with the given hydrolysis rate for the given
+    /// bond type.
+    let withHydrolysis bondType rate (parms : Parameters) =
+        let bondParms = parms.BondParameterMap[bondType]
+        { parms with
+            BondParameterMap =
+                Map.add bondType
+                    { bondParms with HydrolysisRate = rate }
+                    parms.BondParameterMap }
 
     /// The given parameters, with energies for particular pairs of atom
     /// types.
@@ -311,14 +319,11 @@ module Chain =
             | Strong -> parms.PeelBarrier
             | Weak -> Double.PositiveInfinity
 
-    /// Oracle: barrier to a cap coming off the strand it ends. A strong
-    /// bond between a cap and the atom it caps breaks with probability
-    /// exp(-barrier / kT), whatever its energy, after which the strand
-    /// has an exposed end and peels. Only strong bonds have caps.
-    let capPeelBarrier (parms : Parameters) bondType =
-        match bondType with
-            | Strong -> parms.CapPeelBarrier
-            | Weak -> Double.PositiveInfinity
+    /// Oracle: probability that an attempt to break a bond of the given
+    /// type succeeds by hydrolysis, whatever its energy or position: the
+    /// bond type's own rate. A cap's bond is like any other.
+    let hydrolysisRate (parms : Parameters) bondType =
+        parms.BondParameterMap[bondType].HydrolysisRate
 
     /// Oracle: energy of one weak bond between W and X, with the
     /// standard parameters.

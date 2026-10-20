@@ -332,12 +332,6 @@ module PropertyTests =
     /// Oracle: is the strong bond between the given atoms at an exposed
     /// end of a strand? It is if either atom has no other strong bond
     /// and isn't a cap. Such a bond can peel.
-    /// Oracle: is the strong bond between the given atoms one that ends
-    /// a strand with a cap? It is if either atom is a cap. Such a bond
-    /// can come off.
-    let private isCapBond (world : World) idA idB =
-        Chain.isCap world.Atoms[idA].Type || Chain.isCap world.Atoms[idB].Type
-
     let private isExposed (world : World) idA idB =
         [ idA; idB ]
             |> List.exists (fun id ->
@@ -382,9 +376,9 @@ module PropertyTests =
     ///
     /// A strong bond at an exposed end of a strand has a second way to
     /// break: it peels, with probability exp(-peel barrier / kT),
-    /// whatever its energy; and a strong bond between a cap and the
-    /// atom it caps has a third, with probability exp(-cap peel barrier
-    /// / kT). A bond that is both (a cap on a lone atom) has all three.
+    /// whatever its energy; and any strong bond has a third: it
+    /// hydrolyzes, with the given fixed probability. Weak bonds never
+    /// hydrolyze.
     /// Nothing reverses these, so they take the
     /// model out of equilibrium.
     let private toggleProbabilities (parms : Parameters) (world : World) =
@@ -425,7 +419,9 @@ module PropertyTests =
                             Chain.bondEnergy parms Weak atomA.Type world.Atoms[idB].Type
                                 + Chain.stackEnergy * float nStacks
                         if Bonds.areWeaklyBonded world idA idB then
-                            weakBreak <- weakBreak + acceptBreak kT Weak nStacks (isStart Weak idA idB) energy
+                            let pBreak = acceptBreak kT Weak nStacks (isStart Weak idA idB) energy
+                            let pHydrolysis = Chain.hydrolysisRate parms Weak
+                            weakBreak <- weakBreak + 1.0 - (1.0 - pBreak) * (1.0 - pHydrolysis)
                         elif canFormWeakBond world idA idB then
                             weakForm <- weakForm + acceptForm kT Weak nStacks (isStart Weak idA idB) energy
                     | _ -> ()
@@ -449,11 +445,8 @@ module PropertyTests =
                                         if isExposed world idA idB then
                                             exp (-Chain.peelBarrier parms Strong / kT)
                                         else 0.0
-                                    let pCap =
-                                        if isCapBond world idA idB then
-                                            exp (-Chain.capPeelBarrier parms Strong / kT)
-                                        else 0.0
-                                    1.0 - (1.0 - pBreak) * (1.0 - pPeel) * (1.0 - pCap)
+                                    let pHydrolysis = Chain.hydrolysisRate parms Strong
+                                    1.0 - (1.0 - pBreak) * (1.0 - pPeel) * (1.0 - pHydrolysis)
                                 else 0.0
                             strongBreak <- strongBreak + p
                             if isLong v then longBreak <- longBreak + p
@@ -730,11 +723,10 @@ module PropertyTests =
                 GetTemperature = Parameters.getUniformTemperature 1.0
                 BondParameterMap =
                     Map [
-                        Strong, { Energy = 30; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0 }
-                        Weak, { Energy = 1; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0 }
+                        Strong, { Energy = 30; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0 }
+                        Weak, { Energy = 1; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0 }
                     ]
                 PeelBarrier = Double.PositiveInfinity   // no peeling
-                CapPeelBarrier = Double.PositiveInfinity   // no peeling
             }
         let mutable world =
             World.empty
@@ -896,11 +888,10 @@ module PropertyTests =
                 GetTemperature = Parameters.getUniformTemperature 1.0
                 BondParameterMap =
                     Map [
-                        Strong, { Energy = 0; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0 }
-                        Weak, { Energy = 3; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0 }
+                        Strong, { Energy = 0; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0 }
+                        Weak, { Energy = 3; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0 }
                     ]
                 PeelBarrier = Double.PositiveInfinity   // no peeling
-                CapPeelBarrier = Double.PositiveInfinity   // no peeling
             }
         let mutable world =
             World.empty
@@ -1157,9 +1148,13 @@ module PropertyTests =
     ///   break at the expected rate until few are left. (See
     ///   toggleProbabilities.)
     /// * A capped strand, P0-W1-W2-P3, never loses a bond.
+    /// * With hydrolysis, a capped strand is taken apart: a bond breaks,
+    ///   and the pieces peel.
+    /// * Hydrolysis breaks bonds without peeling too, anywhere in a
+    ///   strand.
     /// * With peeling turned off, nothing breaks at all.
     [<Fact>]
-    let ``Exposed ends peel at the expected rate, and capped ends only when their caps come off`` () =
+    let ``Exposed ends peel at the expected rate, and capped strands only once hydrolysis cuts them`` () =
         let frozen = TestParameters.createFrozen 1.0
         let peeling = { frozen with PeelBarrier = 0.5 }
 
@@ -1203,9 +1198,9 @@ module PropertyTests =
             world <- Chain.updatesWith { peeling with PeelBarrier = 0.0 } rng 50000 world
             Assert.Equal<Set<int * int>>(strongBonds capped, strongBonds world)
 
-            // a capped strand whose caps can come off is taken apart:
-            // a cap comes off, and then the rest peels
-        let checkCapLoss () =
+            // with hydrolysis, a capped strand is taken apart: a bond
+            // breaks, and then the pieces peel
+        let checkHydrolysis () =
             let rng = Random(1)
             let capped =
                 World.empty
@@ -1218,35 +1213,36 @@ module PropertyTests =
                     |> World.addStrongBond 2 3
                     |> Chain.addSoup rng 10
             let mutable world = capped
-            world <- Chain.updatesWith { peeling with CapPeelBarrier = 1.0 } rng 100000 world
+            world <- Chain.updatesWith (TestParameters.withHydrolysis Strong 0.01 peeling) rng 100000 world
             Assert.Empty(
                 strongBonds world
                     |> Set.filter (fun (idA, idB) -> idA <= 3 && idB <= 3))
 
-            // the cap barrier applies only to a bond with a cap: with
-            // ordinary peeling off and caps sure to come off, a strand
-            // without caps is untouched
-        let checkNoCaps () =
+            // hydrolysis alone, with peeling off, breaks every bond of a
+            // capped strand, interior and caps alike, when it is sure to
+            // happen (and nothing re-forms, since the barrier is impassable)
+        let checkHydrolysisOnly () =
             let rng = Random(2)
-            let uncapped =
+            let capped =
                 World.empty
-                    |> World.addAtom AtomType.W (Point.create (-3, 0))   // 0
+                    |> World.addAtom AtomType.P (Point.create (-3, 0))   // 0
                     |> World.addAtom AtomType.W (Point.create (-1, 0))   // 1
                     |> World.addAtom AtomType.W (Point.create (1, 0))    // 2
-                    |> World.addAtom AtomType.W (Point.create (3, 0))    // 3
+                    |> World.addAtom AtomType.Q (Point.create (3, 0))    // 3
                     |> World.addStrongBond 0 1
                     |> World.addStrongBond 1 2
                     |> World.addStrongBond 2 3
                     |> Chain.addSoup rng 10
             let parms =
-                { frozen with
-                    PeelBarrier = Double.PositiveInfinity
-                    CapPeelBarrier = 0.0 }
-            let mutable world = uncapped
+                { frozen with PeelBarrier = Double.PositiveInfinity }
+                    |> TestParameters.withHydrolysis Strong 1.0
+            let mutable world = capped
             world <- Chain.updatesWith parms rng 50000 world
-            Assert.Equal<Set<int * int>>(strongBonds uncapped, strongBonds world)
+            Assert.Empty(
+                strongBonds world
+                    |> Set.filter (fun (idA, idB) -> idA <= 3 && idB <= 3))
 
-        inParallel [| checkSeed 0; checkSeed 1; checkSeed 2; checkCapped; checkCapLoss; checkNoCaps |]
+        inParallel [| checkSeed 0; checkSeed 1; checkSeed 2; checkCapped; checkHydrolysis; checkHydrolysisOnly |]
 
     /// Worlds for testing stacking: four atoms confined to a small box,
     /// so that bonds between them form and break constantly.
@@ -1298,11 +1294,10 @@ module PropertyTests =
                 GetTemperature = Parameters.getUniformTemperature 1.0
                 BondParameterMap =
                     Map [
-                        Strong, { Energy = 0; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0 }
-                        Weak, { Energy = 3; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0 }
+                        Strong, { Energy = 0; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0 }
+                        Weak, { Energy = 3; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0 }
                     ]
                 PeelBarrier = Double.PositiveInfinity   // no peeling
-                CapPeelBarrier = Double.PositiveInfinity   // no peeling
             }
         for label, world in stackingWorlds do
             checkEventRates label parms 200000 (Random(0)) world
@@ -1322,11 +1317,10 @@ module PropertyTests =
                 GetTemperature = Parameters.getUniformTemperature 1.0
                 BondParameterMap =
                     Map [
-                        Strong, { Energy = 0; PairEnergyMap = Map.empty; Barrier = 3; BarrierStackReduction = 3; StartBarrier = 0; Entropy = 0 }
-                        Weak, { Energy = 3; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0 }
+                        Strong, { Energy = 0; PairEnergyMap = Map.empty; Barrier = 3; BarrierStackReduction = 3; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0 }
+                        Weak, { Energy = 3; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0 }
                     ]
                 PeelBarrier = Double.PositiveInfinity   // no peeling
-                CapPeelBarrier = Double.PositiveInfinity   // no peeling
             }
         for label, world in stackingWorlds do
             checkEventRates label parms 200000 (Random(1)) world
@@ -1346,11 +1340,10 @@ module PropertyTests =
                 GetTemperature = Parameters.getUniformTemperature 1.0
                 BondParameterMap =
                     Map [
-                        Strong, { Energy = 2; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = strongEntropy }
-                        Weak, { Energy = 3; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = weakEntropy }
+                        Strong, { Energy = 2; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = strongEntropy; HydrolysisRate = 0 }
+                        Weak, { Energy = 3; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = weakEntropy; HydrolysisRate = 0 }
                     ]
                 PeelBarrier = Double.PositiveInfinity   // no peeling
-                CapPeelBarrier = Double.PositiveInfinity   // no peeling
             }
         inParallel [|
             for iWorld, (label, world) in List.indexed stackingWorlds do
@@ -1398,11 +1391,10 @@ module PropertyTests =
                 GetTemperature = Parameters.getUniformTemperature 1.0
                 BondParameterMap =
                     Map [
-                        Strong, { Energy = 0; PairEnergyMap = Map.empty; Barrier = 3; BarrierStackReduction = 5; StartBarrier = 1.5; Entropy = 0 }
-                        Weak, { Energy = 3; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0.5; Entropy = 0 }
+                        Strong, { Energy = 0; PairEnergyMap = Map.empty; Barrier = 3; BarrierStackReduction = 5; StartBarrier = 1.5; Entropy = 0; HydrolysisRate = 0 }
+                        Weak, { Energy = 3; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0.5; Entropy = 0; HydrolysisRate = 0 }
                     ]
                 PeelBarrier = Double.PositiveInfinity   // no peeling
-                CapPeelBarrier = Double.PositiveInfinity   // no peeling
             }
             // strands start slowly but then grow freely, so most strong bonds
             // formed extend a strand and must not get the start barrier
@@ -1411,11 +1403,10 @@ module PropertyTests =
                 GetTemperature = Parameters.getUniformTemperature 1.0
                 BondParameterMap =
                     Map [
-                        Strong, { Energy = 2; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 2; Entropy = 0 }
-                        Weak, { Energy = 1; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0 }
+                        Strong, { Energy = 2; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 2; Entropy = 0; HydrolysisRate = 0 }
+                        Weak, { Energy = 1; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0 }
                     ]
                 PeelBarrier = Double.PositiveInfinity   // no peeling
-                CapPeelBarrier = Double.PositiveInfinity   // no peeling
             }
         inParallel [|
             fun () -> checkEventRates "Box, strands growing" growing 150000 (Random(9)) box
@@ -1435,9 +1426,10 @@ module PropertyTests =
     ///
     /// Run once without peeling and once with it. With peeling, bonds
     /// re-form as fast as they peel, so there are enough peeling events
-    /// to pin down the peeling probability. A third run has caps and
-    /// lets them come off too, which covers that probability, and that
-    /// it applies only to bonds with a cap.
+    /// to pin down the peeling probability. A third run has caps, which
+    /// stop peeling, and hydrolysis, which breaks any strong bond (caps'
+    /// included), and of weak bonds, at their own rate. A fourth makes
+    /// weak bonds deep, so that their own hydrolysis rate shows.
     [<Fact>]
     let ``Strong bonds form and break at the expected rate`` () =
         let size = 4   // atom locations have |x| <= size and |y| <= size
@@ -1469,11 +1461,10 @@ module PropertyTests =
                 GetTemperature = Parameters.getUniformTemperature 1.0
                 BondParameterMap =
                     Map [
-                        Strong, { Energy = 30; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0 }
-                        Weak, { Energy = 1; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0 }
+                        Strong, { Energy = 30; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0 }
+                        Weak, { Energy = 1; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0 }
                     ]
                 PeelBarrier = 1.0   // peels with probability 1/e
-                CapPeelBarrier = Double.PositiveInfinity   // no peeling
             }
         inParallel [|
             fun () -> checkEventRates "Box" parms 100000 (Random(1)) world
@@ -1492,12 +1483,25 @@ module PropertyTests =
                 checkEventRates
                     "Box, with peeling" peeling 200000 (Random(2)) worldNoCaps
             fun () ->
-                    // caps too, which come off a little less easily than exposed
-                    // ends peel, so capped strands don't last
+                    // caps too, and hydrolysis, which takes capped strands
+                    // apart, and weak bonds hydrolyzing too, at their own rate
                 checkEventRates
-                    "Box, with caps peeling"
-                    { peeling with CapPeelBarrier = 2.0 }
+                    "Box, with caps and hydrolysis"
+                    (peeling
+                        |> TestParameters.withHydrolysis Strong 0.1
+                        |> TestParameters.withHydrolysis Weak 0.05)
                     200000 (Random(3)) world
+            fun () ->
+                    // deep weak bonds, which seldom break by the usual test,
+                    // so that how often they hydrolyze shows: each bond type
+                    // at its own rate, far apart
+                let weak = { peeling.BondParameterMap[Weak] with Energy = 3.0 }
+                checkEventRates
+                    "Box, with deep weak bonds and hydrolysis"
+                    ({ peeling with BondParameterMap = Map.add Weak weak peeling.BondParameterMap }
+                        |> TestParameters.withHydrolysis Strong 0.3
+                        |> TestParameters.withHydrolysis Weak 0.05)
+                    200000 (Random(8)) world
         |]
 
     /// Bonds, at the right rates, where temperature varies by location:
@@ -1540,11 +1544,10 @@ module PropertyTests =
                 GetTemperature = step 0.25 25.0
                 BondParameterMap =
                     Map [
-                        Strong, { Energy = 30; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0 }
-                        Weak, { Energy = 1; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0 }
+                        Strong, { Energy = 30; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0 }
+                        Weak, { Energy = 1; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0 }
                     ]
                 PeelBarrier = 2.0
-                CapPeelBarrier = Double.PositiveInfinity   // no caps
             }
 
         inParallel [|

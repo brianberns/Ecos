@@ -13,10 +13,7 @@
     <Compile Include="Experiment2.fs" />
     <Compile Include="Experiment3.fs" />
     <Compile Include="Experiment4.fs" />
-    <Compile Include="Experiment6.fs" />
-    <Compile Include="Experiment7.fs" />
     <Compile Include="Experiment8.fs" />
-    <Compile Include="Experiment9.fs" />
     <Compile Include="Experiment11.fs" />
     <Compile Include="Registry.fs" />
     <Compile Include="Program.fs" />

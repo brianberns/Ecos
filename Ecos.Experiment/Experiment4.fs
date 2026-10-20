@@ -33,24 +33,23 @@ module Experiment4 =
             /// Number of times to run through the scenario's phases.
             NumCycles : int
 
-            /// Overrides the scenario's barrier to a cap coming off the
-            /// strand it ends, if given. Infinity means caps never come
-            /// off.
-            CapPeelBarrier : float option
+            /// Overrides the scenario's rate of hydrolysis of strong
+            /// bonds, if given. Zero means strands never die.
+            HydrolysisRate : float option
         }
 
-    /// Default settings. Caps never come off, so this measures how
+    /// Default settings. Nothing hydrolyzes, so this measures how
     /// strands arise and multiply, without any dying.
     let defaultSettings =
         {
             StrongBarriers = [| 20.0; 15.0; 12.0; 10.0 |]
             NumRuns = 8
             NumCycles = 10
-            CapPeelBarrier = Some Double.PositiveInfinity
+            HydrolysisRate = Some 0.0
         }
 
     /// Settings for a living world: strands arise from free atoms and
-    /// also die, since their caps come off as the scenario says, so the
+    /// also die, since their bonds hydrolyze as the scenario says, so the
     /// population turns over. Run for many cycles, to see what a world
     /// settles into.
     let livingWorldSettings =
@@ -58,15 +57,15 @@ module Experiment4 =
             StrongBarriers = [| 20.0; 15.0 |]
             NumRuns = 8
             NumCycles = 30
-            CapPeelBarrier = None
+            HydrolysisRate = None
         }
 
-    /// Scenario B with no template, and the settings' cap peel barrier
+    /// Scenario B with no template, and the settings' hydrolysis rate
     /// instead of its own, if any.
     let private getBaseScenario settings =
         let scenario = Scenario.createScenarioB false
-        match settings.CapPeelBarrier with
-            | Some barrier -> Scenario.withCapPeelBarrier barrier scenario
+        match settings.HydrolysisRate with
+            | Some rate -> Scenario.withHydrolysisRate rate scenario
             | None -> scenario
 
     /// The experiment's scenario for the given strong bond barrier (and

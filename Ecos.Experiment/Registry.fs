@@ -56,31 +56,7 @@ module Registry =
                 Scenarios = Experiment4.getScenarios Experiment4.livingWorldSettings
             }
             {
-                Name = "Experiment 6"
-                Scenarios = Experiment6.getScenarios Experiment6.defaultSettings
-            }
-            {
-                Name = "Experiment 7"
-                Scenarios = Experiment7.getScenarios Experiment7.defaultSettings
-            }
-            {
                 Name = "Experiment 8"
                 Scenarios = Experiment8.getScenarios Experiment8.defaultSettings
-            }
-            {
-                Name = "Experiment 9"
-                Scenarios = Experiment9.getScenarios Experiment9.defaultSettings
-            }
-            {
-                Name = "Experiment 10"
-                Scenarios = Experiment9.getScenarios Experiment9.templateSettings
-            }
-            {
-                Name = "Experiment 12"
-                Scenarios = Experiment9.getScenarios Experiment9.windowSettings
-            }
-            {
-                Name = "Experiment 13"
-                Scenarios = Experiment9.getScenarios Experiment9.scarceCapSettings
             }
         |]
