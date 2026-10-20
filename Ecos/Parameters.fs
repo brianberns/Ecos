@@ -53,6 +53,10 @@ type BondTypeParameters =
 
         /// Implicit entropy in this bond type (s).
         Entropy : float
+
+        /// Determines how often bonds of this type break due to
+        /// hydrolysis.
+        HydrolysisRate : float
     }
 
 module BondTypeParameters =
@@ -89,9 +93,6 @@ type Parameters =
         /// Determines how often peeling happens. +Infinity
         /// prevents peeling altogether.
         PeelBarrier : float
-
-        /// Determines how often bonds break due to hydrolysis.
-        HydrolysisRate : float
     }
 
 module Parameters =

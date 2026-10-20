@@ -484,7 +484,7 @@ module World =
         if BondMap.areBonded atomA.Id atomB.Id bondMap then
             if testBond bondParms.Entropy bondEnergy
                 || testPeel rng parms temp behavior atomA atomB bondMap
-                || testHydrolysis rng parms
+                || testHydrolysis rng bondParms
                 then
                 tryBreakBond bondType atomA atomB world
                     |> Option.map (fun world ->
