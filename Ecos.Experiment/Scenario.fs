@@ -434,6 +434,46 @@ module Scenario =
             |> withBuildStep addStrands
             |> withPairEnergy Weak AtomType.Y AtomType.Z yzEnergy
 
+    /// Templates in a vent world: scenario C's conditions (a strong bond
+    /// barrier high enough that nothing joins without a template, caps
+    /// that never come off, and a hot phase as long as the cold one),
+    /// heated by the wall vent instead of uniformly. The world is seeded
+    /// with the given number of templates of each kind: ten W atoms
+    /// (whose copies are ten X's) or ten Y atoms, capped P...Q, at
+    /// random places. The weak Y-Z bond has the given energy.
+    ///
+    /// A long duplex melts only where a pulse brings its stacked pairs
+    /// near the point of coming apart, which is hotter for Y-Z pairs if
+    /// they are stronger. So W/X templates should be copied farther
+    /// from the vent than Y/Z ones.
+    let createVentTemplateScenario nTemplates yzEnergy =
+        let scenario = createScenarioC false
+        let build rng =
+            let world, _ = scenario.Build rng
+            let nBefore = world.Atoms.Length
+            let template codingType =
+                [|
+                    AtomType.P
+                    yield! Array.replicate nCoding codingType
+                    AtomType.Q
+                |]
+            let world =
+                (world, [ 1 .. nTemplates ])
+                    ||> Seq.fold (fun world _ ->
+                        world
+                            |> Build.addStrandAtRandom rng 74 (template AtomType.W)
+                            |> Build.addStrandAtRandom rng 74 (template AtomType.Y))
+            world, [| nBefore .. world.Atoms.Length - 1 |]
+        { scenario with
+            Name = $"Vent templates, Y-Z energy {yzEnergy}"
+            Build = build
+            Schedule =
+                Vent {
+                    wallVent with
+                        ColdSweeps = 100_000
+                        HotSweeps = 100_000 } }
+            |> withPairEnergy Weak AtomType.Y AtomType.Z yzEnergy
+
 /// A scenario being run.
 type Run =
     {

@@ -19,6 +19,12 @@ open Ecos.Experiment.Experiment7
 ///
 /// A control run has equal pair energies, so that any pattern there
 /// comes from the vent alone.
+///
+/// Experiment 10 is the same measurement with long templates instead of
+/// three-atom strands, in conditions where nothing arises by chance and
+/// nothing dies (see templateSettings). A long duplex comes apart only
+/// where a pulse is hot enough for its composition, so the two kinds
+/// should each be copied only within their own reach of the vent.
 module Experiment9 =
 
     /// Settings for the experiment.
@@ -28,8 +34,12 @@ module Experiment9 =
             /// default weak bond energy.
             YZEnergies : float[]
 
-            /// Number of strands of each kind to start with.
-            NumSeeds : int
+            /// Title to print.
+            Title : string
+
+            /// Creates the scenario to run with the given Y-Z energy. It
+            /// must have a vent schedule.
+            CreateScenario : float -> Scenario
 
             /// Number of bands, side by side, that the box is divided
             /// into, from the vent outward.
@@ -42,14 +52,27 @@ module Experiment9 =
             NumCycles : int
         }
 
-    /// Default settings.
+    /// Default settings: three-atom strands of each kind, seeded across
+    /// the box, in the living world of scenario B.
     let defaultSettings =
         {
+            Title = "Experiment 9: W/X and Y/Z strands in a world heated by a vent"
             YZEnergies = [| 2.0; 3.0 |]
-            NumSeeds = 8
+            CreateScenario = Scenario.createVentScenario 8
             NumBands = 8
             NumRuns = 12
             NumCycles = 30
+        }
+
+    /// Settings for experiment 10: ten-letter templates of each kind (all
+    /// W or all Y), in scenario C's conditions, where nothing arises by
+    /// chance and nothing dies.
+    let templateSettings =
+        {
+            defaultSettings with
+                Title = "Experiment 10: W/X and Y/Z templates in a world heated by a vent"
+                CreateScenario = Scenario.createVentTemplateScenario 4
+                NumCycles = 15
         }
 
     /// Left and right edges of the region that the bands divide: the
@@ -133,12 +156,12 @@ module Experiment9 =
     /// The experiment's scenarios: one for each Y-Z energy.
     let getScenarios settings =
         settings.YZEnergies
-            |> Array.map (Scenario.createVentScenario settings.NumSeeds)
+            |> Array.map settings.CreateScenario
 
     /// Runs one world through the cycles. Answers a result for each
     /// band at the start and at the end of each cycle.
     let private runOne settings yzEnergy seed =
-        let scenario = Scenario.createVentScenario settings.NumSeeds yzEnergy
+        let scenario = settings.CreateScenario yzEnergy
         let period =
             Schedule.tryGetPeriod scenario.Schedule |> Option.get
         let mutable run = Run.create seed scenario
@@ -175,15 +198,15 @@ module Experiment9 =
                     yzEnergy, Array.map snd group)
                 |> Map
 
-        let scenario = Scenario.createVentScenario settings.NumSeeds 2.0
+        let scenario = settings.CreateScenario 2.0
         let vent =
             match scenario.Schedule with
                 | Vent vent -> vent
                 | _ -> failwith "Not a vent"
-        printfn "Experiment 9: W/X and Y/Z strands in a world heated by a vent"
+        printfn "%s" settings.Title
         printfn
-            "%d runs of %d cycles with each Y-Z energy; %d strands of each kind to start (P-W-Q and P-Y-Q)"
-            settings.NumRuns settings.NumCycles settings.NumSeeds
+            "%d runs of %d cycles with each Y-Z energy; scenario %s (shown for Y-Z energy 2)"
+            settings.NumRuns settings.NumCycles scenario.Name
         printfn
             "Vent at x = %d: kT %g for %d sweeps between pulses; during a %d-sweep pulse, kT %g at the vent, falling linearly to %g at %d away"
             vent.X vent.ColdTemperature vent.ColdSweeps vent.HotSweeps

@@ -71,4 +71,8 @@ module Registry =
                 Name = "Experiment 9"
                 Scenarios = Experiment9.getScenarios Experiment9.defaultSettings
             }
+            {
+                Name = "Experiment 10"
+                Scenarios = Experiment9.getScenarios Experiment9.templateSettings
+            }
         |]
