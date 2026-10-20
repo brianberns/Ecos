@@ -89,8 +89,19 @@ module Experiment9 =
         {
             defaultSettings with
                 Title = "Experiment 12: W/X and Y/Z templates near their melting points, in a world heated by a vent"
-                CreateScenario = Scenario.createVentWindowScenario 4
+                CreateScenario = Scenario.createVentWindowScenario 60 4
                 OnlySeparated = true
+        }
+
+    /// Settings for experiment 13: as experiment 12, but with a quarter
+    /// of the usual caps (30 of each type), so that the two kinds of
+    /// strand compete for them, rather than each filling up with atoms
+    /// of its own kind.
+    let scarceCapSettings =
+        {
+            windowSettings with
+                Title = "Experiment 13: W/X and Y/Z templates near their melting points, competing for scarce caps, in a world heated by a vent"
+                CreateScenario = Scenario.createVentWindowScenario 15 4
         }
 
     /// Left and right edges of the region that the bands divide: the
@@ -120,6 +131,15 @@ module Experiment9 =
 
             /// Free W and X atoms.
             FreeWX : int
+
+            /// Coding atoms in the W/X chains.
+            WXAtoms : int
+
+            /// Coding atoms in the Y/Z chains.
+            YZAtoms : int
+
+            /// Free caps (P and Q).
+            FreeCaps : int
 
             /// Free Y and Z atoms.
             FreeYZ : int
@@ -167,6 +187,11 @@ module Experiment9 =
                         |> Array.where (fun (band, types) ->
                             band = iBand && test types)
                         |> Array.length
+                let countAtoms test =
+                    chains
+                        |> Array.sumBy (fun (band, types) ->
+                            if band = iBand && test types then types.Length
+                            else 0)
                 let countFree test =
                     free
                         |> Array.where (fun atom ->
@@ -178,6 +203,12 @@ module Experiment9 =
                     YZ = countChains (Array.forall isYZ)
                     FreeWX = countFree isWX
                     FreeYZ = countFree isYZ
+                    WXAtoms = countAtoms (Array.forall isWX)
+                    YZAtoms = countAtoms (Array.forall isYZ)
+                    FreeCaps =
+                        countFree (function
+                            | AtomType.P | AtomType.Q -> true
+                            | _ -> false)
                 }
         |]
 
@@ -258,7 +289,7 @@ module Experiment9 =
                 |> String.concat ""
 
         use writer = new StreamWriter(csvPath)
-        writer.WriteLine("yz_energy,cycle,band,band_center,pulse_kT,wx,yz,free_wx,free_yz")
+        writer.WriteLine("yz_energy,cycle,band,band_center,pulse_kT,wx,yz,free_wx,free_yz,wx_atoms,yz_atoms,free_caps")
 
         for yzEnergy in settings.YZEnergies do
             let runs = results[yzEnergy]
@@ -296,6 +327,9 @@ module Experiment9 =
                             average iCycle iBand _.YZ
                             average iCycle iBand _.FreeWX
                             average iCycle iBand _.FreeYZ
+                            average iCycle iBand _.WXAtoms
+                            average iCycle iBand _.YZAtoms
+                            average iCycle iBand _.FreeCaps
                         ]
                     writer.WriteLine(
                         String.Join(
@@ -303,6 +337,21 @@ module Experiment9 =
                             values
                                 |> Seq.map (fun (x : float) ->
                                     x.ToString(Globalization.CultureInfo.InvariantCulture))))
+
+                // totals over the whole box, per run
+            let total iCycle (f : BandResult -> int) =
+                bands |> Array.sumBy (fun iBand -> average iCycle iBand f)
+            printfn ""
+            printfn "Totals per run, whole box"
+            printfn "cycle    W/X chains  Y/Z chains   Y/Z share  by atoms    free W+X  free Y+Z  free caps"
+            for iCycle in 0 .. settings.NumCycles do
+                let nWX, nYZ = total iCycle _.WX, total iCycle _.YZ
+                let aWX, aYZ = total iCycle _.WXAtoms, total iCycle _.YZAtoms
+                let share a b = if a + b > 0.0 then b / (a + b) else nan
+                printfn
+                    "%5d    %10.1f  %10.1f   %9.2f  %8.2f    %8.1f  %8.1f  %9.1f"
+                    iCycle nWX nYZ (share nWX nYZ) (share aWX aYZ)
+                    (total iCycle _.FreeWX) (total iCycle _.FreeYZ) (total iCycle _.FreeCaps)
 
             let final = settings.NumCycles
             let row label f =

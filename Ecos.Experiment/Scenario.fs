@@ -202,11 +202,12 @@ module Build =
 
         world, Array.map _.Id world.Atoms
 
-    /// Adds rows of free atoms, each row the given number of atoms
-    /// long, the given distance apart, in strips by type above and
-    /// below the origin: weak partners of the template nearest to it,
-    /// then strong partners, then caps.
-    let addFreeAtoms nPerRow dist world =
+    /// Adds rows of free atoms, the given distance apart, in strips by
+    /// type above and below the origin: weak partners of the template
+    /// nearest to it, then strong partners, then caps. Each row of coding
+    /// atoms has the first given number of atoms, and each row of caps
+    /// the second, centered.
+    let addFreeAtomsWith nPerRow nCapsPerRow dist world =
         let rows =
             [
                 AtomType.P,  5; AtomType.P,  6
@@ -218,10 +219,21 @@ module Build =
             ]
         (world, rows)
             ||> Seq.fold (fun world (atomType, iRow) ->
-                (world, [ 0 .. nPerRow - 1 ])
+                let n =
+                    match atomType with
+                        | AtomType.P | AtomType.Q -> nCapsPerRow
+                        | _ -> nPerRow
+                (world, [ 0 .. n - 1 ])
                     ||> Seq.fold (fun world i ->
-                        addAtom atomType (2 * i - nPerRow)
+                        addAtom atomType (2 * i - n)
                             (iRow * dist) false world))
+
+    /// Adds rows of free atoms, each row the given number of atoms
+    /// long, the given distance apart, in strips by type above and
+    /// below the origin: weak partners of the template nearest to it,
+    /// then strong partners, then caps.
+    let addFreeAtoms nPerRow dist world =
+        addFreeAtomsWith nPerRow nPerRow dist world
 
     /// Adds a horizontal strand of the given atom types, joined in
     /// order, with its first atom at the given location, if there is
@@ -509,11 +521,16 @@ module Scenario =
     /// of 10, which at this vent's temperatures loses caps about as often
     /// as scenario B does at its own). The world is seeded with the given
     /// number of pairs of templates, ten W atoms and ten Y atoms, each
-    /// pair at the same distance from the vent.
-    let createVentWindowScenario nPairs yzEnergy =
+    /// pair at the same distance from the vent. Each of the four rows of
+    /// free caps (two of P, two of Q) has the given number of atoms; the
+    /// standard world has 60, and fewer makes caps the resource that the
+    /// two kinds of strand compete for.
+    let createVentWindowScenario nCapsPerRow nPairs yzEnergy =
         let scenario = createScenarioB false
         let build rng =
-            let world, _ = scenario.Build rng
+            let world =
+                Build.addBox 160 160 World.empty
+                    |> Build.addFreeAtomsWith (6 * nCoding) nCapsPerRow 6
             let nBefore = world.Atoms.Length
             let template codingType =
                 [|
@@ -530,7 +547,11 @@ module Scenario =
                             |> Build.addStrandAtRandomHeight rng 74 x (template AtomType.Y))
             world, [| nBefore .. world.Atoms.Length - 1 |]
         { scenario with
-            Name = $"Vent window, Y-Z energy {yzEnergy}"
+            Name =
+                if nCapsPerRow = 6 * nCoding then
+                    $"Vent window, Y-Z energy {yzEnergy}"
+                else
+                    $"Vent window, {2 * nCapsPerRow} caps of each type, Y-Z energy {yzEnergy}"
             Build = build
             Schedule =
                 Vent { wallVent with HotTemperature = 1.5 } }

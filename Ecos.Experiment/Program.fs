@@ -20,6 +20,7 @@ module Program =
         printfn "   experiment10  W/X and Y/Z templates in a world heated by a vent"
         printfn "   experiment11  Melting of ten-letter duplexes, by temperature"
         printfn "   experiment12  W/X and Y/Z templates near their melting points, in a world heated by a vent"
+        printfn "   experiment13  The same, competing for scarce caps"
 
     [<EntryPoint>]
     let main argv =
@@ -101,6 +102,12 @@ module Program =
                 0
             | [ "experiment12"; csvPath ] ->
                 Experiment9.run Experiment9.windowSettings csvPath
+                0
+            | [ "experiment13" ] ->
+                Experiment9.run Experiment9.scarceCapSettings "experiment13.csv"
+                0
+            | [ "experiment13"; csvPath ] ->
+                Experiment9.run Experiment9.scarceCapSettings csvPath
                 0
             | _ ->
                 printUsage ()

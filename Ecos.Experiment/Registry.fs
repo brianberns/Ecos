@@ -79,4 +79,8 @@ module Registry =
                 Name = "Experiment 12"
                 Scenarios = Experiment9.getScenarios Experiment9.windowSettings
             }
+            {
+                Name = "Experiment 13"
+                Scenarios = Experiment9.getScenarios Experiment9.scarceCapSettings
+            }
         |]
