@@ -79,8 +79,7 @@ module WorldView =
     let private renderWalls (world : World) =
         [
             for loc in world.Walls do
-                let pt = loc - Point.create (1, 1)
-                renderRectangle pt Brushes.Gray
+                renderRectangle loc Brushes.Gray
         ]
 
     let private renderAtoms model =
