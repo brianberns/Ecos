@@ -86,12 +86,12 @@ type Parameters =
         /// Bond type-specific parameters.
         BondParameterMap : Map<BondType, BondTypeParameters>
 
-        /// Determines how often non-cap peeling happens.
-        /// +Infinity prevents peeling altogether.
+        /// Determines how often peeling happens. +Infinity
+        /// prevents peeling altogether.
         PeelBarrier : float
 
-        /// Determines how often cap peeling happens.
-        CapPeelBarrier : float
+        /// Determines how often bonds break due to hydrolysis.
+        HydrolysisRate : float
     }
 
 module Parameters =

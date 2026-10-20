@@ -71,7 +71,7 @@ type private BondBehavior =
 
         /// Determines whether the given bond of this type can
         /// peel.
-        TestPeel : bool -> Atom -> Atom -> BondMap -> bool
+        TestPeel : Atom -> Atom -> BondMap -> bool
     }
 
 module private BondBehavior =
@@ -170,20 +170,11 @@ module private StrongBond =
             && 25 * dot * dot >= 16 * (u .* u) * (v .* v)   // 16/25 = abs((-4/5)^2) in cos <= -0.8 
 
     /// Strands can peel at their ends.
-    let testPeel capPeel atomA atomB bondMap =
+    let testPeel atomA atomB bondMap =
         assert(BondMap.areBonded atomA.Id atomB.Id bondMap)
 
         let isExposed atom =
-
-                // cap can peel?
-            if isCap atom.Type then
-                assert((BondMap.getBonds atom.Id bondMap).Count = 1)
-                capPeel
-
-                // non-cap can't cap-peel
-            elif capPeel then false
-
-                // non-cap can peel?
+            if isCap atom.Type then false   // cap protects strand
             else
                 let bonds = BondMap.getBonds atom.Id bondMap
                 assert(bonds.Count >= 1)
@@ -272,7 +263,7 @@ module private WeakBond =
         u .* v <= -3
 
     /// Weak bonds never peel.
-    let testPeel _capPeel _atomA _atomB _bondMap =
+    let testPeel _atomA _atomB _bondMap =
         false
 
     /// Behavior of weak bonds.
