@@ -28,7 +28,7 @@ Strands also die: in the heat a cap sometimes comes off, and the uncapped strand
 | Replicators arise from free atoms with no template | Done, though only very short ones |
 | Turnover, so that a full world keeps changing | Done |
 | Sequences that differ in fitness, and selection between them | Done, for pairing strength |
-| Adaptation to a varied environment | In progress: a world heated by a vent |
+| Adaptation to a varied environment | Tried: a world heated by a vent, which first needs material to recycle everywhere |
 | A phenotype that does something beyond being copied | Not started |
 
 **Growth in a large world.** In a world four times the area, with four times the atoms, one strand became about 4, 8, 15, 24 and 37 capped strands over five cycles. The world was far from full, with five atoms in six still free, yet the growth factor fell steadily from 2.1 to 1.5. The counts fit a square law, which is what a colony spreading outward from one spot would give: strands separate cleanly but drift slowly, so the population stays crowded near where it started. Exponential growth would need the strands to disperse.
@@ -45,7 +45,13 @@ Strands also die: in the heat a cap sometimes comes off, and the uncapped strand
 
 **Selection on pairing strength.** The weak bond's energy can differ by letter pair. When Y–Z is made stronger than W–X, a free atom stays on its template longer in the cold, which gives it more time to be joined into the copy. Head to head, starting from equal numbers of P-W-Q and P-Y-Q strands, the stronger pair's share rose from 0.50 to about 0.82 over 30 cycles, and it was ahead in all 12 runs, while a control with equal energies stayed at 0.50. The advantage was already full-sized at a Y–Z energy of 3 (against 2 for W–X), and stronger bonds up to 18 bought nothing more and cost nothing either: in a uniformly heated world, stronger pairing is a one-way ratchet with no optimum.
 
-**A vent (in progress).** A world heated from one side gives pairing strength a trade-off. During each pulse the vent heats nearby strands more than distant ones, so each place has its own cycle. A Y/Z copy needs a hotter pulse to separate from its template than a W/X copy does, so Y/Z strands should do best near the vent and W/X strands farther out. Experiment 9 tests this.
+**A vent.** A world heated from one side was meant to give pairing strength a trade-off: during each pulse the vent heats nearby strands more than distant ones, so each place has its own cycle, and a Y/Z copy needs a hotter pulse to separate from its template than a W/X copy. Five experiments (9 to 13) looked for Y/Z strands winning near the vent and W/X strands farther out. None showed it convincingly, but together they taught more about the model than about selection:
+
+- *Long duplexes melt sharply, near energy divided by entropy for their pairs.* A ten-letter W/X duplex goes from never separating to always separating between kT 0.5 and 0.75, and a Y/Z one (with Y–Z stronger) between 0.75 and 1.0. Duplexes unzip from their ends, where stacking helps least, so stacking hardly raises the melting point.
+- *Short strands aren't gated by temperature.* A three-atom duplex comes apart even in the cold phase, given tens of thousands of chances, so heat barely matters to how fast it is copied.
+- *Competition needs a shared limiting resource.* W/X and Y/Z strands are built from different atoms, so when caps are plentiful each kind just fills up with its own atoms and the two never compete. Earlier selection results worked because caps ran out first. With caps scarce, the stronger Y–Z pair lost overall in a vent whose pulses mostly fell below its melting point, as the trade-off predicts, but on very few strands.
+- *Where nothing melts, material is trapped for good.* On the cool side, a template is copied, its copy's free face templates another copy, and the stack grows into a sheet that never separates. Caps come off only in the heat, so nothing there dies either. These sheets soak up atoms and caps and never return them, until almost no free atoms are left anywhere.
+- *Lineages don't travel.* A strand drifts about 20 sites per cycle, so where a kind lives is mostly set by where its founders started.
 
 ## The model
 
@@ -112,6 +118,7 @@ Three ideas were tried and dropped because measurement did not support them: req
 ## Open problems
 
 - **The simplest replicator wins.** Strands that arise from the soup are three atoms long, and nothing favors anything longer: in a living world they displace a seeded 12-atom template every time. Lineages seeded with a long template also drift shorter through deletions. Something has to make length, or the order of a sequence, worth having.
+- **Material gets trapped.** Strands die only when a cap comes off in the heat, so wherever it stays cool, nothing is ever recycled: duplexes and sheets that never melt hold their atoms forever, and in a world with any cool region, material drains into it until the world stops. Every region needs some slow way for material to return.
 - **Strands don't spread.** A lineage stays near where it started, so growth in a large world is limited by the colony's edge, not by the supply of atoms. This also means a strand can't follow a changing environment: nothing in its sequence affects where it goes.
 - **Phenotypes don't do anything yet.** Pairing strength is heritable and selected, but it depends only on which letters a strand contains, and in a uniform world stronger is simply better. The aim is a phenotype that is a physical action with costs and benefits: strands that fold into shapes, bind to things, or hold atoms, in an environment that poses a problem worth solving. Folding would need strands that can bend, which at present they cannot.
 - **Two partners can share a face at a bend.** The weak angle rule keeps an atom's two partners on opposite sides of the atom, which at a sharp bend is not the same as opposite sides of the strand. It is rare and corrects itself, so it has been left alone.
@@ -166,6 +173,10 @@ dotnet run -c Release --project Ecos.Experiment -- experiment3 results.csv
 | `experiment7` | With Y–Z pairs stronger than W–X, does the stronger kind take over? |
 | `experiment8` | The same head to head, from equal numbers of each kind, over a range of strengths |
 | `experiment9` | In a world heated by a vent, does each kind win where its pairing suits the temperature? |
+| `experiment10` | The same, with ten-letter templates of each kind instead of three-atom strands |
+| `experiment11` | At what temperature does each kind of ten-letter duplex melt? |
+| `experiment12` | Templates in a vent whose pulses span the two melting points, counting only separated strands |
+| `experiment13` | The same, with caps scarce, so that the two kinds compete for them |
 
 Experiments run their worlds in parallel and print their progress. They take from a few minutes (experiment 3) to a few hours (experiments 7 and 8) on a 24-core machine. Each prints tables of results and writes them to the CSV file.
 
@@ -177,6 +188,7 @@ Experiments run their worlds in parallel and print their progress. They take fro
 | B | The living world: a cold/hot cycle (90,000/10,000 sweeps), a strong barrier low enough that strands arise by chance, and caps that come off |
 | C | Copying alone: a high strong barrier, a long hot phase, and caps that never come off |
 | Vent | Scenario B's world heated by a pulsing vent along its left wall, seeded with W/X and Y/Z strands |
+| Vent window | Templates of each kind in a vent whose pulses span their melting points, with caps that come off |
 
 Each comes with or without a template strand. Experiments build their variants from these.
 
