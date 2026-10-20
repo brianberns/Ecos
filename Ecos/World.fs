@@ -284,8 +284,7 @@ module World =
             let ahead = atom.Location + delta
             if check ahead then
                 let perpendicular = Point.create (delta.Y, delta.X)   // (1, 0) <-> (0, 1)
-                check ahead
-                    && check (ahead + perpendicular)
+                check (ahead + perpendicular)
                     && check (ahead - perpendicular)
             else false
         assert(
