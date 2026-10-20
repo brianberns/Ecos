@@ -27,12 +27,15 @@ module Program =
     /// Prints usage.
     let private printUsage () =
         printfn "Usage: dotnet run -c Release -- <experiment> [csv path]"
+        printfn "   or: dotnet run -c Release -- checks"
         printfn ""
         printfn "Experiments:"
         for name, description, _ in experiments do
             printfn "   %-13s %s" name description
         printfn ""
         printfn "Experiments 6, 7, 9, 10, 12 and 13 are archived: see the git history."
+        printfn ""
+        printfn "checks: confirms, in several minutes, that the model's key accomplishments still hold."
 
     [<EntryPoint>]
     let main argv =
@@ -42,11 +45,12 @@ module Program =
                 |> Option.map (fun (_, _, run) -> run csvPath)
         let result =
             match List.ofArray argv with
-                | [ name ] -> tryRun name $"{name}.csv"
-                | [ name; csvPath ] -> tryRun name csvPath
+                | [ "checks" ] -> Some (if Checks.run () then 0 else 1)
+                | [ name ] -> tryRun name $"{name}.csv" |> Option.map (fun () -> 0)
+                | [ name; csvPath ] -> tryRun name csvPath |> Option.map (fun () -> 0)
                 | _ -> None
         match result with
-            | Some () -> 0
+            | Some exitCode -> exitCode
             | None ->
                 printUsage ()
                 1

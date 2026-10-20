@@ -41,7 +41,7 @@ module Experiment8 =
     /// Default settings.
     let defaultSettings =
         {
-            YZEnergies = [| 2.0; 3.0; 6.0; 9.0; 12.0; 18.0 |]
+            YZEnergies = [| 2.0; 3.0; 6.0 |]
             NumSeeds = 8
             NumRuns = 12
             NumCycles = 30

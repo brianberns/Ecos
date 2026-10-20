@@ -14,7 +14,7 @@ A single strand placed among free atoms is copied, the copies separate when heat
 
 Replicators also arise without any template. In a soup of free atoms, short capped strands occasionally form by chance during the hot phase, and once one exists it is copied and its lineage multiplies. This is the model's version of abiogenesis.
 
-Strands also die: in the heat a cap sometimes comes off, and the uncapped strand then falls apart into free atoms. With births and deaths, a full world keeps turning over, and lineages compete. Natural selection now works on a heritable trait: when one letter pair binds more strongly than the other, strands made of it take over the population.
+Strands also die: now and then a strong bond breaks of its own accord (hydrolysis), and the pieces of the cut strand fall apart into free atoms. With births and deaths, a full world keeps turning over, and lineages compete. Natural selection now works on a heritable trait: when one letter pair binds more strongly than the other, strands made of it take over the population.
 
 | Milestone | Status |
 |---|---|
@@ -41,11 +41,11 @@ Strands also die: in the heat a cap sometimes comes off, and the uncapped strand
 
 **Faithful copying.** In conditions designed for copying alone (scenario C: a high barrier, so nothing joins without a template; a hot phase as long as the cold one; caps that never come off), one 12-atom template becomes about 3.4, 6.3 and 9.5 full-length capped strands per run over three cycles. The template survives intact in every run, copies of copies carry the template's own sequence forward, and about a quarter of the strands are short by the third cycle.
 
-**Turnover and competition.** In a living world (scenario B), where caps come off in the heat and chance strands can arise, a 12-atom template competes with whatever the soup produces. Three-atom replicators appear in every run within a few cycles and win every time: after 40 cycles there were about 76 short chains per run against fewer than one of the template's family, which had died out in most runs. A short strand is cheap to make by chance and needs fewer free atoms to copy, and nothing yet rewards length.
+**Turnover and competition.** In a living world (scenario B), where strands die and chance strands can arise, a 12-atom template competes with whatever the soup produces. Three-atom replicators appear in every run within a few cycles and win every time: after 40 cycles there were about 76 short chains per run against fewer than one of the template's family, which had died out in most runs. A short strand is cheap to make by chance and needs fewer free atoms to copy, and nothing yet rewards length. (This was measured when strands died by losing caps in the heat; the experiment is archived.)
 
-**Selection on pairing strength.** The weak bond's energy can differ by letter pair. When Y–Z is made stronger than W–X, a free atom stays on its template longer in the cold, which gives it more time to be joined into the copy. Head to head, starting from equal numbers of P-W-Q and P-Y-Q strands, the stronger pair's share rose from 0.50 to about 0.82 over 30 cycles, and it was ahead in all 12 runs, while a control with equal energies stayed at 0.50. The advantage was already full-sized at a Y–Z energy of 3 (against 2 for W–X), and stronger bonds up to 18 bought nothing more and cost nothing either: in a uniformly heated world, stronger pairing is a one-way ratchet with no optimum.
+**Selection on pairing strength.** The weak bond's energy can differ by letter pair. When Y–Z is made stronger than W–X, a free atom stays on its template longer in the cold, which gives it more time to be joined into the copy. Head to head, starting from equal numbers of P-W-Q and P-Y-Q strands, the stronger pair's share rose from 0.50 to about 0.75 over 30 cycles, and it was ahead in all 12 runs, while a control with equal energies stayed near 0.50. The advantage was already full-sized at a Y–Z energy of 3 (against 2 for W–X), and stronger bonds (up to 18, in an earlier run) bought nothing more and cost nothing either: in a uniformly heated world, stronger pairing is a one-way ratchet with no optimum.
 
-**A vent.** A world heated from one side was meant to give pairing strength a trade-off: during each pulse the vent heats nearby strands more than distant ones, so each place has its own cycle, and a Y/Z copy needs a hotter pulse to separate from its template than a W/X copy. Five experiments (9 to 13) looked for Y/Z strands winning near the vent and W/X strands farther out. None showed it convincingly, but together they taught more about the model than about selection:
+**A vent.** A world heated from one side was meant to give pairing strength a trade-off: during each pulse the vent heats nearby strands more than distant ones, so each place has its own cycle, and a Y/Z copy needs a hotter pulse to separate from its template than a W/X copy. Five experiments (9 to 13, now archived) looked for Y/Z strands winning near the vent and W/X strands farther out. None showed it convincingly, but together they taught more about the model than about selection:
 
 - *Long duplexes melt sharply, near energy divided by entropy for their pairs.* A ten-letter W/X duplex goes from never separating to always separating between kT 0.5 and 0.75, and a Y/Z one (with Y–Z stronger) between 0.75 and 1.0. Duplexes unzip from their ends, where stacking helps least, so stacking hardly raises the melting point.
 - *Short strands aren't gated by temperature.* A three-atom duplex comes apart even in the cold phase, given tens of thousands of chances, so heat barely matters to how fast it is copied.
@@ -74,6 +74,7 @@ Strands also die: in the heat a cap sometimes comes off, and the uncapped strand
 | Energy and barrier | Large energy, large barrier | Small energy, no barrier |
 | Energy by pair | Can differ by the types of the two atoms | Can differ by letter pair, e.g. Y–Z stronger than W–X |
 | Entropy | None | Pairing costs entropy, so pairs melt when hot |
+| Hydrolysis | Rare one-way breaking, at a fixed rate | None |
 
 No bond of either type may cross another.
 
@@ -96,10 +97,10 @@ Temperature can vary from place to place. A bond uses the average of the tempera
 - **Caps.** A cap can have only one strong bond, so a strand that ends in caps cannot be extended. A cap is copied like any other atom, by pairing with its complement, so strand length is inherited. A strand has a P at one end and a Q at the other, which gives it a direction: read from P to Q, a copy is the reverse complement of its template.
 - **Peeling.** A strong bond at an uncapped end of a strand breaks at a rate that rises with temperature. Unfinished strands melt back into free atoms during the hot phase, and finished, capped strands are untouched.
 - **Bond entropy.** A weak bond has an entropy cost as well as an energy, so it has a melting point: stable when cold, and unlikely even between two atoms held in range when hot. Without this, paired strands stay stuck together at any temperature.
-- **Caps come off.** In the heat, a cap occasionally breaks away from its strand, at a rate set by its own barrier. The uncapped strand then peels apart, returning its atoms to the soup. This is death, and it gives a full world turnover.
+- **Hydrolysis.** Any strong bond, a cap's included, occasionally breaks one way, at a fixed rate whatever its energy, position or temperature. A cut strand has uncapped ends, which peel away in the heat (and hydrolyze in the cold), returning its atoms to the soup. This is death, and it gives a full world turnover everywhere, cool regions included. The rate is a trade-off: in scenario C, a 12-atom template still multiplies about 1.7-fold per cycle at 10⁻⁵ per attempt, 1.4-fold at 3 × 10⁻⁵, and not at all at 10⁻⁴, since long strands have more bonds to lose. Scenario B, whose strands are short, uses 10⁻⁴.
 - **Temperature cycling.** A cold phase lets free atoms pair with strands and join into copies. A hot phase melts the weak bonds so strands separate, and peels away the fragments.
 
-Every rule except peeling (of exposed ends and of caps) obeys detailed balance, so at a fixed, uniform temperature the model would settle into thermal equilibrium. Peeling is deliberately one-way. Together with the temperature cycle, it is what keeps the system out of equilibrium, with atoms flowing from the free pool into strands and back. A temperature that varies from place to place also prevents equilibrium, since a bonded pair can hop between temperatures for free.
+Every rule except peeling and hydrolysis obeys detailed balance, so at a fixed, uniform temperature the model would settle into thermal equilibrium. Peeling and hydrolysis are deliberately one-way. Together with the temperature cycle, it is what keeps the system out of equilibrium, with atoms flowing from the free pool into strands and back. A temperature that varies from place to place also prevents equilibrium, since a bonded pair can hop between temperatures for free.
 
 ## What we learned getting here
 
@@ -118,7 +119,7 @@ Three ideas were tried and dropped because measurement did not support them: req
 ## Open problems
 
 - **The simplest replicator wins.** Strands that arise from the soup are three atoms long, and nothing favors anything longer: in a living world they displace a seeded 12-atom template every time. Lineages seeded with a long template also drift shorter through deletions. Something has to make length, or the order of a sequence, worth having.
-- **Material gets trapped.** Strands die only when a cap comes off in the heat, so wherever it stays cool, nothing is ever recycled: duplexes and sheets that never melt hold their atoms forever, and in a world with any cool region, material drains into it until the world stops. Every region needs some slow way for material to return.
+- **Material gets trapped, or recycles slowly.** Before hydrolysis, strands died only when a cap came off in the heat, so duplexes and sheets that never melted held their atoms forever, and a world with any cool region drained into it until it stopped. Hydrolysis now returns material everywhere, but at rates that long strands can survive, a frozen sheet takes tens of cycles to dissolve. Faster recycling favors shorter strands still further.
 - **Strands don't spread.** A lineage stays near where it started, so growth in a large world is limited by the colony's edge, not by the supply of atoms. This also means a strand can't follow a changing environment: nothing in its sequence affects where it goes.
 - **Phenotypes don't do anything yet.** Pairing strength is heritable and selected, but it depends only on which letters a strand contains, and in a uniform world stronger is simply better. The aim is a phenotype that is a physical action with costs and benefits: strands that fold into shapes, bind to things, or hold atoms, in an environment that poses a problem worth solving. Folding would need strands that can bend, which at present they cannot.
 - **Two partners can share a face at a bend.** The weak angle rule keeps an atom's two partners on opposite sides of the atom, which at a sharp bend is not the same as opposite sides of the strand. It is rare and corrects itself, so it has been left alone.
@@ -169,26 +170,21 @@ dotnet run -c Release --project Ecos.Experiment -- experiment3 results.csv
 | `experiment3c` | The same, in scenario C, which is designed for copying |
 | `experiment4` | With no template, do replicators arise from free atoms, and do they multiply? |
 | `experiment5` | The same in a living world, where strands also die |
-| `experiment6` | Does a seeded template's lineage hold its own against chance replicators? |
-| `experiment7` | With Y–Z pairs stronger than W–X, does the stronger kind take over? |
 | `experiment8` | The same head to head, from equal numbers of each kind, over a range of strengths |
-| `experiment9` | In a world heated by a vent, does each kind win where its pairing suits the temperature? |
-| `experiment10` | The same, with ten-letter templates of each kind instead of three-atom strands |
 | `experiment11` | At what temperature does each kind of ten-letter duplex melt? |
-| `experiment12` | Templates in a vent whose pulses span the two melting points, counting only separated strands |
-| `experiment13` | The same, with caps scarce, so that the two kinds compete for them |
 
-Experiments run their worlds in parallel and print their progress. They take from a few minutes (experiment 3) to a few hours (experiments 7 and 8) on a 24-core machine. Each prints tables of results and writes them to the CSV file.
+Experiments 6, 7, 9, 10, 12 and 13 are archived: their results are summarized above, and their code is in the git history.
+
+Experiments run their worlds in parallel and print their progress. They take from seconds (experiment 11) to an hour or so (experiment 8) on a 24-core machine. Each prints tables of results and writes them to the CSV file.
 
 ### Scenarios
 
 | Scenario | World |
 |---|---|
 | A | A fixed temperature, with soft strong bonds |
-| B | The living world: a cold/hot cycle (90,000/10,000 sweeps), a strong barrier low enough that strands arise by chance, and caps that come off |
-| C | Copying alone: a high strong barrier, a long hot phase, and caps that never come off |
+| B | The living world: a cold/hot cycle (90,000/10,000 sweeps), a strong barrier low enough that strands arise by chance, and strong bonds that hydrolyze, so strands die |
+| C | Copying alone: a high strong barrier, a long hot phase, and no hydrolysis, so nothing dies |
 | Vent | Scenario B's world heated by a pulsing vent along its left wall, seeded with W/X and Y/Z strands |
-| Vent window | Templates of each kind in a vent whose pulses span their melting points, with caps that come off |
 
 Each comes with or without a template strand. Experiments build their variants from these.
 
@@ -199,6 +195,11 @@ Each comes with or without a template strand. Experiments build their variants f
 - **Event rates.** In crowded random worlds, each kind of event must happen as often as the rules predict, including across a sharp step in temperature.
 - **Regression fingerprints.** Recorded worlds must be reproduced exactly, update for update, so that changes made for speed can be shown to change nothing else.
 - **Mutation checks.** Each new test is run against deliberately broken copies of the library, to confirm that it fails when it should.
+- **Accomplishment checks.** The unit tests check each rule; a separate, slower command checks that the rules still add up to the model's key accomplishments: faithful copying in scenario C, chance replicators arising and turning over in a living world, and selection on pairing strength. Each is a reduced experiment with a pass threshold set well below its measured results. Run it after changing the core or the scenarios (it takes several minutes):
+
+  ```bash
+  dotnet run -c Release --project Ecos.Experiment -- checks
+  ```
 
 ## Background
 

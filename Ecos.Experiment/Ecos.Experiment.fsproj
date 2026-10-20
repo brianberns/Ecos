@@ -15,6 +15,7 @@
     <Compile Include="Experiment4.fs" />
     <Compile Include="Experiment8.fs" />
     <Compile Include="Experiment11.fs" />
+    <Compile Include="Checks.fs" />
     <Compile Include="Registry.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
