@@ -108,10 +108,10 @@ module ControlPanel =
         StackPanel.create [
             StackPanel.dock Dock.Top
             StackPanel.orientation Orientation.Horizontal
-            StackPanel.children [
-                renderLabel "Temperature:" labelColumnWidth
-                match model.Run.Schedule with
-                    | Constant kT ->
+            match model.Run.Schedule with
+                | Constant kT ->
+                    StackPanel.children [
+                        renderLabel "Temperature:" labelColumnWidth
                         NumericUpDown.create [
                             NumericUpDown.minimum minTemperature
                             NumericUpDown.maximum maxTemperature
@@ -127,8 +127,8 @@ module ControlPanel =
                                         |> SetTemperature
                                         |> dispatch)
                         ]
-                    | _ -> ()
-            ]
+                    ]
+                | _ -> ()
         ]
 
     let private renderSpeed (speed : int) dispatch =
