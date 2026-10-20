@@ -224,8 +224,8 @@ module Build =
                             (iRow * dist) false world))
 
     /// Adds a horizontal strand of the given atom types, joined in
-    /// order, at a random empty place within the given distance of
-    /// the origin.
+    /// order, at a random empty place where every one of its atoms is
+    /// within the given distance of the origin along each axis.
     let addStrandAtRandom (rng : Random) maxDist (atomTypes : _[]) world =
         assert(atomTypes.Length >= 2)
 
@@ -422,9 +422,9 @@ module Scenario =
             (world, [ 1 .. nSeeds ])
                 ||> Seq.fold (fun world _ ->
                     world
-                        |> Build.addStrandAtRandom rng 150
+                        |> Build.addStrandAtRandom rng 74
                             [| AtomType.P; AtomType.W; AtomType.Q |]
-                        |> Build.addStrandAtRandom rng 150
+                        |> Build.addStrandAtRandom rng 74
                             [| AtomType.P; AtomType.Y; AtomType.Q |])
         let scenario = createScenarioB false
         let name = $"Vent, Y-Z energy {yzEnergy}"

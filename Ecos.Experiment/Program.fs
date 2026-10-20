@@ -16,6 +16,7 @@ module Program =
         printfn "   experiment6   Competition between the template and chance replicators"
         printfn "   experiment7   Selection between W/X and Y/Z pairing, by Y-Z bond strength"
         printfn "   experiment8   Head to head between W/X and Y/Z strands, by Y-Z bond energy"
+        printfn "   experiment9   W/X and Y/Z strands in a world heated by a vent"
 
     [<EntryPoint>]
     let main argv =
@@ -73,6 +74,12 @@ module Program =
                 0
             | [ "experiment8"; csvPath ] ->
                 Experiment8.run Experiment8.defaultSettings csvPath
+                0
+            | [ "experiment9" ] ->
+                Experiment9.run Experiment9.defaultSettings "experiment9.csv"
+                0
+            | [ "experiment9"; csvPath ] ->
+                Experiment9.run Experiment9.defaultSettings csvPath
                 0
             | _ ->
                 printUsage ()

@@ -211,5 +211,18 @@ module ScenarioTests =
                 // building is slow, so build one scenario per group
             let run = Run.create 0 group.Scenarios[group.Scenarios.Length - 1]
             Assert.NotEmpty(run.World.Atoms)
+
+                // every atom is inside the walls
+            let walls = run.World.Walls
+            if walls.Length > 0 then
+                let minX = walls |> Array.map _.X |> Array.min
+                let maxX = walls |> Array.map _.X |> Array.max
+                let minY = walls |> Array.map _.Y |> Array.min
+                let maxY = walls |> Array.map _.Y |> Array.max
+                for atom in run.World.Atoms do
+                    let loc = atom.Location
+                    Assert.True(
+                        loc.X > minX && loc.X < maxX && loc.Y > minY && loc.Y < maxY,
+                        $"{group.Name}, {group.Scenarios[group.Scenarios.Length - 1].Name}: atom {atom.Id} at {loc} is outside the walls")
             for id in run.Template do
                 Assert.InRange(id, 0, run.World.Atoms.Length - 1)
