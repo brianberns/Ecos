@@ -7,8 +7,8 @@
 
   <ItemGroup>
     <Compile Include="Model.fs" />
-    <Compile Include="WorldView.fs" />
     <Compile Include="ControlPanel.fs" />
+    <Compile Include="WorldView.fs" />
     <Compile Include="View.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
@@ -16,6 +16,7 @@
   <ItemGroup>
     <PackageReference Include="Avalonia.Desktop" Version="12.1.4" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.4" />
+    <PackageReference Include="Wacton.Unicolour" Version="8.0.0" />
   </ItemGroup>
 
   <ItemGroup>

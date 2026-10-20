@@ -10,6 +10,8 @@ open Avalonia.Media
 open Avalonia.FuncUI.DSL
 open Avalonia.FuncUI.Types
 
+open Wacton.Unicolour
+
 open Ecos.Experiment
 
 module WorldView =
@@ -30,21 +32,55 @@ module WorldView =
     let private (~~)(ecosPt : Ecos.Point) =
         Avalonia.Point(ecosPt.X, ecosPt.Y)
 
+    let renderRectangle location (brush : IBrush) =
+        Rectangle.create [
+            Rectangle.width 2
+            Rectangle.height 2
+            let pt = location - Point.create (1, 1)
+            Rectangle.left pt.X
+            Rectangle.top pt.Y
+            Rectangle.fill brush
+            Rectangle.useLayoutRounding false   // don't snap to pixels before scaling
+        ] :> IView
+
+    let gradientColor (startHex : string) (endHex : string) (distance : float) =
+        let a = Unicolour(startHex)
+        let b = Unicolour(endHex)
+        a.Mix(b, ColourSpace.Oklab, distance).Hex
+
     let private renderTemperature model =
-        []
+
+        let walls = model.Run.World.Walls
+        let minWallX = walls |> Seq.map _.X |> Seq.min
+        let maxWallX = walls |> Seq.map _.X |> Seq.max
+        let minWallY = walls |> Seq.map _.Y |> Seq.min
+        let maxWallY = walls |> Seq.map _.Y |> Seq.max
+
+        let getBrush temp =
+            let distance =
+                (temp - float ControlPanel.minTemperature)
+                    / float (
+                        ControlPanel.maxTemperature
+                            - ControlPanel.minTemperature)
+            gradientColor "#CBCDF2" "#F2CBCB" distance
+                |> Brush.Parse
+
+        [
+            for x = minWallX to maxWallX do
+                for y = minWallY to maxWallY do
+                    let loc = Point.create (x, y)
+                    let brush =
+                        loc
+                            |> Run.getTemperature model.Run 
+                            |> getBrush
+                    renderRectangle loc brush
+        ]
 
     let private renderWalls (world : World) =
         [
             for loc in world.Walls do
-                Rectangle.create [
-                    Rectangle.width 2
-                    Rectangle.height 2
-                    let pt = loc - Point.create (1, 1)
-                    Rectangle.left pt.X
-                    Rectangle.top pt.Y
-                    Rectangle.fill Brushes.Gray
-                    Rectangle.useLayoutRounding false   // don't snap to pixels before scaling
-                ] :> IView
+                let pt = loc - Point.create (1, 1)
+                renderRectangle pt Brushes.Gray
         ]
 
     let private renderAtoms model =

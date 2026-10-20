@@ -101,6 +101,9 @@ module ControlPanel =
             ]
         ]
 
+    let minTemperature = 0.0m
+    let maxTemperature = 5.0m
+
     let private renderTemperature (model : Model) dispatch =
         StackPanel.create [
             StackPanel.dock Dock.Top
@@ -110,8 +113,8 @@ module ControlPanel =
                 match model.Run.Schedule with
                     | Constant kT ->
                         NumericUpDown.create [
-                            NumericUpDown.minimum 0
-                            NumericUpDown.maximum 5
+                            NumericUpDown.minimum minTemperature
+                            NumericUpDown.maximum maxTemperature
                             NumericUpDown.increment 0.05m
                             NumericUpDown.value (decimal kT)
                             NumericUpDown.width 120
