@@ -41,6 +41,11 @@ module Experiment9 =
             /// must have a vent schedule.
             CreateScenario : float -> Scenario
 
+            /// Whether to count only capped chains that aren't paired
+            /// with another strand, rather than all of them. (A template
+            /// still stuck to its copy hasn't been copied yet.)
+            OnlySeparated : bool
+
             /// Number of bands, side by side, that the box is divided
             /// into, from the vent outward.
             NumBands : int
@@ -59,6 +64,7 @@ module Experiment9 =
             Title = "Experiment 9: W/X and Y/Z strands in a world heated by a vent"
             YZEnergies = [| 2.0; 3.0 |]
             CreateScenario = Scenario.createVentScenario 8
+            OnlySeparated = false
             NumBands = 8
             NumRuns = 12
             NumCycles = 30
@@ -73,6 +79,18 @@ module Experiment9 =
                 Title = "Experiment 10: W/X and Y/Z templates in a world heated by a vent"
                 CreateScenario = Scenario.createVentTemplateScenario 4
                 NumCycles = 15
+        }
+
+    /// Settings for experiment 12: ten-letter templates of each kind,
+    /// paired at the same distance from a vent whose pulse is centered on
+    /// the window between their melting points, with turnover. Only
+    /// separated chains are counted.
+    let windowSettings =
+        {
+            defaultSettings with
+                Title = "Experiment 12: W/X and Y/Z templates near their melting points, in a world heated by a vent"
+                CreateScenario = Scenario.createVentWindowScenario 4
+                OnlySeparated = true
         }
 
     /// Left and right edges of the region that the bands divide: the
@@ -112,9 +130,23 @@ module Experiment9 =
     /// average x coordinate of its atoms.
     let private getCensus settings (world : World) =
         let strands = getStrands world
+        let inStrands =
+            strands
+                |> Seq.collect _.AtomIds
+                |> set
+        let weak = world.BondTypeMap[Weak]
+        let isSeparated (strand : Strand) =
+            let own = set strand.AtomIds
+            strand.AtomIds
+                |> Array.forall (fun id ->
+                    BondMap.getBonds id weak
+                        |> Set.forall (fun idB ->
+                            own.Contains idB || not (inStrands.Contains idB)))
         let chains =
             strands
-                |> Array.where (isCapped world)
+                |> Array.where (fun strand ->
+                    isCapped world strand
+                        && (not settings.OnlySeparated || isSeparated strand))
                 |> Array.map (fun strand ->
                     let x =
                         strand.AtomIds
@@ -125,10 +157,6 @@ module Experiment9 =
                             |> Array.map (fun id -> world.Atoms[id].Type)
                             |> Array.where (fun typ -> isWX typ || isYZ typ)
                     getBand settings x, types)
-        let inStrands =
-            strands
-                |> Seq.collect _.AtomIds
-                |> set
         let free =
             world.Atoms
                 |> Array.where (fun atom -> not (inStrands.Contains atom.Id))
@@ -212,6 +240,8 @@ module Experiment9 =
             vent.X vent.ColdTemperature vent.ColdSweeps vent.HotSweeps
             vent.HotTemperature vent.ColdTemperature vent.Width
         printParameters scenario.Parameters
+        if settings.OnlySeparated then
+            printfn "Only capped chains that aren't paired with another strand are counted."
 
             // the bands, with the temperature at their centers during a pulse
         let bands = [| 0 .. settings.NumBands - 1 |]

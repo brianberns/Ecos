@@ -224,32 +224,54 @@ module Build =
                             (iRow * dist) false world))
 
     /// Adds a horizontal strand of the given atom types, joined in
+    /// order, with its first atom at the given location, if there is
+    /// room for it.
+    let tryAddStrand x y (atomTypes : _[]) world =
+        (Some world, Array.indexed atomTypes)
+            ||> Array.fold (fun worldOpt (i, atomType) ->
+                worldOpt
+                    |> Option.bind (fun world ->
+                        let loc = Point.create (x + 2 * i, y)
+                        World.tryAddAtom atomType loc world)
+                    |> Option.map (fun (world, atom) ->
+                        if i > 0 then
+                            World.addStrongBond
+                                (atom.Id - 1) atom.Id world
+                        else world))
+
+    /// Range of x coordinates (in steps of 2, exclusive at the top)
+    /// at which a strand of the given length can start, so that every
+    /// one of its atoms is within the given distance of the origin.
+    let private getStartRange maxDist length =
+        -maxDist / 2, (maxDist - 2 * length) / 2 + 1
+
+    /// Adds a horizontal strand of the given atom types, joined in
     /// order, at a random empty place where every one of its atoms is
     /// within the given distance of the origin along each axis.
     let addStrandAtRandom (rng : Random) maxDist (atomTypes : _[]) world =
         assert(atomTypes.Length >= 2)
-
-        let minX = -maxDist / 2
-        let minY = -maxDist / 2
-        let maxX = (maxDist - 2 * atomTypes.Length) / 2 + 1
-        let maxY = maxDist / 2 + 1
-
+        let minX, maxX = getStartRange maxDist atomTypes.Length
         let rec loop () =
             let x = 2 * rng.Next(minX, maxX)
-            let y = 2 * rng.Next(minY, maxY)
-            (Some world, Array.indexed atomTypes)
-                ||> Array.fold (fun worldOpt (i, atomType) ->
-                    worldOpt
-                        |> Option.bind (fun world ->
-                            let loc = Point.create (x + 2 * i, y)
-                            World.tryAddAtom atomType loc world)
-                        |> Option.map (fun (world, atom) ->
-                            if i > 0 then
-                                World.addStrongBond
-                                    (atom.Id - 1) atom.Id world
-                            else world))
+            let y = 2 * rng.Next(-maxDist / 2, maxDist / 2 + 1)
+            tryAddStrand x y atomTypes world
                 |> Option.defaultWith loop
+        loop ()
 
+    /// Picks a random x coordinate at which a strand of the given length
+    /// can start, as addStrandAtRandom does.
+    let getRandomStart (rng : Random) maxDist length =
+        let minX, maxX = getStartRange maxDist length
+        2 * rng.Next(minX, maxX)
+
+    /// Adds a horizontal strand of the given atom types, joined in
+    /// order, starting at the given x coordinate and at a random empty
+    /// height within the given distance of the origin.
+    let addStrandAtRandomHeight (rng : Random) maxDist x (atomTypes : _[]) world =
+        let rec loop () =
+            let y = 2 * rng.Next(-maxDist / 2, maxDist / 2 + 1)
+            tryAddStrand x y atomTypes world
+                |> Option.defaultWith loop
         loop ()
 
 module Scenario =
@@ -472,6 +494,48 @@ module Scenario =
                     wallVent with
                         ColdSweeps = 100_000
                         HotSweeps = 100_000 } }
+            |> withPairEnergy Weak AtomType.Y AtomType.Z yzEnergy
+
+    /// Templates in a vent world, with the vent's pulse centered on the
+    /// window between the melting points of the two kinds of duplex
+    /// (about kT 0.7 for W/X and 0.95 for Y/Z when Y-Z is stronger; see
+    /// experiment 11). During a pulse, kT is 1.5 at the left wall,
+    /// falling linearly to 0.3 at the right one, so Y/Z duplexes melt
+    /// only within about 75 of the vent, W/X ones within about 105, and
+    /// neither beyond that.
+    ///
+    /// Strands are copied only on a template (a strong bond barrier of
+    /// 40), and die when a cap comes off in the heat (a cap peel barrier
+    /// of 10, which at this vent's temperatures loses caps about as often
+    /// as scenario B does at its own). The world is seeded with the given
+    /// number of pairs of templates, ten W atoms and ten Y atoms, each
+    /// pair at the same distance from the vent.
+    let createVentWindowScenario nPairs yzEnergy =
+        let scenario = createScenarioB false
+        let build rng =
+            let world, _ = scenario.Build rng
+            let nBefore = world.Atoms.Length
+            let template codingType =
+                [|
+                    AtomType.P
+                    yield! Array.replicate nCoding codingType
+                    AtomType.Q
+                |]
+            let world =
+                (world, [ 1 .. nPairs ])
+                    ||> Seq.fold (fun world _ ->
+                        let x = Build.getRandomStart rng 74 (nCoding + 2)
+                        world
+                            |> Build.addStrandAtRandomHeight rng 74 x (template AtomType.W)
+                            |> Build.addStrandAtRandomHeight rng 74 x (template AtomType.Y))
+            world, [| nBefore .. world.Atoms.Length - 1 |]
+        { scenario with
+            Name = $"Vent window, Y-Z energy {yzEnergy}"
+            Build = build
+            Schedule =
+                Vent { wallVent with HotTemperature = 1.5 } }
+            |> withStrongBarrier 40
+            |> withCapPeelBarrier 10
             |> withPairEnergy Weak AtomType.Y AtomType.Z yzEnergy
 
 /// A scenario being run.
