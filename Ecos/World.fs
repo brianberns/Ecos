@@ -421,8 +421,8 @@ module World =
         else false
 
     /// Determines whether to break a bond by hydrolysis.
-    let private testHydrolysis (rng : Random) parms =
-        rng.NextDouble() < parms.HydrolysisRate
+    let private testHydrolysis (rng : Random) bondParms =
+        rng.NextDouble() < bondParms.HydrolysisRate
 
     /// Attempts to break the bond of the given type between the
     /// given atoms in the given world.
