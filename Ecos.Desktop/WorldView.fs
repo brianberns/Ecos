@@ -32,21 +32,29 @@ module WorldView =
     let private (~~)(ecosPt : Ecos.Point) =
         Avalonia.Point(ecosPt.X, ecosPt.Y)
 
-    let renderRectangle location (brush : IBrush) =
+    let renderRectangle location (color : Color) =
         Rectangle.create [
             Rectangle.width 2
             Rectangle.height 2
             let pt = location - Point.create (1, 1)
             Rectangle.left pt.X
             Rectangle.top pt.Y
-            Rectangle.fill brush
+            Rectangle.fill color
             Rectangle.useLayoutRounding false   // don't snap to pixels before scaling
         ] :> IView
 
-    let gradientColor (startHex : string) (endHex : string) (distance : float) =
-        let a = Unicolour(startHex)
-        let b = Unicolour(endHex)
-        a.Mix(b, ColourSpace.Oklab, distance).Hex
+    let gradientColor colorA colorB (distance : float) =
+        let toUnicolour (color : Color) =
+            Unicolour(
+                ColourSpace.Rgb255,
+                float color.R,
+                float color.G,
+                float color.B)
+        let ucolorA = toUnicolour colorA
+        let ucolorB = toUnicolour colorB
+        let ucolorMix = ucolorA.Mix(ucolorB, ColourSpace.Oklab, distance)
+        let rgb = ucolorMix.Rgb.Byte255
+        Color.FromRgb(byte rgb.R, byte rgb.G, byte rgb.B)
 
     let private renderTemperature model =
 
@@ -56,30 +64,28 @@ module WorldView =
         let minWallY = walls |> Seq.map _.Y |> Seq.min
         let maxWallY = walls |> Seq.map _.Y |> Seq.max
 
-        let getBrush temp =
+        let getColor temp =
             let distance =
                 (temp - float ControlPanel.minTemperature)
                     / float (
                         ControlPanel.maxTemperature
                             - ControlPanel.minTemperature)
-            gradientColor "#CBCDF2" "#F2CBCB" distance
-                |> Brush.Parse
+            gradientColor Colors.LightBlue Colors.Pink distance
 
         [
             for x = minWallX to maxWallX do
                 for y = minWallY to maxWallY do
                     let loc = Point.create (x, y)
-                    let brush =
-                        loc
-                            |> Run.getTemperature model.Run 
-                            |> getBrush
-                    renderRectangle loc brush
+                    loc
+                        |> Run.getTemperature model.Run 
+                        |> getColor
+                        |> renderRectangle loc
         ]
 
     let private renderWalls (world : World) =
         [
             for loc in world.Walls do
-                renderRectangle loc Brushes.Gray
+                renderRectangle loc Colors.Gray
         ]
 
     let private renderAtoms model =
