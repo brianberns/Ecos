@@ -6,6 +6,7 @@ open Elmish
 
 open Avalonia
 open Avalonia.Controls.ApplicationLifetimes
+open Avalonia.Rendering
 open Avalonia.Themes.Fluent
 open Avalonia.Threading
 
@@ -15,6 +16,8 @@ open Avalonia.FuncUI.Hosts
 type MainWindow() as this =
     inherit HostWindow()
     do
+        this.RendererDiagnostics.DebugOverlays <-
+            RendererDebugOverlays.Fps
         Elmish.Program.mkSimple Model.init Model.update View.render
             |> Program.withSubscription Model.subscribe
             |> Program.withHost this

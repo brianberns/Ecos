@@ -93,16 +93,6 @@ module ControlPanel =
             ]
         ]
 
-    let private renderUpdateRate frameRate =
-        StackPanel.create [
-            StackPanel.dock Dock.Top
-            StackPanel.orientation Orientation.Horizontal
-            StackPanel.children [
-                renderLabel "Update rate:" labelColumnWidth
-                renderLabel $"{frameRate:F1}" valueColumnWidth
-            ]
-        ]
-
     let minTemperature = 0.0m
     let maxTemperature = 5.0m
 
@@ -230,7 +220,6 @@ module ControlPanel =
             DockPanel.children [
                 renderScenario model dispatch
                 renderSweepCount model.Run.NumSweeps
-                renderUpdateRate model.UpdateRate
                 renderTemperature model dispatch
                 renderSpeed model.Speed dispatch
                 renderSeed model.Seed dispatch

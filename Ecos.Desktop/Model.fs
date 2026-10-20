@@ -29,9 +29,6 @@ type Model =
 
         /// Number of sweeps per timer tick.
         Speed : int
-
-        /// Number of updates per second.
-        UpdateRate : float
     }
 
 /// Elmish messages.
@@ -74,28 +71,17 @@ module Model =
             Run = Run.create seed scenario
             IsRunning = false
             Speed = speed
-            UpdateRate = 0
         }
 
     /// Initializes a model.
     let init () =
         create 0 0 0 200
 
-    let private stopwatch = Stopwatch()
-
-    let mutable private lastElapsed = stopwatch.Elapsed
-
     /// Runs one tick's worth of sweeps.
     let handleTick model =
         if model.IsRunning then
-            let run = Run.advance model.Speed model.Run
-            let updateRate =
-                let prev = lastElapsed
-                lastElapsed <- stopwatch.Elapsed
-                1.0 / (lastElapsed - prev).TotalSeconds
             { model with
-                Run = run
-                UpdateRate = updateRate }
+                Run = Run.advance model.Speed model.Run }
         else model
 
     /// Handles selection of a group of scenarios.
@@ -115,10 +101,6 @@ module Model =
 
     /// Handles `run` flag change.
     let handleSetRun isRunning model =
-        if isRunning then
-            stopwatch.Start()
-            lastElapsed <- stopwatch.Elapsed
-        else stopwatch.Stop()
         { model with IsRunning = isRunning }
 
     /// Handles speed change.
