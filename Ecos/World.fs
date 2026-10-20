@@ -395,7 +395,6 @@ module World =
         let isValid =
             canMove atom' delta world                         // avoids overlap with other atoms?
                 && testBonds atom' world                      // all of the atom's bonds are still valid?
-                && testMetropolis rng parms.Temperature 0 0   // possible to-do: add position-dependent energy term
         if isValid then
             let world = moveAtom atom atom' world
             let event = MoveAtom id
@@ -415,14 +414,14 @@ module World =
             && testMetropolis rng kT entropy energy
 
     /// Determines whether to peel the given bond.
-    let private testPeel (rng : Random) parms behavior atomA atomB bondMap =
+    let private testPeel
+        (rng : Random) parms temp behavior atomA atomB bondMap =
 
         let impl capPeel barrier =
             let isExposed =
                 behavior.TestPeel capPeel atomA atomB bondMap
             if isExposed then
-                rng.NextDouble() <=
-                    exp (-barrier / parms.Temperature)
+                rng.NextDouble() <= exp (-barrier / temp)
             else false
 
         impl false parms.PeelBarrier
@@ -478,17 +477,16 @@ module World =
             else 0.0
 
             // create or break bond?
+        let temp = Parameters.getAvgTemperature atomA atomB parms
         let testBond =
-            testBondEnergy
-                rng
-                parms.Temperature
+            testBondEnergy rng temp
                 bondParms.Barrier
                 bondParms.BarrierStackReduction
                 startBarrier
                 nStacks
         if BondMap.areBonded atomA.Id atomB.Id bondMap then
             if testBond bondParms.Entropy bondEnergy
-                || testPeel rng parms behavior atomA atomB bondMap then
+                || testPeel rng parms temp behavior atomA atomB bondMap then
                 tryBreakBond bondType atomA atomB world
                     |> Option.map (fun world ->
                         let event =

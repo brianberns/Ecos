@@ -29,21 +29,23 @@ module Schedule =
     /// the number of sweeps until it next changes, if it ever does.
     let getTemperature numSweeps schedule =
         assert(numSweeps >= 0)
-        match schedule with
-            | Constant kT -> kT, None
-            | Cycle phases ->
-                assert(phases.Length > 0)
-                assert(Array.forall (fun phase ->
-                    phase.NumSweeps > 0) phases)
+        let kT, nSweepsOpt =
+            match schedule with
+                | Constant kT -> kT, None
+                | Cycle phases ->
+                    assert(phases.Length > 0)
+                    assert(Array.forall (fun phase ->
+                        phase.NumSweeps > 0) phases)
 
-                let rec loop t iPhase =
-                    let phase = phases[iPhase]
-                    if t < phase.NumSweeps then
-                        phase.Temperature, Some (phase.NumSweeps - t)
-                    else loop (t - phase.NumSweeps) (iPhase + 1)
+                    let rec loop t iPhase =
+                        let phase = phases[iPhase]
+                        if t < phase.NumSweeps then
+                            phase.Temperature, Some (phase.NumSweeps - t)
+                        else loop (t - phase.NumSweeps) (iPhase + 1)
 
-                let period = Array.sumBy _.NumSweeps phases
-                loop (numSweeps % period) 0
+                    let period = Array.sumBy _.NumSweeps phases
+                    loop (numSweeps % period) 0
+        Parameters.getUniformTemperature kT, nSweepsOpt
 
     /// The phases of the given schedule, if it cycles.
     let getPhases = function
@@ -216,7 +218,8 @@ module Scenario =
             Build = build withTemplate
             Parameters =
                 {
-                    Temperature = nan
+                    GetTemperature =
+                        Parameters.getUniformTemperature nan
                     BondParameterMap =
                         Map [
                             Strong, {
@@ -379,7 +382,8 @@ module Run =
 
     /// Current parameters of the given run, including its temperature.
     let getParameters run =
-        { run.Scenario.Parameters with Temperature = getTemperature run }
+        { run.Scenario.Parameters with
+            GetTemperature = getTemperature run }
 
     /// Runs the given number of sweeps, changing temperature as the
     /// schedule says, and calling the given function after each event.
@@ -389,13 +393,14 @@ module Run =
         let rec loop numSweeps run =
             if numSweeps = 0 then run
             else
-                let kT, untilChangeOpt =
+                let getTemp, untilChangeOpt =
                     Schedule.getTemperature run.NumSweeps run.Schedule
                 let n =
                     match untilChangeOpt with
                         | Some untilChange -> min numSweeps untilChange
                         | None -> numSweeps
-                let parms = { run.Scenario.Parameters with Temperature = kT }
+                let parms =
+                    { run.Scenario.Parameters with GetTemperature = getTemp }
                 let run =
                     { run with
                         World = World.sweepWith parms run.Random n onEvent run.World

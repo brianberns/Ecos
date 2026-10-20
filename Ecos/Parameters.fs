@@ -79,8 +79,9 @@ module BondTypeParameters =
 /// Configurable update parameters.
 type Parameters =
     {
-        /// Temperature scaled by Boltzmann's constant (kT).
-        Temperature : float
+        /// Temperature at the given location, scaled by Boltzmann's
+        /// constant (kT).
+        GetTemperature : Point -> float
 
         /// Bond type-specific parameters.
         BondParameterMap : Map<BondType, BondTypeParameters>
@@ -92,3 +93,15 @@ type Parameters =
         /// Determines how often cap peeling happens.
         CapPeelBarrier : float
     }
+
+module Parameters =
+
+    /// Gets a uniform temperature, regardless of location.
+    let getUniformTemperature (kT : float) (_ : Point) =
+        kT
+
+    /// Gets the average temperature between the given atoms.
+    let getAvgTemperature atomA atomB parms =
+        let tempA = parms.GetTemperature atomA.Location
+        let tempB = parms.GetTemperature atomB.Location
+        (tempA + tempB) / 2.0
