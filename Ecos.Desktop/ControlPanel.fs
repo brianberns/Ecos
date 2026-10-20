@@ -26,6 +26,7 @@ module ControlPanel =
         ]
 
     let private labelColumnWidth = 100
+    let private valueColumnWidth = 150
 
     /// Names of the scenario groups, and of the scenarios in each. These
     /// are built once, so that the combo boxes see the same items on
@@ -46,8 +47,9 @@ module ControlPanel =
         ComboBox.create [
             ComboBox.dataItems names
             ComboBox.selectedIndex index
-            ComboBox.width 120
+            ComboBox.width valueColumnWidth
             ComboBox.margin margin
+            ComboBox.tip names[index]
             ComboBox.onSelectedIndexChanged (fun i ->
                 if i >= 0 then onSelect i)   // -1 means the selection was cleared
         ]
@@ -87,7 +89,7 @@ module ControlPanel =
             StackPanel.orientation Orientation.Horizontal
             StackPanel.children [
                 renderLabel "Sweeps:" labelColumnWidth
-                renderLabel $"{sweepCount:N0}" labelColumnWidth
+                renderLabel $"{sweepCount:N0}" valueColumnWidth
             ]
         ]
 
@@ -97,7 +99,7 @@ module ControlPanel =
             StackPanel.orientation Orientation.Horizontal
             StackPanel.children [
                 renderLabel "Update rate:" labelColumnWidth
-                renderLabel $"{frameRate:F1}" labelColumnWidth
+                renderLabel $"{frameRate:F1}" valueColumnWidth
             ]
         ]
 
@@ -117,7 +119,7 @@ module ControlPanel =
                             NumericUpDown.maximum maxTemperature
                             NumericUpDown.increment 0.05m
                             NumericUpDown.value (decimal kT)
-                            NumericUpDown.width 120
+                            NumericUpDown.width valueColumnWidth
                             NumericUpDown.margin margin
                             NumericUpDown.horizontalContentAlignment
                                 HorizontalAlignment.Right
@@ -143,7 +145,7 @@ module ControlPanel =
                     NumericUpDown.increment 1
                     NumericUpDown.value speed
                     NumericUpDown.formatString "F0"
-                    NumericUpDown.width 120
+                    NumericUpDown.width valueColumnWidth
                     NumericUpDown.margin margin
                     NumericUpDown.horizontalContentAlignment
                         HorizontalAlignment.Right
@@ -166,7 +168,7 @@ module ControlPanel =
                     NumericUpDown.increment 1
                     NumericUpDown.value seed
                     NumericUpDown.formatString "F0"
-                    NumericUpDown.width 120
+                    NumericUpDown.width valueColumnWidth
                     NumericUpDown.margin margin
                     NumericUpDown.horizontalContentAlignment
                         HorizontalAlignment.Right
