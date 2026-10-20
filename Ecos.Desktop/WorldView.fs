@@ -45,7 +45,7 @@ module WorldView =
             Rectangle.useLayoutRounding false   // don't snap to pixels before scaling
         ] :> IView
 
-    let getGradientColor colorA colorB (distance : float) =
+    let private getGradientColor colorA colorB (distance : float) =
         let toUnicolour (color : Color) =
             Unicolour(
                 ColourSpace.Rgb255,
@@ -58,28 +58,15 @@ module WorldView =
         let rgb = ucolorMix.Rgb.Byte255
         Color.FromRgb(byte rgb.R, byte rgb.G, byte rgb.B)
 
-    let private memoize (f : 'a -> 'b) =
-        let cache = System.Collections.Generic.Dictionary<'a, 'b>()
-        fun (x : 'a) ->
-            match cache.TryGetValue(x) with
-                | true, value -> value
-                | _ ->
-                    let value = f x
-                    cache[x] <- value
-                    value
+    let private getColor temp =
+        let distance =
+            (temp - float ControlPanel.minTemperature)
+                / float (
+                    ControlPanel.maxTemperature
+                        - ControlPanel.minTemperature)
+        getGradientColor Colors.LightBlue Colors.Red distance
 
     let private renderTemperature model =
-
-        let getColor temp =
-            let distance =
-                (temp - float ControlPanel.minTemperature)
-                    / float (
-                        ControlPanel.maxTemperature
-                            - ControlPanel.minTemperature)
-            getGradientColor Colors.LightBlue Colors.Red distance
-
-        let getColor = memoize getColor
-
         let spacing = 8
         let width = 152
         [
