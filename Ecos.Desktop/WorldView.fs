@@ -43,7 +43,7 @@ module WorldView =
             Rectangle.useLayoutRounding false   // don't snap to pixels before scaling
         ] :> IView
 
-    let gradientColor colorA colorB (distance : float) =
+    let getGradientColor colorA colorB (distance : float) =
         let toUnicolour (color : Color) =
             Unicolour(
                 ColourSpace.Rgb255,
@@ -70,7 +70,7 @@ module WorldView =
                     / float (
                         ControlPanel.maxTemperature
                             - ControlPanel.minTemperature)
-            gradientColor Colors.LightBlue Colors.Pink distance
+            getGradientColor Colors.LightBlue Colors.Pink distance
 
         [
             for x = minWallX to maxWallX do
