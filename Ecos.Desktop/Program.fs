@@ -19,7 +19,7 @@ type MainWindow() as this =
         this.RendererDiagnostics.DebugOverlays <-
             RendererDebugOverlays.Fps
         Elmish.Program.mkSimple Model.init Model.update View.render
-            |> Program.withSubscription Model.subscribe
+            |> Program.withSubscription (Model.subscribe this)
             |> Program.withHost this
             // |> Program.withConsoleTrace
             |> Program.run

@@ -5,7 +5,7 @@ open System.Diagnostics
 
 open Elmish
 
-open Avalonia.Threading
+open Avalonia.Controls
 
 open Ecos.Experiment
 
@@ -29,6 +29,9 @@ type Model =
 
         /// Number of sweeps per timer tick.
         Speed : int
+
+        /// Number of frames rendered per second.
+        FrameRate : float
     }
 
 /// Elmish messages.
@@ -71,17 +74,28 @@ module Model =
             Run = Run.create seed scenario
             IsRunning = false
             Speed = speed
+            FrameRate = 0
         }
 
     /// Initializes a model.
     let init () =
         create 0 0 0 200
 
+    let private stopwatch = Stopwatch()
+
+    let mutable private lastElapsed = stopwatch.Elapsed
+
     /// Runs one tick's worth of sweeps.
     let handleTick model =
         if model.IsRunning then
+            let run = Run.advance model.Speed model.Run
+            let frameRate =
+                let prev = lastElapsed
+                lastElapsed <- stopwatch.Elapsed
+                1.0 / (lastElapsed - prev).TotalSeconds
             { model with
-                Run = Run.advance model.Speed model.Run }
+                Run = run
+                FrameRate = frameRate }
         else model
 
     /// Handles selection of a group of scenarios.
@@ -101,6 +115,10 @@ module Model =
 
     /// Handles `run` flag change.
     let handleSetRun isRunning model =
+        if isRunning then
+            stopwatch.Start()
+            lastElapsed <- stopwatch.Elapsed
+        else stopwatch.Stop()
         { model with IsRunning = isRunning }
 
     /// Handles speed change.
@@ -127,20 +145,18 @@ module Model =
             | SetSeed seed -> handleSetSeed seed model
             | Reset -> handleReset model
 
-    /// Subscribable timer.
-    let timer : Subscribe<_> =
-        let timerSub dispatch =
-            let timer =
-                new DispatcherTimer(
-                    TimeSpan.FromSeconds(1.0 / 24.0),
-                    DispatcherPriority.Normal,
-                    EventHandler(fun _ _ ->
-                        dispatch Tick))
-            timer.Start()
+    /// One tick before each rendered frame.
+    let frames (topLevel : TopLevel) : Subscribe<_> =
+        fun dispatch ->
+            let mutable running = true
+            let rec onFrame (_ : TimeSpan) =
+                if running then
+                    dispatch Tick
+                    topLevel.RequestAnimationFrame(onFrame)
+            topLevel.RequestAnimationFrame(onFrame)
             { new IDisposable with
-                member _.Dispose() = timer.Stop() }
-        timerSub
+                member _.Dispose() = running <- false }
 
-    /// Timer subscription.
-    let subscribe world : Sub<_> =
-        [ ["timer"], timer ]
+    /// Frame subscription.
+    let subscribe topLevel (_ : Model) : Sub<_> =
+        [ ["frames"], frames topLevel ]
