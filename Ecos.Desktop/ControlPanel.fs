@@ -102,30 +102,29 @@ module ControlPanel =
         ]
 
     let private renderTemperature (model : Model) dispatch =
-        let kT = model.Temperature
         StackPanel.create [
             StackPanel.dock Dock.Top
             StackPanel.orientation Orientation.Horizontal
             StackPanel.children [
                 renderLabel "Temperature:" labelColumnWidth
-                if model.Run.Schedule.IsConstant then   // allow manual adjustment
-                    NumericUpDown.create [
-                        NumericUpDown.minimum 0
-                        NumericUpDown.maximum 5
-                        NumericUpDown.increment 0.05m
-                        NumericUpDown.value (decimal kT)
-                        NumericUpDown.width 120
-                        NumericUpDown.margin margin
-                        NumericUpDown.horizontalContentAlignment
-                            HorizontalAlignment.Right
-                        NumericUpDown.onValueChanged (fun value ->
-                            if value.HasValue then
-                                float value.Value
-                                    |> SetTemperature
-                                    |> dispatch)
-                    ]
-                else
-                    renderLabel $"%0.2f{kT}" labelColumnWidth
+                match model.Run.Schedule with
+                    | Constant kT ->
+                        NumericUpDown.create [
+                            NumericUpDown.minimum 0
+                            NumericUpDown.maximum 5
+                            NumericUpDown.increment 0.05m
+                            NumericUpDown.value (decimal kT)
+                            NumericUpDown.width 120
+                            NumericUpDown.margin margin
+                            NumericUpDown.horizontalContentAlignment
+                                HorizontalAlignment.Right
+                            NumericUpDown.onValueChanged (fun value ->
+                                if value.HasValue then
+                                    float value.Value
+                                        |> SetTemperature
+                                        |> dispatch)
+                        ]
+                    | _ -> ()
             ]
         ]
 

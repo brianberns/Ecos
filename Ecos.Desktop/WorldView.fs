@@ -30,6 +30,9 @@ module WorldView =
     let private (~~)(ecosPt : Ecos.Point) =
         Avalonia.Point(ecosPt.X, ecosPt.Y)
 
+    let private renderTemperature model =
+        []
+
     let private renderWalls (world : World) =
         [
             for loc in world.Walls do
@@ -95,12 +98,8 @@ module WorldView =
 
     let render (model : Model) =
         let scale = 6.0
-        let background =
-            if model.Temperature < 1.0 then Brush.Parse("#CBCDF2")
-            else Brush.Parse("#F2CBCB")
         Border.create [
             Border.clipToBounds true   // keep drawing inside the available space
-            Border.background background
             Border.child (
                 Canvas.create [
                     Canvas.width 0.0
@@ -110,6 +109,7 @@ module WorldView =
                     Canvas.renderTransform (ScaleTransform(scale, scale))
                     Canvas.renderTransformOrigin RelativePoint.TopLeft
                     Canvas.children [
+                        yield! renderTemperature model
                         yield! renderWalls model.Run.World
                         yield! renderAtoms model
                         yield! renderStrongBonds model.Run.World

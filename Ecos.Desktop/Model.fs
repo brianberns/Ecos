@@ -34,10 +34,6 @@ type Model =
         UpdateRate : float
     }
 
-    /// Gets the model's current temperature.
-    member this.Temperature =
-        Run.getTemperature this.Run
-
 /// Elmish messages.
 type Message =
 
