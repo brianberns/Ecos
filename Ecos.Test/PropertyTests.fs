@@ -388,7 +388,7 @@ module PropertyTests =
     /// Nothing reverses these, so they take the
     /// model out of equilibrium.
     let private toggleProbabilities (parms : Parameters) (world : World) =
-        let kT = parms.Temperature
+            // each bond has its own temperature (see Chain.bondTemperature)
         let nAtoms = float world.Atoms.Length
         let mutable weakForm, weakBreak = 0.0, 0.0
         let mutable strongForm, strongBreak = 0.0, 0.0
@@ -399,13 +399,13 @@ module PropertyTests =
             // type and energy that the given number of stacks depend on.
             // Forming changes the energy by the bond's (negative) energy and
             // loses the bond type's entropy; breaking does the reverse.
-        let acceptWith bondType nStacks isStart energyDelta entropyDelta =
+        let acceptWith kT bondType nStacks isStart energyDelta entropyDelta =
             exp (-Chain.bondBarrier parms bondType nStacks isStart / kT)
                 * min 1.0 (exp (entropyDelta - energyDelta / kT))
-        let acceptForm bondType nStacks isStart energy =
-            acceptWith bondType nStacks isStart energy -(Chain.bondEntropy parms bondType)
-        let acceptBreak bondType nStacks isStart energy =
-            acceptWith bondType nStacks isStart -energy (Chain.bondEntropy parms bondType)
+        let acceptForm kT bondType nStacks isStart energy =
+            acceptWith kT bondType nStacks isStart energy -(Chain.bondEntropy parms bondType)
+        let acceptBreak kT bondType nStacks isStart energy =
+            acceptWith kT bondType nStacks isStart -energy (Chain.bondEntropy parms bondType)
 
             // does a bond of the given type between the given atoms start a
             // strand? It does if neither atom has another bond of that type.
@@ -419,19 +419,21 @@ module PropertyTests =
             for v in Chain.weakBondVectors do
                 match world[atomA.Location + v] with
                     | Cell.Atom idB ->
+                        let kT = Chain.bondTemperature parms atomA world.Atoms[idB]
                         let nStacks = countStacks world idA idB
                         let energy =
                             Chain.bondEnergy parms Weak atomA.Type world.Atoms[idB].Type
                                 + Chain.stackEnergy * float nStacks
                         if Bonds.areWeaklyBonded world idA idB then
-                            weakBreak <- weakBreak + acceptBreak Weak nStacks (isStart Weak idA idB) energy
+                            weakBreak <- weakBreak + acceptBreak kT Weak nStacks (isStart Weak idA idB) energy
                         elif canFormWeakBond world idA idB then
-                            weakForm <- weakForm + acceptForm Weak nStacks (isStart Weak idA idB) energy
+                            weakForm <- weakForm + acceptForm kT Weak nStacks (isStart Weak idA idB) energy
                     | _ -> ()
 
             for v in Chain.bondVectors do
                 match world[atomA.Location + v] with
                     | Cell.Atom idB ->
+                        let kT = Chain.bondTemperature parms atomA world.Atoms[idB]
                         let nStacks = countStacksStrong world idA idB
                         let energy =
                             Chain.bondEnergy parms Strong atomA.Type world.Atoms[idB].Type
@@ -442,7 +444,7 @@ module PropertyTests =
                                 // failing that, if it peels
                             let p =
                                 if canBreakStrongBond world idA idB then
-                                    let pBreak = acceptBreak Strong nStacks (isStart Strong idA idB) energy
+                                    let pBreak = acceptBreak kT Strong nStacks (isStart Strong idA idB) energy
                                     let pPeel =
                                         if isExposed world idA idB then
                                             exp (-Chain.peelBarrier parms Strong / kT)
@@ -457,7 +459,7 @@ module PropertyTests =
                             if isLong v then longBreak <- longBreak + p
                             if nStacks > 0 then stackedBreak <- stackedBreak + p
                         elif canFormStrongBond world idA idB then
-                            let p = acceptForm Strong nStacks (isStart Strong idA idB) energy
+                            let p = acceptForm kT Strong nStacks (isStart Strong idA idB) energy
                             strongForm <- strongForm + p
                             if isLong v then longForm <- longForm + p
                     | _ -> ()
@@ -725,7 +727,7 @@ module PropertyTests =
         let rng = Random(0)
         let parms =
             {
-                Temperature = 1.0
+                GetTemperature = Parameters.getUniformTemperature 1.0
                 BondParameterMap =
                     Map [
                         Strong, { Energy = 30; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0 }
@@ -891,7 +893,7 @@ module PropertyTests =
         let rng = Random(0)
         let parms =
             {
-                Temperature = 1.0
+                GetTemperature = Parameters.getUniformTemperature 1.0
                 BondParameterMap =
                     Map [
                         Strong, { Energy = 0; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0 }
@@ -1118,7 +1120,7 @@ module PropertyTests =
             let tolerance = 5.0 * sqrt variance[i] + 0.5   // 5 standard deviations
             Assert.True(
                 abs (float actual[i] - expected[i]) <= tolerance,
-                $"{label}, kT = {parms.Temperature}: {actual[i]} {kind}, expected {expected[i]:F1} ± {tolerance:F1}")
+                $"{label}: {actual[i]} {kind}, expected {expected[i]:F1} ± {tolerance:F1}")
         world
 
     /// As runEventRates, but answers nothing.
@@ -1293,7 +1295,7 @@ module PropertyTests =
     let ``Stacked strong bonds break at the expected rate`` () =
         let parms =
             {
-                Temperature = 1.0
+                GetTemperature = Parameters.getUniformTemperature 1.0
                 BondParameterMap =
                     Map [
                         Strong, { Energy = 0; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0 }
@@ -1317,7 +1319,7 @@ module PropertyTests =
     let ``A stack lowers the barrier of its strong bonds`` () =
         let parms =
             {
-                Temperature = 1.0
+                GetTemperature = Parameters.getUniformTemperature 1.0
                 BondParameterMap =
                     Map [
                         Strong, { Energy = 0; PairEnergyMap = Map.empty; Barrier = 3; BarrierStackReduction = 3; StartBarrier = 0; Entropy = 0 }
@@ -1341,7 +1343,7 @@ module PropertyTests =
     let ``Bonds with entropy form and break at the expected rate`` () =
         let parms weakEntropy strongEntropy =
             {
-                Temperature = 1.0
+                GetTemperature = Parameters.getUniformTemperature 1.0
                 BondParameterMap =
                     Map [
                         Strong, { Energy = 2; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = strongEntropy }
@@ -1393,7 +1395,7 @@ module PropertyTests =
                 |> TestParameters.withStartBarrier hotKT (hotKT / 2.0)
         let stacked =
             {
-                Temperature = 1.0
+                GetTemperature = Parameters.getUniformTemperature 1.0
                 BondParameterMap =
                     Map [
                         Strong, { Energy = 0; PairEnergyMap = Map.empty; Barrier = 3; BarrierStackReduction = 5; StartBarrier = 1.5; Entropy = 0 }
@@ -1406,7 +1408,7 @@ module PropertyTests =
             // formed extend a strand and must not get the start barrier
         let growing =
             {
-                Temperature = 1.0
+                GetTemperature = Parameters.getUniformTemperature 1.0
                 BondParameterMap =
                     Map [
                         Strong, { Energy = 2; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 2; Entropy = 0 }
@@ -1464,7 +1466,7 @@ module PropertyTests =
             // that never peel.
         let peeling =
             {
-                Temperature = 1.0
+                GetTemperature = Parameters.getUniformTemperature 1.0
                 BondParameterMap =
                     Map [
                         Strong, { Energy = 30; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0 }
@@ -1496,6 +1498,64 @@ module PropertyTests =
                     "Box, with caps peeling"
                     { peeling with CapPeelBarrier = 2.0 }
                     200000 (Random(3)) world
+        |]
+
+    /// Bonds, at the right rates, where temperature varies by location:
+    /// two atoms in a small box with a step in temperature down the
+    /// middle, so that most bonds between them join atoms at very
+    /// different temperatures. A bond's temperature is the average of
+    /// those at its two atoms (see Chain.bondTemperature), which makes
+    /// it the same whichever atom an update starts from.
+    ///
+    /// The steps are chosen so that, for a bond across the middle, the
+    /// probability of breaking at the average temperature differs by
+    /// 30% or more from that at either atom's alone. Once for weak bonds,
+    /// which break by the usual test, and once for strong bonds, which
+    /// can only break by peeling.
+    [<Fact>]
+    let ``Bonds across a step in temperature form and break at the expected rate`` () =
+        let size = 2   // atom locations have |x| <= size and |y| <= size
+        let createWorld typeA typeB =
+            World.empty
+                |> Chain.addBox size
+                |> World.addAtom typeA (Point.create (-2, 0))
+                |> World.addAtom typeB (Point.create (1, 0))
+        let step kTLeft kTRight (pt : Point) =
+            if pt.X < 0 then kTLeft else kTRight
+
+            // weak bonds with some depth, so that how often they break
+            // depends steeply on temperature; strong bonds frozen
+        let weak =
+            let parms = TestParameters.createFrozen 1.0
+            let weakParms = { parms.BondParameterMap[Weak] with Energy = 3.0 }
+            { parms with
+                GetTemperature = step 1.0 10.0
+                BondParameterMap = Map.add Weak weakParms parms.BondParameterMap }
+
+            // strong bonds that form freely and are too strong to break in
+            // the usual way, so every break is a peel (and no weak bonds,
+            // since the atoms are of the same type)
+        let peeling =
+            {
+                GetTemperature = step 0.25 25.0
+                BondParameterMap =
+                    Map [
+                        Strong, { Energy = 30; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0 }
+                        Weak, { Energy = 1; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0 }
+                    ]
+                PeelBarrier = 2.0
+                CapPeelBarrier = Double.PositiveInfinity   // no caps
+            }
+
+        inParallel [|
+            fun () ->
+                checkEventRates
+                    "Weak bonds across a step"
+                    weak 1000000 (Random(1)) (createWorld AtomType.W AtomType.X)
+            fun () ->
+                checkEventRates
+                    "Peeling across a step"
+                    peeling 1000000 (Random(2)) (createWorld AtomType.W AtomType.W)
         |]
 
     /// Topology, exhaustively: atom A (at the origin) is bonded to B

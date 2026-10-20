@@ -45,7 +45,7 @@ module RegressionTests =
     /// off.
     let private allRules =
         {
-            Temperature = 1.5
+            GetTemperature = Parameters.getUniformTemperature 1.5
             BondParameterMap =
                 Map [
                     Strong, { Energy = 12; PairEnergyMap = Map.empty; Barrier = 6; BarrierStackReduction = 3; StartBarrier = 1; Entropy = 0.5 }
@@ -71,7 +71,7 @@ module RegressionTests =
     /// the template join, and stacks form and break constantly.
     let private copying =
         {
-            Temperature = 0.7
+            GetTemperature = Parameters.getUniformTemperature 0.7
             BondParameterMap =
                 Map [
                     Strong, { Energy = 12; PairEnergyMap = Map.empty; Barrier = 6; BarrierStackReduction = 6; StartBarrier = 0.5; Entropy = 0 }
@@ -129,7 +129,7 @@ module RegressionTests =
     /// re-form, with and without a stack.
     let private stacking =
         {
-            Temperature = 1.0
+            GetTemperature = Parameters.getUniformTemperature 1.0
             BondParameterMap =
                 Map [
                     Strong, { Energy = 2; PairEnergyMap = Map.empty; Barrier = 3; BarrierStackReduction = 2; StartBarrier = 0.5; Entropy = 0 }

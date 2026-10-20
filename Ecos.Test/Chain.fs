@@ -14,7 +14,7 @@ module TestParameters =
     /// Standard parameters at the given temperature.
     let create kT =
         {
-            Temperature = kT
+            GetTemperature = Parameters.getUniformTemperature kT
             BondParameterMap = standardBondParameterMap
             PeelBarrier = System.Double.PositiveInfinity   // no peeling
             CapPeelBarrier = System.Double.PositiveInfinity   // no peeling
@@ -29,7 +29,7 @@ module TestParameters =
             { standardBondParameterMap[Strong] with
                 Barrier = System.Double.PositiveInfinity }
         {
-            Temperature = kT
+            GetTemperature = Parameters.getUniformTemperature kT
             BondParameterMap =
                 Map.add Strong strong standardBondParameterMap
             PeelBarrier = System.Double.PositiveInfinity   // no peeling
@@ -250,6 +250,13 @@ module Chain =
     /// Atom types that aren't caps.
     let codingTypes =
         [| AtomType.W; AtomType.X; AtomType.Y; AtomType.Z |]
+
+    /// Oracle: temperature (kT) of a bond between the given atoms: the
+    /// average of the temperatures at their two locations, so that
+    /// forming and breaking the bond see the same temperature whichever
+    /// atom the update starts from.
+    let bondTemperature (parms : Parameters) (atomA : Atom) (atomB : Atom) =
+        (parms.GetTemperature atomA.Location + parms.GetTemperature atomB.Location) / 2.0
 
     /// Oracle: energy of one bond of the given type between atoms of
     /// the given types, with the given parameters: the energy listed

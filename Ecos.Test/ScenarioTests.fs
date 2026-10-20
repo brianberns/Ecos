@@ -13,6 +13,14 @@ module ScenarioTests =
 
     /// Scenario B's world and parameters, with a short cycle, so that a
     /// test can cross several changes of temperature quickly.
+    /// The given schedule's temperature after the given number of
+    /// sweeps (at the origin, since these schedules are uniform), and
+    /// the number of sweeps until it next changes.
+    let private kTAt numSweeps schedule =
+        let getTemperature, untilChangeOpt =
+            Schedule.getTemperature numSweeps schedule
+        getTemperature Point.zero, untilChangeOpt
+
     let private shortCycle =
         { Scenario.createScenarioB true with
             Schedule =
@@ -52,8 +60,8 @@ module ScenarioTests =
                 12, (1.0, Some 1)
             ]
         for numSweeps, result in expected do
-            Assert.Equal(result, Schedule.getTemperature numSweeps schedule)
-        Assert.Equal((0.7, None), Schedule.getTemperature 1234 (Constant 0.7))
+            Assert.Equal(result, kTAt numSweeps schedule)
+        Assert.Equal((0.7, None), kTAt 1234 (Constant 0.7))
 
     [<Fact>]
     let ``Advancing a run in pieces matches running each phase in turn`` () =
@@ -66,7 +74,7 @@ module ScenarioTests =
                 for phase in Schedule.getPhases shortCycle.Schedule do
                     let parms =
                         { shortCycle.Parameters with
-                            Temperature = phase.Temperature }
+                            GetTemperature = Parameters.getUniformTemperature phase.Temperature }
                     world <- World.sweep parms run.Random phase.NumSweeps world
             fingerprint world
 
@@ -80,16 +88,16 @@ module ScenarioTests =
     [<Fact>]
     let ``A run reports the temperature of its schedule`` () =
         let run = Run.create 0 shortCycle
-        Assert.Equal(0.3, Run.getTemperature run)
+        Assert.Equal(0.3, Run.getTemperature run Point.zero)
         let run = Run.advance 70 run
-        Assert.Equal(3.0, Run.getTemperature run)
-        Assert.Equal(3.0, (Run.getParameters run).Temperature)
+        Assert.Equal(3.0, Run.getTemperature run Point.zero)
+        Assert.Equal(3.0, (Run.getParameters run).GetTemperature Point.zero)
         let run = Run.advance 30 run
-        Assert.Equal(0.3, Run.getTemperature run)
+        Assert.Equal(0.3, Run.getTemperature run Point.zero)
 
             // a replaced schedule takes over
         let run = { run with Schedule = Constant 1.25 }
-        Assert.Equal(1.25, Run.getTemperature (Run.advance 10 run))
+        Assert.Equal(1.25, Run.getTemperature (Run.advance 10 run) Point.zero)
 
     [<Fact>]
     let ``Runs of the same scenario and seed are the same`` () =
@@ -117,7 +125,7 @@ module ScenarioTests =
             Assert.Equal(names.Length, (Array.distinct names).Length)
             for scenario in group.Scenarios do
                 Assert.True(
-                    Double.IsNaN scenario.Parameters.Temperature,
+                    Double.IsNaN (scenario.Parameters.GetTemperature Point.zero),
                     $"{group.Name}, {scenario.Name}: temperature should come from the schedule")
                 match scenario.Schedule with
                     | Cycle phases ->

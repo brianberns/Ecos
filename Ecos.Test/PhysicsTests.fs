@@ -174,7 +174,7 @@ module PhysicsTests =
     /// applied equally in both directions.
     let private checkTwoAtomsInBox (typeA, typeB) (parms : Parameters) =
         let size = 2   // atom locations have |x| <= size and |y| <= size
-        let kT = parms.Temperature
+        let kT = parms.GetTemperature Point.zero   // uniform
         let weight bondType =
             exp (-Chain.bondEnergy parms bondType typeA typeB / kT - Chain.bondEntropy parms bondType)
 
