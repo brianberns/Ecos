@@ -13,6 +13,43 @@ type Phase =
         NumSweeps : int
     }
 
+/// A vent: a vertical line of hot rock that pulses. Between pulses,
+/// the temperature is cold everywhere. During a pulse, it is hottest
+/// at the vent and falls linearly with distance from it, back to cold
+/// at the given width.
+type Vent =
+    {
+        /// X coordinate of the vent.
+        X : int
+
+        /// Temperature (kT) at the vent during a pulse.
+        HotTemperature : float
+
+        /// Temperature (kT) everywhere between pulses, and beyond the
+        /// vent's reach during one.
+        ColdTemperature : float
+
+        /// Distance from the vent at which a pulse no longer warms
+        /// anything.
+        Width : int
+
+        /// Number of sweeps between pulses.
+        ColdSweeps : int
+
+        /// Number of sweeps that a pulse lasts.
+        HotSweeps : int
+    }
+
+module Vent =
+
+    /// Temperature at the given location during a pulse of the given
+    /// vent.
+    let getHotTemperature vent (pt : Point) =
+        let dist = float (abs (pt.X - vent.X))
+        let fraction = max 0.0 (1.0 - dist / float vent.Width)
+        vent.ColdTemperature
+            + fraction * (vent.HotTemperature - vent.ColdTemperature)
+
 /// Temperature over time. The temperature at any moment depends only
 /// on the number of sweeps run so far, so a schedule holds no state.
 type Schedule =
@@ -23,34 +60,54 @@ type Schedule =
     /// Phases that repeat in a loop.
     | Cycle of Phase[]
 
+    /// A vent that pulses in a loop, starting between pulses.
+    | Vent of Vent
+
 module Schedule =
 
     /// Answers the temperature after the given number of sweeps, and
     /// the number of sweeps until it next changes, if it ever does.
     let getTemperature numSweeps schedule =
         assert(numSweeps >= 0)
-        let kT, nSweepsOpt =
-            match schedule with
-                | Constant kT -> kT, None
-                | Cycle phases ->
-                    assert(phases.Length > 0)
-                    assert(Array.forall (fun phase ->
-                        phase.NumSweeps > 0) phases)
+        match schedule with
+            | Constant kT ->
+                Parameters.getUniformTemperature kT, None
+            | Cycle phases ->
+                assert(phases.Length > 0)
+                assert(Array.forall (fun phase ->
+                    phase.NumSweeps > 0) phases)
 
-                    let rec loop t iPhase =
-                        let phase = phases[iPhase]
-                        if t < phase.NumSweeps then
-                            phase.Temperature, Some (phase.NumSweeps - t)
-                        else loop (t - phase.NumSweeps) (iPhase + 1)
+                let rec loop t iPhase =
+                    let phase = phases[iPhase]
+                    if t < phase.NumSweeps then
+                        phase.Temperature, Some (phase.NumSweeps - t)
+                    else loop (t - phase.NumSweeps) (iPhase + 1)
 
-                    let period = Array.sumBy _.NumSweeps phases
-                    loop (numSweeps % period) 0
-        Parameters.getUniformTemperature kT, nSweepsOpt
+                let period = Array.sumBy _.NumSweeps phases
+                let kT, nSweepsOpt = loop (numSweeps % period) 0
+                Parameters.getUniformTemperature kT, nSweepsOpt
+            | Vent vent ->
+                assert(vent.ColdSweeps > 0 && vent.HotSweeps > 0)
+                assert(vent.Width > 0)
+                let t = numSweeps % (vent.ColdSweeps + vent.HotSweeps)
+                if t < vent.ColdSweeps then
+                    Parameters.getUniformTemperature vent.ColdTemperature,
+                    Some (vent.ColdSweeps - t)
+                else
+                    Vent.getHotTemperature vent,
+                    Some (vent.ColdSweeps + vent.HotSweeps - t)
 
-    /// The phases of the given schedule, if it cycles.
+    /// Number of sweeps after which the given schedule repeats, if it
+    /// changes at all.
+    let tryGetPeriod = function
+        | Constant _ -> None
+        | Cycle phases -> Some (Array.sumBy _.NumSweeps phases)
+        | Vent vent -> Some (vent.ColdSweeps + vent.HotSweeps)
+
+    /// The phases of the given schedule, if it cycles uniformly.
     let getPhases = function
         | Cycle phases -> phases
-        | Constant _ -> failwith "Schedule has no phases"
+        | Constant _ | Vent _ -> failwith "Schedule has no uniform phases"
 
 /// A description of a world to run: how to build it, its parameters,
 /// and its temperature over time. It holds no state, so the same
@@ -335,6 +392,47 @@ module Scenario =
             let world, template = scenario.Build rng
             step rng world, template
         { scenario with Build = build }
+
+    /// A vent along the left wall of the standard box: during a pulse,
+    /// kT 3.0 at the wall (the hot temperature of scenario B), falling
+    /// linearly to 0.3 (its cold temperature) at the right wall, with
+    /// scenario B's cold and hot durations.
+    let wallVent =
+        {
+            X = -80
+            HotTemperature = 3.0
+            ColdTemperature = 0.3
+            Width = 160
+            ColdSweeps = 90_000
+            HotSweeps = 10_000
+        }
+
+    /// The vent scenario: scenario B's box, free atoms and parameters,
+    /// heated by a vent along its left wall instead of uniformly. Each
+    /// place gets its own cycle, hotter nearer the vent. The world is
+    /// seeded with equal numbers of three-atom strands of each kind
+    /// (P-W-Q and P-Y-Q), at random places across the whole box, and
+    /// the weak Y-Z bond has the given energy.
+    ///
+    /// Only Y-Z pairs held more strongly than W-X ones should separate
+    /// near the vent and copy better there, while farther out, where
+    /// the pulse is cooler, only W-X pairs should separate.
+    let createVentScenario nSeeds yzEnergy =
+        let addStrands rng world =
+            (world, [ 1 .. nSeeds ])
+                ||> Seq.fold (fun world _ ->
+                    world
+                        |> Build.addStrandAtRandom rng 150
+                            [| AtomType.P; AtomType.W; AtomType.Q |]
+                        |> Build.addStrandAtRandom rng 150
+                            [| AtomType.P; AtomType.Y; AtomType.Q |])
+        let scenario = createScenarioB false
+        let name = $"Vent, Y-Z energy {yzEnergy}"
+        { scenario with
+            Name = name
+            Schedule = Vent wallVent }
+            |> withBuildStep addStrands
+            |> withPairEnergy Weak AtomType.Y AtomType.Z yzEnergy
 
 /// A scenario being run.
 type Run =

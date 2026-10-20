@@ -85,6 +85,77 @@ module ScenarioTests =
         Assert.Equal(200, run.NumSweeps)
         Assert.Equal(expected, fingerprint run.World)
 
+    /// A small vent for tests.
+    let private vent =
+        {
+            X = -10
+            HotTemperature = 2.0
+            ColdTemperature = 0.5
+            Width = 20
+            ColdSweeps = 70
+            HotSweeps = 30
+        }
+
+    [<Fact>]
+    let ``A vent is hottest at the vent during a pulse, and cold otherwise`` () =
+        let at numSweeps x =
+            let getTemperature, untilChangeOpt =
+                Schedule.getTemperature numSweeps (Vent vent)
+            getTemperature (Point.create (x, 7)), untilChangeOpt
+
+            // between pulses: cold everywhere
+        for x in [ -40; -10; 0; 30 ] do
+            Assert.Equal((0.5, Some 70), at 0 x)
+            Assert.Equal((0.5, Some 1), at 69 x)
+
+            // during a pulse: falling linearly with distance either side
+            // of the vent, and cold beyond its width
+        let expected =
+            [
+                -10, 2.0
+                -5, 1.625
+                0, 1.25
+                -20, 1.25
+                5, 0.875
+                10, 0.5
+                40, 0.5
+                -60, 0.5
+            ]
+        for x, kT in expected do
+            let actual, untilChangeOpt = at 75 x
+            Assert.Equal(kT, actual, 10)
+            Assert.Equal(Some 25, untilChangeOpt)
+
+            // and again, a cycle later
+        Assert.Equal((2.0, Some 30), at 170 -10)
+        Assert.Equal((0.5, Some 70), at 200 -10)
+
+    [<Fact>]
+    let ``Advancing a vent run in pieces matches running each phase in turn`` () =
+        let scenario = { shortCycle with Schedule = Vent vent }
+
+            // oracle: each phase with its own temperatures
+        let expected =
+            let run = Run.create 2 scenario
+            let mutable world = run.World
+            for _ in 1 .. 2 do
+                for getTemperature, numSweeps in
+                    [
+                        Parameters.getUniformTemperature vent.ColdTemperature, vent.ColdSweeps
+                        Vent.getHotTemperature vent, vent.HotSweeps
+                    ] do
+                    let parms =
+                        { scenario.Parameters with
+                            GetTemperature = getTemperature }
+                    world <- World.sweep parms run.Random numSweeps world
+            fingerprint world
+
+            // pieces that straddle the changes of temperature
+        let run =
+            (Run.create 2 scenario, [ 45; 45; 1; 59; 50 ])
+                ||> List.fold (fun run n -> Run.advance n run)
+        Assert.Equal(expected, fingerprint run.World)
+
     [<Fact>]
     let ``A run reports the temperature of its schedule`` () =
         let run = Run.create 0 shortCycle
@@ -132,6 +203,9 @@ module ScenarioTests =
                         Assert.NotEmpty(phases)
                         for phase in phases do
                             Assert.True(phase.NumSweeps > 0)
+                    | Vent vent ->
+                        Assert.True(vent.Width > 0)
+                        Assert.True(vent.ColdSweeps > 0 && vent.HotSweeps > 0)
                     | Constant _ -> ()
 
                 // building is slow, so build one scenario per group
