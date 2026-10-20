@@ -58,28 +58,29 @@ module WorldView =
 
     let private renderTemperature model =
 
-        let walls = model.Run.World.Walls
-        let minWallX = walls |> Seq.map _.X |> Seq.min
-        let maxWallX = walls |> Seq.map _.X |> Seq.max
-        let minWallY = walls |> Seq.map _.Y |> Seq.min
-        let maxWallY = walls |> Seq.map _.Y |> Seq.max
-
         let getColor temp =
             let distance =
                 (temp - float ControlPanel.minTemperature)
                     / float (
                         ControlPanel.maxTemperature
                             - ControlPanel.minTemperature)
-            getGradientColor Colors.LightBlue Colors.Pink distance
+            getGradientColor Colors.LightBlue Colors.Red distance
+
+        let locs =
+            let dist = 1
+            set [
+                for atom in model.Run.World.Atoms do
+                    for dx = -dist to dist do
+                        for dy = -dist to dist do
+                            atom.Location + Point.create(dx, dy)
+            ]
 
         [
-            for x = minWallX to maxWallX do
-                for y = minWallY to maxWallY do
-                    let loc = Point.create (x, y)
-                    loc
-                        |> Run.getTemperature model.Run 
-                        |> getColor
-                        |> renderRectangle loc
+            for loc in locs do
+                loc
+                    |> Run.getTemperature model.Run 
+                    |> getColor
+                    |> renderRectangle loc
         ]
 
     let private renderWalls (world : World) =
