@@ -50,6 +50,19 @@ type World =
     /// world.
     member this.Item(location) = this.Cells[location]
 
+    /// Whether this world is a torus, whose opposite edges meet.
+    member this.IsTorus = this.Cells.IsTorus
+
+    /// The given location, wrapped into this world if it is a torus.
+    member this.Wrap(location : Point) =
+        let x, y = this.Cells.Wrap(location.X, location.Y)
+        Point.create (x, y)
+
+    /// The shortest vector from location A to location B: around the
+    /// torus, if this world is one.
+    member this.Displacement(locA : Point, locB : Point) =
+        this.Wrap(locB - locA)
+
 /// An event in the world.
 type Event =
 
@@ -72,6 +85,11 @@ module World =
             _BondTypeMap = BondTypeMap.empty
             Cells = Grid.empty
         }
+
+    /// An empty torus of the given (even) size, centered on the
+    /// origin. Opposite edges meet, so there is no boundary.
+    let createTorus width height =
+        { empty with Cells = Grid.createTorus width height }
 
     /// Creates a copy of the given world with its own mutable
     /// data structures. This is used to protect against mutating
@@ -102,7 +120,8 @@ module World =
 
     /// Adds an atom with the given attributes to the given world
     /// if it is valid.
-    let tryAddAtom atomType location world =
+    let tryAddAtom atomType location (world : World) =
+        let location = world.Wrap(location)
         if isAvailable location None world then
             let world = copy world
             let id = world.Atoms.Length
@@ -121,7 +140,8 @@ module World =
             | None -> failwith "Invalid location"
 
     /// Adds a wall to the given world if it is valid.
-    let tryAddWall location world =
+    let tryAddWall location (world : World) =
+        let location = world.Wrap(location)
         if isAvailable location None world then
             let world = copy world
             Some
@@ -172,18 +192,20 @@ module World =
                                         || idD = atomB.Id then false
                                     else
                                         let atomD = world.Atoms[idD]
+                                        let rel (atom : Atom) =   // relative to A, around a torus if need be
+                                            world.Displacement(atomA.Location, atom.Location)
                                         BondBehavior.testCrossBond
-                                            (atomA, atomB)
-                                            (atomC, atomD))
+                                            (Point.zero, rel atomB)
+                                            (rel atomC, rel atomD))
                     | _ -> false)
 
     /// A -- B
     ///  \
     ///   \
     ///    C
-    let private testBondAngle behavior atomA atomB atomC =
-        let deltaAB = atomB.Location - atomA.Location   // vector from A to B
-        let deltaAC = atomC.Location - atomA.Location   // vector from A to C
+    let private testBondAngle behavior atomA atomB atomC (world : World) =
+        let deltaAB = world.Displacement(atomA.Location, atomB.Location)   // vector from A to B
+        let deltaAC = world.Displacement(atomA.Location, atomC.Location)   // vector from A to C
         behavior.TestBondAngle deltaAB deltaAC
 
     /// A -?- B
@@ -194,7 +216,7 @@ module World =
         behavior atomA atomB idsC (world : World) =
         Seq.forall (fun idC ->
             let atomC = world.Atoms[idC]
-            testBondAngle behavior atomA atomB atomC)
+            testBondAngle behavior atomA atomB atomC world)
             idsC
 
     /// Adds a bond of the given type between the given atoms in
@@ -217,7 +239,9 @@ module World =
             let idsB = BondMap.getBonds atomB.Id bondMap
             behavior.AreCompatible atomA.Type atomB.Type
                 && not (areBonded atomA.Id atomB.Id world)
-                && Neighborhood.testBond atomA atomB behavior.Neighborhood
+                && Neighborhood.testBond
+                    (world.Displacement(atomA.Location, atomB.Location))
+                    behavior.Neighborhood
                 && behavior.TestValence atomA bondTypeMap
                 && behavior.TestValence atomB bondTypeMap
                 && not (isCrossBond behavior atomA atomB world)
@@ -303,7 +327,7 @@ module World =
             |> Seq.forall (fun (idB, idC) ->
                 let atomB = world.Atoms[idB]
                 let atomC = world.Atoms[idC]
-                testBondAngle behavior atom atomB atomC)
+                testBondAngle behavior atom atomB atomC world)
 
     /// Tests angles in which the atom isn't central: A-B-C.
     let private testPeripheralBonds
@@ -314,8 +338,7 @@ module World =
                 BondMap.getBonds idB bondMap
                     |> Set.forall (fun idC ->
                         idC = atom.Id
-                            || world.Atoms[idC]
-                                |> testBondAngle behavior atomB atom))
+                            || testBondAngle behavior atomB atom (world.Atoms[idC]) world))
 
     /// Determines whether the given atom's bonds are valid.
     let private testBonds atom (world : World) =
@@ -332,7 +355,8 @@ module World =
                             |> Set.forall (fun idB ->
                                 let atomB = world.Atoms[idB]
                                 Neighborhood.testBond
-                                    atom atomB behavior.Neighborhood)
+                                    (world.Displacement(atom.Location, atomB.Location))
+                                    behavior.Neighborhood)
 
                         // test bond angles?
                     if isValid then
@@ -389,7 +413,7 @@ module World =
             // move atom in that direction provisionally
         let atom' =
             { atom with
-                Location = atom.Location + delta }
+                Location = world.Wrap(atom.Location + delta) }
 
             // move the atom permanently?
         let isValid =

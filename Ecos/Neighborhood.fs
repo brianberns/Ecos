@@ -40,11 +40,11 @@ module Neighborhood =
             |> Seq.map Point.create
             |> Seq.toArray
 
-    /// Determines whether a bond between the given atoms is valid
-    /// for the given neighborhood.
-    let testBond atomA atomB neighborhood =
+    /// Determines whether a bond spanning the given displacement (from
+    /// one atom to the other) is valid for the given neighborhood.
+    let testBond (delta : Point) neighborhood =
         assert(isValid neighborhood)
-        let diff = abs (atomA.Location - atomB.Location)
+        let diff = abs delta
         let x, y =
             if diff.X >= diff.Y then diff.X, diff.Y
             else diff.Y, diff.X
