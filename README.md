@@ -53,6 +53,8 @@ Strands also die: now and then a strong bond breaks of its own accord (hydrolysi
 - *Where nothing melts, material is trapped for good.* On the cool side, a template is copied, its copy's free face templates another copy, and the stack grows into a sheet that never separates. Caps come off only in the heat, so nothing there dies either. These sheets soak up atoms and caps and never return them, until almost no free atoms are left anywhere.
 - *Lineages don't travel.* A strand drifts about 20 sites per cycle, so where a kind lives is mostly set by where its founders started.
 
+**Walls.** Where a template starts matters. Alone in a box, a lineage that starts within 16 sites of a wall grows 15 to 25% less over three cycles than one at the center, and one tucked into a corner 40% less; the effect fades by 32 sites. Competing with three others for the same atoms, the disadvantage roughly doubles: a corner lineage reaches 58% of the center's size, and the center lineage ends largest in 13 of 24 runs. The cause looks like access. A template is copied along both faces, so one lying along a wall, with a face toward it, is copied 38% less from the first cycle, while one pointing its end at the wall hardly suffers; a corner adds less room for the copies to spread into. Position isn't inherited through sequence, but anything heritable that changed a strand's orientation or reach would be selected.
+
 ## The model
 
 ### Atoms and the lattice
@@ -172,6 +174,8 @@ dotnet run -c Release --project Ecos.Experiment -- experiment3 results.csv
 | `experiment5` | The same in a living world, where strands also die |
 | `experiment8` | The same head to head, from equal numbers of each kind, over a range of strengths |
 | `experiment11` | At what temperature does each kind of ten-letter duplex melt? |
+| `experiment14` | Is a lone template copied less near a wall, or in a corner? |
+| `experiment14b` | When four templates compete, from the center, a side, an end and a corner, which lineage wins? |
 
 Experiments 6, 7, 9, 10, 12 and 13 are archived: their results are summarized above, and their code is in the git history.
 

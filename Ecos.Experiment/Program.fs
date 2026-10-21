@@ -22,6 +22,10 @@ module Program =
                 Experiment8.run Experiment8.defaultSettings
             "experiment11", "Melting of ten-letter duplexes, by temperature",
                 Experiment11.run Experiment11.defaultSettings
+            "experiment14", "Copying near walls and in corners",
+                Experiment14.run Experiment14.defaultSettings
+            "experiment14b", "Templates competing from the center, a side, an end, and a corner",
+                Experiment14.runCompetition Experiment14.defaultCompetitionSettings
         ]
 
     /// Prints usage.
