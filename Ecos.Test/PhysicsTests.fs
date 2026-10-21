@@ -123,7 +123,7 @@ module PhysicsTests =
 
             // sample end-to-end vectors, starting from a straight rod
         let world =
-            (World.empty, [ 0 .. n - 1 ])
+            (TestWorld.empty, [ 0 .. n - 1 ])
                 ||> List.fold (fun world i ->
                     let world =
                         World.addAtomW (Point.create (2 * i, 0)) world
@@ -135,7 +135,7 @@ module PhysicsTests =
                     (TestParameters.createFrozen Chain.athermalKT)
                     8 (200 * n) (20 * n) 5000
                     (fun world ->
-                        world.Atoms[n - 1].Location - world.Atoms[0].Location)
+                        world.Displacement(world.Atoms[0].Location, world.Atoms[n - 1].Location))
 
         checkFit $"End-to-end vector, N = {n}" (toMap counts) samples
 
@@ -213,7 +213,7 @@ module PhysicsTests =
             // samples must be far apart.
         let inBox (loc : Point) = abs loc.X <= size && abs loc.Y <= size
         let samples =
-            World.empty
+            TestWorld.empty
                 |> World.addAtom typeA (Point.create (-size, -size))
                 |> World.addAtom typeB (Point.create (size, size))
                 |> Chain.addBox size
@@ -386,7 +386,7 @@ module PhysicsTests =
 
             // sample states, starting with the dimers apart
         let samples =
-            World.empty
+            TestWorld.empty
                 |> World.addAtom AtomType.W (Point.create(-2, -2))   // 0
                 |> World.addAtom AtomType.W (Point.create(0, -2))    // 1
                 |> World.addAtom AtomType.X (Point.create(0, 2))     // 2
@@ -398,7 +398,7 @@ module PhysicsTests =
                     (TestParameters.createFrozen kT) 8 2000 300 3000
                     (fun world ->
                         Set.toList (Bonds.weakBonds world),
-                        world.Atoms[2].Location - world.Atoms[0].Location)
+                        world.Displacement(world.Atoms[0].Location, world.Atoms[2].Location))
 
         checkFit "Weak bonds" (toMap bondSetWeights) (Array.map fst samples)
         checkFit "Separation" (toMap separationWeights) (Array.map snd samples)
@@ -425,10 +425,23 @@ module PhysicsTests =
                         Array.Parallel.init nChains (fun iChain ->
                             let rng = Random(5000 * n + iChain)
                             let mutable world = Chain.grow rng n
-                            Array.init (nFrames + 1) (fun iFrame ->
-                                if iFrame > 0 then
-                                    world <- Chain.sweepsWith parms rng frameInterval world
-                                Chain.centerOfMass world))
+
+                                // the center of mass is followed continuously: its
+                                // step between frames is far less than the size of
+                                // the torus, so it is measured the shorter way around
+                            let wrap d size = d - float size * round (d / float size)
+                            let traj = Array.zeroCreate (nFrames + 1)
+                            let mutable com = Chain.centerOfMass world
+                            traj[0] <- com
+                            for iFrame in 1 .. nFrames do
+                                world <- Chain.sweepsWith parms rng frameInterval world
+                                let com' = Chain.centerOfMass world
+                                let x, y = traj[iFrame - 1]
+                                traj[iFrame] <-
+                                    x + wrap (fst com' - fst com) world.Width,
+                                    y + wrap (snd com' - snd com) world.Height
+                                com <- com'
+                            traj)
 
                         // MSD averaged over chains and over all time origins
                     let msd lag =

@@ -91,6 +91,7 @@ module ScenarioTests =
             X = -10
             HotTemperature = 2.0
             ColdTemperature = 0.5
+            Period = 100
             Width = 20
             ColdSweeps = 70
             HotSweeps = 30

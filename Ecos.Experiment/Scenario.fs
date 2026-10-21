@@ -29,6 +29,10 @@ type Vent =
         /// vent's reach during one.
         ColdTemperature : float
 
+        /// Width of the world, which is a torus: distance from the vent is
+        /// measured the shorter way around it.
+        Period : int
+
         /// Distance from the vent at which a pulse no longer warms
         /// anything.
         Width : int
@@ -45,7 +49,8 @@ module Vent =
     /// Temperature at the given location during a pulse of the given
     /// vent.
     let getHotTemperature vent (pt : Point) =
-        let dist = float (abs (pt.X - vent.X))
+        let dx = ((pt.X - vent.X) % vent.Period + vent.Period) % vent.Period
+        let dist = float (min dx (vent.Period - dx))   // the shorter way around
         let fraction = max 0.0 (1.0 - dist / float vent.Width)
         vent.ColdTemperature
             + fraction * (vent.HotTemperature - vent.ColdTemperature)
@@ -291,10 +296,10 @@ module Scenario =
     /// Number of coding atoms in a template.
     let private nCoding = 10
 
-    /// Builds the standard world: a 160x160 box of free atoms, with or
+    /// Builds the standard world: a 160x160 torus of free atoms, with or
     /// without a template.
     let private build withTemplate (rng : Random) =
-        let world = Build.addBox 160 160 World.empty
+        let world = World.create 160 160
         let world, template =
             if withTemplate then
                 Build.addTemplate rng nCoding world
@@ -430,25 +435,27 @@ module Scenario =
             step rng world, template
         { scenario with Build = build }
 
-    /// A vent along the left wall of the standard box: during a pulse,
-    /// kT 3.0 at the wall (the hot temperature of scenario B), falling
-    /// linearly to 0.3 (its cold temperature) at the right wall, with
+    /// A vent along the seam of the standard 160x160 torus (x = -80, which
+    /// is also x = 80): during a pulse, kT 3.0 at the vent (the hot
+    /// temperature of scenario B), falling linearly to 0.3 (its cold
+    /// temperature) halfway around, at x = 0, on both sides. It has
     /// scenario B's cold and hot durations.
-    let wallVent =
+    let seamVent =
         {
             X = -80
             HotTemperature = 3.0
             ColdTemperature = 0.3
-            Width = 160
+            Period = 160
+            Width = 80
             ColdSweeps = 90_000
             HotSweeps = 10_000
         }
 
-    /// The vent scenario: scenario B's box, free atoms and parameters,
-    /// heated by a vent along its left wall instead of uniformly. Each
+    /// The vent scenario: scenario B's world, free atoms and parameters,
+    /// heated by a vent along its seam instead of uniformly. Each
     /// place gets its own cycle, hotter nearer the vent. The world is
     /// seeded with equal numbers of three-atom strands of each kind
-    /// (P-W-Q and P-Y-Q), at random places across the whole box, and
+    /// (P-W-Q and P-Y-Q), at random places across the whole world, and
     /// the weak Y-Z bond has the given energy.
     ///
     /// Only Y-Z pairs held more strongly than W-X ones should separate
@@ -467,17 +474,18 @@ module Scenario =
         let name = $"Vent, Y-Z energy {yzEnergy}"
         { scenario with
             Name = name
-            Schedule = Vent wallVent }
+            Schedule = Vent seamVent }
             |> withBuildStep addStrands
             |> withPairEnergy Weak AtomType.Y AtomType.Z yzEnergy
 
     /// Templates in a vent world, with the vent's pulse centered on the
     /// window between the melting points of the two kinds of duplex
     /// (about kT 0.7 for W/X and 0.95 for Y/Z when Y-Z is stronger). During
-    /// a pulse, kT is 1.5 at the left wall, falling linearly to 0.3 at the
-    /// right one, so Y/Z duplexes melt only within about 75 of the vent,
-    /// W/X ones within about 105, and neither beyond that. (This is the
-    /// world of the archived experiment 13.)
+    /// a pulse, kT is 1.5 at the vent, along the seam, falling linearly to
+    /// 0.3 halfway around, so Y/Z duplexes melt only within about 37 of the
+    /// vent, W/X ones within about 53, and neither beyond that. (This is
+    /// like the world of the archived experiment 13, whose vent was a
+    /// wall.)
     ///
     /// Strands are copied only on a template (a strong bond barrier of
     /// 40), and strong bonds hydrolyze slowly, so that strands die and
@@ -491,7 +499,7 @@ module Scenario =
         let scenario = createScenarioB false
         let build rng =
             let world =
-                Build.addBox 160 160 World.empty
+                World.create 160 160
                     |> Build.addFreeAtomsWith (6 * nCoding) nCapsPerRow 6
             let nBefore = world.Atoms.Length
             let template codingType =
@@ -512,7 +520,7 @@ module Scenario =
             Name = "Vent window"
             Build = build
             Schedule =
-                Vent { wallVent with HotTemperature = 1.5 } }
+                Vent { seamVent with HotTemperature = 1.5 } }
             |> withStrongBarrier 40
             |> withHydrolysisRate 2e-5   // slow enough for ten-letter strands to multiply
             |> withPairEnergy Weak AtomType.Y AtomType.Z yzEnergy

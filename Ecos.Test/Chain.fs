@@ -1,5 +1,17 @@
 namespace Ecos
 
+/// Worlds used by the tests.
+module TestWorld =
+
+    /// An empty torus of the given (even) size.
+    let create size = World.create size size
+
+    /// An empty world for tests: a small torus, so that the many tests
+    /// that update a world one step at a time (each copying the world)
+    /// stay fast. Their worlds are boxed, or local to the origin, so
+    /// nothing reaches around it.
+    let empty = create 32
+
 /// Parameters used by the tests.
 module TestParameters =
 
@@ -372,7 +384,7 @@ module Chain =
             // the same walls, then the same atoms (so with the same IDs)
             // with their new types, then the same strong bonds
         let rebuilt =
-            (World.empty, world.Walls)
+            (World.create world.Width world.Height, world.Walls)
                 ||> Array.fold (fun rebuilt loc -> World.addWall loc rebuilt)
         let rebuilt =
             (rebuilt, world.Atoms)
@@ -417,7 +429,7 @@ module Chain =
                     | Some world -> extend 1000 world
                     | None -> extend (tries - 1) world
         let start =
-            World.addAtomW Point.zero World.empty
+            World.addAtomW Point.zero (TestWorld.create (max 32 (6 * n + 2 * (n % 2))))   // room enough that the chain never meets itself around the torus
         match extend 1000 start with
             | Some world -> world
             | None -> grow rng n
@@ -520,24 +532,33 @@ module Chain =
     let sweeps kT rng count world =
         sweepsWith (TestParameters.create kT) rng count world
 
-    /// Atom locations as floating-point (x, y) pairs, in ID order.
+    /// Atom locations as floating-point (x, y) pairs, in ID order, for a
+    /// chain whose atoms are bonded in ID order. They are unwrapped: each
+    /// is the one before it plus the displacement between them, so that
+    /// a chain straddling the edges of the torus stays in one piece.
     let private locations (world : World) =
-        world.Atoms
-            |> Seq.map (fun atom ->
-                float atom.Location.X, float atom.Location.Y)
-            |> Seq.toArray
+        let atoms = world.Atoms
+        let locs = Array.zeroCreate atoms.Length
+        for i in 0 .. atoms.Length - 1 do
+            locs[i] <-
+                if i = 0 then atoms[0].Location
+                else locs[i - 1] + world.Displacement(atoms[i - 1].Location, atoms[i].Location)
+        locs |> Array.map (fun (loc : Point) -> float loc.X, float loc.Y)
 
-    /// Center of mass of all atoms.
+    /// Center of mass of a chain whose atoms are bonded in ID order,
+    /// unwrapped as above (so it is near the chain's first atom, which
+    /// itself may be anywhere on the torus).
     let centerOfMass world =
         let locs = locations world
         Array.averageBy fst locs, Array.averageBy snd locs
 
-    /// Squared distance between the chain's first and last atoms.
+    /// Squared distance between the chain's first and last atoms,
+    /// measured along the chain.
     let endToEndSquared (world : World) =
-        let first = world.Atoms[0].Location
-        let last = world.Atoms[world.Atoms.Length - 1].Location
-        let d = last - first
-        float (d.X * d.X + d.Y * d.Y)
+        let locs = locations world
+        let x0, y0 = locs[0]
+        let x1, y1 = locs[locs.Length - 1]
+        (x1 - x0) ** 2.0 + (y1 - y0) ** 2.0
 
     /// Squared radius of gyration: mean squared distance of atoms
     /// from the center of mass.

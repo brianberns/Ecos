@@ -50,7 +50,10 @@ module Experiment14 =
     /// The template's coding atoms.
     let private nCoding = 10
 
-    /// Inside of the standard 160x160 box: the walls are at +/-80.
+    /// Inside of a 160x160 box of walls, which sits in a slightly larger
+    /// torus (so that the walls on opposite sides are distinct). Walls
+    /// are this experiment's subject; the standard world has none.
+    /// The walls are at +/-80.
     let private wall = 80
 
     /// Location of the template's first atom, for the given placement.
@@ -101,7 +104,7 @@ module Experiment14 =
                 |]
             let x, y = getStart placement
             let world =
-                Build.addBox (2 * wall) (2 * wall) World.empty
+                World.create (2 * wall + 4) (2 * wall + 4) |> Build.addBox (2 * wall) (2 * wall)
                     |> Build.tryAddStrand x y types
                     |> Option.get
             let template = Array.map _.Id world.Atoms
@@ -268,7 +271,7 @@ module Experiment14 =
         let build (rng : Random) =
             let codingTypes = [| AtomType.W; AtomType.Y |]
             let world =
-                (Build.addBox (2 * wall) (2 * wall) World.empty, getCompetitorStarts gap)
+                (World.create (2 * wall + 4) (2 * wall + 4) |> Build.addBox (2 * wall) (2 * wall), getCompetitorStarts gap)
                     ||> Array.fold (fun world (_, (x, y)) ->
                         let types =
                             [|

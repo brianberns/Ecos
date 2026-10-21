@@ -8,7 +8,7 @@ open Ecos
 open Ecos.Experiment.Experiment3
 
 /// Experiment 11: melting. A ten-letter template and its copy, already
-/// paired, sit alone in a box at a fixed temperature, with no free atoms.
+/// paired, sit alone in a small world at a fixed temperature, with no free atoms.
 /// How soon do they come apart? Templates of all W (paired with all X)
 /// and of all Y (paired with all Z) are compared, with the Y-Z bond
 /// stronger than the W-X one. If their melting temperatures differ
@@ -72,7 +72,7 @@ module Experiment11 =
         { scenario.Parameters with
             GetTemperature = Parameters.getUniformTemperature kT }
 
-    /// A box holding a template of the given coding type, capped P...Q,
+    /// A small world holding a template of the given coding type, capped P...Q,
     /// with its complement paired along one side. Answers the world and
     /// the atom IDs of the two strands.
     let private createDuplex codingType =
@@ -92,7 +92,7 @@ module Experiment11 =
                         World.addStrongBond (atom.Id - 1) atom.Id world
                     else world)
         let world =
-            Build.addBox 60 60 World.empty
+            World.create 60 60
                 |> addRow 0 templateTypes
                 |> addRow 2 (Array.map complement templateTypes)
         let n = templateTypes.Length
@@ -169,7 +169,7 @@ module Experiment11 =
         let parms = getParameters settings nan
         printfn "Experiment 11: melting of ten-letter duplexes"
         printfn
-            "%d runs of each duplex at each temperature, alone in a box; each run stops when the strands separate, or after %d sweeps"
+            "%d runs of each duplex at each temperature, alone in a small world; each run stops when the strands separate, or after %d sweeps"
             settings.NumRuns settings.MaxSweeps
         printParameters parms
         printfn "Weak bond energies: W-X %g, Y-Z %g" parms.BondParameterMap[Weak].Energy settings.YZEnergy

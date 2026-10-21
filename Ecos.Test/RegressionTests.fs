@@ -89,7 +89,7 @@ module RegressionTests =
                     if rng.Next(2) = 0 then AtomType.W else AtomType.Y)
                 |> Array.append <| [| AtomType.Q |]
         let world =
-            (World.empty, Array.indexed template)
+            (TestWorld.empty, Array.indexed template)
                 ||> Array.fold (fun world (i, atomType) ->
                     let world = World.addAtom atomType (Point.create (2 * i - 8, 0)) world
                     if i > 0 then World.addStrongBond (i - 1) i world
@@ -113,7 +113,7 @@ module RegressionTests =
     /// that their weak bonds form and break constantly, making and
     /// unmaking stacks. (The seed is not used.)
     let private ladderWorld (_seed : int) =
-        World.empty
+        TestWorld.empty
             |> World.addAtom AtomType.W (Point.create (-1, -1))   // 0
             |> World.addAtom AtomType.W (Point.create (1, -1))    // 1
             |> World.addAtom AtomType.X (Point.create (-1, 1))    // 2
@@ -168,12 +168,14 @@ module RegressionTests =
         ]
 
     /// Fingerprints recorded from the model once strong bonds could
-    /// hydrolyze (commit 45ddcd6).
+    /// hydrolyze (commit 45ddcd6). Every world became a torus after that,
+    /// which changed none of them except ("hot", 1), whose atoms wander
+    /// far enough to reach around it; that one was recorded again.
     let private expected =
         Map [
             ("cold", 1), [ "39b648c110a17624"; "99ce0bfa34d59eb3"; "31b991455bb9c20c"; "ca699a36166ef37c" ]
             ("cold", 2), [ "235be71c8731e8d4"; "e714ff43a59914d4"; "343d78326d527865"; "0442bd92fa09268b" ]
-            ("hot", 1), [ "1a179ff72bf65fde"; "e82b172c55646a34"; "43fe617d446bf4ca"; "491f194e8626d829" ]
+            ("hot", 1), [ "1a179ff72bf65fde"; "bdb09c90e4bb8610"; "43fe617d446bf4ca"; "c274af3b727b0c7d" ]
             ("hot", 2), [ "634be7d4781ce79d"; "2e4612460bad8ab6"; "e09408eb0a1812ab"; "8fec0e9eced65629" ]
             ("all rules", 1), [ "a7dfd2b3d39d0c5c"; "704fa118c60c9d94"; "b88cce0943418f75"; "5e6e05223488425c" ]
             ("all rules", 2), [ "587bcd6cb790917b"; "a360f2e65d2feec8"; "cd302bdcbfd0145c"; "b7f03e2cf82e1125" ]
@@ -228,7 +230,7 @@ module RegressionTests =
     [<Fact>]
     let ``Adding to a world leaves the original unchanged`` () =
         let world =
-            World.empty
+            TestWorld.empty
                 |> World.addWall (Point.create (0, 0))
                 |> World.addWall (Point.create (12, 12))
                 |> World.addAtom AtomType.W (Point.create (4, 4))   // 0

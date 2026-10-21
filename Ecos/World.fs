@@ -16,6 +16,9 @@ open System
 /// * Pairing of complementary strands
 /// * Stacking of bonded pairs (a la DNA)
 /// 
+/// The world is a torus: its opposite edges meet, so it has no boundary
+/// unless walls make one.
+///
 /// Walls are immovable obstacles, each the size of an atom.
 type World =
     private {
@@ -50,16 +53,21 @@ type World =
     /// world.
     member this.Item(location) = this.Cells[location]
 
-    /// Whether this world is a torus, whose opposite edges meet.
-    member this.IsTorus = this.Cells.IsTorus
+    /// Width of this world, which is a torus: its left and right edges
+    /// meet.
+    member this.Width = this.Cells.Width
 
-    /// The given location, wrapped into this world if it is a torus.
+    /// Height of this world, which is a torus: its top and bottom edges
+    /// meet.
+    member this.Height = this.Cells.Height
+
+    /// The given location, wrapped into this world.
     member this.Wrap(location : Point) =
         let x, y = this.Cells.Wrap(location.X, location.Y)
         Point.create (x, y)
 
-    /// The shortest vector from location A to location B: around the
-    /// torus, if this world is one.
+    /// The shortest vector from location A to location B, around the
+    /// torus.
     member this.Displacement(locA : Point, locB : Point) =
         this.Wrap(locB - locA)
 
@@ -77,19 +85,15 @@ type Event =
 
 module World =
 
-    /// An empty world.
-    let empty =
+    /// An empty world: a torus of the given (even) size, centered on the
+    /// origin. Opposite edges meet, so there is no boundary.
+    let create width height =
         {
             _Atoms = Array.empty
             _Walls = Array.empty
             _BondTypeMap = BondTypeMap.empty
-            Cells = Grid.empty
+            Cells = Grid.create width height
         }
-
-    /// An empty torus of the given (even) size, centered on the
-    /// origin. Opposite edges meet, so there is no boundary.
-    let createTorus width height =
-        { empty with Cells = Grid.createTorus width height }
 
     /// Creates a copy of the given world with its own mutable
     /// data structures. This is used to protect against mutating

@@ -13,9 +13,10 @@ module PropertyTests =
 
     /// Oracle: do atoms at the given locations overlap? Each atom
     /// occupies a 2x2 square, so they overlap if they are closer than
-    /// 2 along both axes.
-    let private overlaps (a : Point) (b : Point) =
-        abs (a.X - b.X) < 2 && abs (a.Y - b.Y) < 2
+    /// 2 along both axes, measured around the torus.
+    let private overlaps (world : World) (a : Point) (b : Point) =
+        let d = world.Displacement(a, b)
+        abs d.X < 2 && abs d.Y < 2
 
     /// Oracle: is the given vector an allowed bond?
     let private isBondVector (v : Point) =
@@ -45,7 +46,9 @@ module PropertyTests =
         allBonds world
             |> List.exists (fun (idC, idD) ->
                 idC <> idA && idC <> idB && idD <> idA && idD <> idB
-                    && segmentsIntersect (loc idA) (loc idB) (loc idC) (loc idD))
+                    && (let rel id = world.Displacement(loc idA, loc id)   // relative to A, around the torus
+                        let c = rel idC
+                        segmentsIntersect Point.zero (rel idB) c (c + world.Displacement(loc idC, loc idD))))
 
     /// The given atom's partners by bonds of the given type.
     let private partners bondType (world : World) id =
@@ -64,7 +67,9 @@ module PropertyTests =
         List.allPairs ids ids
             |> List.forall (fun (idB, idC) ->
                 idB >= idC
-                    || Bonds.isAngleAllowed bondType (loc id) (loc idB) (loc idC))
+                    || Bonds.isAngleAllowed bondType Point.zero
+                        (world.Displacement(loc id, loc idB))
+                        (world.Displacement(loc id, loc idC)))
 
     /// Oracle: would the angle between the given atom's bonds of the
     /// given type still be wide enough if it also had such a bond to
@@ -73,7 +78,9 @@ module PropertyTests =
         let loc id = world.Atoms[id].Location
         partners bondType world id
             |> Set.forall (fun idB ->
-                Bonds.isAngleAllowed bondType (loc id) (loc idB) (loc idNew))
+                Bonds.isAngleAllowed bondType Point.zero
+                    (world.Displacement(loc id, loc idB))
+                    (world.Displacement(loc id, loc idNew)))
 
     /// Checks all of a world's invariants.
     let private isValid (world : World) =
@@ -87,14 +94,14 @@ module PropertyTests =
                 |> Seq.forall (fun a ->
                     atoms
                         |> Array.forall (fun b ->
-                            a.Id = b.Id || not (overlaps a.Location b.Location))
+                            a.Id = b.Id || not (overlaps world a.Location b.Location))
                         && world.Walls
-                            |> Seq.forall (fun wall -> not (overlaps a.Location wall)))
+                            |> Seq.forall (fun wall -> not (overlaps world a.Location wall)))
                 && world.Walls
                     |> Seq.forall (fun wallA ->
                         world.Walls
                             |> Seq.forall (fun wallB ->
-                                wallA = wallB || not (overlaps wallA wallB)))
+                                wallA = wallB || not (overlaps world wallA wallB)))
 
             // every strong bond is allowed and symmetric, no atom has more
             // than its type permits (one for a cap, otherwise two), no two
@@ -107,7 +114,7 @@ module PropertyTests =
                         && anglesAreAllowed Strong world loc idA
                         && ids
                             |> Set.forall (fun idB ->
-                                isBondVector (loc idB - loc idA)
+                                isBondVector (world.Displacement(loc idA, loc idB))
                                     && Chain.canJoin world.Atoms[idA].Type world.Atoms[idB].Type
                                     && isStronglyBonded world idB idA))
 
@@ -131,7 +138,7 @@ module PropertyTests =
                     ids
                         |> Set.forall (fun idB ->
                             Bonds.areWeaklyBonded world idB idA
-                                && Array.contains (loc idB - loc idA) Chain.weakBondVectors
+                                && Array.contains (world.Displacement(loc idA, loc idB)) Chain.weakBondVectors
                                 && Chain.canPair world.Atoms[idA].Type world.Atoms[idB].Type
                                 && not (isStronglyBonded world idA idB)))
 
@@ -168,8 +175,8 @@ module PropertyTests =
                         let loc = Point.create (x, y)
                         match world[loc] with
                             | Cell.Atom id ->
-                                id < atoms.Length && atoms[id].Location = loc
-                            | Cell.Wall -> walls.Contains loc
+                                id < atoms.Length && atoms[id].Location = world.Wrap(loc)
+                            | Cell.Wall -> walls.Contains (world.Wrap(loc))
                             | Cell.Empty -> true)
             atoms
                 |> Array.indexed
@@ -206,20 +213,20 @@ module PropertyTests =
                     let clear =
                         world.Atoms
                             |> Seq.forall (fun atomB ->
-                                atomB.Id = id || not (overlaps newLoc atomB.Location))
+                                atomB.Id = id || not (overlaps world newLoc atomB.Location))
                             && world.Walls
-                                |> Seq.forall (fun wall -> not (overlaps newLoc wall))
+                                |> Seq.forall (fun wall -> not (overlaps world newLoc wall))
                     let strongBondsOk =
                         (Bonds.strongBondMap world)
                             |> Map.tryFind id
                             |> Option.defaultValue Set.empty
                             |> Set.forall (fun idB ->
-                                isBondVector (loc idB - newLoc))
+                                isBondVector (world.Displacement(newLoc, loc idB)))
                     let weakPartners = Bonds.weakPartners world id
                     let weakBondsOk =
                         weakPartners
                             |> Set.forall (fun idB ->
-                                Array.contains (loc idB - newLoc) Chain.weakBondVectors)
+                                Array.contains (world.Displacement(newLoc, loc idB)) Chain.weakBondVectors)
                     let anglesOk =
                         BondType.all
                             |> Array.forall (fun bondType ->
@@ -245,7 +252,7 @@ module PropertyTests =
             (nWeak = 0 || (nWeak = 1 && inStrand))
                 && hasRoomAtAngle Weak world idC idNew
         Chain.canPair atomA.Type atomB.Type
-            && Array.contains (atomB.Location - atomA.Location) Chain.weakBondVectors
+            && Array.contains (world.Displacement(atomA.Location, atomB.Location)) Chain.weakBondVectors
             && not (Bonds.areWeaklyBonded world idA idB)
             && not (isStronglyBonded world idA idB)
             && hasRoom idA idB
@@ -286,7 +293,7 @@ module PropertyTests =
     let private canFormStrongBond (world : World) idA idB =
         let atomA = world.Atoms[idA]
         let atomB = world.Atoms[idB]
-        isBondVector (atomB.Location - atomA.Location)
+        isBondVector (world.Displacement(atomA.Location, atomB.Location))
             && Chain.canJoin atomA.Type atomB.Type
             && strongBondCount world idA < Chain.strongValence atomA.Type
             && strongBondCount world idB < Chain.strongValence atomB.Type
@@ -346,7 +353,7 @@ module PropertyTests =
     let private isLongBond (world : World) (bonds : Set<AtomId * AtomId>) =
         bonds
             |> Set.exists (fun (idA, idB) ->
-                isLong (world.Atoms[idB].Location - world.Atoms[idA].Location))
+                isLong (world.Displacement(world.Atoms[idA].Location, world.Atoms[idB].Location)))
 
     /// Do the given strong bonds include one that a stack depends on?
     let private isStackedBond (world : World) (bonds : Set<AtomId * AtomId>) =
@@ -473,7 +480,9 @@ module PropertyTests =
             for i, (a, b) in List.indexed bonds do
                 for c, d in List.skip (i + 1) bonds do
                     if a <> c && a <> d && b <> c && b <> d
-                        && segmentsIntersect (loc a) (loc b) (loc c) (loc d) then
+                        && (let rel id = world.Displacement(loc a, loc id)   // relative to a, around the torus
+                            let c' = rel c
+                            segmentsIntersect Point.zero (rel b) c' (c' + world.Displacement(loc c, loc d))) then
                         (a, b), (c, d)
         ]
 
@@ -516,16 +525,16 @@ module PropertyTests =
     /// if it doesn't overlap any atom or wall already present.
     [<Property>]
     let ``tryAddAtom and tryAddWall reject exactly the overlapping locations`` (items : list<bool * int * int>) =
-        (Some World.empty, items)
+        (Some TestWorld.empty, items)
             ||> List.fold (fun worldOpt (isWall, x, y) ->
                 worldOpt
                     |> Option.bind (fun world ->
                         let loc = Point.create (x % 6, y % 6)   // crowd things together
                         let expected =
                             world.Atoms
-                                |> Seq.forall (fun atom -> not (overlaps loc atom.Location))
+                                |> Seq.forall (fun atom -> not (overlaps TestWorld.empty loc atom.Location))
                                 && world.Walls
-                                    |> Seq.forall (fun wall -> not (overlaps loc wall))
+                                    |> Seq.forall (fun wall -> not (overlaps TestWorld.empty loc wall))
                         let actual =
                             if isWall then World.tryAddWall loc world
                             else World.tryAddAtomW loc world
@@ -541,9 +550,9 @@ module PropertyTests =
     let ``tryAddStrongBond accepts exactly the allowed bond vectors`` (x : int) (y : int) =
         let v = Point.create (x % 5, y % 5)
         let origin = Point.create (0, 0)
-        not (overlaps origin v) ==> lazy (
+        not (overlaps TestWorld.empty origin v) ==> lazy (
             let world =
-                World.empty
+                TestWorld.empty
                     |> World.addAtomW origin
                     |> World.addAtomW v
             (World.tryAddStrongBond 0 1 world).IsSome = isBondVector v)
@@ -561,9 +570,9 @@ module PropertyTests =
                 for x in -4 .. 4 do
                     for y in -4 .. 4 do
                         let v = Point.create (x, y)
-                        if not (overlaps origin v) then
+                        if not (overlaps TestWorld.empty origin v) then
                             let world =
-                                World.empty
+                                TestWorld.empty
                                     |> World.addAtom typeA origin
                                     |> World.addAtom typeB v
                             let expected =
@@ -582,7 +591,7 @@ module PropertyTests =
             // W1 in the middle, with W0 and W2 on either side, and
             // X3 and X4 above and below it, all in range of W1
         let world =
-            World.empty
+            TestWorld.empty
                 |> World.addAtom AtomType.W (Point.create (-2, 0))   // 0
                 |> World.addAtom AtomType.W (Point.create (0, 0))    // 1
                 |> World.addAtom AtomType.W (Point.create (2, 0))    // 2
@@ -598,7 +607,7 @@ module PropertyTests =
 
             // a strongly bonded pair can't also pair weakly
         let pair =
-            World.empty
+            TestWorld.empty
                 |> World.addAtom AtomType.W (Point.create (0, 0))
                 |> World.addAtom AtomType.X (Point.create (0, 2))
         Assert.True((World.tryAddWeakBond 0 1 pair).IsSome, "Weak bond rejected")
@@ -623,7 +632,7 @@ module PropertyTests =
             // strand with Y4, with X1 and X2 on opposite sides of it, and
             // X3 also in range
         let world =
-            World.empty
+            TestWorld.empty
                 |> World.addAtom AtomType.W (Point.create (0, 0))    // 0
                 |> World.addAtom AtomType.X (Point.create (0, 2))    // 1
                 |> World.addAtom AtomType.X (Point.create (0, -2))   // 2
@@ -638,7 +647,7 @@ module PropertyTests =
             // weak bonds: a free atom (one with no strong bond) can't have a
             // second one, even on the opposite side
         let world =
-            World.empty
+            TestWorld.empty
                 |> World.addAtom AtomType.W (Point.create (0, 0))    // 0
                 |> World.addAtom AtomType.X (Point.create (0, 2))    // 1
                 |> World.addAtom AtomType.X (Point.create (0, -2))   // 2
@@ -661,7 +670,7 @@ module PropertyTests =
             for typeB in Chain.allTypes do
                 for typeC in Chain.allTypes do
                     let world =
-                        World.empty
+                        TestWorld.empty
                             |> World.addAtom typeA (Point.create (-3, 0))   // 0
                             |> World.addAtom typeB (Point.create (0, 0))    // 1
                             |> World.addAtom typeC (Point.create (3, 0))    // 2
@@ -694,7 +703,7 @@ module PropertyTests =
     [<Fact>]
     let ``A cap in a strand can have two weak partners`` () =
         let world =
-            World.empty
+            TestWorld.empty
                 |> World.addAtom AtomType.P (Point.create (0, 0))    // 0
                 |> World.addAtom AtomType.W (Point.create (2, 0))    // 1
                 |> World.addAtom AtomType.Q (Point.create (0, 2))    // 2
@@ -729,7 +738,7 @@ module PropertyTests =
                 PeelBarrier = Double.PositiveInfinity   // no peeling
             }
         let mutable world =
-            World.empty
+            TestWorld.empty
                 |> World.addAtom AtomType.P (Point.create (-3, 0))   // 0
                 |> World.addAtom AtomType.W (Point.create (-1, 0))   // 1
                 |> World.addAtom AtomType.W (Point.create (1, 0))    // 2
@@ -779,13 +788,13 @@ module PropertyTests =
         let mutable nAccepted, nRejected = 0, 0
         for b in Chain.weakBondVectors do
             for c in Chain.weakBondVectors do
-                if not (overlaps b c) then
+                if not (overlaps TestWorld.empty b c) then
                     let d =
                         Chain.bondVectors
                             |> Array.find (fun d ->
-                                not (overlaps d b) && not (overlaps d c))
+                                not (overlaps TestWorld.empty d b) && not (overlaps TestWorld.empty d c))
                     let world =
-                        World.empty
+                        TestWorld.empty
                             |> World.addAtom AtomType.W a   // 0
                             |> World.addAtom AtomType.X b   // 1
                             |> World.addAtom AtomType.X c   // 2
@@ -819,9 +828,9 @@ module PropertyTests =
         let mutable nAccepted, nRejected = 0, 0
         for b in Chain.bondVectors do
             for c in Chain.bondVectors do
-                if not (overlaps b c) then
+                if not (overlaps TestWorld.empty b c) then
                     let world =
-                        World.empty
+                        TestWorld.empty
                             |> World.addAtomW a   // 0
                             |> World.addAtomW b   // 1
                             |> World.addAtomW c   // 2
@@ -850,7 +859,7 @@ module PropertyTests =
         let rng = Random(0)
         let parms = TestParameters.createFrozen 0.3   // cold, so that both bonds usually exist
         let mutable world =
-            World.empty
+            TestWorld.empty
                 |> World.addAtom AtomType.W (Point.create (0, 0))    // 0
                 |> World.addAtom AtomType.X (Point.create (0, 2))    // 1
                 |> World.addAtom AtomType.X (Point.create (0, -2))   // 2
@@ -894,7 +903,7 @@ module PropertyTests =
                 PeelBarrier = Double.PositiveInfinity   // no peeling
             }
         let mutable world =
-            World.empty
+            TestWorld.empty
                 |> World.addAtom AtomType.W (Point.create (0, 0))    // 0
                 |> World.addAtom AtomType.X (Point.create (0, 2))    // 1
                 |> World.addAtom AtomType.X (Point.create (0, -2))   // 2
@@ -938,7 +947,7 @@ module PropertyTests =
                     for bondCD in Chain.bondVectors do
                         let d = c + bondCD
                         let atomsOpt =
-                            Some World.empty
+                            Some TestWorld.empty
                                 |> Option.bind (World.tryAddAtom AtomType.W a)
                                 |> Option.map fst
                                 |> Option.bind (World.tryAddAtom AtomType.X b)
@@ -980,7 +989,7 @@ module PropertyTests =
     let private movesBetween (world : World) (world' : World) =
         Seq.toList world.Atoms
             |> List.choose (fun atom ->
-                let d = world'.Atoms[atom.Id].Location - atom.Location
+                let d = world'.Displacement(atom.Location, world'.Atoms[atom.Id].Location)
                 if d = Point.create (0, 0) then None else Some (atom.Id, d))
 
     /// Temperatures for tests with bonds: cold enough that weak bonds
@@ -1185,7 +1194,7 @@ module PropertyTests =
         let checkCapped () =
             let rng = Random(0)
             let capped =
-                World.empty
+                TestWorld.empty
                     |> World.addAtom AtomType.P (Point.create (-3, 0))   // 0
                     |> World.addAtom AtomType.W (Point.create (-1, 0))   // 1
                     |> World.addAtom AtomType.W (Point.create (1, 0))    // 2
@@ -1203,7 +1212,7 @@ module PropertyTests =
         let checkHydrolysis () =
             let rng = Random(1)
             let capped =
-                World.empty
+                TestWorld.empty
                     |> World.addAtom AtomType.P (Point.create (-3, 0))   // 0
                     |> World.addAtom AtomType.W (Point.create (-1, 0))   // 1
                     |> World.addAtom AtomType.W (Point.create (1, 0))    // 2
@@ -1213,7 +1222,7 @@ module PropertyTests =
                     |> World.addStrongBond 2 3
                     |> Chain.addSoup rng 10
             let mutable world = capped
-            world <- Chain.updatesWith (TestParameters.withHydrolysis Strong 0.01 peeling) rng 100000 world
+            world <- Chain.updatesWith (TestParameters.withHydrolysis Strong 0.2 peeling) rng 100000 world   // each bond expects several breaks
             Assert.Empty(
                 strongBonds world
                     |> Set.filter (fun (idA, idB) -> idA <= 3 && idB <= 3))
@@ -1224,7 +1233,7 @@ module PropertyTests =
         let checkHydrolysisOnly () =
             let rng = Random(2)
             let capped =
-                World.empty
+                TestWorld.empty
                     |> World.addAtom AtomType.P (Point.create (-3, 0))   // 0
                     |> World.addAtom AtomType.W (Point.create (-1, 0))   // 1
                     |> World.addAtom AtomType.W (Point.create (1, 0))    // 2
@@ -1254,7 +1263,7 @@ module PropertyTests =
     ///   since X2 and X3 aren't strongly bonded.
     let private stackingWorlds =
         let atoms =
-            World.empty
+            TestWorld.empty
                 |> World.addAtom AtomType.W (Point.create (-1, -1))   // 0
                 |> World.addAtom AtomType.W (Point.create (1, -1))    // 1
                 |> World.addAtom AtomType.X (Point.create (-1, 1))    // 2
@@ -1380,7 +1389,7 @@ module PropertyTests =
                     | Some (world, _) -> addAtoms (count - 1) world
                     | None -> addAtoms count world
         let box =
-            World.empty
+            TestWorld.empty
                 |> Chain.addBox size
                 |> addAtoms 8
         let hot =
@@ -1445,7 +1454,7 @@ module PropertyTests =
                     | Some (world, _) -> addAtoms types (count - 1) world
                     | None -> addAtoms types count world
         let createWorld types =
-            World.empty
+            TestWorld.empty
                 |> Chain.addBox size
                 |> addAtoms types 8
         let parms = TestParameters.create hotKT
@@ -1520,7 +1529,7 @@ module PropertyTests =
     let ``Bonds across a step in temperature form and break at the expected rate`` () =
         let size = 2   // atom locations have |x| <= size and |y| <= size
         let createWorld typeA typeB =
-            World.empty
+            TestWorld.empty
                 |> Chain.addBox size
                 |> World.addAtom typeA (Point.create (-2, 0))
                 |> World.addAtom typeB (Point.create (1, 0))
@@ -1582,8 +1591,8 @@ module PropertyTests =
         let isValidConfig (a : Point) b c d =
             isBondVector (b - a)
                 && isBondVector (d - c)
-                && not (overlaps a c) && not (overlaps a d)
-                && not (overlaps b c) && not (overlaps b d)
+                && not (overlaps TestWorld.empty a c) && not (overlaps TestWorld.empty a d)
+                && not (overlaps TestWorld.empty b c) && not (overlaps TestWorld.empty b d)
 
         let a = Point.create (0, 0)
         let mutable nChecked, nCrossed = 0, 0

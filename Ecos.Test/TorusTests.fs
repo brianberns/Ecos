@@ -20,8 +20,9 @@ module TorusTests =
             PeelBarrier = 2.0
         }
 
-    /// A capped template with free atoms that can copy it, in a box.
-    let private boxedTemplateWorld seed =
+    /// A capped template with free atoms that can copy it, in a box at the
+    /// center of a torus of the given size, well away from its edges.
+    let private boxedTemplateWorld size seed =
         let rng = Random(seed)
         let types =
             [|
@@ -31,7 +32,7 @@ module TorusTests =
                 AtomType.Q
             |]
         let world =
-            (World.empty, Array.indexed types)
+            (World.create size size, Array.indexed types)
                 ||> Array.fold (fun world (i, atomType) ->
                     let world = World.addAtom atomType (Point.create (2 * i - 8, 0)) world
                     if i > 0 then World.addStrongBond (i - 1) i world
@@ -51,17 +52,16 @@ module TorusTests =
                 World.addAtom atomType loc world)
             |> Chain.addBox 10
 
-    /// The given (infinite) world, rebuilt in a torus of the given size
-    /// and shifted by the given amount: walls, then atoms in ID order,
-    /// then bonds.
-    let private toTorus size (shift : Point) (world : World) =
+    /// The given world, rebuilt in a torus of the same size and shifted
+    /// by the given amount: walls, then atoms in ID order, then bonds.
+    let private shift (offset : Point) (world : World) =
         let torus =
-            (World.createTorus size size, world.Walls)
-                ||> Array.fold (fun torus loc -> World.addWall (loc + shift) torus)
+            (World.create world.Width world.Height, world.Walls)
+                ||> Array.fold (fun torus loc -> World.addWall (loc + offset) torus)
         let torus =
             (torus, world.Atoms)
                 ||> Array.fold (fun torus atom ->
-                    World.addAtom atom.Type (atom.Location + shift) torus)
+                    World.addAtom atom.Type (atom.Location + offset) torus)
         let torus =
             (torus, Bonds.strongBonds world)
                 ||> Seq.fold (fun torus (idA, idB) -> World.addStrongBond idA idB torus)
@@ -69,7 +69,7 @@ module TorusTests =
             ||> Seq.fold (fun torus (idA, idB) -> World.addWeakBond idA idB torus)
 
     /// Dynamics depend only on where atoms are relative to each other.
-    /// So a boxed world run in an infinite world, and the same world
+    /// So a boxed world at the center of a torus, and the same world
     /// shifted across the edges of a torus (so that its box straddles
     /// them) and run with the same random numbers, must stay the same
     /// world, shifted, update for update: every atom in the same place
@@ -77,11 +77,11 @@ module TorusTests =
     /// bond ranges, angles, crossings or occupancy would show up as a
     /// difference.
     [<Fact>]
-    let ``A world shifted across the edges of a torus behaves exactly as in an infinite world`` () =
+    let ``A world shifted across the edges of a torus behaves exactly as when away from them`` () =
         let size = 32   // the box spans 26 sites, so it fits
-        for seed, shift in [ 1, Point.create (16, 16); 2, Point.create (16, 3); 3, Point.create (-5, 16) ] do
-            let world = boxedTemplateWorld seed
-            let torus = toTorus size shift world
+        for seed, offset in [ 1, Point.create (16, 16); 2, Point.create (16, 3); 3, Point.create (-5, 16) ] do
+            let world = boxedTemplateWorld size seed
+            let torus = shift offset world
             let rngA, rngB = Random(seed), Random(seed)
             let mutable world = world
             let mutable torus = torus
@@ -89,12 +89,12 @@ module TorusTests =
                 world <- World.sweep parameters rngA 50 world
                 torus <- World.sweep parameters rngB 50 torus
                 for atom in world.Atoms do
-                    Assert.Equal(torus.Wrap(atom.Location + shift), torus.Atoms[atom.Id].Location)
+                    Assert.Equal(torus.Wrap(atom.Location + offset), torus.Atoms[atom.Id].Location)
                 Assert.Equal<Set<int * int>>(Bonds.strongBonds world, Bonds.strongBonds torus)
                 Assert.Equal<Set<int * int>>(Bonds.weakBonds world, Bonds.weakBonds torus)
 
                 // make sure the check isn't vacuous: bonds really did change
-            Assert.NotEqual<Set<int * int>>(Bonds.weakBonds (boxedTemplateWorld seed), Bonds.weakBonds world)
+            Assert.NotEqual<Set<int * int>>(Bonds.weakBonds (boxedTemplateWorld size seed), Bonds.weakBonds world)
 
     /// In an open torus with no walls, a chain and free atoms wander
     /// freely across the edges, and the world stays valid throughout:
@@ -106,7 +106,7 @@ module TorusTests =
         let size = 16
         let rng = Random(0)
         let mutable world =
-            (World.createTorus size size, [ for x in -6 .. 2 .. 6 -> x ])
+            (World.create size size, [ for x in -6 .. 2 .. 6 -> x ])
                 ||> List.fold (fun world x ->
                     let world = World.addAtom AtomType.W (Point.create (x, 0)) world
                     if x > -6 then World.addStrongBond (world.Atoms.Length - 2) (world.Atoms.Length - 1) world
