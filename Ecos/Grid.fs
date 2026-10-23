@@ -30,11 +30,15 @@ type Grid =
     /// Normalizes the given location onto this grid.
     member internal this.NormalizeLocation(location) =
 
-        /// Normalizes the given coordinate into [0, size).
+        /// Normalizes the given coordinate into [0, limit).
         let norm limit coord =
-            let coord = coord % limit
-            if coord < 0 then coord + limit
-            else coord
+            let result =
+                if coord >= limit then coord - limit
+                elif coord < 0 then coord + limit
+                else coord
+            assert(result >= 0)
+            assert(result < limit)
+            result
 
         let size = this.Size
         Point.create (
@@ -60,14 +64,18 @@ type Grid =
     /// not to change its direction.
     member internal this.NormalizeVector(location) =
 
-        /// Normalizes the given coordinate into [-size/2, size/2).
+        /// Normalizes the given coordinate into [-limit/2, limit/2).
         let norm limit coord =
             let half = limit / 2
-            let coord = (coord + half) % limit
+            let coord = coord + half
             let coord =
-                if coord < 0 then coord + limit
+                if coord >= limit then coord - limit
+                elif coord < 0 then coord + limit
                 else coord
-            coord - half
+            let result = coord - half
+            assert(result >= -half)
+            assert(result < half)
+            result
 
         let size = this.Size
         Point.create (
