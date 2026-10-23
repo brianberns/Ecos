@@ -299,7 +299,7 @@ module Scenario =
     /// Builds the standard world: a 160x160 torus of free atoms, with or
     /// without a template.
     let private build withTemplate (rng : Random) =
-        let world = World.create 160 160
+        let world = World.createSquare 160
         let world, template =
             if withTemplate then
                 Build.addTemplate rng nCoding world
@@ -499,7 +499,7 @@ module Scenario =
         let scenario = createScenarioB false
         let build rng =
             let world =
-                World.create 160 160
+                World.createSquare 160
                     |> Build.addFreeAtomsWith (6 * nCoding) nCapsPerRow 6
             let nBefore = world.Atoms.Length
             let template codingType =

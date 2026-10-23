@@ -104,7 +104,8 @@ module Experiment14 =
                 |]
             let x, y = getStart placement
             let world =
-                World.create (2 * wall + 4) (2 * wall + 4) |> Build.addBox (2 * wall) (2 * wall)
+                World.createSquare (2 * wall + 4)
+                    |> Build.addBox (2 * wall) (2 * wall)
                     |> Build.tryAddStrand x y types
                     |> Option.get
             let template = Array.map _.Id world.Atoms
@@ -271,7 +272,8 @@ module Experiment14 =
         let build (rng : Random) =
             let codingTypes = [| AtomType.W; AtomType.Y |]
             let world =
-                (World.create (2 * wall + 4) (2 * wall + 4) |> Build.addBox (2 * wall) (2 * wall), getCompetitorStarts gap)
+                (World.createSquare (2 * wall + 4)
+                    |> Build.addBox (2 * wall) (2 * wall), getCompetitorStarts gap)
                     ||> Array.fold (fun world (_, (x, y)) ->
                         let types =
                             [|

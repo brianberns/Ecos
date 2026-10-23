@@ -32,7 +32,7 @@ module TorusTests =
                 AtomType.Q
             |]
         let world =
-            (World.create size size, Array.indexed types)
+            (World.createSquare size, Array.indexed types)
                 ||> Array.fold (fun world (i, atomType) ->
                     let world = World.addAtom atomType (Point.create (2 * i - 8, 0)) world
                     if i > 0 then World.addStrongBond (i - 1) i world
@@ -56,7 +56,7 @@ module TorusTests =
     /// by the given amount: walls, then atoms in ID order, then bonds.
     let private shift (offset : Point) (world : World) =
         let torus =
-            (World.create world.Width world.Height, world.Walls)
+            (World.create world.Size, world.Walls)
                 ||> Array.fold (fun torus loc -> World.addWall (loc + offset) torus)
         let torus =
             (torus, world.Atoms)
@@ -106,7 +106,7 @@ module TorusTests =
         let size = 16
         let rng = Random(0)
         let mutable world =
-            (World.create size size, [ for x in -6 .. 2 .. 6 -> x ])
+            (World.createSquare size, [ for x in -6 .. 2 .. 6 -> x ])
                 ||> List.fold (fun world x ->
                     let world = World.addAtom AtomType.W (Point.create (x, 0)) world
                     if x > -6 then World.addStrongBond (world.Atoms.Length - 2) (world.Atoms.Length - 1) world
@@ -129,12 +129,12 @@ module TorusTests =
             for a in world.Atoms do
                 for b in world.Atoms do
                     if a.Id < b.Id then
-                        let d = world.Displacement(a.Location, b.Location)
+                        let d = World.getDisplacement a b world
                         Assert.True(
                             abs d.X >= 2 || abs d.Y >= 2,
                             $"Atoms {a.Id} and {b.Id} overlap")
             for idA, idB in Seq.append (Bonds.strongBonds world) (Bonds.weakBonds world) do
-                let d = world.Displacement(world.Atoms[idA].Location, world.Atoms[idB].Location)
+                let d = World.getDisplacement world.Atoms[idA] world.Atoms[idB] world
                 Assert.True(
                     max (abs d.X) (abs d.Y) <= 3,
                     $"Bond {idA}-{idB} spans {d}")

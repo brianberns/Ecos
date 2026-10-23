@@ -45,6 +45,9 @@ type World =
     /// Occupant of each cell in the world.
     member this.Cells = this._Cells
 
+    /// Size of this world.
+    member this.Size = this.Cells.Size
+
     /// Gets the occupant of the given location in this world.
     member this.Item(x, y) = this.Cells[x, y]
 
@@ -71,12 +74,18 @@ module World =
 
     /// Creates an empty world of the given size.
     let create size =
+        assert(size.X % 2 = 0)   // must be even because atoms are 2x2
+        assert(size.Y % 2 = 0)
         {
             _Atoms = Array.empty
             _Walls = Array.empty
             _BondTypeMap = BondTypeMap.empty
             _Cells = Grid.create size
         }
+
+    /// Creates an empty square world of the given size.
+    let createSquare size =
+        create (Point.create(size, size))
 
     /// Creates a copy of the given world with its own mutable
     /// data structures. This is used to protect against mutating
@@ -423,8 +432,8 @@ module World =
 
             // move the atom permanently?
         let isValid =
-            canMove atom' delta world                         // avoids overlap with other atoms?
-                && testBonds atom' world                      // all of the atom's bonds are still valid?
+            canMove atom' delta world      // avoids overlap with other atoms?
+                && testBonds atom' world   // all of the atom's bonds are still valid?
         if isValid then
             let world = moveAtom atom atom' world
             let event = MoveAtom id

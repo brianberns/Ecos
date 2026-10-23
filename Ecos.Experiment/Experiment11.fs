@@ -92,7 +92,7 @@ module Experiment11 =
                         World.addStrongBond (atom.Id - 1) atom.Id world
                     else world)
         let world =
-            World.create 60 60
+            World.createSquare 60
                 |> addRow 0 templateTypes
                 |> addRow 2 (Array.map complement templateTypes)
         let n = templateTypes.Length

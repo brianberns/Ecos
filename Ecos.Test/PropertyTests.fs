@@ -15,7 +15,7 @@ module PropertyTests =
     /// occupies a 2x2 square, so they overlap if they are closer than
     /// 2 along both axes, measured around the torus.
     let private overlaps (world : World) (a : Point) (b : Point) =
-        let d = world.Displacement(a, b)
+        let d = Grid.getDisplacement a b world.Cells
         abs d.X < 2 && abs d.Y < 2
 
     /// Oracle: is the given vector an allowed bond?
@@ -37,18 +37,22 @@ module PropertyTests =
     let private allBonds (world : World) =
         Set.toList (strongBonds world) @ Set.toList (weakBonds world)
 
+    /// Gets the displacement between the atoms with the given IDs in
+    /// the given world.
+    let private delta idA idB (world : World) =
+        World.getDisplacement world.Atoms[idA] world.Atoms[idB] world
+
     /// Oracle: would a bond between the given atoms cross any bond in
     /// the given world? Bonds that share an atom with it can't cross
     /// it. This checks every bond in the world, so it doesn't depend on
     /// World's assumption that only nearby bonds need checking.
     let private crossesAnyBond (world : World) idA idB =
-        let loc id = world.Atoms[id].Location
         allBonds world
             |> List.exists (fun (idC, idD) ->
                 idC <> idA && idC <> idB && idD <> idA && idD <> idB
-                    && (let rel id = world.Displacement(loc idA, loc id)   // relative to A, around the torus
+                    && (let rel id = delta idA id world   // relative to A, around the torus
                         let c = rel idC
-                        segmentsIntersect Point.zero (rel idB) c (c + world.Displacement(loc idC, loc idD))))
+                        segmentsIntersect Point.zero (rel idB) c (c + delta idC idD world)))
 
     /// The given atom's partners by bonds of the given type.
     let private partners bondType (world : World) id =
@@ -68,8 +72,8 @@ module PropertyTests =
             |> List.forall (fun (idB, idC) ->
                 idB >= idC
                     || Bonds.isAngleAllowed bondType Point.zero
-                        (world.Displacement(loc id, loc idB))
-                        (world.Displacement(loc id, loc idC)))
+                        (delta id idB world)
+                        (delta id idC world))
 
     /// Oracle: would the angle between the given atom's bonds of the
     /// given type still be wide enough if it also had such a bond to
@@ -79,8 +83,8 @@ module PropertyTests =
         partners bondType world id
             |> Set.forall (fun idB ->
                 Bonds.isAngleAllowed bondType Point.zero
-                    (world.Displacement(loc id, loc idB))
-                    (world.Displacement(loc id, loc idNew)))
+                    (delta id idB world)
+                    (delta id idNew world))
 
     /// Checks all of a world's invariants.
     let private isValid (world : World) =
@@ -114,7 +118,7 @@ module PropertyTests =
                         && anglesAreAllowed Strong world loc idA
                         && ids
                             |> Set.forall (fun idB ->
-                                isBondVector (world.Displacement(loc idA, loc idB))
+                                isBondVector (delta idA idB world)
                                     && Chain.canJoin world.Atoms[idA].Type world.Atoms[idB].Type
                                     && isStronglyBonded world idB idA))
 
@@ -138,7 +142,7 @@ module PropertyTests =
                     ids
                         |> Set.forall (fun idB ->
                             Bonds.areWeaklyBonded world idB idA
-                                && Array.contains (world.Displacement(loc idA, loc idB)) Chain.weakBondVectors
+                                && Array.contains (delta idA idB world) Chain.weakBondVectors
                                 && Chain.canPair world.Atoms[idA].Type world.Atoms[idB].Type
                                 && not (isStronglyBonded world idA idB)))
 
@@ -202,6 +206,8 @@ module PropertyTests =
     /// weak partners remain on opposite sides, both around the moved
     /// atom and around each of its weak partners.
     let private validMoves (world : World) =
+        let disp loc id =
+            Grid.getDisplacement loc world.Atoms[id].Location world.Cells
         [
             for atom in world.Atoms do
                 let id = atom.Id
@@ -221,12 +227,12 @@ module PropertyTests =
                             |> Map.tryFind id
                             |> Option.defaultValue Set.empty
                             |> Set.forall (fun idB ->
-                                isBondVector (world.Displacement(newLoc, loc idB)))
+                                isBondVector (disp newLoc idB))
                     let weakPartners = Bonds.weakPartners world id
                     let weakBondsOk =
                         weakPartners
                             |> Set.forall (fun idB ->
-                                Array.contains (world.Displacement(newLoc, loc idB)) Chain.weakBondVectors)
+                                Array.contains (disp newLoc idB) Chain.weakBondVectors)
                     let anglesOk =
                         BondType.all
                             |> Array.forall (fun bondType ->
@@ -252,7 +258,7 @@ module PropertyTests =
             (nWeak = 0 || (nWeak = 1 && inStrand))
                 && hasRoomAtAngle Weak world idC idNew
         Chain.canPair atomA.Type atomB.Type
-            && Array.contains (world.Displacement(atomA.Location, atomB.Location)) Chain.weakBondVectors
+            && Array.contains (delta idA idB world) Chain.weakBondVectors
             && not (Bonds.areWeaklyBonded world idA idB)
             && not (isStronglyBonded world idA idB)
             && hasRoom idA idB
@@ -293,7 +299,7 @@ module PropertyTests =
     let private canFormStrongBond (world : World) idA idB =
         let atomA = world.Atoms[idA]
         let atomB = world.Atoms[idB]
-        isBondVector (world.Displacement(atomA.Location, atomB.Location))
+        isBondVector (delta idA idB world)
             && Chain.canJoin atomA.Type atomB.Type
             && strongBondCount world idA < Chain.strongValence atomA.Type
             && strongBondCount world idB < Chain.strongValence atomB.Type
@@ -353,7 +359,7 @@ module PropertyTests =
     let private isLongBond (world : World) (bonds : Set<AtomId * AtomId>) =
         bonds
             |> Set.exists (fun (idA, idB) ->
-                isLong (world.Displacement(world.Atoms[idA].Location, world.Atoms[idB].Location)))
+                isLong (delta idA idB world))
 
     /// Do the given strong bonds include one that a stack depends on?
     let private isStackedBond (world : World) (bonds : Set<AtomId * AtomId>) =
@@ -480,9 +486,9 @@ module PropertyTests =
             for i, (a, b) in List.indexed bonds do
                 for c, d in List.skip (i + 1) bonds do
                     if a <> c && a <> d && b <> c && b <> d
-                        && (let rel id = world.Displacement(loc a, loc id)   // relative to a, around the torus
+                        && (let rel id = delta a id world   // relative to a, around the torus
                             let c' = rel c
-                            segmentsIntersect Point.zero (rel b) c' (c' + world.Displacement(loc c, loc d))) then
+                            segmentsIntersect Point.zero (rel b) c' (c' + delta c d world)) then
                         (a, b), (c, d)
         ]
 
@@ -989,7 +995,9 @@ module PropertyTests =
     let private movesBetween (world : World) (world' : World) =
         Seq.toList world.Atoms
             |> List.choose (fun atom ->
-                let d = world'.Displacement(atom.Location, world'.Atoms[atom.Id].Location)
+                let d =
+                    Grid.getDisplacement
+                        atom.Location world'.Atoms[atom.Id].Location world'.Cells
                 if d = Point.create (0, 0) then None else Some (atom.Id, d))
 
     /// Temperatures for tests with bonds: cold enough that weak bonds

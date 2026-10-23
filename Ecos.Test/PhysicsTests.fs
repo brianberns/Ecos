@@ -134,8 +134,7 @@ module PhysicsTests =
                 |> sample
                     (TestParameters.createFrozen Chain.athermalKT)
                     8 (200 * n) (20 * n) 5000
-                    (fun world ->
-                        world.Displacement(world.Atoms[0].Location, world.Atoms[n - 1].Location))
+                    (World.getDisplacement world.Atoms[0] world.Atoms[n - 1])
 
         checkFit $"End-to-end vector, N = {n}" (toMap counts) samples
 
@@ -398,7 +397,8 @@ module PhysicsTests =
                     (TestParameters.createFrozen kT) 8 2000 300 3000
                     (fun world ->
                         Set.toList (Bonds.weakBonds world),
-                        world.Displacement(world.Atoms[0].Location, world.Atoms[2].Location))
+                        World.getDisplacement
+                            world.Atoms[0] world.Atoms[2] world)
 
         checkFit "Weak bonds" (toMap bondSetWeights) (Array.map fst samples)
         checkFit "Separation" (toMap separationWeights) (Array.map snd samples)
@@ -438,8 +438,9 @@ module PhysicsTests =
                                 let com' = Chain.centerOfMass world
                                 let x, y = traj[iFrame - 1]
                                 traj[iFrame] <-
-                                    x + wrap (fst com' - fst com) world.Width,
-                                    y + wrap (snd com' - snd com) world.Height
+                                    let size = world.Size
+                                    x + wrap (fst com' - fst com) size.X,
+                                    y + wrap (snd com' - snd com) size.Y
                                 com <- com'
                             traj)
 

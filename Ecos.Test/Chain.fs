@@ -4,7 +4,7 @@ namespace Ecos
 module TestWorld =
 
     /// An empty torus of the given (even) size.
-    let create size = World.create size size
+    let create size = World.createSquare size
 
     /// An empty world for tests: a small torus, so that the many tests
     /// that update a world one step at a time (each copying the world)
@@ -384,7 +384,7 @@ module Chain =
             // the same walls, then the same atoms (so with the same IDs)
             // with their new types, then the same strong bonds
         let rebuilt =
-            (World.create world.Width world.Height, world.Walls)
+            (World.create world.Size, world.Walls)
                 ||> Array.fold (fun rebuilt loc -> World.addWall loc rebuilt)
         let rebuilt =
             (rebuilt, world.Atoms)
@@ -542,7 +542,10 @@ module Chain =
         for i in 0 .. atoms.Length - 1 do
             locs[i] <-
                 if i = 0 then atoms[0].Location
-                else locs[i - 1] + world.Displacement(atoms[i - 1].Location, atoms[i].Location)
+                else
+                    let delta =
+                        World.getDisplacement atoms[i - 1] atoms[i] world
+                    locs[i - 1] + delta
         locs |> Array.map (fun (loc : Point) -> float loc.X, float loc.Y)
 
     /// Center of mass of a chain whose atoms are bonded in ID order,
