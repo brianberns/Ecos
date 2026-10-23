@@ -54,9 +54,9 @@ type World =
     /// Gets the occupant of the given location in this world.
     member this.Item(location) = this.Cells[location]
 
-    /// Wraps the given location onto this world.
-    member this.Wrap(location) =
-        this.Cells.Wrap(location)
+    /// Normalizes the given location onto this world.
+    member this.NormalizeLocation(location) =
+        this.Cells.NormalizeLocation(location)
 
 /// An event in the world.
 type Event =
@@ -117,7 +117,7 @@ module World =
     /// Adds an atom with the given attributes to the given world
     /// if it is valid.
     let tryAddAtom atomType location (world : World) =
-        let location = world.Wrap(location)
+        let location = world.NormalizeLocation(location)
         if isAvailable location None world then
             let world = copy world
             let id = world.Atoms.Length
@@ -137,7 +137,7 @@ module World =
 
     /// Adds a wall to the given world if it is valid.
     let tryAddWall location (world : World) =
-        let location = world.Wrap(location)
+        let location = world.NormalizeLocation(location)
         if isAvailable location None world then
             let world = copy world
             Some
@@ -427,8 +427,8 @@ module World =
 
             // move atom in that direction provisionally
         let atom' =
-            { atom with
-                Location = world.Wrap(atom.Location + delta) }
+            let loc = world.NormalizeLocation(atom.Location + delta)
+            { atom with Location = loc }
 
             // move the atom permanently?
         let isValid =

@@ -89,7 +89,7 @@ module TorusTests =
                 world <- World.sweep parameters rngA 50 world
                 torus <- World.sweep parameters rngB 50 torus
                 for atom in world.Atoms do
-                    Assert.Equal(torus.Wrap(atom.Location + offset), torus.Atoms[atom.Id].Location)
+                    Assert.Equal(torus.NormalizeLocation(atom.Location + offset), torus.Atoms[atom.Id].Location)
                 Assert.Equal<Set<int * int>>(Bonds.strongBonds world, Bonds.strongBonds torus)
                 Assert.Equal<Set<int * int>>(Bonds.weakBonds world, Bonds.weakBonds torus)
 

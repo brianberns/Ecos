@@ -13,9 +13,9 @@ type Cell =
     /// Empty space.
     | Empty
 
-/// A 2D grid of mutable cells. Edges wrap around (it's a torus),
-/// so coordinates are mapped to the range (0,0) to (size.X - 1,
-/// size.Y - 1), inclusive.
+/// A 2D grid of mutable cells. The grid is a torus (i.e. edges
+/// wrap around), so coordinates are normalized to the range
+/// (0,0) to (size.X - 1, size.Y - 1), inclusive.
 type Grid =
     private {
         Cells : Cell[(*x*), (*y*)]
@@ -27,38 +27,52 @@ type Grid =
             this.Cells.GetLength(0),
             this.Cells.GetLength(1))
 
-    /// Wraps the given coordinate into [-size/2, size/2).
-    static member inline private WrapCoord(coord, size) =
-        let half = size / 2
-        let c = (coord + half) % size
-        (if c < 0 then c + size else c) - half
+    /// Normalizes the given location onto this grid.
+    member internal this.NormalizeLocation(location) =
 
-    /// Wraps the given location onto this grid.
-    member this.Wrap(location) =
-
-        let wrap limit value =
-            let value = value % limit
-            if value < 0 then value + limit
-            else value
+        /// Normalizes the given coordinate into [0, size).
+        let norm limit coord =
+            let coord = coord % limit
+            if coord < 0 then coord + limit
+            else coord
 
         let size = this.Size
         Point.create (
-            wrap size.X location.X,
-            wrap size.Y location.Y)
+            norm size.X location.X,
+            norm size.Y location.Y)
 
     /// Gets the cell at the given location.
     member this.Item(location) =
-        let loc = this.Wrap(location)
+        let loc = this.NormalizeLocation(location)
         this.Cells[loc.X, loc.Y]
 
     /// Gets the cell at the given location.
     member this.Item(x, y) =
         this[Point.create(x, y)]
 
-    /// Sets the cell at the given location. This mutates the grid.
+    /// Sets the cell at the given location. This mutates the
+    /// grid.
     member internal this.SetValue(location, cell) =
-        let loc = this.Wrap(location)
+        let loc = this.NormalizeLocation(location)
         this.Cells[loc.X, loc.Y] <- cell
+
+    /// Normalizes the given vector onto this grid, taking care
+    /// not to change its direction.
+    member internal this.NormalizeVector(location) =
+
+        /// Normalizes the given coordinate into [-size/2, size/2).
+        let norm limit coord =
+            let half = limit / 2
+            let coord = (coord + half) % limit
+            let coord =
+                if coord < 0 then coord + limit
+                else coord
+            coord - half
+
+        let size = this.Size
+        Point.create (
+            norm size.X location.X,
+            norm size.Y location.Y)
 
 module Grid =
 
@@ -72,7 +86,7 @@ module Grid =
     /// given grid. Since the grid has no boundary, this vector
     /// might wrap around the edges.
     let getDisplacement locA locB (grid : Grid) =
-        grid.Wrap(locB - locA)
+        grid.NormalizeVector(locB - locA)
 
     /// Sets the given location to contain an atom with the given
     /// ID. This mutates the grid.

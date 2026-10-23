@@ -179,8 +179,8 @@ module PropertyTests =
                         let loc = Point.create (x, y)
                         match world[loc] with
                             | Cell.Atom id ->
-                                id < atoms.Length && atoms[id].Location = world.Wrap(loc)
-                            | Cell.Wall -> walls.Contains (world.Wrap(loc))
+                                id < atoms.Length && atoms[id].Location = world.NormalizeLocation(loc)
+                            | Cell.Wall -> walls.Contains (world.NormalizeLocation(loc))
                             | Cell.Empty -> true)
             atoms
                 |> Array.indexed
