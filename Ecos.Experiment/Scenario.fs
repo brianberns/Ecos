@@ -137,8 +137,14 @@ type Scenario =
         Schedule : Schedule
     }
 
-/// Building blocks for a scenario's world.
+/// Building blocks for a scenario's world. Locations given to them are
+/// relative to the center of the world, (width / 2, height / 2), which
+/// is halfway around the torus from its seam in each direction.
 module Build =
+
+    /// The center of the given world.
+    let center (world : World) =
+        Point.create (world.Size.X / 2, world.Size.Y / 2)
 
     let private addVerticalWall x yStart yEnd world =
         assert(x % 2 = 0)
@@ -146,7 +152,7 @@ module Build =
         assert(yEnd % 2 = 0)
         (world, [ yStart .. 2 .. yEnd ])
             ||> Seq.fold (fun world y ->
-                World.addWall (Point.create (x, y)) world)
+                World.addWall (center world + Point.create (x, y)) world)
 
     let private addHorizontalWall xStart xEnd y world =
         assert(xStart % 2 = 0)
@@ -154,10 +160,10 @@ module Build =
         assert(y % 2 = 0)
         (world, [ xStart .. 2 .. xEnd ])
             ||> Seq.fold (fun world x ->
-                World.addWall (Point.create (x, y)) world)
+                World.addWall (center world + Point.create (x, y)) world)
 
-    /// Adds a box of walls with the given outer size, centered on the
-    /// origin.
+    /// Adds a box of walls with the given outer size, around the center of
+    /// the world.
     let addBox width height world =
         let height' = height - 2 * 2
         world
@@ -173,7 +179,7 @@ module Build =
         assert(x % 2 = 0)
         assert(y % 2 = 0)
         let world, atom =
-            let location = Point.create (x, y)
+            let location = center world + Point.create (x, y)
             match World.tryAddAtom atomType location world with
                 | Some pair -> pair
                 | None -> failwith "Location is not empty"
@@ -208,7 +214,7 @@ module Build =
         world, Array.map _.Id world.Atoms
 
     /// Adds rows of free atoms, the given distance apart, in strips by
-    /// type above and below the origin: weak partners of the template
+    /// type above and below the center: weak partners of the template
     /// nearest to it, then strong partners, then caps. Each row of coding
     /// atoms has the first given number of atoms, and each row of caps
     /// the second, centered.
@@ -235,7 +241,7 @@ module Build =
 
     /// Adds rows of free atoms, each row the given number of atoms
     /// long, the given distance apart, in strips by type above and
-    /// below the origin: weak partners of the template nearest to it,
+    /// below the center: weak partners of the template nearest to it,
     /// then strong partners, then caps.
     let addFreeAtoms nPerRow dist world =
         addFreeAtomsWith nPerRow nPerRow dist world
@@ -248,7 +254,7 @@ module Build =
             ||> Array.fold (fun worldOpt (i, atomType) ->
                 worldOpt
                     |> Option.bind (fun world ->
-                        let loc = Point.create (x + 2 * i, y)
+                        let loc = center world + Point.create (x + 2 * i, y)
                         World.tryAddAtom atomType loc world)
                     |> Option.map (fun (world, atom) ->
                         if i > 0 then
@@ -258,13 +264,13 @@ module Build =
 
     /// Range of x coordinates (in steps of 2, exclusive at the top)
     /// at which a strand of the given length can start, so that every
-    /// one of its atoms is within the given distance of the origin.
+    /// one of its atoms is within the given distance of the center.
     let private getStartRange maxDist length =
         -maxDist / 2, (maxDist - 2 * length) / 2 + 1
 
     /// Adds a horizontal strand of the given atom types, joined in
     /// order, at a random empty place where every one of its atoms is
-    /// within the given distance of the origin along each axis.
+    /// within the given distance of the center along each axis.
     let addStrandAtRandom (rng : Random) maxDist (atomTypes : _[]) world =
         assert(atomTypes.Length >= 2)
         let minX, maxX = getStartRange maxDist atomTypes.Length
@@ -283,7 +289,7 @@ module Build =
 
     /// Adds a horizontal strand of the given atom types, joined in
     /// order, starting at the given x coordinate and at a random empty
-    /// height within the given distance of the origin.
+    /// height within the given distance of the center.
     let addStrandAtRandomHeight (rng : Random) maxDist x (atomTypes : _[]) world =
         let rec loop () =
             let y = 2 * rng.Next(-maxDist / 2, maxDist / 2 + 1)
@@ -435,14 +441,14 @@ module Scenario =
             step rng world, template
         { scenario with Build = build }
 
-    /// A vent along the seam of the standard 160x160 torus (x = -80, which
-    /// is also x = 80): during a pulse, kT 3.0 at the vent (the hot
-    /// temperature of scenario B), falling linearly to 0.3 (its cold
-    /// temperature) halfway around, at x = 0, on both sides. It has
-    /// scenario B's cold and hot durations.
+    /// A vent along the seam of the standard 160x160 torus (x = 0): during
+    /// a pulse, kT 3.0 at the vent (the hot temperature of scenario B),
+    /// falling linearly to 0.3 (its cold temperature) halfway around, at
+    /// the center of the world (x = 80), on both sides. It has scenario
+    /// B's cold and hot durations.
     let seamVent =
         {
-            X = -80
+            X = 0
             HotTemperature = 3.0
             ColdTemperature = 0.3
             Period = 160

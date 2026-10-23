@@ -85,7 +85,7 @@ module Experiment11 =
         let addRow y (types : AtomType[]) world =
             (world, Array.indexed types)
                 ||> Array.fold (fun world (i, atomType) ->
-                    let loc = Point.create (2 * i - nCoding - 2, y)
+                    let loc = Build.center world + Point.create (2 * i - nCoding - 2, y)
                     let world, atom =
                         World.tryAddAtom atomType loc world |> Option.get
                     if i > 0 then

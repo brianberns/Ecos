@@ -121,8 +121,8 @@ module TorusTests =
             world <- World.sweep parameters rng 10 world
             for atom in world.Atoms do
                 let loc = atom.Location
-                Assert.InRange(loc.X, -size / 2, size / 2 - 1)
-                Assert.InRange(loc.Y, -size / 2, size / 2 - 1)
+                Assert.InRange(loc.X, 0, size - 1)
+                Assert.InRange(loc.Y, 0, size - 1)
                 Assert.Equal(Cell.Atom atom.Id, world[loc])
                 if abs (loc.X - start[atom.Id].X) > size / 2 || abs (loc.Y - start[atom.Id].Y) > size / 2 then
                     crossed <- true

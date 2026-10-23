@@ -134,7 +134,7 @@ module PhysicsTests =
                 |> sample
                     (TestParameters.createFrozen Chain.athermalKT)
                     8 (200 * n) (20 * n) 5000
-                    (World.getDisplacement world.Atoms[0] world.Atoms[n - 1])
+                    (fun world -> World.getDisplacement world.Atoms[0] world.Atoms[n - 1] world)
 
         checkFit $"End-to-end vector, N = {n}" (toMap counts) samples
 
@@ -219,8 +219,10 @@ module PhysicsTests =
                 |> sample
                     parms 8 2000 1000 3000
                     (fun world ->
-                        let a = world.Atoms[0].Location
-                        let b = world.Atoms[1].Location
+                            // positions relative to the origin, the short way around
+                        let centered (loc : Point) = Grid.getDisplacement Point.zero loc world.Cells
+                        let a = centered world.Atoms[0].Location
+                        let b = centered world.Atoms[1].Location
                         Assert.True(inBox a && inBox b, $"Atom escaped the box: {a}, {b}")
                         let bond =
                             if Bonds.areStronglyBonded world 0 1 then StrongBond

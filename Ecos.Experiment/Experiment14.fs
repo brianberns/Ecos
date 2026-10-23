@@ -53,7 +53,7 @@ module Experiment14 =
     /// Inside of a 160x160 box of walls, which sits in a slightly larger
     /// torus (so that the walls on opposite sides are distinct). Walls
     /// are this experiment's subject; the standard world has none.
-    /// The walls are at +/-80.
+    /// The walls are 80 from the center of the world, on each side.
     let private wall = 80
 
     /// Location of the template's first atom, for the given placement.
@@ -84,7 +84,7 @@ module Experiment14 =
                         let rec loop () =
                             let x = 2 * rng.Next(-(wall - 2) / 2, (wall - 2) / 2 + 1)
                             let y = 2 * rng.Next(-(wall - 2) / 2, (wall - 2) / 2 + 1)
-                            match World.tryAddAtom atomType (Point.create (x, y)) world with
+                            match World.tryAddAtom atomType (Build.center world + Point.create (x, y)) world with
                                 | Some (world, _) -> world
                                 | None -> loop ()
                         loop ()))

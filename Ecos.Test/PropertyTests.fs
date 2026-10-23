@@ -72,8 +72,8 @@ module PropertyTests =
             |> List.forall (fun (idB, idC) ->
                 idB >= idC
                     || Bonds.isAngleAllowed bondType Point.zero
-                        (delta id idB world)
-                        (delta id idC world))
+                        (Grid.getDisplacement (loc id) (loc idB) world.Cells)   // loc may place the atom elsewhere
+                        (Grid.getDisplacement (loc id) (loc idC) world.Cells))
 
     /// Oracle: would the angle between the given atom's bonds of the
     /// given type still be wide enough if it also had such a bond to

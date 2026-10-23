@@ -23,11 +23,14 @@ module RegressionTests =
 
     /// A fingerprint of the given world: a 64-bit hash of every atom's
     /// ID, type and location, and every bond. (Walls are left out, since
-    /// nothing moves them.)
+    /// nothing moves them.) Locations are measured from the origin, the
+    /// short way around the torus, so that a world hashes the same
+    /// whichever way its grid labels its coordinates.
     let fingerprint (world : World) =
         let sb = StringBuilder()
         for atom in world.Atoms do
-            sb.Append($"{atom.Id}:{atom.Type}:{atom.Location.X},{atom.Location.Y};")
+            let loc = Grid.getDisplacement Point.zero atom.Location world.Cells
+            sb.Append($"{atom.Id}:{atom.Type}:{loc.X},{loc.Y};")
                 |> ignore
         for idA, idB in Bonds.strongBonds world do
             sb.Append($"S{idA}-{idB};") |> ignore
