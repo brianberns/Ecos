@@ -91,6 +91,7 @@ module ScenarioTests =
             X = -10
             HotTemperature = 2.0
             ColdTemperature = 0.5
+            FloorTemperature = 0.5
             Period = 100
             Width = 20
             ColdSweeps = 70
@@ -130,6 +131,18 @@ module ScenarioTests =
             // and again, a cycle later
         Assert.Equal((2.0, Some 30), at 170 -10)
         Assert.Equal((0.5, Some 70), at 200 -10)
+
+            // with a floor above the cold temperature, a pulse falls to the
+            // floor beyond the vent's reach, while it is still cold between
+            // pulses
+        let floored = { vent with FloorTemperature = 0.8 }
+        let flooredAt numSweeps x =
+            let getTemperature, _ = Schedule.getTemperature numSweeps (Vent floored)
+            getTemperature (Point.create (x, 7))
+        Assert.Equal(2.0, flooredAt 75 -10, 10)
+        Assert.Equal(1.4, flooredAt 75 0, 10)
+        Assert.Equal(0.8, flooredAt 75 40, 10)
+        Assert.Equal(0.5, flooredAt 0 40, 10)
 
     [<Fact>]
     let ``Advancing a vent run in pieces matches running each phase in turn`` () =

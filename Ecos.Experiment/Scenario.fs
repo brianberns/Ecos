@@ -25,9 +25,12 @@ type Vent =
         /// Temperature (kT) at the vent during a pulse.
         HotTemperature : float
 
-        /// Temperature (kT) everywhere between pulses, and beyond the
-        /// vent's reach during one.
+        /// Temperature (kT) everywhere between pulses.
         ColdTemperature : float
+
+        /// Temperature (kT) during a pulse beyond the vent's reach. The
+        /// pulse falls linearly from the vent's hot temperature to this.
+        FloorTemperature : float
 
         /// Width of the world, which is a torus: distance from the vent is
         /// measured the shorter way around it.
@@ -52,8 +55,8 @@ module Vent =
         let dx = ((pt.X - vent.X) % vent.Period + vent.Period) % vent.Period
         let dist = float (min dx (vent.Period - dx))   // the shorter way around
         let fraction = max 0.0 (1.0 - dist / float vent.Width)
-        vent.ColdTemperature
-            + fraction * (vent.HotTemperature - vent.ColdTemperature)
+        vent.FloorTemperature
+            + fraction * (vent.HotTemperature - vent.FloorTemperature)
 
 /// Temperature over time. The temperature at any moment depends only
 /// on the number of sweeps run so far, so a schedule holds no state.
@@ -451,6 +454,7 @@ module Scenario =
             X = 0
             HotTemperature = 3.0
             ColdTemperature = 0.3
+            FloorTemperature = 0.3
             Period = 160
             Width = 80
             ColdSweeps = 90_000
@@ -487,10 +491,15 @@ module Scenario =
     /// Templates in a vent world, with the vent's pulse centered on the
     /// window between the melting points of the two kinds of duplex
     /// (about kT 0.7 for W/X and 0.95 for Y/Z when Y-Z is stronger). During
-    /// a pulse, kT is 1.5 at the vent, along the seam, falling linearly to
-    /// 0.3 halfway around, so Y/Z duplexes melt only within about 37 of the
-    /// vent, W/X ones within about 53, and neither beyond that. (This is
-    /// like the world of the archived experiment 13, whose vent was a
+    /// a pulse, kT is 1.2 at the vent, along the seam, falling linearly to
+    /// a floor of 0.6 halfway around, so Y/Z duplexes melt only within about
+    /// 33 of the vent, W/X ones within about 67, and neither beyond that: a
+    /// window about 34 wide on each side where only W/X duplexes melt. The
+    /// gentle slope widens that window, and the floor keeps the far side
+    /// from being uselessly cold during a pulse, while the whole world still
+    /// cools to 0.3 between pulses for copying. Pulses last 100,000 sweeps,
+    /// so that copies near their melting point have time to separate. (This
+    /// is like the world of the archived experiment 13, whose vent was a
     /// wall.)
     ///
     /// Strands are copied only on a template (a strong bond barrier of
@@ -526,7 +535,11 @@ module Scenario =
             Name = "Vent window"
             Build = build
             Schedule =
-                Vent { seamVent with HotTemperature = 1.5 } }
+                Vent {
+                    seamVent with
+                        HotTemperature = 1.2
+                        FloorTemperature = 0.6
+                        HotSweeps = 100_000 } }
             |> withStrongBarrier 40
             |> withHydrolysisRate 2e-5   // slow enough for ten-letter strands to multiply
             |> withPairEnergy Weak AtomType.Y AtomType.Z yzEnergy
