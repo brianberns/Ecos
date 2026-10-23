@@ -236,7 +236,7 @@ module Build =
                         | _ -> nPerRow
                 (world, [ 0 .. n - 1 ])
                     ||> Seq.fold (fun world i ->
-                        addAtom atomType (2 * i - n)
+                        addAtom atomType (2 * (i - n / 2))   // even, and centered as nearly as possible
                             (iRow * dist) false world))
 
     /// Adds rows of free atoms, each row the given number of atoms
