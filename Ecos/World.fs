@@ -85,7 +85,7 @@ module World =
         {
             world with
                 _Atoms = Array.copy world._Atoms
-                Cells = Grid.copy world.Cells
+                _Cells = Grid.copy world.Cells
         }
 
     /// Moore neighborhood deltas, including center.
@@ -116,7 +116,7 @@ module World =
             let world =
                 { world with
                     _Atoms = [| yield! world.Atoms; atom |]
-                    Cells = Grid.setAtom location id world.Cells }   // MUTATION
+                    _Cells = Grid.setAtom location id world.Cells }   // MUTATION
             Some (world, atom)
         else None
 
@@ -134,7 +134,7 @@ module World =
             Some
                 { world with
                     _Walls = [| yield! world.Walls; location |]
-                    Cells = Grid.setWall location world.Cells }    // MUTATION
+                    _Cells = Grid.setWall location world.Cells }    // MUTATION
         else None
 
     /// Adds a wall to the given world.
@@ -174,13 +174,14 @@ module World =
     /// from a common reference point.
     let private testCrossBond (atomA, atomB) (atomC, atomD) world =
 
-            // consider the given atom relative to atom A
-        let flatten atom =
+            // shift the given atom to atom A's frame
+        let shift atom =
             getDisplacement atomA atom world
 
+        assert(shift atomA = Point.zero)
         BondBehavior.testCrossBond
-            (Point.zero, flatten atomB)
-            (flatten atomC, flatten atomD)
+            (Point.zero, shift atomB)
+            (shift atomC, shift atomD)
 
     /// Indicates whether a bond of the given type between the
     /// given atoms crosses any other bonds. This only needs to
@@ -208,9 +209,9 @@ module World =
     ///  \
     ///   \
     ///    C
-    let private testBondAngle behavior atomA atomB atomC (world : World) =
-        let deltaAB = world.Displacement(atomA.Location, atomB.Location)   // vector from A to B
-        let deltaAC = world.Displacement(atomA.Location, atomC.Location)   // vector from A to C
+    let private testBondAngle behavior atomA atomB atomC world =
+        let deltaAB = getDisplacement atomA atomB world   // vector from A to B
+        let deltaAC = getDisplacement atomA atomC world   // vector from A to C
         behavior.TestBondAngle deltaAB deltaAC
 
     /// A -?- B
@@ -242,11 +243,10 @@ module World =
             let behavior = behaviorMap[bondType]
             let idsA = BondMap.getBonds atomA.Id bondMap
             let idsB = BondMap.getBonds atomB.Id bondMap
+            let delta = getDisplacement atomA atomB world
             behavior.AreCompatible atomA.Type atomB.Type
                 && not (areBonded atomA.Id atomB.Id world)
-                && Neighborhood.testBond
-                    (world.Displacement(atomA.Location, atomB.Location))
-                    behavior.Neighborhood
+                && Neighborhood.testBond delta behavior.Neighborhood
                 && behavior.TestValence atomA bondTypeMap
                 && behavior.TestValence atomB bondTypeMap
                 && not (isCrossBond behavior atomA atomB world)
@@ -355,13 +355,14 @@ module World =
                 let partnerIds = BondMap.getBonds atom.Id bondMap
                 if partnerIds.IsEmpty then true   // performance optimization: early exit if unbonded
                 else
+                        // test bond deltas
                     let isValid =
                         partnerIds
                             |> Set.forall (fun idB ->
                                 let atomB = world.Atoms[idB]
+                                let delta = getDisplacement atom atomB world
                                 Neighborhood.testBond
-                                    (world.Displacement(atom.Location, atomB.Location))
-                                    behavior.Neighborhood)
+                                    delta behavior.Neighborhood)
 
                         // test bond angles?
                     if isValid then
@@ -403,7 +404,7 @@ module World =
                 |> Grid.setEmpty atomBefore.Location
                 |> Grid.setAtom atomAfter.Location id
 
-        { world with Cells = cells }
+        { world with _Cells = cells }
 
     /// Attempts to move an atom in the given world.
     let private tryUpdateAtom parms (rng : Random) (world : World) =
