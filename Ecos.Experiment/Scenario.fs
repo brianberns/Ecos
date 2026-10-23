@@ -406,6 +406,13 @@ module Scenario =
                     Barrier = barrier
                     BarrierStackReduction = barrier })
 
+    /// Sets the given scenario's barrier to peeling a strand's exposed
+    /// ends.
+    let withPeelBarrier barrier scenario =
+        scenario
+            |> mapParameters (fun parms ->
+                { parms with PeelBarrier = barrier })
+
     /// Sets the given scenario's rate of hydrolysis of strong bonds. Zero
     /// means strands never die.
     let withHydrolysisRate rate scenario =
@@ -497,8 +504,11 @@ module Scenario =
     /// window about 34 wide on each side where only W/X duplexes melt. The
     /// gentle slope widens that window, and the floor keeps the far side
     /// from being uselessly cold during a pulse, while the whole world still
-    /// cools to 0.3 between pulses for copying. Pulses last 100,000 sweeps,
-    /// so that copies near their melting point have time to separate. (This
+    /// cools to 0.3 between pulses for copying. Pulses, and the cold phases
+    /// between them, last 100,000 sweeps, so that copies near their
+    /// melting point have time to separate. Exposed strand ends peel with
+    /// a barrier of 3 rather than 6, since this vent is mild: so unfinished
+    /// strands still melt during a pulse, even at its floor. (This
     /// is like the world of the archived experiment 13, whose vent was a
     /// wall.)
     ///
@@ -539,9 +549,11 @@ module Scenario =
                     seamVent with
                         HotTemperature = 1.2
                         FloorTemperature = 0.6
+                        ColdSweeps = 100_000
                         HotSweeps = 100_000 } }
             |> withStrongBarrier 40
             |> withHydrolysisRate 2e-5   // slow enough for ten-letter strands to multiply
+            |> withPeelBarrier 3.0   // low enough that fragments peel even at this vent's mild temperatures
             |> withPairEnergy Weak AtomType.Y AtomType.Z yzEnergy
 
 /// A scenario being run.
