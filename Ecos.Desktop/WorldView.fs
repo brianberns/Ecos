@@ -68,13 +68,14 @@ module WorldView =
 
     let private renderTemperature model =
         let spacing = 8
-        let width = 152
+        let size = model.Run.World.Size
         [
-            for x in -(width/2) .. spacing .. width/2 do
-                for y in -(width/2) .. spacing .. width/2 do
-                    let loc = Point.create(x, y)
+            for x in 0 .. spacing .. size.X - spacing do
+                for y in 0 .. spacing .. size.Y - spacing do
+                    let loc =
+                        Point.create (x + spacing / 2, y + spacing / 2)
                     loc
-                        |> Run.getTemperature model.Run 
+                        |> Run.getTemperature model.Run
                         |> getColor
                         |> renderRectangle loc spacing
         ]
@@ -118,14 +119,21 @@ module WorldView =
 
     let private renderBonds
         bondType (brush : IImmutableBrush) thickness world =
+
+        let drawLine start finish =
+            Line.create [
+                Line.startPoint ~~start
+                Line.endPoint ~~finish
+                Line.stroke brush
+                Line.strokeThickness thickness
+            ] :> IView
+
         [
             for a, b in getBonds bondType world do
-                Line.create [
-                    Line.startPoint ~~a.Location
-                    Line.endPoint ~~b.Location
-                    Line.stroke brush
-                    Line.strokeThickness thickness
-                ] :> IView
+                let d = World.getDisplacement a b world
+                yield drawLine a.Location (a.Location + d)
+                if a.Location + d <> b.Location then             // bond crosses an edge?
+                    yield drawLine b.Location (b.Location - d)   // then draw its other half also
         ]
 
     let private renderStrongBonds world =
@@ -135,23 +143,20 @@ module WorldView =
         renderBonds Weak Brushes.HotPink 0.4 world
 
     let render (model : Model) =
-        let scale = 6.0
-        Border.create [
-            Border.clipToBounds true   // keep drawing inside the available space
-            Border.child (
+        let world = model.Run.World
+        Viewbox.create [
+            Viewbox.stretch Stretch.Uniform   // scale the world to fit, keeping its shape
+            Viewbox.child (
                 Canvas.create [
-                    Canvas.width 0.0
-                    Canvas.height 0.0
-                    Canvas.horizontalAlignment HorizontalAlignment.Center   // world origin at the center
-                    Canvas.verticalAlignment VerticalAlignment.Center
-                    Canvas.renderTransform (ScaleTransform(scale, scale))
-                    Canvas.renderTransformOrigin RelativePoint.TopLeft
+                    Canvas.width (float world.Size.X)
+                    Canvas.height (float world.Size.Y)
+                    Canvas.clipToBounds true   // anything drawn past an edge is cut off there
                     Canvas.children [
                         yield! renderTemperature model
-                        yield! renderWalls model.Run.World
+                        yield! renderWalls world
                         yield! renderAtoms model
-                        yield! renderStrongBonds model.Run.World
-                        yield! renderWeakBonds model.Run.World
+                        yield! renderStrongBonds world
+                        yield! renderWeakBonds world
                     ]
                 ])
         ]
