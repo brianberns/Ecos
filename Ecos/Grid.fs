@@ -13,20 +13,19 @@ type Cell =
     /// Empty space.
     | Empty
 
-/// A 2D grid of mutable cells: a torus of a fixed (even) size, centered
-/// on the origin, whose opposite edges meet. Coordinates run from -size/2
-/// up to, but not including, size/2, and any coordinate outside that
-/// range is wrapped into it.
+/// A 2D grid of mutable cells. Edges wrap around (it's a torus),
+/// so coordinates are mapped to the range (0,0) to (size.X - 1,
+/// size.Y - 1), inclusive.
 type Grid =
     private {
         Cells : Cell[(*x*), (*y*)]
     }
 
-    /// Width of the grid.
-    member this.Width = this.Cells.GetLength(0)
-
-    /// Height of the grid.
-    member this.Height = this.Cells.GetLength(1)
+    /// Size of this grid.
+    member inline this.Size =  
+        Point.create(
+            this.Cells.GetLength(0),
+            this.Cells.GetLength(1))
 
     /// Wraps the given coordinate into [-size/2, size/2).
     static member inline private WrapCoord(coord, size) =
@@ -35,34 +34,45 @@ type Grid =
         (if c < 0 then c + size else c) - half
 
     /// Wraps the given location onto this grid.
-    member this.Wrap(x, y) =
-        Grid.WrapCoord(x, this.Width), Grid.WrapCoord(y, this.Height)
+    member this.Wrap(location) =
 
-    /// Gets the cell at the given location.
-    member this.Item(x, y) =
-        let x, y = this.Wrap(x, y)
-        this.Cells[x, y]
+        let wrap limit value =
+            let value = value % limit
+            if value < 0 then value + limit
+            else value
+
+        let size = this.Size
+        Point.create (
+            wrap size.X location.X,
+            wrap size.Y location.Y)
 
     /// Gets the cell at the given location.
     member this.Item(location) =
-        this[location.X, location.Y]
+        let loc = this.Wrap(location)
+        this.Cells[loc.X, loc.Y]
+
+    /// Gets the cell at the given location.
+    member this.Item(x, y) =
+        this[Point.create(x, y)]
 
     /// Sets the cell at the given location. This mutates the grid.
     member internal this.SetValue(location, cell) =
-        let x, y = this.Wrap(location.X, location.Y)
-        this.Cells[x, y] <- cell
+        let loc = this.Wrap(location)
+        this.Cells[loc.X, loc.Y] <- cell
 
 module Grid =
 
-    /// An empty grid of the given (even) size.
-    let create width height =
-        assert(width > 0 && width % 2 = 0)
-        assert(height > 0 && height % 2 = 0)
+    /// An empty grid of the given size.
+    let create size =
         {
-            Cells =
-                Array2D.createBased
-                    (-width / 2) (-height / 2) width height Cell.Empty
+            Cells = Array2D.create size.X size.Y Cell.Empty
         }
+
+    /// The shortest vector from location A to location B in the
+    /// given grid. Since the grid has no boundary, this vector
+    /// might wrap around the edges.
+    let getDisplacement locA locB (grid : Grid) =
+        grid.Wrap(locB - locA)
 
     /// Sets the given location to contain an atom with the given
     /// ID. This mutates the grid.

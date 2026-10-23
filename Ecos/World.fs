@@ -15,9 +15,6 @@ open System
 /// * Metropolis dynamics
 /// * Pairing of complementary strands
 /// * Stacking of bonded pairs (a la DNA)
-/// 
-/// The world is a torus: its opposite edges meet, so it has no boundary
-/// unless walls make one.
 ///
 /// Walls are immovable obstacles, each the size of an atom.
 type World =
@@ -33,7 +30,7 @@ type World =
         _BondTypeMap : BondTypeMap
 
         /// Occupant of each cell in the world.
-        Cells : Grid
+        _Cells : Grid
     }
 
     /// Atoms in the world, indexed by their IDs.
@@ -45,31 +42,18 @@ type World =
     /// Bonds between atoms in the world, by type.
     member this.BondTypeMap = this._BondTypeMap
 
-    /// Gets the occupant of the given location in this
-    /// world.
+    /// Occupant of each cell in the world.
+    member this.Cells = this._Cells
+
+    /// Gets the occupant of the given location in this world.
     member this.Item(x, y) = this.Cells[x, y]
 
-    /// Gets the occupant of the given location in this
-    /// world.
+    /// Gets the occupant of the given location in this world.
     member this.Item(location) = this.Cells[location]
 
-    /// Width of this world, which is a torus: its left and right edges
-    /// meet.
-    member this.Width = this.Cells.Width
-
-    /// Height of this world, which is a torus: its top and bottom edges
-    /// meet.
-    member this.Height = this.Cells.Height
-
-    /// The given location, wrapped into this world.
-    member this.Wrap(location : Point) =
-        let x, y = this.Cells.Wrap(location.X, location.Y)
-        Point.create (x, y)
-
-    /// The shortest vector from location A to location B, around the
-    /// torus.
-    member this.Displacement(locA : Point, locB : Point) =
-        this.Wrap(locB - locA)
+    /// Wraps the given location onto this world.
+    member this.Wrap(location) =
+        this.Cells.Wrap(location)
 
 /// An event in the world.
 type Event =
@@ -85,19 +69,18 @@ type Event =
 
 module World =
 
-    /// An empty world: a torus of the given (even) size, centered on the
-    /// origin. Opposite edges meet, so there is no boundary.
-    let create width height =
+    /// Creates an empty world of the given size.
+    let create size =
         {
             _Atoms = Array.empty
             _Walls = Array.empty
             _BondTypeMap = BondTypeMap.empty
-            Cells = Grid.create width height
+            _Cells = Grid.create size
         }
 
     /// Creates a copy of the given world with its own mutable
     /// data structures. This is used to protect against mutating
-    /// shared data.
+    /// shared data unexpectedly.
     let private copy world =
         {
             world with
@@ -178,6 +161,27 @@ module World =
             Weak, WeakBond.behavior
         ]
 
+    /// The shortest vector from atom A to atom B in the given
+    /// world, accounting for possible edge wrapping.
+    let getDisplacement atomA atomB (world : World) =
+        Grid.getDisplacement
+            atomA.Location
+            atomB.Location
+            world.Cells
+
+    /// Determines whether bonds between the given atoms cross.
+    /// Since the atoms live on a torus, we need to view them
+    /// from a common reference point.
+    let private testCrossBond (atomA, atomB) (atomC, atomD) world =
+
+            // consider the given atom relative to atom A
+        let flatten atom =
+            getDisplacement atomA atom world
+
+        BondBehavior.testCrossBond
+            (Point.zero, flatten atomB)
+            (flatten atomC, flatten atomD)
+
     /// Indicates whether a bond of the given type between the
     /// given atoms crosses any other bonds. This only needs to
     /// check the local neighborhood of one of the atoms.
@@ -196,11 +200,8 @@ module World =
                                         || idD = atomB.Id then false
                                     else
                                         let atomD = world.Atoms[idD]
-                                        let rel (atom : Atom) =   // relative to A, around a torus if need be
-                                            world.Displacement(atomA.Location, atom.Location)
-                                        BondBehavior.testCrossBond
-                                            (Point.zero, rel atomB)
-                                            (rel atomC, rel atomD))
+                                        testCrossBond
+                                            (atomA, atomB) (atomC, atomD) world)
                     | _ -> false)
 
     /// A -- B

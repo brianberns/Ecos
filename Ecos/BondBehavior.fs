@@ -83,9 +83,9 @@ module private BondBehavior =
     let private orient (a : Point) (b : Point) (c : Point) =
         sign ((b - a) *^ (c - a))
 
-    /// Determines whether bonds between the given pairs of locations
-    /// cross. (The locations must be relative to the same origin.)
-    let testCrossBond (locA : Point, locB : Point) (locC : Point, locD : Point) =
+    /// Determines whether bonds between atoms at the given pairs
+    /// of locations cross.
+    let testCrossBond (locA, locB) (locC, locD) =
         let cdOpp =   // C and D are on opposite sides of line AB
             orient locA locB locC * orient locA locB locD < 0
         let abOpp =   // A and B are on opposite sides of line CD
