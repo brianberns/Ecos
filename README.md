@@ -53,15 +53,15 @@ Strands also die: now and then a strong bond breaks of its own accord (hydrolysi
 - *Where nothing melts, material is trapped for good.* On the cool side, a template is copied, its copy's free face templates another copy, and the stack grows into a sheet that never separates. Caps come off only in the heat, so nothing there dies either. These sheets soak up atoms and caps and never return them, until almost no free atoms are left anywhere.
 - *Lineages don't travel.* A strand drifts about 20 sites per cycle, so where a kind lives is mostly set by where its founders started.
 
-**Walls.** Where a template starts matters. Alone in a box, a lineage that starts within 16 sites of a wall grows 15 to 25% less over three cycles than one at the center, and one tucked into a corner 40% less; the effect fades by 32 sites. Competing with three others for the same atoms, the disadvantage roughly doubles: a corner lineage reaches 58% of the center's size, and the center lineage ends largest in 13 of 24 runs. The cause looks like access. A template is copied along both faces, so one lying along a wall, with a face toward it, is copied 38% less from the first cycle, while one pointing its end at the wall hardly suffers; a corner adds less room for the copies to spread into. Position isn't inherited through sequence, but anything heritable that changed a strand's orientation or reach would be selected.
+**Walls.** Where a template starts matters. Alone in a box, a lineage that starts within 16 sites of a wall grows 15 to 25% less over three cycles than one at the center, and one tucked into a corner 40% less; the effect fades by 32 sites. Competing with three others for the same atoms, the disadvantage roughly doubles: a corner lineage reaches 58% of the center's size, and the center lineage ends largest in 13 of 24 runs. The cause looks like access. A template is copied along both faces, so one lying along a wall, with a face toward it, is copied 38% less from the first cycle, while one pointing its end at the wall hardly suffers; a corner adds less room for the copies to spread into. Position isn't inherited through sequence, but anything heritable that changed a strand's orientation or reach would be selected. Because walls affect lineages this strongly, and would confound other experiments, the standard world now has none: it is a torus (see the model, below), and walls appear only where an experiment adds them on purpose. Earlier results on this page were measured in a box of walls; the accomplishment checks confirm the key ones without them.
 
 ## The model
 
 ### Atoms and the lattice
 
-- The world is a 2D square lattice. Each atom occupies a 2×2 block of sites, and no two atoms may overlap.
+- The world is a 2D square lattice that wraps around: a torus, whose opposite edges meet, so it has no boundary. Each atom occupies a 2×2 block of sites, and no two atoms may overlap.
 - Atoms are never created or destroyed, so mass is conserved.
-- Walls are immovable blocks the size of an atom, used to enclose a world.
+- Walls are immovable blocks the size of an atom. The standard world has none; an experiment adds them where it wants edges.
 - There are six atom types. W, X, Y and Z are the coding atoms that make up a strand's sequence. P and Q are caps that end a strand.
 
 ### Bonds
@@ -188,9 +188,10 @@ Experiments run their worlds in parallel and print their progress. They take fro
 | A | A fixed temperature, with soft strong bonds |
 | B | The living world: a cold/hot cycle (90,000/10,000 sweeps), a strong barrier low enough that strands arise by chance, and strong bonds that hydrolyze, so strands die |
 | C | Copying alone: a high strong barrier, a long hot phase, and no hydrolysis, so nothing dies |
-| Vent | Scenario B's world heated by a pulsing vent along its left wall, seeded with W/X and Y/Z strands |
+| Vent | Scenario B's world heated by a pulsing vent along its seam, seeded with W/X and Y/Z strands |
+| Vent window | Templates of each kind in a cooler vent whose pulses span their melting points, with scarce caps, for watching in the desktop app |
 
-Each comes with or without a template strand. Experiments build their variants from these.
+Every standard world is a 160×160 torus with no walls; scenarios lay their atoms out around its center, halfway around from the seam. Each comes with or without a template strand, and experiments build their variants from these.
 
 ## How the model is tested
 
@@ -198,6 +199,7 @@ Each comes with or without a template strand. Experiments build their variants f
 - **Independent oracles.** Each rule is restated separately in the tests, and the library is checked against that statement, exhaustively where the cases are few and by random worlds otherwise.
 - **Event rates.** In crowded random worlds, each kind of event must happen as often as the rules predict, including across a sharp step in temperature.
 - **Regression fingerprints.** Recorded worlds must be reproduced exactly, update for update, so that changes made for speed can be shown to change nothing else.
+- **Torus equivalence.** The dynamics depend only on where atoms are relative to each other, so a world shifted across the torus's seam must behave exactly, update for update, as the same world away from it.
 - **Mutation checks.** Each new test is run against deliberately broken copies of the library, to confirm that it fails when it should.
 - **Accomplishment checks.** The unit tests check each rule; a separate, slower command checks that the rules still add up to the model's key accomplishments: faithful copying in scenario C, chance replicators arising and turning over in a living world, and selection on pairing strength. Each is a reduced experiment with a pass threshold set well below its measured results. Run it after changing the core or the scenarios (it takes several minutes):
 
