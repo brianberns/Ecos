@@ -68,4 +68,8 @@ module Registry =
                         (Experiment14.getScenarios Experiment14.defaultSettings)
                         [| Experiment14.getCompetitionScenario Experiment14.defaultCompetitionSettings.Gap |]
             }
+            {
+                Name = "Experiment 15"
+                Scenarios = Experiment15.getScenarios Experiment15.defaultSettings
+            }
         |]

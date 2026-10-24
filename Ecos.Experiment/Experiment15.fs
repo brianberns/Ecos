@@ -62,12 +62,6 @@ module Experiment15 =
             NumSamples = 150
         }
 
-    /// Scenario C's parameters, with the given bend limit and stiffness
-    /// for strong bonds, at the given temperature.
-    let private getParameters (limit, kappa) kT =
-        { (Scenario.createScenarioC false |> Scenario.withBend Strong limit kappa).Parameters with
-            GetTemperature = Parameters.getUniformTemperature kT }
-
     /// A small world holding the strand, straight.
     let private createWorld settings parms =
         let types =
@@ -82,6 +76,37 @@ module Experiment15 =
         World.createSquare 60
             |> Build.tryAddStrand parms (-types.Length) 0 types
             |> Option.get
+
+    /// The strand alone in its world, with scenario C's parameters and
+    /// the given bend limit and stiffness for strong bonds, at the given
+    /// fixed temperature. Its template is the strand.
+    let getScenario settings (limit : Rational, kappa) kT =
+        let scenario =
+            Scenario.createScenarioC false
+                |> Scenario.withBend Strong limit kappa
+        let build parms (_ : Random) =
+            let world = createWorld settings parms
+            world, Array.map _.Id world.Atoms
+        { scenario with
+            Name = $"Bend limit {limit.Numerator}/{limit.Denominator}, kappa {kappa}, kT {kT}"
+            Build = build
+            Schedule = Constant kT }
+
+    /// Scenarios to watch: strands that stay straight, that fold at the
+    /// standard stiffness, and that are floppy, all at the colder
+    /// temperature.
+    let getScenarios settings =
+        let kT = settings.Temperatures[0]
+        [|
+            for bend in [ Bend.straight, 0.0; Bend.rightAngle, 1.5; Bend.rightAngle, 0.0 ] do
+                getScenario settings bend kT
+        |]
+
+    /// Scenario C's parameters, with the given bend limit and stiffness
+    /// for strong bonds, at the given temperature.
+    let private getParameters bend kT =
+        { (getScenario defaultSettings bend kT).Parameters with
+            GetTemperature = Parameters.getUniformTemperature kT }
 
     /// Number of weak bonds in the given world.
     let private countWeakBonds (world : World) =
