@@ -217,11 +217,11 @@ module Build =
         world, Array.map _.Id world.Atoms
 
     /// Adds rows of free atoms, the given distance apart, in strips by
-    /// type above and below the center: weak partners of the template
-    /// nearest to it, then strong partners, then caps. Each row of coding
-    /// atoms has the first given number of atoms, and each row of caps
-    /// the second, centered.
-    let addFreeAtomsWith nPerRow nCapsPerRow dist world =
+    /// type above and below the given offset from the center: weak
+    /// partners of the template nearest to it, then strong partners, then
+    /// caps. Each row of coding atoms has the first given number of atoms,
+    /// and each row of caps the second, centered.
+    let addFreeAtomsAt (offset : Point) nPerRow nCapsPerRow dist world =
         let rows =
             [
                 AtomType.P,  5; AtomType.P,  6
@@ -239,8 +239,12 @@ module Build =
                         | _ -> nPerRow
                 (world, [ 0 .. n - 1 ])
                     ||> Seq.fold (fun world i ->
-                        addAtom atomType (2 * (i - n / 2))   // even, and centered as nearly as possible
-                            (iRow * dist) false world))
+                        addAtom atomType (offset.X + 2 * (i - n / 2))   // even, and centered as nearly as possible
+                            (offset.Y + iRow * dist) false world))
+
+    /// Adds rows of free atoms around the center, as addFreeAtomsAt does.
+    let addFreeAtomsWith nPerRow nCapsPerRow dist world =
+        addFreeAtomsAt Point.zero nPerRow nCapsPerRow dist world
 
     /// Adds rows of free atoms, each row the given number of atoms
     /// long, the given distance apart, in strips by type above and
@@ -520,12 +524,18 @@ module Scenario =
     /// vent. Each of the four rows of free caps (two of P, two of Q) has
     /// the given number of atoms; the standard world has 60, and fewer
     /// makes caps the resource that the two kinds of strand compete for.
-    let createVentWindowScenario nCapsPerRow nPairs yzEnergy =
+    let createVentWindowScenario scale nCapsPerRow nPairs yzEnergy =
+        let size = 160 * scale
         let scenario = createScenarioB false
         let build rng =
             let world =
-                World.createSquare 160
-                    |> Build.addFreeAtomsWith (6 * nCoding) nCapsPerRow 6
+                World.createSquare size
+            let world =
+                    // the standard layout of free atoms, once per 160x160 tile
+                (world, [ for i in 0 .. scale - 1 do for j in 0 .. scale - 1 -> i, j ])
+                    ||> Seq.fold (fun world (i, j) ->
+                        let offset = Point.create (160 * i - 80 * (scale - 1), 160 * j - 80 * (scale - 1))
+                        Build.addFreeAtomsAt offset (6 * nCoding) nCapsPerRow 6 world)
             let nBefore = world.Atoms.Length
             let template codingType =
                 [|
@@ -534,21 +544,23 @@ module Scenario =
                     AtomType.Q
                 |]
             let world =
-                (world, [ 1 .. nPairs ])
+                (world, [ 1 .. nPairs * scale * scale ])
                     ||> Seq.fold (fun world _ ->
-                        let x = Build.getRandomStart rng 74 (nCoding + 2)
+                        let x = Build.getRandomStart rng (80 * scale - 6) (nCoding + 2)
                         world
-                            |> Build.addStrandAtRandomHeight rng 74 x (template AtomType.W)
-                            |> Build.addStrandAtRandomHeight rng 74 x (template AtomType.Y))
+                            |> Build.addStrandAtRandomHeight rng (80 * scale - 6) x (template AtomType.W)
+                            |> Build.addStrandAtRandomHeight rng (80 * scale - 6) x (template AtomType.Y))
             world, [| nBefore .. world.Atoms.Length - 1 |]
         { scenario with
-            Name = "Vent window"
+            Name = if scale = 1 then "Vent window" else $"Vent window, {scale}x"
             Build = build
             Schedule =
                 Vent {
                     seamVent with
                         HotTemperature = 1.2
                         FloorTemperature = 0.6
+                        Period = size
+                        Width = size / 2
                         ColdSweeps = 100_000
                         HotSweeps = 100_000 } }
             |> withStrongBarrier 40

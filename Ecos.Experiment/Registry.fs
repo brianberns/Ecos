@@ -30,7 +30,8 @@ module Registry =
                         Scenario.createScenarioC true
                         Scenario.createScenarioC false
                         Scenario.createVentScenario 8 3.0
-                        Scenario.createVentWindowScenario 15 4 3.0
+                        Scenario.createVentWindowScenario 1 15 4 3.0
+                        Scenario.createVentWindowScenario 2 15 4 3.0
                     |]
             }
             {
