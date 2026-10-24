@@ -685,6 +685,7 @@ module private Bend =
             let ids = BondMap.getBonds atomA.Id bondMap
             assert(ids.Count <= 2)
 
+                // find other bonded atom, assuming there's not more than one
             let atomCOpt =
                 if ids.IsEmpty then None
                 elif ids.MinimumElement <> atomB.Id then
