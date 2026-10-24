@@ -561,7 +561,7 @@ module PropertyTests =
                 TestWorld.empty
                     |> World.addAtomW origin
                     |> World.addAtomW v
-            (World.tryAddStrongBond 0 1 world).IsSome = isBondVector v)
+            (World.tryAddStrongBond TestParameters.standard 0 1 world).IsSome = isBondVector v)
 
     /// A weak bond between two non-overlapping atoms is accepted if and
     /// only if their types are complementary and their separation is an
@@ -585,7 +585,7 @@ module PropertyTests =
                                 Chain.canPair typeA typeB
                                     && Array.contains v Chain.weakBondVectors
                             Assert.True(
-                                ((World.tryAddWeakBond 0 1 world).IsSome = expected),
+                                ((World.tryAddWeakBond TestParameters.standard 0 1 world).IsSome = expected),
                                 $"{typeA}-{typeB} at {v}: expected {expected}")
 
     /// Valence and exclusivity: an atom can have at most two strong
@@ -607,32 +607,32 @@ module PropertyTests =
             // strong bonds: a third one is rejected
         let world =
             world
-                |> World.addStrongBond 0 1
-                |> World.addStrongBond 1 2
-        Assert.True((World.tryAddStrongBond 1 3 world).IsNone, "Third strong bond accepted")
+                |> World.addStrongBond TestParameters.standard 0 1
+                |> World.addStrongBond TestParameters.standard 1 2
+        Assert.True((World.tryAddStrongBond TestParameters.standard 1 3 world).IsNone, "Third strong bond accepted")
 
             // a strongly bonded pair can't also pair weakly
         let pair =
             TestWorld.empty
                 |> World.addAtom AtomType.W (Point.create (0, 0))
                 |> World.addAtom AtomType.X (Point.create (0, 2))
-        Assert.True((World.tryAddWeakBond 0 1 pair).IsSome, "Weak bond rejected")
+        Assert.True((World.tryAddWeakBond TestParameters.standard 0 1 pair).IsSome, "Weak bond rejected")
         Assert.True(
-            (World.tryAddWeakBond 0 1 (World.addStrongBond 0 1 pair)).IsNone,
+            (World.tryAddWeakBond TestParameters.standard 0 1 (World.addStrongBond TestParameters.standard 0 1 pair)).IsNone,
             "Weak bond accepted between strongly bonded atoms")
 
             // weak bonds: a second one on the opposite side is accepted,
             // from either side
-        let world = World.addWeakBond 1 3 world
-        Assert.True((World.tryAddWeakBond 1 4 world).IsSome, "Second weak bond rejected")
-        Assert.True((World.tryAddWeakBond 4 1 world).IsSome, "Second weak bond rejected")
+        let world = World.addWeakBond TestParameters.standard 1 3 world
+        Assert.True((World.tryAddWeakBond TestParameters.standard 1 4 world).IsSome, "Second weak bond rejected")
+        Assert.True((World.tryAddWeakBond TestParameters.standard 4 1 world).IsSome, "Second weak bond rejected")
 
             // a weakly bonded pair can't also bond strongly, even with
             // spare strong valence (W0 has one strong bond, X4 none),
             // and the same weak bond can't be added twice
-        let world = World.addWeakBond 0 4 world
-        Assert.True((World.tryAddStrongBond 4 0 world).IsNone, "Strong bond accepted between weakly bonded atoms")
-        Assert.True((World.tryAddWeakBond 4 0 world).IsNone, "Duplicate weak bond accepted")
+        let world = World.addWeakBond TestParameters.standard 0 4 world
+        Assert.True((World.tryAddStrongBond TestParameters.standard 4 0 world).IsNone, "Strong bond accepted between weakly bonded atoms")
+        Assert.True((World.tryAddWeakBond TestParameters.standard 4 0 world).IsNone, "Duplicate weak bond accepted")
 
             // weak bonds: a third one is rejected. W0 at the center, in a
             // strand with Y4, with X1 and X2 on opposite sides of it, and
@@ -644,11 +644,11 @@ module PropertyTests =
                 |> World.addAtom AtomType.X (Point.create (0, -2))   // 2
                 |> World.addAtom AtomType.X (Point.create (2, 0))    // 3
                 |> World.addAtom AtomType.Y (Point.create (-2, 0))   // 4
-                |> World.addStrongBond 0 4
-                |> World.addWeakBond 0 1
-                |> World.addWeakBond 0 2
-        Assert.True((World.tryAddWeakBond 0 3 world).IsNone, "Third weak bond accepted")
-        Assert.True((World.tryAddWeakBond 3 0 world).IsNone, "Third weak bond accepted")
+                |> World.addStrongBond TestParameters.standard 0 4
+                |> World.addWeakBond TestParameters.standard 0 1
+                |> World.addWeakBond TestParameters.standard 0 2
+        Assert.True((World.tryAddWeakBond TestParameters.standard 0 3 world).IsNone, "Third weak bond accepted")
+        Assert.True((World.tryAddWeakBond TestParameters.standard 3 0 world).IsNone, "Third weak bond accepted")
 
             // weak bonds: a free atom (one with no strong bond) can't have a
             // second one, even on the opposite side
@@ -657,9 +657,9 @@ module PropertyTests =
                 |> World.addAtom AtomType.W (Point.create (0, 0))    // 0
                 |> World.addAtom AtomType.X (Point.create (0, 2))    // 1
                 |> World.addAtom AtomType.X (Point.create (0, -2))   // 2
-                |> World.addWeakBond 0 1
-        Assert.True((World.tryAddWeakBond 0 2 world).IsNone, "Free atom got a second weak bond")
-        Assert.True((World.tryAddWeakBond 2 0 world).IsNone, "Free atom got a second weak bond")
+                |> World.addWeakBond TestParameters.standard 0 1
+        Assert.True((World.tryAddWeakBond TestParameters.standard 0 2 world).IsNone, "Free atom got a second weak bond")
+        Assert.True((World.tryAddWeakBond TestParameters.standard 2 0 world).IsNone, "Free atom got a second weak bond")
 
     /// Caps, exhaustively: atoms A, B and C lie in a row, close enough
     /// for A-B and B-C to be strongly bonded. For every combination of
@@ -685,16 +685,16 @@ module PropertyTests =
                     let expected = not (Chain.isCap typeA && Chain.isCap typeB)
                     for idFrom, idTo in [ 0, 1; 1, 0 ] do
                         Assert.True(
-                            ((World.tryAddStrongBond idFrom idTo world).IsSome = expected),
+                            ((World.tryAddStrongBond TestParameters.standard idFrom idTo world).IsSome = expected),
                             $"{typeA}-{typeB}: expected {expected}")
 
                         // second bond
                     if expected then
-                        let world = World.addStrongBond 0 1 world
+                        let world = World.addStrongBond TestParameters.standard 0 1 world
                         let expected = not (Chain.isCap typeB)
                         for idFrom, idTo in [ 1, 2; 2, 1 ] do
                             Assert.True(
-                                ((World.tryAddStrongBond idFrom idTo world).IsSome = expected),
+                                ((World.tryAddStrongBond TestParameters.standard idFrom idTo world).IsSome = expected),
                                 $"{typeA}-{typeB}, then {typeB}-{typeC}: expected {expected}")
                         if expected then nAccepted <- nAccepted + 1
                         else nRejected <- nRejected + 1
@@ -714,13 +714,13 @@ module PropertyTests =
                 |> World.addAtom AtomType.W (Point.create (2, 0))    // 1
                 |> World.addAtom AtomType.Q (Point.create (0, 2))    // 2
                 |> World.addAtom AtomType.Q (Point.create (0, -2))   // 3
-                |> World.addWeakBond 0 2
+                |> World.addWeakBond TestParameters.standard 0 2
         Assert.True(
-            (World.tryAddWeakBond 0 3 world).IsNone,
+            (World.tryAddWeakBond TestParameters.standard 0 3 world).IsNone,
             "Free cap got a second weak bond")
-        let world = World.addStrongBond 0 1 world
+        let world = World.addStrongBond TestParameters.standard 0 1 world
         Assert.True(
-            (World.tryAddWeakBond 0 3 world).IsSome,
+            (World.tryAddWeakBond TestParameters.standard 0 3 world).IsSome,
             "Cap in a strand was refused a second weak bond")
 
     /// A capped strand is never extended. The strand P0-W1-W2-P3 sits
@@ -738,8 +738,8 @@ module PropertyTests =
                 GetTemperature = Parameters.getUniformTemperature 1.0
                 BondParameterMap =
                     Map [
-                        Strong, { Energy = 30; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = World.defaultBendLimit Strong; BendStiffness = 0 }
-                        Weak, { Energy = 1; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = World.defaultBendLimit Weak; BendStiffness = 0 }
+                        Strong, { Energy = 30; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = TestParameters.straightBend; BendStiffness = 0 }
+                        Weak, { Energy = 1; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = TestParameters.anyBend; BendStiffness = 0 }
                     ]
                 PeelBarrier = Double.PositiveInfinity   // no peeling
             }
@@ -749,9 +749,9 @@ module PropertyTests =
                 |> World.addAtom AtomType.W (Point.create (-1, 0))   // 1
                 |> World.addAtom AtomType.W (Point.create (1, 0))    // 2
                 |> World.addAtom AtomType.P (Point.create (3, 0))    // 3
-                |> World.addStrongBond 0 1
-                |> World.addStrongBond 1 2
-                |> World.addStrongBond 2 3
+                |> World.addStrongBond TestParameters.standard 0 1
+                |> World.addStrongBond TestParameters.standard 1 2
+                |> World.addStrongBond TestParameters.standard 2 3
                 |> Chain.addSoup rng 30
                 |> Chain.addBox 10
         let strand = set [ 0; 1; 2; 3 ]
@@ -805,12 +805,12 @@ module PropertyTests =
                             |> World.addAtom AtomType.X b   // 1
                             |> World.addAtom AtomType.X c   // 2
                             |> World.addAtom AtomType.Y d   // 3
-                            |> World.addStrongBond 0 3
-                            |> World.addWeakBond 0 1
+                            |> World.addStrongBond TestParameters.standard 0 3
+                            |> World.addWeakBond TestParameters.standard 0 1
                     let expected = Bonds.areOpposite a b c
                     for idFrom, idTo in [ 0, 2; 2, 0 ] do
                         Assert.True(
-                            ((World.tryAddWeakBond idFrom idTo world).IsSome = expected),
+                            ((World.tryAddWeakBond TestParameters.standard idFrom idTo world).IsSome = expected),
                             $"B at {b}, C at {c}: expected {expected}")
                     if expected then
                         nAccepted <- nAccepted + 1
@@ -840,11 +840,11 @@ module PropertyTests =
                             |> World.addAtomW a   // 0
                             |> World.addAtomW b   // 1
                             |> World.addAtomW c   // 2
-                            |> World.addStrongBond 0 1
+                            |> World.addStrongBond TestParameters.standard 0 1
                     let expected = Bonds.isAngleAllowed Strong a b c
                     for idFrom, idTo in [ 0, 2; 2, 0 ] do
                         Assert.True(
-                            ((World.tryAddStrongBond idFrom idTo world).IsSome = expected),
+                            ((World.tryAddStrongBond TestParameters.standard idFrom idTo world).IsSome = expected),
                             $"B at {b}, C at {c}: expected {expected}")
                     if expected then nAccepted <- nAccepted + 1
                     else nRejected <- nRejected + 1
@@ -870,9 +870,9 @@ module PropertyTests =
                 |> World.addAtom AtomType.X (Point.create (0, 2))    // 1
                 |> World.addAtom AtomType.X (Point.create (0, -2))   // 2
                 |> World.addAtom AtomType.Y (Point.create (2, 0))    // 3
-                |> World.addStrongBond 0 3
-                |> World.addWeakBond 0 1
-                |> World.addWeakBond 0 2
+                |> World.addStrongBond TestParameters.standard 0 3
+                |> World.addWeakBond TestParameters.standard 0 1
+                |> World.addWeakBond TestParameters.standard 0 2
                 |> Chain.addBox 4
         let mutable nBothBonded = 0
         for _ in 1 .. 20000 do
@@ -903,8 +903,8 @@ module PropertyTests =
                 GetTemperature = Parameters.getUniformTemperature 1.0
                 BondParameterMap =
                     Map [
-                        Strong, { Energy = 0; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = World.defaultBendLimit Strong; BendStiffness = 0 }
-                        Weak, { Energy = 3; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = World.defaultBendLimit Weak; BendStiffness = 0 }
+                        Strong, { Energy = 0; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = TestParameters.straightBend; BendStiffness = 0 }
+                        Weak, { Energy = 3; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = TestParameters.anyBend; BendStiffness = 0 }
                     ]
                 PeelBarrier = Double.PositiveInfinity   // no peeling
             }
@@ -914,9 +914,9 @@ module PropertyTests =
                 |> World.addAtom AtomType.X (Point.create (0, 2))    // 1
                 |> World.addAtom AtomType.X (Point.create (0, -2))   // 2
                 |> World.addAtom AtomType.Y (Point.create (2, 0))    // 3
-                |> World.addStrongBond 0 3
-                |> World.addWeakBond 0 1
-                |> World.addWeakBond 0 2
+                |> World.addStrongBond TestParameters.standard 0 3
+                |> World.addWeakBond TestParameters.standard 0 1
+                |> World.addWeakBond TestParameters.standard 0 2
                 |> Chain.addBox 2
         let mutable nBothBonded, nBroken = 0, 0
         for _ in 1 .. 50000 do
@@ -964,8 +964,8 @@ module PropertyTests =
                                 |> Option.map fst
                         let worlds =
                             [
-                                atomsOpt |> Option.bind (World.tryAddStrongBond 2 3)
-                                atomsOpt |> Option.bind (World.tryAddWeakBond 2 3)   // only if C-D is in weak bond range
+                                atomsOpt |> Option.bind (World.tryAddStrongBond TestParameters.standard 2 3)
+                                atomsOpt |> Option.bind (World.tryAddWeakBond TestParameters.standard 2 3)   // only if C-D is in weak bond range
                             ] |> List.choose id
                         for world in worlds do
                             nChecked <- nChecked + 1
@@ -983,13 +983,13 @@ module PropertyTests =
     /// bond.
     [<Fact>]
     let ``tryAddWeakBond rejects exactly the bonds that would cross`` () =
-        checkCrossingRejected Chain.weakBondVectors 6 World.tryAddWeakBond
+        checkCrossingRejected Chain.weakBondVectors 6 (World.tryAddWeakBond TestParameters.standard)
 
     /// A strong bond is accepted if and only if it doesn't cross
     /// another bond.
     [<Fact>]
     let ``tryAddStrongBond rejects exactly the bonds that would cross`` () =
-        checkCrossingRejected Chain.bondVectors 8 World.tryAddStrongBond
+        checkCrossingRejected Chain.bondVectors 8 (World.tryAddStrongBond TestParameters.standard)
 
     /// Moves made by a single update, as (atom ID, step) pairs.
     let private movesBetween (world : World) (world' : World) =
@@ -1207,9 +1207,9 @@ module PropertyTests =
                     |> World.addAtom AtomType.W (Point.create (-1, 0))   // 1
                     |> World.addAtom AtomType.W (Point.create (1, 0))    // 2
                     |> World.addAtom AtomType.P (Point.create (3, 0))    // 3
-                    |> World.addStrongBond 0 1
-                    |> World.addStrongBond 1 2
-                    |> World.addStrongBond 2 3
+                    |> World.addStrongBond TestParameters.standard 0 1
+                    |> World.addStrongBond TestParameters.standard 1 2
+                    |> World.addStrongBond TestParameters.standard 2 3
                     |> Chain.addSoup rng 10
             let mutable world = capped
             world <- Chain.updatesWith { peeling with PeelBarrier = 0.0 } rng 50000 world
@@ -1225,9 +1225,9 @@ module PropertyTests =
                     |> World.addAtom AtomType.W (Point.create (-1, 0))   // 1
                     |> World.addAtom AtomType.W (Point.create (1, 0))    // 2
                     |> World.addAtom AtomType.Q (Point.create (3, 0))    // 3
-                    |> World.addStrongBond 0 1
-                    |> World.addStrongBond 1 2
-                    |> World.addStrongBond 2 3
+                    |> World.addStrongBond TestParameters.standard 0 1
+                    |> World.addStrongBond TestParameters.standard 1 2
+                    |> World.addStrongBond TestParameters.standard 2 3
                     |> Chain.addSoup rng 10
             let mutable world = capped
             world <- Chain.updatesWith (TestParameters.withHydrolysis Strong 0.2 peeling) rng 100000 world   // each bond expects several breaks
@@ -1246,9 +1246,9 @@ module PropertyTests =
                     |> World.addAtom AtomType.W (Point.create (-1, 0))   // 1
                     |> World.addAtom AtomType.W (Point.create (1, 0))    // 2
                     |> World.addAtom AtomType.Q (Point.create (3, 0))    // 3
-                    |> World.addStrongBond 0 1
-                    |> World.addStrongBond 1 2
-                    |> World.addStrongBond 2 3
+                    |> World.addStrongBond TestParameters.standard 0 1
+                    |> World.addStrongBond TestParameters.standard 1 2
+                    |> World.addStrongBond TestParameters.standard 2 3
                     |> Chain.addSoup rng 10
             let parms =
                 { frozen with PeelBarrier = Double.PositiveInfinity }
@@ -1276,10 +1276,10 @@ module PropertyTests =
                 |> World.addAtom AtomType.W (Point.create (1, -1))    // 1
                 |> World.addAtom AtomType.X (Point.create (-1, 1))    // 2
                 |> World.addAtom AtomType.X (Point.create (1, 1))     // 3
-                |> World.addStrongBond 0 1
+                |> World.addStrongBond TestParameters.standard 0 1
                 |> Chain.addBox 2
         [
-            "Ladder", World.addStrongBond 2 3 atoms
+            "Ladder", World.addStrongBond TestParameters.standard 2 3 atoms
             "Near miss", atoms
         ]
 
@@ -1311,8 +1311,8 @@ module PropertyTests =
                 GetTemperature = Parameters.getUniformTemperature 1.0
                 BondParameterMap =
                     Map [
-                        Strong, { Energy = 0; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = World.defaultBendLimit Strong; BendStiffness = 0 }
-                        Weak, { Energy = 3; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = World.defaultBendLimit Weak; BendStiffness = 0 }
+                        Strong, { Energy = 0; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = TestParameters.straightBend; BendStiffness = 0 }
+                        Weak, { Energy = 3; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = TestParameters.anyBend; BendStiffness = 0 }
                     ]
                 PeelBarrier = Double.PositiveInfinity   // no peeling
             }
@@ -1334,8 +1334,8 @@ module PropertyTests =
                 GetTemperature = Parameters.getUniformTemperature 1.0
                 BondParameterMap =
                     Map [
-                        Strong, { Energy = 0; PairEnergyMap = Map.empty; Barrier = 3; BarrierStackReduction = 3; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = World.defaultBendLimit Strong; BendStiffness = 0 }
-                        Weak, { Energy = 3; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = World.defaultBendLimit Weak; BendStiffness = 0 }
+                        Strong, { Energy = 0; PairEnergyMap = Map.empty; Barrier = 3; BarrierStackReduction = 3; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = TestParameters.straightBend; BendStiffness = 0 }
+                        Weak, { Energy = 3; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = TestParameters.anyBend; BendStiffness = 0 }
                     ]
                 PeelBarrier = Double.PositiveInfinity   // no peeling
             }
@@ -1357,8 +1357,8 @@ module PropertyTests =
                 GetTemperature = Parameters.getUniformTemperature 1.0
                 BondParameterMap =
                     Map [
-                        Strong, { Energy = 2; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = strongEntropy; HydrolysisRate = 0; BendLimit = World.defaultBendLimit Strong; BendStiffness = 0 }
-                        Weak, { Energy = 3; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = weakEntropy; HydrolysisRate = 0; BendLimit = World.defaultBendLimit Weak; BendStiffness = 0 }
+                        Strong, { Energy = 2; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = strongEntropy; HydrolysisRate = 0; BendLimit = TestParameters.straightBend; BendStiffness = 0 }
+                        Weak, { Energy = 3; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = weakEntropy; HydrolysisRate = 0; BendLimit = TestParameters.anyBend; BendStiffness = 0 }
                     ]
                 PeelBarrier = Double.PositiveInfinity   // no peeling
             }
@@ -1408,8 +1408,8 @@ module PropertyTests =
                 GetTemperature = Parameters.getUniformTemperature 1.0
                 BondParameterMap =
                     Map [
-                        Strong, { Energy = 0; PairEnergyMap = Map.empty; Barrier = 3; BarrierStackReduction = 5; StartBarrier = 1.5; Entropy = 0; HydrolysisRate = 0; BendLimit = World.defaultBendLimit Strong; BendStiffness = 0 }
-                        Weak, { Energy = 3; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0.5; Entropy = 0; HydrolysisRate = 0; BendLimit = World.defaultBendLimit Weak; BendStiffness = 0 }
+                        Strong, { Energy = 0; PairEnergyMap = Map.empty; Barrier = 3; BarrierStackReduction = 5; StartBarrier = 1.5; Entropy = 0; HydrolysisRate = 0; BendLimit = TestParameters.straightBend; BendStiffness = 0 }
+                        Weak, { Energy = 3; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0.5; Entropy = 0; HydrolysisRate = 0; BendLimit = TestParameters.anyBend; BendStiffness = 0 }
                     ]
                 PeelBarrier = Double.PositiveInfinity   // no peeling
             }
@@ -1420,8 +1420,8 @@ module PropertyTests =
                 GetTemperature = Parameters.getUniformTemperature 1.0
                 BondParameterMap =
                     Map [
-                        Strong, { Energy = 2; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 2; Entropy = 0; HydrolysisRate = 0; BendLimit = World.defaultBendLimit Strong; BendStiffness = 0 }
-                        Weak, { Energy = 1; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = World.defaultBendLimit Weak; BendStiffness = 0 }
+                        Strong, { Energy = 2; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 2; Entropy = 0; HydrolysisRate = 0; BendLimit = TestParameters.straightBend; BendStiffness = 0 }
+                        Weak, { Energy = 1; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = TestParameters.anyBend; BendStiffness = 0 }
                     ]
                 PeelBarrier = Double.PositiveInfinity   // no peeling
             }
@@ -1478,8 +1478,8 @@ module PropertyTests =
                 GetTemperature = Parameters.getUniformTemperature 1.0
                 BondParameterMap =
                     Map [
-                        Strong, { Energy = 30; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = World.defaultBendLimit Strong; BendStiffness = 0 }
-                        Weak, { Energy = 1; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = World.defaultBendLimit Weak; BendStiffness = 0 }
+                        Strong, { Energy = 30; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = TestParameters.straightBend; BendStiffness = 0 }
+                        Weak, { Energy = 1; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = TestParameters.anyBend; BendStiffness = 0 }
                     ]
                 PeelBarrier = 1.0   // peels with probability 1/e
             }
@@ -1561,8 +1561,8 @@ module PropertyTests =
                 GetTemperature = step 0.25 25.0
                 BondParameterMap =
                     Map [
-                        Strong, { Energy = 30; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = World.defaultBendLimit Strong; BendStiffness = 0 }
-                        Weak, { Energy = 1; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = World.defaultBendLimit Weak; BendStiffness = 0 }
+                        Strong, { Energy = 30; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = TestParameters.straightBend; BendStiffness = 0 }
+                        Weak, { Energy = 1; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = TestParameters.anyBend; BendStiffness = 0 }
                     ]
                 PeelBarrier = 2.0
             }

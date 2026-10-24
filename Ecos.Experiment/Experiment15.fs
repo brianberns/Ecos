@@ -26,7 +26,7 @@ module Experiment15 =
             Temperatures : float[]
 
             /// Bend limits and stiffnesses to compare.
-            Bends : ((int * int) * float)[]
+            Bends : (Rational * float)[]
 
             /// Number of coding atoms in each arm.
             ArmLength : int
@@ -50,8 +50,8 @@ module Experiment15 =
             Temperatures = [| 0.3; 0.5 |]
             Bends =
                 [|
-                    World.defaultBendLimit Strong, 0.0
-                    for limit in [ (-1, 2); (0, 1) ] do
+                    Bend.straight, 0.0
+                    for limit in [ Rational.create -1 2; Bend.rightAngle ] do
                         for kappa in [ 0.0; 0.5; 1.0; 1.25; 1.5; 1.75; 2.0; 3.0 ] do
                             limit, kappa
                 |]
@@ -69,7 +69,7 @@ module Experiment15 =
             GetTemperature = Parameters.getUniformTemperature kT }
 
     /// A small world holding the strand, straight.
-    let private createWorld settings =
+    let private createWorld settings parms =
         let types =
             [|
                 AtomType.P
@@ -80,7 +80,7 @@ module Experiment15 =
                 AtomType.Q
             |]
         World.createSquare 60
-            |> Build.tryAddStrand (-types.Length) 0 types
+            |> Build.tryAddStrand parms (-types.Length) 0 types
             |> Option.get
 
     /// Number of weak bonds in the given world.
@@ -94,7 +94,7 @@ module Experiment15 =
         let parms = getParameters bend kT
         let rng = Random(seed)
         let mutable world =
-            createWorld settings
+            createWorld settings parms
                 |> World.sweep parms rng settings.BurnIn
         [|
             for _ in 1 .. settings.NumSamples do
@@ -134,14 +134,15 @@ module Experiment15 =
         printfn
             "%d runs of each combination, alone in a small world; %d samples per run, %d sweeps apart, after %d sweeps"
             settings.NumRuns settings.NumSamples settings.SampleInterval settings.BurnIn
-        printParameters (getParameters (World.defaultBendLimit Strong, 0.0) nan)
+        printParameters (getParameters (Bend.straight, 0.0) nan)
         printfn ""
         printfn "  limit (cos <=)  kappa   kT   mean weak   folded   zipped"
 
         use writer = new StreamWriter(csvPath)
         writer.WriteLine("limit,kappa,kT,mean_weak,folded,zipped")
         let invariant (x : float) = x.ToString(Globalization.CultureInfo.InvariantCulture)
-        for ((n, d), kappa as bend) in settings.Bends do
+        for (limit, kappa as bend) in settings.Bends do
+            let n, d = limit.Numerator, limit.Denominator
             for kT in settings.Temperatures do
                 let samples = results[bend, kT]
                 let mean = samples |> Array.averageBy float

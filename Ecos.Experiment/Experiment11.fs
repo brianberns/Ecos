@@ -75,7 +75,7 @@ module Experiment11 =
     /// A small world holding a template of the given coding type, capped P...Q,
     /// with its complement paired along one side. Answers the world and
     /// the atom IDs of the two strands.
-    let private createDuplex codingType =
+    let private createDuplex parms codingType =
         let templateTypes =
             [|
                 AtomType.P
@@ -89,7 +89,7 @@ module Experiment11 =
                     let world, atom =
                         World.tryAddAtom atomType loc world |> Option.get
                     if i > 0 then
-                        World.addStrongBond (atom.Id - 1) atom.Id world
+                        World.addStrongBond parms (atom.Id - 1) atom.Id world
                     else world)
         let world =
             World.createSquare 60
@@ -99,7 +99,7 @@ module Experiment11 =
         let world =
             (world, [ 0 .. n - 1 ])
                 ||> Seq.fold (fun world i ->
-                    World.addWeakBond i (i + n) world)
+                    World.addWeakBond parms i (i + n) world)
         world, [| 0 .. n - 1 |], [| n .. 2 * n - 1 |]
 
     /// Whether the given strands have come apart: no weak bonds between
@@ -129,7 +129,7 @@ module Experiment11 =
     let private runOne settings codingType kT seed =
         let parms = getParameters settings kT
         let rng = Random(seed)
-        let world, idsA, idsB = createDuplex codingType
+        let world, idsA, idsB = createDuplex parms codingType
         let rec loop nSweeps world =
             if nSweeps >= settings.MaxSweeps then None
             else

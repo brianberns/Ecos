@@ -127,10 +127,11 @@ type Scenario =
         /// Name of the scenario.
         Name : string
 
-        /// Builds the initial world, using the given random number
-        /// generator. Answers the world and the IDs of the atoms of
-        /// its template strand, if it has one.
-        Build : Random -> World * AtomId[]
+        /// Builds the initial world, with the given parameters (those
+        /// of the scenario) and random number generator. Answers the
+        /// world and the IDs of the atoms of its template strand, if it
+        /// has one.
+        Build : Parameters -> Random -> World * AtomId[]
 
         /// Parameters, apart from temperature, which comes from the
         /// schedule. (Their temperature is NaN.)
@@ -139,6 +140,21 @@ type Scenario =
         /// Temperature over time.
         Schedule : Schedule
     }
+
+/// Bend limits for bond types: the sharpest angle allowed between two
+/// bonds of a type at an atom, as the largest allowed cosine.
+module Bend =
+
+    /// Strands stay nearly straight: they bend by at most about 37
+    /// degrees at each atom.
+    let straight = Rational.create -4 5
+
+    /// Strands can bend up to a right angle at each atom, so that they
+    /// can fold.
+    let rightAngle = Rational.create 0 1
+
+    /// Any angle, apart from the bond type's own rules.
+    let any = Rational.create 1 1
 
 /// Building blocks for a scenario's world. Locations given to them are
 /// relative to the center of the world, (width / 2, height / 2), which
@@ -176,30 +192,26 @@ module Build =
             |> addVerticalWall (width/2) -(height'/2) (height'/2)
 
     /// Adds an atom of the given type at the given location, which
-    /// must be empty, optionally joined to the atom added just before
-    /// it.
-    let private addAtom atomType x y joinPrevious world =
+    /// must be empty.
+    let private addAtom atomType x y world =
         assert(x % 2 = 0)
         assert(y % 2 = 0)
-        let world, atom =
-            let location = center world + Point.create (x, y)
-            match World.tryAddAtom atomType location world with
-                | Some pair -> pair
-                | None -> failwith "Location is not empty"
-        if joinPrevious then
-            World.addStrongBond (atom.Id - 1) atom.Id world
-        else world
+        let location = center world + Point.create (x, y)
+        match World.tryAddAtom atomType location world with
+            | Some (world, _) -> world
+            | None -> failwith "Location is not empty"
 
     /// Adds a horizontal template strand of the given number of
     /// coding atoms, each a random W or Y, with a P cap at its start
-    /// and a Q cap at its end. The world must have no atoms yet.
-    /// Answers the world and the template's atom IDs.
-    let addTemplate (rng : Random) nCoding (world : World) =
+    /// and a Q cap at its end, joined with the given parameters. The
+    /// world must have no atoms yet. Answers the world and the
+    /// template's atom IDs.
+    let addTemplate parms (rng : Random) nCoding (world : World) =
         assert(world.Atoms.Length = 0)
 
             // start cap
         let world =
-            addAtom AtomType.P (-2 - nCoding) 0 false world
+            addAtom AtomType.P (-2 - nCoding) 0 world
 
             // coding atoms
         let codingTypes = [| AtomType.W; AtomType.Y |]
@@ -208,11 +220,17 @@ module Build =
                 ||> Seq.fold (fun world i ->
                     let atomType =
                         codingTypes[rng.Next(codingTypes.Length)]
-                    addAtom atomType (2 * i - nCoding) 0 true world)
+                    addAtom atomType (2 * i - nCoding) 0 world)
 
             // end cap
         let world =
-            addAtom AtomType.Q nCoding 0 true world
+            addAtom AtomType.Q nCoding 0 world
+
+            // join them in order
+        let world =
+            (world, [ 1 .. world.Atoms.Length - 1 ])
+                ||> Seq.fold (fun world id ->
+                    World.addStrongBond parms (id - 1) id world)
 
         world, Array.map _.Id world.Atoms
 
@@ -240,7 +258,7 @@ module Build =
                 (world, [ 0 .. n - 1 ])
                     ||> Seq.fold (fun world i ->
                         addAtom atomType (offset.X + 2 * (i - n / 2))   // even, and centered as nearly as possible
-                            (offset.Y + iRow * dist) false world))
+                            (offset.Y + iRow * dist) world))
 
     /// Adds rows of free atoms around the center, as addFreeAtomsAt does.
     let addFreeAtomsWith nPerRow nCapsPerRow dist world =
@@ -254,9 +272,9 @@ module Build =
         addFreeAtomsWith nPerRow nPerRow dist world
 
     /// Adds a horizontal strand of the given atom types, joined in
-    /// order, with its first atom at the given location, if there is
-    /// room for it.
-    let tryAddStrand x y (atomTypes : _[]) world =
+    /// order with the given parameters, with its first atom at the
+    /// given location, if there is room for it.
+    let tryAddStrand parms x y (atomTypes : _[]) world =
         (Some world, Array.indexed atomTypes)
             ||> Array.fold (fun worldOpt (i, atomType) ->
                 worldOpt
@@ -265,7 +283,7 @@ module Build =
                         World.tryAddAtom atomType loc world)
                     |> Option.map (fun (world, atom) ->
                         if i > 0 then
-                            World.addStrongBond
+                            World.addStrongBond parms
                                 (atom.Id - 1) atom.Id world
                         else world))
 
@@ -276,15 +294,16 @@ module Build =
         -maxDist / 2, (maxDist - 2 * length) / 2 + 1
 
     /// Adds a horizontal strand of the given atom types, joined in
-    /// order, at a random empty place where every one of its atoms is
-    /// within the given distance of the center along each axis.
-    let addStrandAtRandom (rng : Random) maxDist (atomTypes : _[]) world =
+    /// order with the given parameters, at a random empty place where
+    /// every one of its atoms is within the given distance of the
+    /// center along each axis.
+    let addStrandAtRandom parms (rng : Random) maxDist (atomTypes : _[]) world =
         assert(atomTypes.Length >= 2)
         let minX, maxX = getStartRange maxDist atomTypes.Length
         let rec loop () =
             let x = 2 * rng.Next(minX, maxX)
             let y = 2 * rng.Next(-maxDist / 2, maxDist / 2 + 1)
-            tryAddStrand x y atomTypes world
+            tryAddStrand parms x y atomTypes world
                 |> Option.defaultWith loop
         loop ()
 
@@ -295,12 +314,13 @@ module Build =
         2 * rng.Next(minX, maxX)
 
     /// Adds a horizontal strand of the given atom types, joined in
-    /// order, starting at the given x coordinate and at a random empty
-    /// height within the given distance of the center.
-    let addStrandAtRandomHeight (rng : Random) maxDist x (atomTypes : _[]) world =
+    /// order with the given parameters, starting at the given x
+    /// coordinate and at a random empty height within the given
+    /// distance of the center.
+    let addStrandAtRandomHeight parms (rng : Random) maxDist x (atomTypes : _[]) world =
         let rec loop () =
             let y = 2 * rng.Next(-maxDist / 2, maxDist / 2 + 1)
-            tryAddStrand x y atomTypes world
+            tryAddStrand parms x y atomTypes world
                 |> Option.defaultWith loop
         loop ()
 
@@ -311,11 +331,11 @@ module Scenario =
 
     /// Builds the standard world: a 160x160 torus of free atoms, with or
     /// without a template.
-    let private build withTemplate (rng : Random) =
+    let private build withTemplate parms (rng : Random) =
         let world = World.createSquare 160
         let world, template =
             if withTemplate then
-                Build.addTemplate rng nCoding world
+                Build.addTemplate parms rng nCoding world
             else world, Array.empty
         let world = Build.addFreeAtoms (6 * nCoding) 6 world
         world, template
@@ -339,7 +359,7 @@ module Scenario =
                                 StartBarrier = 1
                                 Entropy = 0
                                 HydrolysisRate = 0
-                                BendLimit = (0, 1)   // right angles, so that strands can fold
+                                BendLimit = Bend.rightAngle   // so that strands can fold
                                 BendStiffness = 1.5   // but prefer to be straight (experiment 15)
                             }
                             Weak, {
@@ -350,7 +370,7 @@ module Scenario =
                                 StartBarrier = 0
                                 Entropy = 3
                                 HydrolysisRate = 0
-                                BendLimit = World.defaultBendLimit Weak
+                                BendLimit = Bend.any
                                 BendStiffness = 0
                             }
                         ]
@@ -379,7 +399,7 @@ module Scenario =
                                     StartBarrier = 1
                                     Entropy = 0
                                     HydrolysisRate = 1e-4   // about 5% of strong bonds break per cycle
-                                    BendLimit = (0, 1)   // right angles, so that strands can fold
+                                    BendLimit = Bend.rightAngle   // so that strands can fold
                                     BendStiffness = 1.5   // but prefer to be straight (experiment 15)
                                 } }
                 Schedule =
@@ -464,10 +484,10 @@ module Scenario =
             |> withHydrolysisRate 0.0
 
     /// Adds a step to the end of building the given scenario's world.
-    let withBuildStep (step : Random -> World -> World) scenario =
-        let build rng =
-            let world, template = scenario.Build rng
-            step rng world, template
+    let withBuildStep (step : Parameters -> Random -> World -> World) scenario =
+        let build parms rng =
+            let world, template = scenario.Build parms rng
+            step parms rng world, template
         { scenario with Build = build }
 
     /// A vent along the seam of the standard 160x160 torus (x = 0): during
@@ -498,13 +518,13 @@ module Scenario =
     /// near the vent and copy better there, while farther out, where
     /// the pulse is cooler, only W-X pairs should separate.
     let createVentScenario nSeeds yzEnergy =
-        let addStrands rng world =
+        let addStrands parms rng world =
             (world, [ 1 .. nSeeds ])
                 ||> Seq.fold (fun world _ ->
                     world
-                        |> Build.addStrandAtRandom rng 74
+                        |> Build.addStrandAtRandom parms rng 74
                             [| AtomType.P; AtomType.W; AtomType.Q |]
-                        |> Build.addStrandAtRandom rng 74
+                        |> Build.addStrandAtRandom parms rng 74
                             [| AtomType.P; AtomType.Y; AtomType.Q |])
         let scenario = createScenarioB false
         let name = $"Vent, Y-Z energy {yzEnergy}"
@@ -542,7 +562,7 @@ module Scenario =
     let createVentWindowScenario scale nCapsPerRow nPairs yzEnergy =
         let size = 160 * scale
         let scenario = createScenarioB false
-        let build rng =
+        let build parms rng =
             let world =
                 World.createSquare size
             let world =
@@ -563,8 +583,8 @@ module Scenario =
                     ||> Seq.fold (fun world _ ->
                         let x = Build.getRandomStart rng (80 * scale - 6) (nCoding + 2)
                         world
-                            |> Build.addStrandAtRandomHeight rng (80 * scale - 6) x (template AtomType.W)
-                            |> Build.addStrandAtRandomHeight rng (80 * scale - 6) x (template AtomType.Y))
+                            |> Build.addStrandAtRandomHeight parms rng (80 * scale - 6) x (template AtomType.W)
+                            |> Build.addStrandAtRandomHeight parms rng (80 * scale - 6) x (template AtomType.Y))
             world, [| nBefore .. world.Atoms.Length - 1 |]
         { scenario with
             Name = if scale = 1 then "Vent window" else $"Vent window, {scale}x"
@@ -613,7 +633,7 @@ module Run =
     /// Starts running the given scenario with the given seed.
     let create seed scenario =
         let rng = Random(seed)
-        let world, template = scenario.Build rng
+        let world, template = scenario.Build scenario.Parameters rng
         {
             Scenario = scenario
             Template = template

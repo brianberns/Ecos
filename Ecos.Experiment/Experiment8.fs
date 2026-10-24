@@ -110,12 +110,12 @@ module Experiment8 =
     /// each kind (P-W-Q and P-Y-Q) added at random places, and the
     /// given energy for the weak Y-Z bond.
     let getScenario numSeeds yzEnergy =
-        let addStrands rng world =
+        let addStrands parms rng world =
             (world, [ 1 .. numSeeds ])
                 ||> Seq.fold (fun world _ ->
                     world
-                        |> Build.addStrandAtRandom rng 70 [| AtomType.P; AtomType.W; AtomType.Q |]
-                        |> Build.addStrandAtRandom rng 70 [| AtomType.P; AtomType.Y; AtomType.Q |])
+                        |> Build.addStrandAtRandom parms rng 70 [| AtomType.P; AtomType.W; AtomType.Q |]
+                        |> Build.addStrandAtRandom parms rng 70 [| AtomType.P; AtomType.Y; AtomType.Q |])
         Scenario.createScenarioB false
             |> Scenario.withBuildStep addStrands
             |> Scenario.withPairEnergy Weak AtomType.Y AtomType.Z yzEnergy

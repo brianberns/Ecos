@@ -15,12 +15,20 @@ module TestWorld =
 /// Parameters used by the tests.
 module TestParameters =
 
+    /// Bend limit that keeps strands nearly straight: they bend by at
+    /// most about 37 degrees at each atom.
+    let straightBend = Rational.create -4 5
+
+    /// Bend limit that allows any angle, apart from the bond type's own
+    /// rules.
+    let anyBend = Rational.create 1 1
+
     /// Standard bond parameters. Most tests use these, and the exact
     /// tests' temperatures are chosen to suit them.
     let standardBondParameterMap =
         Map [
-            Strong, { Energy = 12; PairEnergyMap = Map.empty; Barrier = 6; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = World.defaultBendLimit Strong; BendStiffness = 0 }
-            Weak, { Energy = 1; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = World.defaultBendLimit Weak; BendStiffness = 0 }
+            Strong, { Energy = 12; PairEnergyMap = Map.empty; Barrier = 6; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = straightBend; BendStiffness = 0 }
+            Weak, { Energy = 1; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = anyBend; BendStiffness = 0 }
         ]
 
     /// Standard parameters at the given temperature.
@@ -30,6 +38,10 @@ module TestParameters =
             BondParameterMap = standardBondParameterMap
             PeelBarrier = System.Double.PositiveInfinity   // no peeling
         }
+
+    /// Standard parameters, for building worlds by hand. Building
+    /// doesn't depend on temperature, so it is NaN.
+    let standard = create nan
 
     /// Standard parameters at the given temperature, except that
     /// strong bonds can never form or break: their barrier is
@@ -204,16 +216,16 @@ module Bonds =
         isAngleAllowed Weak center a b
 
     /// Oracle: is the angle between an atom's two strong bonds within
-    /// the given bend limit (numerator, denominator), when the atom is
-    /// at the given center and its partners are at locations a and b?
-    /// The cosine of the angle between the two vectors from the center
-    /// must be at most numerator / denominator.
-    let isBendAllowed (numerator, denominator) (center : Point) (a : Point) (b : Point) =
+    /// the given bend limit, when the atom is at the given center and
+    /// its partners are at locations a and b? The cosine of the angle
+    /// between the two vectors from the center must be at most the
+    /// limit.
+    let isBendAllowed (limit : Rational) (center : Point) (a : Point) (b : Point) =
         let da = a - center
         let db = b - center
         let length (d : Point) = sqrt (float (d.X * d.X + d.Y * d.Y))
         let cosine = float (da.X * db.X + da.Y * db.Y) / (length da * length db)
-        cosine <= float numerator / float denominator + 1e-9   // some angles are exactly at the limit
+        cosine <= float limit.Numerator / float limit.Denominator + 1e-9   // some angles are exactly at the limit
 
     /// Oracle: energy of the bend at an atom at the given center, whose
     /// strong partners are at locations a and b: kappa * (1 + cos phi),
@@ -255,7 +267,7 @@ module Chain =
     /// All allowed bond vectors in the 2D bond fluctuation model
     /// (Carmesin & Kremer 1988): integer vectors b with 4 <= |b|^2 <= 13.
     /// This is an independent statement of the rule that
-    /// World.tryAddStrongBond enforces, so tests can use it as an oracle.
+    /// World.tryAddStrongBond TestParameters.standard enforces, so tests can use it as an oracle.
     let bondVectors =
         [|
             for x in -3 .. 3 do
@@ -267,7 +279,7 @@ module Chain =
 
     /// Allowed weak bond vectors: the closest separations at which two
     /// atoms don't overlap, i.e. 4 <= |b|^2 <= 8. An independent
-    /// statement of the range World.tryAddWeakBond enforces.
+    /// statement of the range World.tryAddWeakBond TestParameters.standard enforces.
     let weakBondVectors =
         bondVectors
             |> Array.filter (fun v -> v.X * v.X + v.Y * v.Y <= 8)
@@ -425,7 +437,7 @@ module Chain =
                     World.addAtom types[atom.Id] atom.Location rebuilt)
         (rebuilt, Bonds.strongBonds world)
             ||> Seq.fold (fun rebuilt (idA, idB) ->
-                World.addStrongBond idA idB rebuilt)
+                World.addStrongBond TestParameters.standard idA idB rebuilt)
 
     /// Tries to append atoms at the given locations to the end of the
     /// chain in the given world, bonding each to its predecessor. Fails
@@ -438,7 +450,7 @@ module Chain =
                     |> Option.bind (World.tryAddAtomW loc)
                     |> Option.bind (fun world ->
                         let id = n0 + i
-                        if id > 0 then World.tryAddStrongBond (id - 1) id world
+                        if id > 0 then World.tryAddStrongBond TestParameters.standard (id - 1) id world
                         else Some world))
 
     /// Grows a random linear chain of n atoms, one atom at a time,
@@ -507,7 +519,7 @@ module Chain =
                                     |> World.tryAddAtom types[rng.Next types.Length] locB
                                     |> Option.bind (fun (world, atomB) ->
                                         world
-                                            |> World.tryAddStrongBond atomA.Id atomB.Id))
+                                            |> World.tryAddStrongBond TestParameters.standard atomA.Id atomB.Id))
                 match worldOpt with
                     | Some world -> loop (count - 1) (attempts + 1) world
                     | None -> loop count (attempts + 1) world

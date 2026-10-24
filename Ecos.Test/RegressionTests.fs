@@ -50,8 +50,8 @@ module RegressionTests =
             GetTemperature = Parameters.getUniformTemperature 1.5
             BondParameterMap =
                 Map [
-                    Strong, { Energy = 12; PairEnergyMap = Map.empty; Barrier = 6; BarrierStackReduction = 3; StartBarrier = 1; Entropy = 0.5; HydrolysisRate = 0.02; BendLimit = World.defaultBendLimit Strong; BendStiffness = 0 }
-                    Weak, { Energy = 2; PairEnergyMap = Map.empty; Barrier = 0.5; BarrierStackReduction = 0; StartBarrier = 0.5; Entropy = 1; HydrolysisRate = 0; BendLimit = World.defaultBendLimit Weak; BendStiffness = 0 }
+                    Strong, { Energy = 12; PairEnergyMap = Map.empty; Barrier = 6; BarrierStackReduction = 3; StartBarrier = 1; Entropy = 0.5; HydrolysisRate = 0.02; BendLimit = TestParameters.straightBend; BendStiffness = 0 }
+                    Weak, { Energy = 2; PairEnergyMap = Map.empty; Barrier = 0.5; BarrierStackReduction = 0; StartBarrier = 0.5; Entropy = 1; HydrolysisRate = 0; BendLimit = TestParameters.anyBend; BendStiffness = 0 }
                 ]
             PeelBarrier = 2.0
         }
@@ -75,8 +75,8 @@ module RegressionTests =
             GetTemperature = Parameters.getUniformTemperature 0.7
             BondParameterMap =
                 Map [
-                    Strong, { Energy = 12; PairEnergyMap = Map.empty; Barrier = 6; BarrierStackReduction = 6; StartBarrier = 0.5; Entropy = 0; HydrolysisRate = 0; BendLimit = World.defaultBendLimit Strong; BendStiffness = 0 }
-                    Weak, { Energy = 2; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 1; HydrolysisRate = 0; BendLimit = World.defaultBendLimit Weak; BendStiffness = 0 }
+                    Strong, { Energy = 12; PairEnergyMap = Map.empty; Barrier = 6; BarrierStackReduction = 6; StartBarrier = 0.5; Entropy = 0; HydrolysisRate = 0; BendLimit = TestParameters.straightBend; BendStiffness = 0 }
+                    Weak, { Energy = 2; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 1; HydrolysisRate = 0; BendLimit = TestParameters.anyBend; BendStiffness = 0 }
                 ]
             PeelBarrier = 3.0
         }
@@ -95,7 +95,7 @@ module RegressionTests =
             (TestWorld.empty, Array.indexed template)
                 ||> Array.fold (fun world (i, atomType) ->
                     let world = World.addAtom atomType (Point.create (2 * i - 8, 0)) world
-                    if i > 0 then World.addStrongBond (i - 1) i world
+                    if i > 0 then World.addStrongBond TestParameters.standard (i - 1) i world
                     else world)
         let free =
             [|
@@ -121,8 +121,8 @@ module RegressionTests =
             |> World.addAtom AtomType.W (Point.create (1, -1))    // 1
             |> World.addAtom AtomType.X (Point.create (-1, 1))    // 2
             |> World.addAtom AtomType.X (Point.create (1, 1))     // 3
-            |> World.addStrongBond 0 1
-            |> World.addStrongBond 2 3
+            |> World.addStrongBond TestParameters.standard 0 1
+            |> World.addStrongBond TestParameters.standard 2 3
             |> Chain.addBox 2
 
     /// Parameters for the ladder: strong bonds can also break and
@@ -132,8 +132,8 @@ module RegressionTests =
             GetTemperature = Parameters.getUniformTemperature 1.0
             BondParameterMap =
                 Map [
-                    Strong, { Energy = 2; PairEnergyMap = Map.empty; Barrier = 3; BarrierStackReduction = 2; StartBarrier = 0.5; Entropy = 0; HydrolysisRate = 0; BendLimit = World.defaultBendLimit Strong; BendStiffness = 0 }
-                    Weak, { Energy = 3; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0.5; HydrolysisRate = 0; BendLimit = World.defaultBendLimit Weak; BendStiffness = 0 }
+                    Strong, { Energy = 2; PairEnergyMap = Map.empty; Barrier = 3; BarrierStackReduction = 2; StartBarrier = 0.5; Entropy = 0; HydrolysisRate = 0; BendLimit = TestParameters.straightBend; BendStiffness = 0 }
+                    Weak, { Energy = 3; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0.5; HydrolysisRate = 0; BendLimit = TestParameters.anyBend; BendStiffness = 0 }
                 ]
             PeelBarrier = Double.PositiveInfinity
         }
@@ -248,6 +248,6 @@ module RegressionTests =
         let before = state world
         World.addWall (Point.create (8, 8)) world |> ignore
         World.addAtom AtomType.X (Point.create (8, 2)) world |> ignore
-        World.addStrongBond 0 1 world |> ignore
-        World.addWeakBond 0 2 world |> ignore
+        World.addStrongBond TestParameters.standard 0 1 world |> ignore
+        World.addWeakBond TestParameters.standard 0 2 world |> ignore
         Assert.Equal(before, state world)

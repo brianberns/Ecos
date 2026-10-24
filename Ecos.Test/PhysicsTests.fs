@@ -137,7 +137,7 @@ module PhysicsTests =
                 ||> List.fold (fun world i ->
                     let world =
                         World.addAtomW (Point.create (2 * i, 0)) world
-                    if i > 0 then World.addStrongBond (i - 1) i world
+                    if i > 0 then World.addStrongBond TestParameters.standard (i - 1) i world
                     else world)
         let samples =
             world
@@ -157,7 +157,7 @@ module PhysicsTests =
     /// cost.
     let private bendable kappa kT =
         TestParameters.createFrozen kT
-            |> TestParameters.withBend Strong (0, 1) kappa
+            |> TestParameters.withBend Strong (Rational.create 0 1) kappa
 
     /// A three-atom chain: the simplest case with a bond angle.
     [<Fact>]
@@ -202,7 +202,7 @@ module PhysicsTests =
         let kT = 4.0
         let parms =
             TestParameters.create kT
-                |> TestParameters.withBend Strong (0, 1) 4.0
+                |> TestParameters.withBend Strong (Rational.create 0 1) 4.0
         let strong = parms.BondParameterMap[Strong]
         let bondWeight =
             exp (-Chain.bondEnergy parms Strong AtomType.W AtomType.W / kT)
@@ -528,8 +528,8 @@ module PhysicsTests =
                 |> World.addAtom AtomType.W (Point.create(0, -2))    // 1
                 |> World.addAtom AtomType.X (Point.create(0, 2))     // 2
                 |> World.addAtom AtomType.X (Point.create(2, 2))     // 3
-                |> World.addStrongBond 0 1
-                |> World.addStrongBond 2 3
+                |> World.addStrongBond TestParameters.standard 0 1
+                |> World.addStrongBond TestParameters.standard 2 3
                 |> Chain.addBox size
                 |> sample
                     (TestParameters.createFrozen kT) 8 2000 300 3000
@@ -659,7 +659,7 @@ module PhysicsTests =
                 |> World.addAtom AtomType.X (Point.create (2 - size, -size))    // 1
                 |> World.addAtom AtomType.W (Point.create (size, size))         // 2
                 |> World.addAtom AtomType.W (Point.create (-size, size))        // 3
-                |> World.addStrongBond 0 1
+                |> World.addStrongBond TestParameters.standard 0 1
                 |> Chain.addBox size
                 |> sample
                     parms 8 5000 1000 3000
@@ -678,14 +678,14 @@ module PhysicsTests =
     /// an X's two partners must be nearly in line.
     [<Fact>]
     let ``A dimer and two free atoms in a box follow the Boltzmann distribution with a weak bend limit`` () =
-        checkWeakBend (-4, 5) 0.0
+        checkWeakBend TestParameters.straightBend 0.0
 
     /// Weak bends with a cost. The weak bond's own rule keeps every bend
     /// gentle (cos phi <= -0.6), so a large stiffness is needed to make
     /// the differences between them count.
     [<Fact>]
     let ``A dimer and two free atoms in a box follow the Boltzmann distribution with weak bend stiffness`` () =
-        checkWeakBend (1, 1) 8.0
+        checkWeakBend TestParameters.anyBend 8.0
 
     /// Chain lengths for the diffusion tests.
     let private lengths = [ 8; 16; 32; 64 ]

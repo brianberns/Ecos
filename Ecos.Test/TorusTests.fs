@@ -14,8 +14,8 @@ module TorusTests =
             GetTemperature = Parameters.getUniformTemperature 1.0
             BondParameterMap =
                 Map [
-                    Strong, { Energy = 6; PairEnergyMap = Map.empty; Barrier = 3; BarrierStackReduction = 3; StartBarrier = 0.5; Entropy = 0.5; HydrolysisRate = 0.01; BendLimit = World.defaultBendLimit Strong; BendStiffness = 0 }
-                    Weak, { Energy = 2; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 1; HydrolysisRate = 0; BendLimit = World.defaultBendLimit Weak; BendStiffness = 0 }
+                    Strong, { Energy = 6; PairEnergyMap = Map.empty; Barrier = 3; BarrierStackReduction = 3; StartBarrier = 0.5; Entropy = 0.5; HydrolysisRate = 0.01; BendLimit = TestParameters.straightBend; BendStiffness = 0 }
+                    Weak, { Energy = 2; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 1; HydrolysisRate = 0; BendLimit = TestParameters.anyBend; BendStiffness = 0 }
                 ]
             PeelBarrier = 2.0
         }
@@ -35,7 +35,7 @@ module TorusTests =
             (World.createSquare size, Array.indexed types)
                 ||> Array.fold (fun world (i, atomType) ->
                     let world = World.addAtom atomType (Point.create (2 * i - 8, 0)) world
-                    if i > 0 then World.addStrongBond (i - 1) i world
+                    if i > 0 then World.addStrongBond TestParameters.standard (i - 1) i world
                     else world)
         let free =
             [|
@@ -64,9 +64,9 @@ module TorusTests =
                     World.addAtom atom.Type (atom.Location + offset) torus)
         let torus =
             (torus, Bonds.strongBonds world)
-                ||> Seq.fold (fun torus (idA, idB) -> World.addStrongBond idA idB torus)
+                ||> Seq.fold (fun torus (idA, idB) -> World.addStrongBond TestParameters.standard idA idB torus)
         (torus, Bonds.weakBonds world)
-            ||> Seq.fold (fun torus (idA, idB) -> World.addWeakBond idA idB torus)
+            ||> Seq.fold (fun torus (idA, idB) -> World.addWeakBond TestParameters.standard idA idB torus)
 
     /// Dynamics depend only on where atoms are relative to each other.
     /// So a boxed world at the center of a torus, and the same world
@@ -109,7 +109,7 @@ module TorusTests =
             (World.createSquare size, [ for x in -6 .. 2 .. 6 -> x ])
                 ||> List.fold (fun world x ->
                     let world = World.addAtom AtomType.W (Point.create (x, 0)) world
-                    if x > -6 then World.addStrongBond (world.Atoms.Length - 2) (world.Atoms.Length - 1) world
+                    if x > -6 then World.addStrongBond TestParameters.standard (world.Atoms.Length - 2) (world.Atoms.Length - 1) world
                     else world)
         world <-
             (world, [ for x in -6 .. 4 .. 6 do for y in [ -5; 5 ] -> x, y ])

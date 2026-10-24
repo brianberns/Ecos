@@ -93,7 +93,7 @@ module Experiment14 =
     /// atoms scattered at random.
     let getScenario placement =
         let scenario = Scenario.createScenarioC true
-        let build (rng : Random) =
+        let build parms (rng : Random) =
             let codingTypes = [| AtomType.W; AtomType.Y |]
             let types =
                 [|
@@ -106,7 +106,7 @@ module Experiment14 =
             let world =
                 World.createSquare (2 * wall + 4)
                     |> Build.addBox (2 * wall) (2 * wall)
-                    |> Build.tryAddStrand x y types
+                    |> Build.tryAddStrand parms x y types
                     |> Option.get
             let template = Array.map _.Id world.Atoms
             let world = addFreeAtomsAtRandom rng (12 * nCoding) world
@@ -269,7 +269,7 @@ module Experiment14 =
     /// They compete for the same free atoms.
     let getCompetitionScenario gap =
         let scenario = Scenario.createScenarioC true
-        let build (rng : Random) =
+        let build parms (rng : Random) =
             let codingTypes = [| AtomType.W; AtomType.Y |]
             let world =
                 (World.createSquare (2 * wall + 4)
@@ -282,7 +282,7 @@ module Experiment14 =
                                     codingTypes[rng.Next(codingTypes.Length)]
                                 AtomType.Q
                             |]
-                        Build.tryAddStrand x y types world |> Option.get)
+                        Build.tryAddStrand parms x y types world |> Option.get)
             let templates = Array.map _.Id world.Atoms
             let world = addFreeAtomsAtRandom rng (12 * nCoding) world
             world, templates
