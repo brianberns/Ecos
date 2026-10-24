@@ -24,10 +24,10 @@ module Experiment2 =
             /// A reduction larger than the barrier just removes it.
             StrongBondBarrierStackReductions : float[]
 
-            /// Bond parameters to run with. The strong bond barrier
+            /// Bond-type parameters to run with. The strong bond barrier
             /// and its reduction are replaced by each combination of
             /// the values above in turn.
-            BondParameterMap : BondParameterMap
+            BondTypeParameterMap : BondTypeParameterMap
 
             /// Number of independent runs (seeds) of each world, at
             /// each combination of the values above.
@@ -55,7 +55,7 @@ module Experiment2 =
             Temperatures = [| 0.2; 0.25; 0.3 |]
             StrongBondBarriers = [| 2.0; 3.0 |]
             StrongBondBarrierStackReductions = [| 0.0; 1.0; 1.5; 2.0; 3.0 |]
-            BondParameterMap =
+            BondTypeParameterMap =
                 Map [
                     Strong,
                         {
@@ -81,7 +81,7 @@ module Experiment2 =
                             BendLimit = Bend.any
                             BendStiffness = 0
                         }
-                ] |> BondParameterMap.ofMap
+                ] |> BondTypeParameterMap.ofMap
             NumRuns = 16
             EquilibrationSweeps = 10000
             MaxJoins = 5
@@ -204,10 +204,10 @@ module Experiment2 =
             |> Scenario.withName name
             |> Scenario.mapParameters (fun parms ->
                 { parms with
-                    BondParameterMap = settings.BondParameterMap
+                    BondTypeParameterMap = settings.BondTypeParameterMap
                     PeelBarrier = Double.PositiveInfinity })   // no peeling
-            |> Scenario.mapBondParameters Strong (fun bondParms ->
-                { bondParms with
+            |> Scenario.mapBondTypeParameters Strong (fun bondTypeParms ->
+                { bondTypeParms with
                     Barrier = barrier
                     BarrierStackReduction = reduction })
 
@@ -233,8 +233,8 @@ module Experiment2 =
             // settle, with strong bonds frozen by an impassable barrier
         let frozen =
             scenario
-                |> Scenario.mapBondParameters Strong (fun bondParms ->
-                    { bondParms with
+                |> Scenario.mapBondTypeParameters Strong (fun bondTypeParms ->
+                    { bondTypeParms with
                         Barrier = Double.PositiveInfinity
                         BarrierStackReduction = 0.0 })
         let run =
@@ -325,8 +325,8 @@ module Experiment2 =
             settings.MaxSweeps
         printfn
             "Strong bond energy %g; weak bond energy %g"
-            settings.BondParameterMap[Strong].Energy
-            settings.BondParameterMap[Weak].Energy
+            settings.BondTypeParameterMap[Strong].Energy
+            settings.BondTypeParameterMap[Weak].Energy
         printfn ""
         printfn "                                           joins per 10,000 sweeps"
         printfn "barrier  reduction    kT   occupancy   same side   no template   with template   enhancement      +/-   templated   longest   end joins"

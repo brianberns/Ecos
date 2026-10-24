@@ -23,19 +23,19 @@ module TestParameters =
     /// rules.
     let anyBend = Rational.create 1 1
 
-    /// Standard bond parameters. Most tests use these, and the exact
+    /// Standard bond-type parameters. Most tests use these, and the exact
     /// tests' temperatures are chosen to suit them.
-    let standardBondParameterMap =
+    let standardBondTypeParameterMap =
         Map [
             Strong, { Energy = 12; PairEnergyMap = Map.empty; Barrier = 6; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = straightBend; BendStiffness = 0 }
             Weak, { Energy = 1; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = anyBend; BendStiffness = 0 }
-        ] |> BondParameterMap.ofMap
+        ] |> BondTypeParameterMap.ofMap
 
     /// Standard parameters at the given temperature.
     let create kT =
         {
             GetTemperature = Parameters.getUniformTemperature kT
-            BondParameterMap = standardBondParameterMap
+            BondTypeParameterMap = standardBondTypeParameterMap
             PeelBarrier = System.Double.PositiveInfinity   // no peeling
         }
 
@@ -49,66 +49,66 @@ module TestParameters =
     /// bonds as fixed.
     let createFrozen kT =
         let strong =
-            { standardBondParameterMap[Strong] with
+            { standardBondTypeParameterMap[Strong] with
                 Barrier = System.Double.PositiveInfinity }
         {
             GetTemperature = Parameters.getUniformTemperature kT
-            BondParameterMap =
-                BondParameterMap.add Strong strong standardBondParameterMap
+            BondTypeParameterMap =
+                BondTypeParameterMap.add Strong strong standardBondTypeParameterMap
             PeelBarrier = System.Double.PositiveInfinity   // no peeling
         }
 
     /// The given parameters, with the given start barrier for each bond
     /// type.
     let withStartBarrier strongBarrier weakBarrier (parms : Parameters) =
-        let set bondType barrier (bondParmMap : BondParameterMap) =
-            BondParameterMap.add bondType { bondParmMap[bondType] with StartBarrier = barrier } bondParmMap
+        let set bondType barrier (bondTypeParmMap : BondTypeParameterMap) =
+            BondTypeParameterMap.add bondType { bondTypeParmMap[bondType] with StartBarrier = barrier } bondTypeParmMap
         { parms with
-            BondParameterMap =
-                parms.BondParameterMap
+            BondTypeParameterMap =
+                parms.BondTypeParameterMap
                     |> set Strong strongBarrier
                     |> set Weak weakBarrier }
 
     /// The given parameters, with the given hydrolysis rate for the given
     /// bond type.
     let withHydrolysis bondType rate (parms : Parameters) =
-        let bondParms = parms.BondParameterMap[bondType]
+        let bondTypeParms = parms.BondTypeParameterMap[bondType]
         { parms with
-            BondParameterMap =
-                BondParameterMap.add bondType
-                    { bondParms with HydrolysisRate = rate }
-                    parms.BondParameterMap }
+            BondTypeParameterMap =
+                BondTypeParameterMap.add bondType
+                    { bondTypeParms with HydrolysisRate = rate }
+                    parms.BondTypeParameterMap }
 
     /// The given parameters, with the given bend limit and stiffness
     /// for the given bond type.
     let withBend bondType bendLimit kappa (parms : Parameters) =
-        let bondParms = parms.BondParameterMap[bondType]
+        let bondTypeParms = parms.BondTypeParameterMap[bondType]
         { parms with
-            BondParameterMap =
-                BondParameterMap.add bondType
-                    { bondParms with
+            BondTypeParameterMap =
+                BondTypeParameterMap.add bondType
+                    { bondTypeParms with
                         BendLimit = bendLimit
                         BendStiffness = kappa }
-                    parms.BondParameterMap }
+                    parms.BondTypeParameterMap }
 
     /// The given parameters, with energies for particular pairs of atom
     /// types.
     let withPairEnergies bondType (pairs : ((AtomType * AtomType) * float) list) (parms : Parameters) =
-        let bondParms =
-            (parms.BondParameterMap[bondType], pairs)
-                ||> List.fold (fun bondParms ((typeA, typeB), energy) ->
-                    BondTypeParameters.addPairEnergy typeA typeB energy bondParms)
+        let bondTypeParms =
+            (parms.BondTypeParameterMap[bondType], pairs)
+                ||> List.fold (fun bondTypeParms ((typeA, typeB), energy) ->
+                    BondTypeParameters.addPairEnergy typeA typeB energy bondTypeParms)
         { parms with
-            BondParameterMap =
-                BondParameterMap.add bondType bondParms parms.BondParameterMap }
+            BondTypeParameterMap =
+                BondTypeParameterMap.add bondType bondTypeParms parms.BondTypeParameterMap }
 
     /// The given parameters, with the given entropy for each bond type.
     let withEntropy strongEntropy weakEntropy (parms : Parameters) =
-        let set bondType entropy (map : BondParameterMap) =
-            BondParameterMap.add bondType { map[bondType] with Entropy = entropy } map
+        let set bondType entropy (map : BondTypeParameterMap) =
+            BondTypeParameterMap.add bondType { map[bondType] with Entropy = entropy } map
         { parms with
-            BondParameterMap =
-                parms.BondParameterMap
+            BondTypeParameterMap =
+                parms.BondTypeParameterMap
                     |> set Strong strongEntropy
                     |> set Weak weakEntropy }
 
@@ -329,14 +329,14 @@ module Chain =
     /// default. (World's parameters give the depth of the bond as a
     /// positive number, so the energy is its negative.)
     let bondEnergy (parms : Parameters) bondType typeA typeB =
-        let bondParms = parms.BondParameterMap[bondType]
+        let bondTypeParms = parms.BondTypeParameterMap[bondType]
         let depth =
-            match Map.tryFind (typeA, typeB) bondParms.PairEnergyMap with
+            match Map.tryFind (typeA, typeB) bondTypeParms.PairEnergyMap with
                 | Some energy -> energy
                 | None ->
-                    match Map.tryFind (typeB, typeA) bondParms.PairEnergyMap with
+                    match Map.tryFind (typeB, typeA) bondTypeParms.PairEnergyMap with
                         | Some energy -> energy
-                        | None -> bondParms.Energy
+                        | None -> bondTypeParms.Energy
         -depth
 
     /// Oracle: barrier to forming or breaking a bond of the given type,
@@ -353,11 +353,11 @@ module Chain =
     /// the only one either atom has, so the start barrier slows both
     /// equally and doesn't change which state is favored.
     let bondBarrier (parms : Parameters) bondType nStacks isStart =
-        let bondParms = parms.BondParameterMap[bondType]
+        let bondTypeParms = parms.BondTypeParameterMap[bondType]
         let barrier =
-            bondParms.Barrier - bondParms.BarrierStackReduction * float nStacks
+            bondTypeParms.Barrier - bondTypeParms.BarrierStackReduction * float nStacks
                 |> max 0.0
-        if isStart then barrier + bondParms.StartBarrier
+        if isStart then barrier + bondTypeParms.StartBarrier
         else barrier
 
     /// Oracle: entropy lost when a bond of the given type forms, with
@@ -367,7 +367,7 @@ module Chain =
     /// exp(-energy / kT - entropy), and above kT = -energy / entropy
     /// the bond is more likely broken than not.
     let bondEntropy (parms : Parameters) bondType =
-        parms.BondParameterMap[bondType].Entropy
+        parms.BondTypeParameterMap[bondType].Entropy
 
     /// Oracle: barrier to peeling a bond of the given type from an
     /// exposed end of a strand. Only strong bonds peel.
@@ -380,7 +380,7 @@ module Chain =
     /// type succeeds by hydrolysis, whatever its energy or position: the
     /// bond type's own rate. A cap's bond is like any other.
     let hydrolysisRate (parms : Parameters) bondType =
-        parms.BondParameterMap[bondType].HydrolysisRate
+        parms.BondTypeParameterMap[bondType].HydrolysisRate
 
     /// Oracle: energy of one weak bond between W and X, with the
     /// standard parameters.

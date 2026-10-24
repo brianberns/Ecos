@@ -736,11 +736,11 @@ module PropertyTests =
         let parms =
             {
                 GetTemperature = Parameters.getUniformTemperature 1.0
-                BondParameterMap =
+                BondTypeParameterMap =
                     Map [
                         Strong, { Energy = 30; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = TestParameters.straightBend; BendStiffness = 0 }
                         Weak, { Energy = 1; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = TestParameters.anyBend; BendStiffness = 0 }
-                    ] |> BondParameterMap.ofMap
+                    ] |> BondTypeParameterMap.ofMap
                 PeelBarrier = Double.PositiveInfinity   // no peeling
             }
         let mutable world =
@@ -901,11 +901,11 @@ module PropertyTests =
         let parms =
             {
                 GetTemperature = Parameters.getUniformTemperature 1.0
-                BondParameterMap =
+                BondTypeParameterMap =
                     Map [
                         Strong, { Energy = 0; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = TestParameters.straightBend; BendStiffness = 0 }
                         Weak, { Energy = 3; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = TestParameters.anyBend; BendStiffness = 0 }
-                    ] |> BondParameterMap.ofMap
+                    ] |> BondTypeParameterMap.ofMap
                 PeelBarrier = Double.PositiveInfinity   // no peeling
             }
         let mutable world =
@@ -1309,11 +1309,11 @@ module PropertyTests =
         let parms =
             {
                 GetTemperature = Parameters.getUniformTemperature 1.0
-                BondParameterMap =
+                BondTypeParameterMap =
                     Map [
                         Strong, { Energy = 0; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = TestParameters.straightBend; BendStiffness = 0 }
                         Weak, { Energy = 3; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = TestParameters.anyBend; BendStiffness = 0 }
-                    ] |> BondParameterMap.ofMap
+                    ] |> BondTypeParameterMap.ofMap
                 PeelBarrier = Double.PositiveInfinity   // no peeling
             }
         for label, world in stackingWorlds do
@@ -1332,11 +1332,11 @@ module PropertyTests =
         let parms =
             {
                 GetTemperature = Parameters.getUniformTemperature 1.0
-                BondParameterMap =
+                BondTypeParameterMap =
                     Map [
                         Strong, { Energy = 0; PairEnergyMap = Map.empty; Barrier = 3; BarrierStackReduction = 3; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = TestParameters.straightBend; BendStiffness = 0 }
                         Weak, { Energy = 3; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = TestParameters.anyBend; BendStiffness = 0 }
-                    ] |> BondParameterMap.ofMap
+                    ] |> BondTypeParameterMap.ofMap
                 PeelBarrier = Double.PositiveInfinity   // no peeling
             }
         for label, world in stackingWorlds do
@@ -1355,11 +1355,11 @@ module PropertyTests =
         let parms weakEntropy strongEntropy =
             {
                 GetTemperature = Parameters.getUniformTemperature 1.0
-                BondParameterMap =
+                BondTypeParameterMap =
                     Map [
                         Strong, { Energy = 2; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = strongEntropy; HydrolysisRate = 0; BendLimit = TestParameters.straightBend; BendStiffness = 0 }
                         Weak, { Energy = 3; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = weakEntropy; HydrolysisRate = 0; BendLimit = TestParameters.anyBend; BendStiffness = 0 }
-                    ] |> BondParameterMap.ofMap
+                    ] |> BondTypeParameterMap.ofMap
                 PeelBarrier = Double.PositiveInfinity   // no peeling
             }
         inParallel [|
@@ -1406,11 +1406,11 @@ module PropertyTests =
         let stacked =
             {
                 GetTemperature = Parameters.getUniformTemperature 1.0
-                BondParameterMap =
+                BondTypeParameterMap =
                     Map [
                         Strong, { Energy = 0; PairEnergyMap = Map.empty; Barrier = 3; BarrierStackReduction = 5; StartBarrier = 1.5; Entropy = 0; HydrolysisRate = 0; BendLimit = TestParameters.straightBend; BendStiffness = 0 }
                         Weak, { Energy = 3; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0.5; Entropy = 0; HydrolysisRate = 0; BendLimit = TestParameters.anyBend; BendStiffness = 0 }
-                    ] |> BondParameterMap.ofMap
+                    ] |> BondTypeParameterMap.ofMap
                 PeelBarrier = Double.PositiveInfinity   // no peeling
             }
             // strands start slowly but then grow freely, so most strong bonds
@@ -1418,11 +1418,11 @@ module PropertyTests =
         let growing =
             {
                 GetTemperature = Parameters.getUniformTemperature 1.0
-                BondParameterMap =
+                BondTypeParameterMap =
                     Map [
                         Strong, { Energy = 2; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 2; Entropy = 0; HydrolysisRate = 0; BendLimit = TestParameters.straightBend; BendStiffness = 0 }
                         Weak, { Energy = 1; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = TestParameters.anyBend; BendStiffness = 0 }
-                    ] |> BondParameterMap.ofMap
+                    ] |> BondTypeParameterMap.ofMap
                 PeelBarrier = Double.PositiveInfinity   // no peeling
             }
         inParallel [|
@@ -1476,11 +1476,11 @@ module PropertyTests =
         let peeling =
             {
                 GetTemperature = Parameters.getUniformTemperature 1.0
-                BondParameterMap =
+                BondTypeParameterMap =
                     Map [
                         Strong, { Energy = 30; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = TestParameters.straightBend; BendStiffness = 0 }
                         Weak, { Energy = 1; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = TestParameters.anyBend; BendStiffness = 0 }
-                    ] |> BondParameterMap.ofMap
+                    ] |> BondTypeParameterMap.ofMap
                 PeelBarrier = 1.0   // peels with probability 1/e
             }
         inParallel [|
@@ -1512,10 +1512,10 @@ module PropertyTests =
                     // deep weak bonds, which seldom break by the usual test,
                     // so that how often they hydrolyze shows: each bond type
                     // at its own rate, far apart
-                let weak = { peeling.BondParameterMap[Weak] with Energy = 3.0 }
+                let weak = { peeling.BondTypeParameterMap[Weak] with Energy = 3.0 }
                 checkEventRates
                     "Box, with deep weak bonds and hydrolysis"
-                    ({ peeling with BondParameterMap = BondParameterMap.add Weak weak peeling.BondParameterMap }
+                    ({ peeling with BondTypeParameterMap = BondTypeParameterMap.add Weak weak peeling.BondTypeParameterMap }
                         |> TestParameters.withHydrolysis Strong 0.3
                         |> TestParameters.withHydrolysis Weak 0.05)
                     200000 (Random(8)) world
@@ -1548,10 +1548,10 @@ module PropertyTests =
             // depends steeply on temperature; strong bonds frozen
         let weak =
             let parms = TestParameters.createFrozen 1.0
-            let weakParms = { parms.BondParameterMap[Weak] with Energy = 3.0 }
+            let weakParms = { parms.BondTypeParameterMap[Weak] with Energy = 3.0 }
             { parms with
                 GetTemperature = step 1.0 10.0
-                BondParameterMap = BondParameterMap.add Weak weakParms parms.BondParameterMap }
+                BondTypeParameterMap = BondTypeParameterMap.add Weak weakParms parms.BondTypeParameterMap }
 
             // strong bonds that form freely and are too strong to break in
             // the usual way, so every break is a peel (and no weak bonds,
@@ -1559,11 +1559,11 @@ module PropertyTests =
         let peeling =
             {
                 GetTemperature = step 0.25 25.0
-                BondParameterMap =
+                BondTypeParameterMap =
                     Map [
                         Strong, { Energy = 30; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = TestParameters.straightBend; BendStiffness = 0 }
                         Weak, { Energy = 1; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = TestParameters.anyBend; BendStiffness = 0 }
-                    ] |> BondParameterMap.ofMap
+                    ] |> BondTypeParameterMap.ofMap
                 PeelBarrier = 2.0
             }
 

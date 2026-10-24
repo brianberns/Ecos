@@ -96,7 +96,7 @@ module PhysicsTests =
     /// exp(-E/kT) over the bends at its interior atoms.
     let private checkChainWith (parms : Parameters) n =
         let kT = parms.GetTemperature Point.zero   // uniform
-        let strong = parms.BondParameterMap[Strong]
+        let strong = parms.BondTypeParameterMap[Strong]
 
             // exact number of conformations for each end-to-end vector
         let counts = Collections.Generic.Dictionary<Point, float>()
@@ -203,7 +203,7 @@ module PhysicsTests =
         let parms =
             TestParameters.create kT
                 |> TestParameters.withBend Strong (Rational.create 0 1) 4.0
-        let strong = parms.BondParameterMap[Strong]
+        let strong = parms.BondTypeParameterMap[Strong]
         let bondWeight =
             exp (-Chain.bondEnergy parms Strong AtomType.W AtomType.W / kT)
         let lengthSq (d : Point) = d.X * d.X + d.Y * d.Y
@@ -566,11 +566,11 @@ module PhysicsTests =
             let parms =
                 TestParameters.createFrozen kT
                     |> TestParameters.withBend Weak bendLimit kappa
-            let weak = parms.BondParameterMap[Weak]
+            let weak = parms.BondTypeParameterMap[Weak]
             { parms with   // weak bonds toggle rarely, so that hops do most of the bending
-                BondParameterMap =
-                    BondParameterMap.add Weak { weak with Barrier = 3.0 } parms.BondParameterMap }
-        let weak = parms.BondParameterMap[Weak]
+                BondTypeParameterMap =
+                    BondTypeParameterMap.add Weak { weak with Barrier = 3.0 } parms.BondTypeParameterMap }
+        let weak = parms.BondTypeParameterMap[Weak]
         let candidates = [ 0, 2; 0, 3; 1, 2; 1, 3 ]   // (X, W)
         let lengthSq (d : Point) = d.X * d.X + d.Y * d.Y
 

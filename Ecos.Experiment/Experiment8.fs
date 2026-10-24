@@ -251,7 +251,7 @@ module Experiment8 =
             summaries.Add(yzEnergy, mean, sd / sqrt (float valid.Length), nYZAhead, nWXAhead)
 
         printfn ""
-        printfn "Summary: final Y/Z share by Y-Z energy (W-X energy is %g)" scenario.Parameters.BondParameterMap[Weak].Energy
+        printfn "Summary: final Y/Z share by Y-Z energy (W-X energy is %g)" scenario.Parameters.BondTypeParameterMap[Weak].Energy
         printfn "energy   mean share   std error   Y/Z ahead   W/X ahead"
         for (yzEnergy, mean, se, nYZAhead, nWXAhead) in summaries do
             printfn "%6g       %6.2f      %6.2f        %4d        %4d" yzEnergy mean se nYZAhead nWXAhead

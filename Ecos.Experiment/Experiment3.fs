@@ -79,16 +79,16 @@ module Experiment3 =
             "Peel barrier %g"
             parms.PeelBarrier
         for bondType in BondType.all do
-            let bondParms = parms.BondParameterMap[bondType]
+            let bondTypeParms = parms.BondTypeParameterMap[bondType]
             printfn
                 "%A bonds: energy %g, entropy %g, barrier %g, barrier reduction per stack %g, start barrier %g, hydrolysis rate %g"
                 bondType
-                bondParms.Energy
-                bondParms.Entropy
-                bondParms.Barrier
-                bondParms.BarrierStackReduction
-                bondParms.StartBarrier
-                bondParms.HydrolysisRate
+                bondTypeParms.Energy
+                bondTypeParms.Entropy
+                bondTypeParms.Barrier
+                bondTypeParms.BarrierStackReduction
+                bondTypeParms.StartBarrier
+                bondTypeParms.HydrolysisRate
 
     /// A strand: two or more atoms connected by strong bonds.
     type Strand =

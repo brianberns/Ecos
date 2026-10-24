@@ -172,7 +172,7 @@ module Experiment11 =
             "%d runs of each duplex at each temperature, alone in a small world; each run stops when the strands separate, or after %d sweeps"
             settings.NumRuns settings.MaxSweeps
         printParameters parms
-        printfn "Weak bond energies: W-X %g, Y-Z %g" parms.BondParameterMap[Weak].Energy settings.YZEnergy
+        printfn "Weak bond energies: W-X %g, Y-Z %g" parms.BondTypeParameterMap[Weak].Energy settings.YZEnergy
         printfn ""
         printfn "                |----------- W/X -----------|   |----------- Y/Z -----------|"
         printfn "   kT    within %6d %7d   median     within %6d %7d   median" settings.ShortSweeps settings.MaxSweeps settings.ShortSweeps settings.MaxSweeps

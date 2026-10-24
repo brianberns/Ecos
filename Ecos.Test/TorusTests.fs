@@ -12,11 +12,11 @@ module TorusTests =
     let private parameters =
         {
             GetTemperature = Parameters.getUniformTemperature 1.0
-            BondParameterMap =
+            BondTypeParameterMap =
                 Map [
                     Strong, { Energy = 6; PairEnergyMap = Map.empty; Barrier = 3; BarrierStackReduction = 3; StartBarrier = 0.5; Entropy = 0.5; HydrolysisRate = 0.01; BendLimit = TestParameters.straightBend; BendStiffness = 0 }
                     Weak, { Energy = 2; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 1; HydrolysisRate = 0; BendLimit = TestParameters.anyBend; BendStiffness = 0 }
-                ] |> BondParameterMap.ofMap
+                ] |> BondTypeParameterMap.ofMap
             PeelBarrier = 2.0
         }
 

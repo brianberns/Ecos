@@ -349,7 +349,7 @@ module Scenario =
                 {
                     GetTemperature =
                         Parameters.getUniformTemperature nan
-                    BondParameterMap =
+                    BondTypeParameterMap =
                         Map [
                             Strong, {
                                 Energy = 17
@@ -373,7 +373,7 @@ module Scenario =
                                 BendLimit = Bend.any
                                 BendStiffness = 0
                             }
-                        ] |> BondParameterMap.ofMap
+                        ] |> BondTypeParameterMap.ofMap
                     PeelBarrier = 6
                 }
             Schedule = Constant 0.25
@@ -389,9 +389,9 @@ module Scenario =
                 Name = if withTemplate then "B" else "B, no template"
                 Parameters =
                     { scenario.Parameters with
-                        BondParameterMap =
-                            scenario.Parameters.BondParameterMap
-                                |> BondParameterMap.add Strong {
+                        BondTypeParameterMap =
+                            scenario.Parameters.BondTypeParameterMap
+                                |> BondTypeParameterMap.add Strong {
                                     Energy = 34
                                     PairEnergyMap = Map.empty
                                     Barrier = 20
@@ -418,21 +418,21 @@ module Scenario =
         { scenario with Parameters = f scenario.Parameters }
 
     /// Changes the given scenario's parameters for the given bond type.
-    let mapBondParameters bondType f scenario =
+    let mapBondTypeParameters bondType f scenario =
         scenario
             |> mapParameters (fun parms ->
-                let bondParms = f parms.BondParameterMap[bondType]
+                let bondTypeParms = f parms.BondTypeParameterMap[bondType]
                 { parms with
-                    BondParameterMap =
-                        BondParameterMap.add bondType bondParms parms.BondParameterMap })
+                    BondTypeParameterMap =
+                        BondTypeParameterMap.add bondType bondTypeParms parms.BondTypeParameterMap })
 
     /// Sets the given scenario's strong bond barrier, and its
     /// reduction per stack to the same value, so that a fully
     /// templated join has no barrier (apart from the start barrier).
     let withStrongBarrier barrier scenario =
         scenario
-            |> mapBondParameters Strong (fun bondParms ->
-                { bondParms with
+            |> mapBondTypeParameters Strong (fun bondTypeParms ->
+                { bondTypeParms with
                     Barrier = barrier
                     BarrierStackReduction = barrier })
 
@@ -447,15 +447,15 @@ module Scenario =
     /// means strands never die.
     let withHydrolysisRate rate scenario =
         scenario
-            |> mapBondParameters Strong (fun bondParms ->
-                { bondParms with HydrolysisRate = rate })
+            |> mapBondTypeParameters Strong (fun bondTypeParms ->
+                { bondTypeParms with HydrolysisRate = rate })
 
     /// Sets the sharpest bend allowed for the given bond type in the
     /// given scenario, and the energy cost of bending (kappa).
     let withBend bondType bendLimit kappa scenario =
         scenario
-            |> mapBondParameters bondType (fun bondParms ->
-                { bondParms with
+            |> mapBondTypeParameters bondType (fun bondTypeParms ->
+                { bondTypeParms with
                     BendLimit = bendLimit
                     BendStiffness = kappa })
 
@@ -463,7 +463,7 @@ module Scenario =
     /// atom types in the given scenario.
     let withPairEnergy bondType atomTypeA atomTypeB energy scenario =
         scenario
-            |> mapBondParameters bondType
+            |> mapBondTypeParameters bondType
                 (BondTypeParameters.addPairEnergy atomTypeA atomTypeB energy)
 
     /// Scenario C: the most faithful copying of a template so far (as

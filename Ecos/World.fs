@@ -217,7 +217,7 @@ module World =
     /// Adds a bond of the given type between the given atoms in
     /// the given world if it is valid.
     let private tryAddBond
-        bondType bondParms atomA atomB (world : World) =
+        bondType bondTypeParms atomA atomB (world : World) =
 
             // get existing bond map
         let bondMap = world.BondTypeMap[bondType]
@@ -234,7 +234,7 @@ module World =
             let idsA = BondMap.getBonds atomA.Id bondMap
             let idsB = BondMap.getBonds atomB.Id bondMap
             let delta = getDisplacement atomA atomB world
-            let bendLimit = bondParms.BendLimit
+            let bendLimit = bondTypeParms.BendLimit
             behavior.AreCompatible atomA.Type atomB.Type
                 && not (areBonded atomA.Id atomB.Id world)
                 && Neighborhood.testBond delta behavior.Neighborhood
@@ -251,7 +251,7 @@ module World =
     /// Adds a strong bond between the given atoms in the given
     /// world if it is valid.
     let tryAddStrongBond parms idA idB (world : World) =
-        tryAddBond Strong parms.BondParameterMap[Strong]
+        tryAddBond Strong parms.BondTypeParameterMap[Strong]
             world.Atoms[idA] world.Atoms[idB] world
 
     /// Adds a strong bond between the given atoms in the given
@@ -264,7 +264,7 @@ module World =
     /// Adds a weak bond between the given atoms in the given
     /// world if it is valid.
     let tryAddWeakBond parms idA idB (world : World) =
-        tryAddBond Weak parms.BondParameterMap[Weak]
+        tryAddBond Weak parms.BondTypeParameterMap[Weak]
             world.Atoms[idA] world.Atoms[idB] world
 
     /// Adds a weak bond between the given atoms in the given
@@ -341,8 +341,7 @@ module World =
                                 atomB atom atomC world))
 
     /// Determines whether the given atom's bonds are valid.
-    let private testBonds
-        (bondParmMap : BondParameterMap) atom (world : World) =
+    let private testBonds parms atom (world : World) =
         behaviorMap
             |> Map.forall (fun bondType behavior ->
 
@@ -362,7 +361,8 @@ module World =
 
                         // test bond angles?
                     if isValid then
-                        let bendLimit = bondParmMap[bondType].BendLimit
+                        let bendLimit =
+                            parms.BondTypeParameterMap[bondType].BendLimit
                         let partnerIds = Seq.toArray partnerIds
                         testCentralBonds
                             behavior bendLimit atom partnerIds world
@@ -411,7 +411,7 @@ module World =
             BondType.all
                 |> Array.sumBy (fun bondType ->
                     let kappa =
-                        parms.BondParameterMap[bondType].BendStiffness
+                        parms.BondTypeParameterMap[bondType].BendStiffness
                     if kappa > 0.0 then
                         Bend.getEnergyDelta
                             kappa bondType atomBefore atomAfter world
@@ -439,10 +439,9 @@ module World =
 
             // move the atom permanently?
         let isValid =
-            let bondParmMap = parms.BondParameterMap
-            canMove atom' delta world                          // avoids overlap with other atoms?
-                && testBonds bondParmMap atom' world           // all of the atom's bonds are still valid?
-                && testBendEnergy parms rng atom atom' world   // bends, if they cost energy, accepted?
+            canMove atom' delta world                                 // avoids overlap with other atoms?
+                && testBonds parms.BondTypeParameterMap atom' world   // all of the atom's bonds are still valid?
+                && testBendEnergy parms rng atom atom' world          // bends, if they cost energy, accepted?
         if isValid then
             let world = moveAtom atom atom' world
             let event = MoveAtom id
@@ -469,8 +468,8 @@ module World =
         else false
 
     /// Determines whether to break a bond by hydrolysis.
-    let private testHydrolysis (rng : Random) bondParms =
-        rng.NextDouble() < bondParms.HydrolysisRate
+    let private testHydrolysis (rng : Random) bondTypeParms =
+        rng.NextDouble() < bondTypeParms.HydrolysisRate
 
     /// Attempts to break the bond of the given type between the
     /// given atoms in the given world.
@@ -507,38 +506,38 @@ module World =
             behavior.CountStacks atomA.Id atomB.Id world.BondTypeMap
 
             // compute bond energy
-        let bondParms = parms.BondParameterMap[bondType]
+        let bondTypeParms = parms.BondTypeParameterMap[bondType]
         let bondEnergy =
             let bendEnergy =
-                if bondParms.BendStiffness > 0.0 then
+                if bondTypeParms.BendStiffness > 0.0 then
                     Bend.getBondEnergy
-                        bondParms.BendStiffness bondType atomA atomB world
+                        bondTypeParms.BendStiffness bondType atomA atomB world
                 else 0.0
             BondTypeParameters.getEnergy
-                atomA.Type atomB.Type bondParms
+                atomA.Type atomB.Type bondTypeParms
                 + stackEnergy * float nStacks
                 - bendEnergy
 
             // compute start barrier
         let bondMap = world.BondTypeMap[bondType]
         let startBarrier =
-            if bondParms.StartBarrier > 0
+            if bondTypeParms.StartBarrier > 0
                 && BondBehavior.testStrandStart atomA atomB bondMap then
-                bondParms.StartBarrier
+                bondTypeParms.StartBarrier
             else 0.0
 
             // create or break bond?
         let temp = Parameters.getAvgTemperature atomA atomB parms
         let testBond =
             testBondEnergy rng temp
-                bondParms.Barrier
-                bondParms.BarrierStackReduction
+                bondTypeParms.Barrier
+                bondTypeParms.BarrierStackReduction
                 startBarrier
                 nStacks
         if BondMap.areBonded atomA.Id atomB.Id bondMap then
-            if testBond bondParms.Entropy bondEnergy
+            if testBond bondTypeParms.Entropy bondEnergy
                 || testPeel rng parms temp behavior atomA atomB bondMap
-                || testHydrolysis rng bondParms
+                || testHydrolysis rng bondTypeParms
                 then
                 tryBreakBond bondType atomA atomB world
                     |> Option.map (fun world ->
@@ -547,8 +546,8 @@ module World =
                         world, event)
             else None
         else
-            if testBond -bondParms.Entropy -bondEnergy then
-                tryAddBond bondType bondParms atomA atomB world
+            if testBond -bondTypeParms.Entropy -bondEnergy then
+                tryAddBond bondType bondTypeParms atomA atomB world
                     |> Option.map (fun world ->
                         let event =
                             CreateBond (bondType, atomA.Id, atomB.Id)

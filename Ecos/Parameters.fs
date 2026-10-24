@@ -108,7 +108,7 @@ module BondTypeParameters =
         }
 
 /// Each bond type's parameters, optimized for speed.
-type BondParameterMap =
+type BondTypeParameterMap =
     {
         /// Strong-bond parameters.
         StrongParameters : BondTypeParameters
@@ -123,30 +123,34 @@ type BondParameterMap =
             | Strong -> this.StrongParameters
             | Weak -> this.WeakParameters
 
-module BondParameterMap =
+module BondTypeParameterMap =
 
-    /// Creates a bond parameter map from the given plain map.
-    let ofMap (bondParmMap : Map<_, _>) =
+    /// Creates a bond type parameter map from the given plain
+    /// map.
+    let ofMap (plain : Map<_, _>) =
         {
-            StrongParameters = bondParmMap[Strong]
-            WeakParameters = bondParmMap[Weak]
+            StrongParameters = plain[Strong]
+            WeakParameters = plain[Weak]
         }
 
-    /// Converts the given bond parameter map into a plain map.
-    let toMap bondParmMap =
+    /// Converts the given bond type parameter map into a plain
+    /// map.
+    let toMap bondTypeParmMap =
         Map [
-            Strong, bondParmMap.StrongParameters
-            Weak, bondParmMap.WeakParameters
+            Strong, bondTypeParmMap.StrongParameters
+            Weak, bondTypeParmMap.WeakParameters
         ]
 
     /// Adds the given bond type parameters to the given bond
-    /// parameter map, replacing the existing parameters.
-    let add bondType bondParms bondParmMap =
+    /// type parameter map, replacing the existing parameters.
+    let add bondType bondTypeParms bondTypeParmMap =
         match bondType with
             | Strong ->
-                { bondParmMap with StrongParameters = bondParms }
+                { bondTypeParmMap with
+                    StrongParameters = bondTypeParms }
             | Weak ->
-                { bondParmMap with WeakParameters = bondParms }
+                { bondTypeParmMap with
+                    WeakParameters = bondTypeParms }
 
 /// Configurable update parameters.
 type Parameters =
@@ -156,7 +160,7 @@ type Parameters =
         GetTemperature : Point -> float
 
         /// Bond type-specific parameters.
-        BondParameterMap : BondParameterMap
+        BondTypeParameterMap : BondTypeParameterMap
 
         /// Determines how often peeling happens. +Infinity
         /// prevents peeling altogether.
