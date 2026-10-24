@@ -406,7 +406,7 @@ module World =
     /// Applies the Metropolis rule to the change in bend energy from
     /// moving the given atom, if bends cost energy.
     let private testBendEnergy parms rng
-        atomBefore atomAfter (world : World) =
+        atomBefore atomAfter world =
         let energyDelta =
             BondType.all
                 |> Array.sumBy (fun bondType ->
@@ -556,7 +556,8 @@ module World =
 
     /// Attempts to toggle a bond of the given type in the given
     /// world.
-    let private tryUpdateBond parms (rng : Random) bondType (world : World) =
+    let private tryUpdateBond
+        parms (rng : Random) bondType (world : World) =
 
             // pick atom to bond
         let idA = rng.Next(world.Atoms.Length)
@@ -673,10 +674,8 @@ module private Bend =
 
     /// Bend energy that a bond of the given type between atoms A
     /// and B adds to the given world, at A and at B, whether or
-    /// not the bond exists yet. An atom has at most two bonds of a
-    /// type, so the bond makes at most one bend at each end.
-    let getBondEnergy
-        kappa bondType atomA atomB (world : World) =
+    /// not the bond exists yet.
+    let getBondEnergy kappa bondType atomA atomB world =
 
         let bondMap = world.BondTypeMap[bondType]
 
@@ -704,37 +703,38 @@ module private Bend =
 
     /// Change in the bend energy of bonds of the given type from
     /// moving an atom: at the atom itself, and at each of its
-    /// partners. An atom has at most two bonds of a type, so there
-    /// is at most one bend at each.
+    /// partners.
     let getEnergyDelta
         kappa bondType atomBefore atomAfter (world : World) =
 
         let bondMap = world.BondTypeMap[bondType]
+
+        /// Computes bend at a partner, B, between the moved atom
+        /// and B's other partner, if any.
+        let atPartner idB =
+
+            let idsB = BondMap.getBonds idB bondMap
+            assert(idsB.Count <= 2)
+
+            if idsB.Count < 2 then 0.0
+            else
+                let idC =
+                    if idsB.MinimumElement = atomBefore.Id then
+                        idsB.MaximumElement
+                    else idsB.MinimumElement
+                let atomB = world.Atoms[idB]
+                let deltaBC =
+                    World.getDisplacement atomB world.Atoms[idC] world
+                let getEnergy atomA =
+                    let deltaAB = World.getDisplacement atomB atomA world
+                    getEnergy kappa deltaAB deltaBC
+                getEnergy atomAfter - getEnergy atomBefore
 
         let ids = BondMap.getBonds atomBefore.Id bondMap
         assert(ids.Count <= 2)
 
         if ids.IsEmpty then 0.0
         else
-                // bend at a partner, B, between the moved atom and B's
-                // other partner, if any
-            let atPartner idB =
-                let idsB = BondMap.getBonds idB bondMap
-                assert(idsB.Count <= 2)
-                if idsB.Count < 2 then 0.0
-                else
-                    let idC =
-                        if idsB.MinimumElement =
-                            atomBefore.Id then idsB.MaximumElement
-                        else idsB.MinimumElement
-                    let atomB = world.Atoms[idB]
-                    let deltaBC =
-                        World.getDisplacement atomB world.Atoms[idC] world
-                    getEnergy
-                        kappa (World.getDisplacement atomB atomAfter world) deltaBC
-                        - getEnergy
-                            kappa (World.getDisplacement atomB atomBefore world) deltaBC
-
             let idB = ids.MinimumElement
             if ids.Count = 1 then atPartner idB
             else
