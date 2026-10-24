@@ -405,8 +405,7 @@ module World =
 
     /// Applies the Metropolis rule to the change in bend energy from
     /// moving the given atom, if bends cost energy.
-    let private testBendEnergy parms rng
-        atomBefore atomAfter world =
+    let private testBendEnergy parms rng atomBefore atomAfter world =
         let energyDelta =
             BondType.all
                 |> Array.sumBy (fun bondType ->
@@ -726,7 +725,8 @@ module private Bend =
                 let deltaBC =
                     World.getDisplacement atomB world.Atoms[idC] world
                 let getEnergy atomA =
-                    let deltaAB = World.getDisplacement atomB atomA world
+                    let deltaAB =
+                        World.getDisplacement atomB atomA world
                     getEnergy kappa deltaAB deltaBC
                 getEnergy atomAfter - getEnergy atomBefore
 
