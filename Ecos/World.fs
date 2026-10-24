@@ -234,19 +234,20 @@ module World =
             testBend behavior bendLimit atomA atomB atomC world)
             idsC
 
-    /// Energy of a bend between the given bond vectors, which start at
-    /// the same atom: zero when they point in opposite directions (a
-    /// straight strand).
-    let private getBendEnergy kappa (u : Point) (v : Point) =
+    /// Energy of a bend between the given bond vectors, which
+    /// start at the same atom: zero when they point in opposite
+    /// directions (a straight strand).
+    let private getBendEnergy kappa u v =
         let dot = float (u .* v)
         kappa * (1.0 + dot / sqrt (float (u .* u) * float (v .* v)))
 
-    /// Bend energy that a bond of the given type between atoms A and B
-    /// adds to the given world, at A and at B, whether or not the bond
-    /// exists yet.
-    let private getBondBendEnergy kappa bondType atomA atomB (world : World) =
+    /// Bend energy that a bond of the given type between atoms A
+    /// and B adds to the given world, at A and at B, whether or
+    /// not the bond exists yet.
+    let private getBondBendEnergy
+        kappa bondType atomA atomB (world : World) =
         let bondMap = world.BondTypeMap[bondType]
-        let at (atomA : Atom) (atomB : Atom) =
+        let at atomA atomB =
             let deltaAB = getDisplacement atomA atomB world
             BondMap.getBonds atomA.Id bondMap
                 |> Seq.sumBy (fun idC ->
@@ -257,12 +258,13 @@ module World =
                         getBendEnergy kappa deltaAB deltaAC)
         at atomA atomB + at atomB atomA
 
-    /// Bend energy between bonds of the given type at the given atom
-    /// and its partners of that type, with the given atom at its given
-    /// location.
-    let private getLocalBendEnergy kappa bondType (atom : Atom) (world : World) =
+    /// Bend energy of bonds of the given type between the given
+    /// atom and its partners.
+    let private getLocalBendEnergy
+        kappa bondType atom (world : World) =
         let bondMap = world.BondTypeMap[bondType]
-        let getAtom id = if id = atom.Id then atom else world.Atoms[id]
+        let getAtom id =
+            if id = atom.Id then atom else world.Atoms[id]
         let at id =
             let atomM = getAtom id
             let deltas =
@@ -280,7 +282,8 @@ module World =
 
     /// Adds a bond of the given type between the given atoms in
     /// the given world if it is valid.
-    let private tryAddBond bondType bondParms atomA atomB (world : World) =
+    let private tryAddBond
+        bondType bondParms atomA atomB (world : World) =
 
             // get existing bond map
         let bondMap = world.BondTypeMap[bondType]
@@ -396,14 +399,17 @@ module World =
                 let atomB = world.Atoms[idB]
                 BondMap.getBonds idB bondMap
                     |> Set.forall (fun idC ->
-                        idC = atom.Id
-                            || testBend behavior bendLimit atomB atom (world.Atoms[idC]) world))
+                        if idC = atom.Id then true
+                        else
+                            let atomC = world.Atoms[idC]
+                            testBend
+                                behavior bendLimit
+                                atomB atom atomC world))
 
     /// Determines whether the given atom's bonds are valid.
     let private testBonds parms atom (world : World) =
         behaviorMap
             |> Map.forall (fun bondType behavior ->
-                let bendLimit = parms.BondParameterMap[bondType].BendLimit
 
                     // test the atom's bonds
                 let bondMap = world.BondTypeMap[bondType]
@@ -421,6 +427,7 @@ module World =
 
                         // test bond angles?
                     if isValid then
+                        let bendLimit = parms.BondParameterMap[bondType].BendLimit
                         let partnerIds = Seq.toArray partnerIds
                         testCentralBonds
                             behavior bendLimit atom partnerIds world
@@ -463,7 +470,8 @@ module World =
 
     /// Applies the Metropolis rule to the change in bend energy from
     /// moving the given atom, if bends cost energy.
-    let private testBendEnergy parms rng atomBefore atomAfter (world : World) =
+    let private testBendEnergy
+        parms rng atomBefore atomAfter (world : World) =
         let stiffBondTypes =
             BondType.all
                 |> Array.choose (fun bondType ->
@@ -566,13 +574,15 @@ module World =
             // compute bond energy
         let bondParms = parms.BondParameterMap[bondType]
         let bondEnergy =
+            let bendEnergy =
+                if bondParms.BendStiffness > 0.0 then
+                    getBondBendEnergy
+                        bondParms.BendStiffness bondType atomA atomB world
+                else 0.0
             BondTypeParameters.getEnergy
                 atomA.Type atomB.Type bondParms
                 + stackEnergy * float nStacks
-                - (if bondParms.BendStiffness > 0.0 then
-                    getBondBendEnergy
-                        bondParms.BendStiffness bondType atomA atomB world
-                   else 0.0)
+                - bendEnergy
 
             // compute start barrier
         let bondMap = world.BondTypeMap[bondType]
