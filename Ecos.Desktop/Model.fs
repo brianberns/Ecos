@@ -30,6 +30,9 @@ type Model =
         /// Indicates whether updates are enabled.
         IsRunning : bool
 
+        /// Indicates whether frames are being saved.
+        IsRecording : bool
+
         /// Number of sweeps per timer tick.
         Speed : int
 
@@ -53,7 +56,10 @@ type Message =
     | SetTemperature of float
 
     /// Turns updates on or off.
-    | SetRun of bool
+    | SetIsRunning of bool
+
+    /// Turns frame recording on or off.
+    | SetIsRecording of bool
 
     /// Sets speed.
     | SetSpeed of int
@@ -76,6 +82,7 @@ module Model =
             Seed = seed
             Run = Run.create seed scenario
             IsRunning = false
+            IsRecording = false
             Speed = speed
             FrameRate = 0
         }
@@ -116,13 +123,17 @@ module Model =
         { model with
             Run = { model.Run with Schedule = Constant kT } }
 
-    /// Handles `run` flag change.
-    let handleSetRun isRunning model =
+    /// Handles IsRunning flag change.
+    let handleSetIsRunnning isRunning model =
         if isRunning then
             stopwatch.Start()
             lastElapsed <- stopwatch.Elapsed
         else stopwatch.Stop()
         { model with IsRunning = isRunning }
+
+    /// Handles IsRecording flag change.
+    let handleSetIsRecording isRecording model =
+        { model with IsRecording = isRecording }
 
     /// Handles speed change.
     let handleSetSpeed speed model =
@@ -143,7 +154,8 @@ module Model =
             | SelectGroup index -> handleSelectGroup index model
             | SelectScenario index -> handleSelectScenario index model
             | SetTemperature kT -> handleSetTemperature kT model
-            | SetRun isRunning -> handleSetRun isRunning model
+            | SetIsRunning flag -> handleSetIsRunnning flag model
+            | SetIsRecording flag -> handleSetIsRecording flag model
             | SetSpeed speed -> handleSetSpeed speed model
             | SetSeed seed -> handleSetSeed seed model
             | Reset -> handleReset model
@@ -158,22 +170,27 @@ module Model =
         bitmap.Save(path, options)   // PNG
 
     /// Directory in which to save frames.
-    let private imagesDirName = "Images"
+    let private imagesDirName =
+        let name = "Images"
+        Directory.CreateDirectory(name) |> ignore
+        name
+
+    /// Saves a frame.
+    let private saveFrame control frameNum =
+        let path =
+            Path.Combine(
+                imagesDirName, $"Ecos{frameNum:D6}.png")
+        saveImage control path
 
     /// One tick before each rendered frame.
-    let frames (topLevel : TopLevel) saveFrame : Subscribe<_> =
+    let frames (topLevel : TopLevel) isRecording : Subscribe<_> =
         fun dispatch ->
             let mutable running = true
             let mutable iFrame = 0
             let rec onFrame (_ : TimeSpan) =
                 if running then
-                    if saveFrame then
-                        Directory.CreateDirectory(imagesDirName)
-                            |> ignore
-                        let path =
-                            Path.Combine(
-                                imagesDirName, $"Ecos{iFrame:D6}.png")
-                        saveImage topLevel path
+                    if isRecording then
+                        saveFrame topLevel iFrame
                         iFrame <- iFrame + 1
                     dispatch Tick
                     topLevel.RequestAnimationFrame(onFrame)
@@ -183,5 +200,6 @@ module Model =
 
     /// Frame subscription.
     let subscribe topLevel (model : Model) : Sub<_> =
-        let saveFrame = model.IsRunning
-        [ [ "frames"; string saveFrame ], frames topLevel saveFrame ]
+        let isRecording =
+            model.IsRunning && model.IsRecording
+        [ [ "frames"; string isRecording ], frames topLevel isRecording ]
