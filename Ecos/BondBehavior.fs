@@ -1,19 +1,5 @@
 namespace Ecos
 
-/// Bond type.
-type BondType =
-
-    /// Long-term, long-range bonds.
-    | Strong
-
-    /// Short-term, short-range bonds.
-    | Weak
-
-module BondType =
-
-    /// All bond types.
-    let all = [| Strong; Weak |]
-
 /// Associates bond types with bond maps. Optimized for performance.
 type BondTypeMap =
     {
