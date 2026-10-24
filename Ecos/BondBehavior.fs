@@ -65,9 +65,11 @@ type private BondBehavior =
         /// proposed) bond.
         CountStacks : AtomId -> AtomId -> BondTypeMap -> int
 
-        /// Determines whether the angle defined the given vectors
-        /// is valid for a bond of this type.
-        TestBondAngle : Point -> Point -> bool
+        /// Determines whether the angle between the given vectors, which
+        /// start at the same atom, is valid for a bond of this type,
+        /// given the sharpest bend allowed (see
+        /// `BondTypeParameters.BendLimit`).
+        TestBondAngle : (int * int) -> Point -> Point -> bool
 
         /// Determines whether the given bond of this type can
         /// peel.
@@ -91,6 +93,17 @@ module private BondBehavior =
         let abOpp =   // A and B are on opposite sides of line CD
             orient locC locD locA * orient locC locD locB < 0
         cdOpp && abOpp
+
+    /// Determines whether the angle between the given bond vectors is
+    /// no sharper than the given limit: its cosine must be at most
+    /// numerator / denominator. Exact, in integers.
+    let testBendLimit (numerator, denominator) u v =
+        assert(denominator > 0)
+        let dot = u .* v
+        let lhs = denominator * denominator * dot * dot
+        let rhs = numerator * numerator * (u .* u) * (v .* v)
+        if numerator < 0 then dot < 0 && lhs >= rhs   // cos <= -|n|/d
+        else dot <= 0 || lhs <= rhs                   // cos <= n/d
 
     /// Determines whether a bond between the given atoms starts
     /// a new strand.
@@ -159,11 +172,10 @@ module private StrongBond =
                         bPrimes.Contains(idB')))
             |> Seq.length
 
-    /// Ensures strong bond stiffness.
-    let testBondAngle u v =
-        let dot = u .* v
-        dot < 0
-            && 25 * dot * dot >= 16 * (u .* u) * (v .* v)   // 16/25 = abs((-4/5)^2) in cos <= -0.8 
+    /// Ensures that a strand bends no more sharply than the given
+    /// limit.
+    let testBondAngle bendLimit u v =
+        BondBehavior.testBendLimit bendLimit u v
 
     /// Strands can peel at their ends.
     let testPeel atomA atomB bondMap =
@@ -254,9 +266,11 @@ module private WeakBond =
 
     /// Ensures an atom’s two weak partners are on opposite
     /// sides of it, and too far apart to be strongly bonded
-    /// to each other.
-    let testBondAngle u v =
+    /// to each other, and that they bend no more sharply than
+    /// the given limit.
+    let testBondAngle bendLimit u v =
         u .* v <= -3
+            && BondBehavior.testBendLimit bendLimit u v
 
     /// Weak bonds never peel.
     let testPeel _atomA _atomB _bondMap =

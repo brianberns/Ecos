@@ -339,6 +339,8 @@ module Scenario =
                                 StartBarrier = 1
                                 Entropy = 0
                                 HydrolysisRate = 0
+                                BendLimit = World.defaultBendLimit Strong
+                                BendStiffness = 0
                             }
                             Weak, {
                                 Energy = 2
@@ -348,6 +350,8 @@ module Scenario =
                                 StartBarrier = 0
                                 Entropy = 3
                                 HydrolysisRate = 0
+                                BendLimit = World.defaultBendLimit Weak
+                                BendStiffness = 0
                             }
                         ]
                     PeelBarrier = 6
@@ -375,6 +379,8 @@ module Scenario =
                                     StartBarrier = 1
                                     Entropy = 0
                                     HydrolysisRate = 1e-4   // about 5% of strong bonds break per cycle
+                                    BendLimit = World.defaultBendLimit Strong
+                                    BendStiffness = 0
                                 } }
                 Schedule =
                     Cycle [|
@@ -423,6 +429,15 @@ module Scenario =
         scenario
             |> mapBondParameters Strong (fun bondParms ->
                 { bondParms with HydrolysisRate = rate })
+
+    /// Sets the sharpest bend allowed for the given bond type in the
+    /// given scenario, and the energy cost of bending (kappa).
+    let withBend bondType bendLimit kappa scenario =
+        scenario
+            |> mapBondParameters bondType (fun bondParms ->
+                { bondParms with
+                    BendLimit = bendLimit
+                    BendStiffness = kappa })
 
     /// Sets the energy of the given type of bond between the given
     /// atom types in the given scenario.

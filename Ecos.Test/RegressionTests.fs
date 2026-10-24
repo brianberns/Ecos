@@ -50,8 +50,8 @@ module RegressionTests =
             GetTemperature = Parameters.getUniformTemperature 1.5
             BondParameterMap =
                 Map [
-                    Strong, { Energy = 12; PairEnergyMap = Map.empty; Barrier = 6; BarrierStackReduction = 3; StartBarrier = 1; Entropy = 0.5; HydrolysisRate = 0.02 }
-                    Weak, { Energy = 2; PairEnergyMap = Map.empty; Barrier = 0.5; BarrierStackReduction = 0; StartBarrier = 0.5; Entropy = 1; HydrolysisRate = 0 }
+                    Strong, { Energy = 12; PairEnergyMap = Map.empty; Barrier = 6; BarrierStackReduction = 3; StartBarrier = 1; Entropy = 0.5; HydrolysisRate = 0.02; BendLimit = World.defaultBendLimit Strong; BendStiffness = 0 }
+                    Weak, { Energy = 2; PairEnergyMap = Map.empty; Barrier = 0.5; BarrierStackReduction = 0; StartBarrier = 0.5; Entropy = 1; HydrolysisRate = 0; BendLimit = World.defaultBendLimit Weak; BendStiffness = 0 }
                 ]
             PeelBarrier = 2.0
         }
@@ -75,8 +75,8 @@ module RegressionTests =
             GetTemperature = Parameters.getUniformTemperature 0.7
             BondParameterMap =
                 Map [
-                    Strong, { Energy = 12; PairEnergyMap = Map.empty; Barrier = 6; BarrierStackReduction = 6; StartBarrier = 0.5; Entropy = 0; HydrolysisRate = 0 }
-                    Weak, { Energy = 2; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 1; HydrolysisRate = 0 }
+                    Strong, { Energy = 12; PairEnergyMap = Map.empty; Barrier = 6; BarrierStackReduction = 6; StartBarrier = 0.5; Entropy = 0; HydrolysisRate = 0; BendLimit = World.defaultBendLimit Strong; BendStiffness = 0 }
+                    Weak, { Energy = 2; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 1; HydrolysisRate = 0; BendLimit = World.defaultBendLimit Weak; BendStiffness = 0 }
                 ]
             PeelBarrier = 3.0
         }
@@ -132,8 +132,8 @@ module RegressionTests =
             GetTemperature = Parameters.getUniformTemperature 1.0
             BondParameterMap =
                 Map [
-                    Strong, { Energy = 2; PairEnergyMap = Map.empty; Barrier = 3; BarrierStackReduction = 2; StartBarrier = 0.5; Entropy = 0; HydrolysisRate = 0 }
-                    Weak, { Energy = 3; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0.5; HydrolysisRate = 0 }
+                    Strong, { Energy = 2; PairEnergyMap = Map.empty; Barrier = 3; BarrierStackReduction = 2; StartBarrier = 0.5; Entropy = 0; HydrolysisRate = 0; BendLimit = World.defaultBendLimit Strong; BendStiffness = 0 }
+                    Weak, { Energy = 3; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0.5; HydrolysisRate = 0; BendLimit = World.defaultBendLimit Weak; BendStiffness = 0 }
                 ]
             PeelBarrier = Double.PositiveInfinity
         }

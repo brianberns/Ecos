@@ -14,8 +14,8 @@ module TorusTests =
             GetTemperature = Parameters.getUniformTemperature 1.0
             BondParameterMap =
                 Map [
-                    Strong, { Energy = 6; PairEnergyMap = Map.empty; Barrier = 3; BarrierStackReduction = 3; StartBarrier = 0.5; Entropy = 0.5; HydrolysisRate = 0.01 }
-                    Weak, { Energy = 2; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 1; HydrolysisRate = 0 }
+                    Strong, { Energy = 6; PairEnergyMap = Map.empty; Barrier = 3; BarrierStackReduction = 3; StartBarrier = 0.5; Entropy = 0.5; HydrolysisRate = 0.01; BendLimit = World.defaultBendLimit Strong; BendStiffness = 0 }
+                    Weak, { Energy = 2; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 1; HydrolysisRate = 0; BendLimit = World.defaultBendLimit Weak; BendStiffness = 0 }
                 ]
             PeelBarrier = 2.0
         }

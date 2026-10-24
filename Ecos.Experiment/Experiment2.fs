@@ -66,6 +66,8 @@ module Experiment2 =
                             StartBarrier = 0
                             Entropy = 0
                             HydrolysisRate = 0
+                            BendLimit = World.defaultBendLimit Strong
+                            BendStiffness = 0
                         }
                     Weak,
                         {
@@ -76,6 +78,8 @@ module Experiment2 =
                             StartBarrier = 0
                             Entropy = 0
                             HydrolysisRate = 0
+                            BendLimit = World.defaultBendLimit Weak
+                            BendStiffness = 0
                         }
                 ]
             NumRuns = 16

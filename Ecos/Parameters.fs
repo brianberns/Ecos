@@ -57,6 +57,19 @@ type BondTypeParameters =
         /// Determines how often bonds of this type break due to
         /// hydrolysis.
         HydrolysisRate : float
+
+        /// Sharpest bend allowed at an atom between two bonds of this
+        /// type: the cosine of the angle between the bonds must be at
+        /// most numerator / denominator (denominator positive). For
+        /// strong bonds, (-4, 5) keeps strands nearly straight, and
+        /// (0, 1) allows right angles. (1, 1) allows any angle, apart
+        /// from the bond type's own rules.
+        BendLimit : int * int
+
+        /// Energy cost of a bend at an atom between two bonds of this
+        /// type (kappa): a bend whose two bonds make an angle phi costs
+        /// kappa * (1 + cos phi), which is zero when they are in line.
+        BendStiffness : float
     }
 
 module BondTypeParameters =

@@ -19,8 +19,8 @@ module TestParameters =
     /// tests' temperatures are chosen to suit them.
     let standardBondParameterMap =
         Map [
-            Strong, { Energy = 12; PairEnergyMap = Map.empty; Barrier = 6; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0 }
-            Weak, { Energy = 1; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0 }
+            Strong, { Energy = 12; PairEnergyMap = Map.empty; Barrier = 6; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = World.defaultBendLimit Strong; BendStiffness = 0 }
+            Weak, { Energy = 1; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = World.defaultBendLimit Weak; BendStiffness = 0 }
         ]
 
     /// Standard parameters at the given temperature.
@@ -65,6 +65,18 @@ module TestParameters =
             BondParameterMap =
                 Map.add bondType
                     { bondParms with HydrolysisRate = rate }
+                    parms.BondParameterMap }
+
+    /// The given parameters, with the given bend limit and stiffness
+    /// for the given bond type.
+    let withBend bondType bendLimit kappa (parms : Parameters) =
+        let bondParms = parms.BondParameterMap[bondType]
+        { parms with
+            BondParameterMap =
+                Map.add bondType
+                    { bondParms with
+                        BendLimit = bendLimit
+                        BendStiffness = kappa }
                     parms.BondParameterMap }
 
     /// The given parameters, with energies for particular pairs of atom
@@ -190,6 +202,27 @@ module Bonds =
     /// given center? An atom's two weak partners must be.
     let areOpposite center a b =
         isAngleAllowed Weak center a b
+
+    /// Oracle: is the angle between an atom's two strong bonds within
+    /// the given bend limit (numerator, denominator), when the atom is
+    /// at the given center and its partners are at locations a and b?
+    /// The cosine of the angle between the two vectors from the center
+    /// must be at most numerator / denominator.
+    let isBendAllowed (numerator, denominator) (center : Point) (a : Point) (b : Point) =
+        let da = a - center
+        let db = b - center
+        let length (d : Point) = sqrt (float (d.X * d.X + d.Y * d.Y))
+        let cosine = float (da.X * db.X + da.Y * db.Y) / (length da * length db)
+        cosine <= float numerator / float denominator + 1e-9   // some angles are exactly at the limit
+
+    /// Oracle: energy of the bend at an atom at the given center, whose
+    /// strong partners are at locations a and b: kappa * (1 + cos phi),
+    /// where phi is the angle between the two vectors from the center.
+    let bendEnergy kappa (center : Point) (a : Point) (b : Point) =
+        let da = a - center
+        let db = b - center
+        let length (d : Point) = sqrt (float (d.X * d.X + d.Y * d.Y))
+        kappa * (1.0 + float (da.X * db.X + da.Y * db.Y) / (length da * length db))
 
 /// Geometry helpers.
 module Geometry =
