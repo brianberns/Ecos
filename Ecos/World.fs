@@ -685,18 +685,19 @@ module private Bend =
             let ids = BondMap.getBonds atomA.Id bondMap
             assert(ids.Count <= 2)
 
-            let idC =
-                if ids.IsEmpty then -1
+            let atomCOpt =
+                if ids.IsEmpty then None
                 elif ids.MinimumElement <> atomB.Id then
-                    ids.MinimumElement
+                    Some world.Atoms[ids.MinimumElement]
                 elif ids.MaximumElement <> atomB.Id then
-                    ids.MaximumElement
-                else -1
-            if idC < 0 then 0.0
-            else
-                getEnergy kappa
-                    (World.getDisplacement atomA atomB world)
-                    (World.getDisplacement atomA world.Atoms[idC] world)
+                    Some world.Atoms[ids.MaximumElement]
+                else None
+            atomCOpt
+                |> Option.map (fun atomC ->
+                    getEnergy kappa
+                        (World.getDisplacement atomA atomB world)
+                        (World.getDisplacement atomA atomC world))
+                |> Option.defaultValue 0.0
 
         at atomA atomB + at atomB atomA
 
