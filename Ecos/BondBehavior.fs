@@ -65,11 +65,10 @@ type private BondBehavior =
         /// proposed) bond.
         CountStacks : AtomId -> AtomId -> BondTypeMap -> int
 
-        /// Determines whether the angle between the given vectors, which
-        /// start at the same atom, is valid for a bond of this type,
-        /// given the sharpest bend allowed (see
-        /// `BondTypeParameters.BendLimit`).
-        TestBondAngle : (int * int) -> Point -> Point -> bool
+        /// Determines whether the angle between the given vectors,
+        /// which start at the same atom, is valid for a bond of
+        /// this type, with the given bend limit.
+        TestBend : Rational (*limit*) -> Point -> Point -> bool
 
         /// Determines whether the given bond of this type can
         /// peel.
@@ -94,16 +93,20 @@ module private BondBehavior =
             orient locC locD locA * orient locC locD locB < 0
         cdOpp && abOpp
 
-    /// Determines whether the angle between the given bond vectors is
-    /// no sharper than the given limit: its cosine must be at most
-    /// numerator / denominator. Exact, in integers.
-    let testBendLimit (numerator, denominator) u v =
-        assert(denominator > 0)
+    /// Determines whether the angle between the given bond vectors
+    /// is allowed: the cosine of the angle between the bonds must
+    /// be at most the given limit.
+    let testBendLimit limit u v =
+        assert(limit.Denominator > 0)
         let dot = u .* v
-        let lhs = denominator * denominator * dot * dot
-        let rhs = numerator * numerator * (u .* u) * (v .* v)
-        if numerator < 0 then dot < 0 && lhs >= rhs   // cos <= -|n|/d
-        else dot <= 0 || lhs <= rhs                   // cos <= n/d
+        let lhs =
+            limit.Denominator * limit.Denominator * dot * dot
+        let rhs =
+            limit.Numerator * limit.Numerator * (u .* u) * (v .* v)
+        if limit.Numerator < 0 then
+            dot < 0 && lhs >= rhs    // cos <= -|n|/d
+        else
+            dot <= 0 || lhs <= rhs   // cos <= n/d
 
     /// Determines whether a bond between the given atoms starts
     /// a new strand.
@@ -172,11 +175,6 @@ module private StrongBond =
                         bPrimes.Contains(idB')))
             |> Seq.length
 
-    /// Ensures that a strand bends no more sharply than the given
-    /// limit.
-    let testBondAngle bendLimit u v =
-        BondBehavior.testBendLimit bendLimit u v
-
     /// Strands can peel at their ends.
     let testPeel atomA atomB bondMap =
         assert(BondMap.areBonded atomA.Id atomB.Id bondMap)
@@ -199,7 +197,7 @@ module private StrongBond =
             AreCompatible = areCompatible
             TestValence = testValence
             CountStacks = countStacks
-            TestBondAngle = testBondAngle
+            TestBend = BondBehavior.testBendLimit
             TestPeel = testPeel
         }
 
@@ -268,7 +266,7 @@ module private WeakBond =
     /// sides of it, and too far apart to be strongly bonded
     /// to each other, and that they bend no more sharply than
     /// the given limit.
-    let testBondAngle bendLimit u v =
+    let testBend bendLimit u v =
         u .* v <= -3
             && BondBehavior.testBendLimit bendLimit u v
 
@@ -285,6 +283,6 @@ module private WeakBond =
             AreCompatible = areCompatible
             TestValence = testValence
             CountStacks = countStacks
-            TestBondAngle = testBondAngle
+            TestBend = testBend
             TestPeel = testPeel
         }

@@ -16,6 +16,22 @@ module BondType =
     /// All bond types.
     let all = [| Strong; Weak |]
 
+/// A rational number, such as -1/2.
+type Rational =
+    {
+        Numerator : int
+        Denominator : int
+    }
+
+module Rational =
+
+    /// Creates a rational number.
+    let create numerator denominator =
+        {
+            Numerator = numerator
+            Denominator = denominator
+        }
+
 /// Bond type-specific parameters.
 /// 
 /// Energy
@@ -58,17 +74,15 @@ type BondTypeParameters =
         /// hydrolysis.
         HydrolysisRate : float
 
-        /// Sharpest bend allowed at an atom between two bonds of this
-        /// type: the cosine of the angle between the bonds must be at
-        /// most numerator / denominator (denominator positive). For
-        /// strong bonds, (-4, 5) keeps strands nearly straight, and
-        /// (0, 1) allows right angles. (1, 1) allows any angle, apart
-        /// from the bond type's own rules.
-        BendLimit : int * int
+        /// Sharpest bend allowed at an atom between two bonds of
+        /// this type: the cosine of the angle between the bonds
+        /// must be at most this value.
+        BendLimit : Rational
 
-        /// Energy cost of a bend at an atom between two bonds of this
-        /// type (kappa): a bend whose two bonds make an angle phi costs
-        /// kappa * (1 + cos phi), which is zero when they are in line.
+        /// Energy cost of a bend at an atom between two bonds of
+        /// this type (kappa): a bend whose two bonds make an angle
+        /// phi costs kappa * (1 + cos phi), which is zero when
+        /// they are in line.
         BendStiffness : float
     }
 

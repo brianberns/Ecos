@@ -221,7 +221,7 @@ module World =
     let private testBondAngle behavior bendLimit atomA atomB atomC world =
         let deltaAB = getDisplacement atomA atomB world   // vector from A to B
         let deltaAC = getDisplacement atomA atomC world   // vector from A to C
-        behavior.TestBondAngle bendLimit deltaAB deltaAC
+        behavior.TestBend bendLimit deltaAB deltaAC
 
     /// A -?- B
     ///  \
@@ -233,14 +233,6 @@ module World =
             let atomC = world.Atoms[idC]
             testBondAngle behavior bendLimit atomA atomB atomC world)
             idsC
-
-    /// Sharpest bend allowed for each bond type when building a world
-    /// by hand: strands nearly straight, and weak bonds limited only
-    /// by their own rules.
-    let defaultBendLimit bondType =
-        match bondType with
-            | Strong -> (-4, 5)
-            | Weak -> (1, 1)
 
     /// Energy of a bend between the given bond vectors, which start at
     /// the same atom: zero when they point in opposite directions (a
@@ -288,7 +280,7 @@ module World =
 
     /// Adds a bond of the given type between the given atoms in
     /// the given world if it is valid.
-    let private tryAddBond bendLimit bondType atomA atomB (world : World) =
+    let private tryAddBond bondType bondParms atomA atomB (world : World) =
 
             // get existing bond map
         let bondMap = world.BondTypeMap[bondType]
@@ -305,6 +297,7 @@ module World =
             let idsA = BondMap.getBonds atomA.Id bondMap
             let idsB = BondMap.getBonds atomB.Id bondMap
             let delta = getDisplacement atomA atomB world
+            let bendLimit = bondParms.BendLimit
             behavior.AreCompatible atomA.Type atomB.Type
                 && not (areBonded atomA.Id atomB.Id world)
                 && Neighborhood.testBond delta behavior.Neighborhood
@@ -320,27 +313,27 @@ module World =
 
     /// Adds a strong bond between the given atoms in the given
     /// world if it is valid.
-    let tryAddStrongBond idA idB (world : World) =
-        tryAddBond
-            (defaultBendLimit Strong) Strong world.Atoms[idA] world.Atoms[idB] world
+    let tryAddStrongBond parms idA idB (world : World) =
+        tryAddBond Strong parms.BondParameterMap[Strong]
+            world.Atoms[idA] world.Atoms[idB] world
 
     /// Adds a strong bond between the given atoms in the given
     /// world.
-    let addStrongBond idA idB world =
-        match tryAddStrongBond idA idB world with
+    let addStrongBond parms idA idB world =
+        match tryAddStrongBond parms idA idB world with
             | Some world -> world
             | None -> failwith "Invalid bond"
 
     /// Adds a weak bond between the given atoms in the given
     /// world if it is valid.
-    let tryAddWeakBond idA idB (world : World) =
-        tryAddBond
-            (defaultBendLimit Weak) Weak world.Atoms[idA] world.Atoms[idB] world
+    let tryAddWeakBond parms idA idB (world : World) =
+        tryAddBond Weak parms.BondParameterMap[Weak]
+            world.Atoms[idA] world.Atoms[idB] world
 
     /// Adds a weak bond between the given atoms in the given
     /// world.
-    let addWeakBond idA idB world =
-        match tryAddWeakBond idA idB world with
+    let addWeakBond parms idA idB world =
+        match tryAddWeakBond parms idA idB world with
             | Some world -> world
             | None -> failwith "Invalid bond"
 
@@ -610,7 +603,7 @@ module World =
             else None
         else
             if testBond -bondParms.Entropy -bondEnergy then
-                tryAddBond bondParms.BendLimit bondType atomA atomB world
+                tryAddBond bondType bondParms atomA atomB world
                     |> Option.map (fun world ->
                         let event =
                             CreateBond (bondType, atomA.Id, atomB.Id)
