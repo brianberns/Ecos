@@ -439,9 +439,9 @@ module World =
 
             // move the atom permanently?
         let isValid =
-            canMove atom' delta world                                 // avoids overlap with other atoms?
-                && testBonds parms.BondTypeParameterMap atom' world   // all of the atom's bonds are still valid?
-                && testBendEnergy parms rng atom atom' world          // bends, if they cost energy, accepted?
+            canMove atom' delta world                          // avoids overlap with other atoms?
+                && testBonds parms atom' world                 // all of the atom's bonds are still valid?
+                && testBendEnergy parms rng atom atom' world   // bends, if they cost energy, accepted?
         if isValid then
             let world = moveAtom atom atom' world
             let event = MoveAtom id
