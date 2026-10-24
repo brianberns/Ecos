@@ -339,8 +339,8 @@ module Scenario =
                                 StartBarrier = 1
                                 Entropy = 0
                                 HydrolysisRate = 0
-                                BendLimit = World.defaultBendLimit Strong
-                                BendStiffness = 0
+                                BendLimit = (0, 1)   // right angles, so that strands can fold
+                                BendStiffness = 1.5   // but prefer to be straight (experiment 15)
                             }
                             Weak, {
                                 Energy = 2
@@ -379,8 +379,8 @@ module Scenario =
                                     StartBarrier = 1
                                     Entropy = 0
                                     HydrolysisRate = 1e-4   // about 5% of strong bonds break per cycle
-                                    BendLimit = World.defaultBendLimit Strong
-                                    BendStiffness = 0
+                                    BendLimit = (0, 1)   // right angles, so that strands can fold
+                                    BendStiffness = 1.5   // but prefer to be straight (experiment 15)
                                 } }
                 Schedule =
                     Cycle [|

@@ -26,8 +26,6 @@ module Program =
                 Experiment14.run Experiment14.defaultSettings
             "experiment14b", "Templates competing from the center, a side, an end, and a corner",
                 Experiment14.runCompetition Experiment14.defaultCompetitionSettings
-            "experiment3f", "Copying in scenario C with folding-friendly bends (prototype)",
-                Experiment3.run { Experiment3.copyingSettings with Scenario = Scenario.createScenarioC true |> Scenario.withBend Ecos.Strong (0, 1) 1.0 |> Scenario.withName "C, bend 0/1, kappa 1" }
             "experiment15", "Hairpins of a self-complementary strand, by bend limit and stiffness",
                 Experiment15.run Experiment15.defaultSettings
         ]

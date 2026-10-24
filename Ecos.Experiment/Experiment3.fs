@@ -23,6 +23,9 @@ module Experiment3 =
             /// Number of independent runs (seeds).
             NumRuns : int
 
+            /// Seed of the first run. The others follow in order.
+            FirstSeed : int
+
             /// Number of times to run through the scenario's phases.
             NumCycles : int
 
@@ -41,6 +44,7 @@ module Experiment3 =
     let defaultSettings =
         {
             NumRuns = 24
+            FirstSeed = 0
             NumCycles = 3
             Scenario = Scenario.createScenarioB true
             HydrolysisRate = Some 0.0
@@ -462,7 +466,7 @@ module Experiment3 =
             // run every seed in parallel
         let mutable nDone = 0
         let runs =
-            [| 0 .. settings.NumRuns - 1 |]
+            [| settings.FirstSeed .. settings.FirstSeed + settings.NumRuns - 1 |]
                 |> Array.Parallel.map (fun seed ->
                     let results = runOne settings seed
                     let n = Interlocked.Increment(&nDone)
@@ -476,7 +480,7 @@ module Experiment3 =
                     results[iCycle * phases.Length + iPhase])
 
         printfn "Experiment 3: temperature cycling"
-        printfn "Scenario %s: %d runs of %d cycles; %d atoms" scenario.Name settings.NumRuns settings.NumCycles example.World.Atoms.Length
+        printfn "Scenario %s: %d runs of %d cycles (seeds %d to %d); %d atoms" scenario.Name settings.NumRuns settings.NumCycles settings.FirstSeed (settings.FirstSeed + settings.NumRuns - 1) example.World.Atoms.Length
         for phase in phases do
             printfn "Phase: kT %g for %d sweeps" phase.Temperature phase.NumSweeps
         printParameters scenario.Parameters
@@ -735,4 +739,22 @@ module Experiment3 =
                     (Array.sum counts)
         printfn ""
         printfn "free: not strongly bonded to anything."
+
+            // spread between runs at the end, for comparing settings
+        let final = getResults (settings.NumCycles - 1) (phases.Length - 1)
+        let summarize name (f : PhaseResult -> float) =
+            let values = Array.map f final
+            let mean = Array.average values
+            let sd =
+                sqrt ((values |> Array.sumBy (fun v -> (v - mean) ** 2.0)) / float (values.Length - 1))
+            printfn "%-24s %6.2f +/- %.2f (sd %.2f)" name mean (sd / sqrt (float values.Length)) sd
+        printfn ""
+        printfn "At the end, per run: mean +/- standard error"
+        summarize "full-length capped" (fun r ->
+            r.After.CappedFamilies
+                |> Array.where (fun family -> family.Length = nTemplate)
+                |> Array.length
+                |> float)
+        summarize "copies" (fun r -> float r.After.Copies)
+        summarize "capped" (fun r -> float r.After.Capped)
         printfn "Results written to %s" (Path.GetFullPath csvPath)

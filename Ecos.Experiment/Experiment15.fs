@@ -52,7 +52,7 @@ module Experiment15 =
                 [|
                     World.defaultBendLimit Strong, 0.0
                     for limit in [ (-1, 2); (0, 1) ] do
-                        for kappa in [ 0.0; 0.5; 1.0; 2.0; 3.0 ] do
+                        for kappa in [ 0.0; 0.5; 1.0; 1.25; 1.5; 1.75; 2.0; 3.0 ] do
                             limit, kappa
                 |]
             ArmLength = 6
