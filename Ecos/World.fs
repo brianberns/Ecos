@@ -243,42 +243,65 @@ module World =
 
     /// Bend energy that a bond of the given type between atoms A
     /// and B adds to the given world, at A and at B, whether or
-    /// not the bond exists yet.
+    /// not the bond exists yet. An atom has at most two bonds of a
+    /// type, so the bond makes at most one bend at each end.
     let private getBondBendEnergy
         kappa bondType atomA atomB (world : World) =
         let bondMap = world.BondTypeMap[bondType]
-        let at atomA atomB =
-            let deltaAB = getDisplacement atomA atomB world
-            BondMap.getBonds atomA.Id bondMap
-                |> Seq.sumBy (fun idC ->
-                    if idC = atomB.Id then 0.0
-                    else
-                        let deltaAC =
-                            getDisplacement atomA world.Atoms[idC] world
-                        getBendEnergy kappa deltaAB deltaAC)
+        let at (atomA : Atom) (atomB : Atom) =
+            let ids = BondMap.getBonds atomA.Id bondMap
+            assert(ids.Count <= 2)
+            let idC =
+                if ids.IsEmpty then -1
+                elif ids.MinimumElement <> atomB.Id then ids.MinimumElement
+                elif ids.MaximumElement <> atomB.Id then ids.MaximumElement
+                else -1
+            if idC < 0 then 0.0
+            else
+                getBendEnergy kappa
+                    (getDisplacement atomA atomB world)
+                    (getDisplacement atomA world.Atoms[idC] world)
         at atomA atomB + at atomB atomA
 
-    /// Bend energy of bonds of the given type between the given
-    /// atom and its partners.
-    let private getLocalBendEnergy
-        kappa bondType atom (world : World) =
+    /// Change in the bend energy of bonds of the given type from
+    /// moving an atom: at the atom itself, and at each of its
+    /// partners. An atom has at most two bonds of a type, so there
+    /// is at most one bend at each.
+    let private getBendEnergyDelta
+        kappa bondType (atomBefore : Atom) atomAfter (world : World) =
         let bondMap = world.BondTypeMap[bondType]
-        let getAtom id =
-            if id = atom.Id then atom else world.Atoms[id]
-        let at id =
-            let atomM = getAtom id
-            let deltas =
-                BondMap.getBonds id bondMap
-                    |> Seq.map (fun idC ->
-                        getDisplacement atomM (getAtom idC) world)
-                    |> Seq.toArray
-            seq {
-                for i in 0 .. deltas.Length - 1 do
-                    for j in i + 1 .. deltas.Length - 1 do
-                        getBendEnergy kappa deltas[i] deltas[j]
-            } |> Seq.sum
-        at atom.Id
-            + (BondMap.getBonds atom.Id bondMap |> Seq.sumBy at)
+        let ids = BondMap.getBonds atomBefore.Id bondMap
+        assert(ids.Count <= 2)
+        if ids.IsEmpty then 0.0
+        else
+                // bend at a partner, B, between the moved atom and B's
+                // other partner, if any
+            let atPartner idB =
+                let idsB = BondMap.getBonds idB bondMap
+                assert(idsB.Count <= 2)
+                if idsB.Count < 2 then 0.0
+                else
+                    let idC =
+                        if idsB.MinimumElement = atomBefore.Id then idsB.MaximumElement
+                        else idsB.MinimumElement
+                    let atomB = world.Atoms[idB]
+                    let deltaBC = getDisplacement atomB world.Atoms[idC] world
+                    getBendEnergy kappa (getDisplacement atomB atomAfter world) deltaBC
+                        - getBendEnergy kappa (getDisplacement atomB atomBefore world) deltaBC
+
+            let idB = ids.MinimumElement
+            if ids.Count = 1 then atPartner idB
+            else
+                    // bend at the moved atom, between its two partners
+                let idC = ids.MaximumElement
+                let atomB = world.Atoms[idB]
+                let atomC = world.Atoms[idC]
+                let at atom =
+                    getBendEnergy kappa
+                        (getDisplacement atom atomB world)
+                        (getDisplacement atom atomC world)
+                at atomAfter - at atomBefore
+                    + atPartner idB + atPartner idC
 
     /// Adds a bond of the given type between the given atoms in
     /// the given world if it is valid.
@@ -472,18 +495,16 @@ module World =
     /// moving the given atom, if bends cost energy.
     let private testBendEnergy
         parms rng atomBefore atomAfter (world : World) =
-        let stiffBondTypes =
+        let energyDelta =
             BondType.all
-                |> Array.choose (fun bondType ->
+                |> Array.sumBy (fun bondType ->
                     let kappa = parms.BondParameterMap[bondType].BendStiffness
-                    if kappa > 0.0 then Some (bondType, kappa) else None)
-        if stiffBondTypes.Length = 0 then true
+                    if kappa > 0.0 then
+                        getBendEnergyDelta
+                            kappa bondType atomBefore atomAfter world
+                    else 0.0)
+        if energyDelta <= 0.0 then true   // downhill moves are always accepted
         else
-            let energyDelta =
-                stiffBondTypes
-                    |> Array.sumBy (fun (bondType, kappa) ->
-                        getLocalBendEnergy kappa bondType atomAfter world
-                            - getLocalBendEnergy kappa bondType atomBefore world)
             let temp =
                 Parameters.getAvgTemperature atomBefore atomAfter parms
             testMetropolis rng temp 0.0 energyDelta
