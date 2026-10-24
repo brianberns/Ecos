@@ -2,10 +2,13 @@
 
 open System
 open System.Diagnostics
+open System.IO
 
 open Elmish
 
+open Avalonia
 open Avalonia.Controls
+open Avalonia.Media.Imaging
 
 open Ecos.Experiment
 
@@ -145,12 +148,33 @@ module Model =
             | SetSeed seed -> handleSetSeed seed model
             | Reset -> handleReset model
 
+    /// Saves an image of the given control to the given file.
+    let private saveImage (control : Control) (path : string) =
+        let size = control.Bounds.Size
+        let pixels = PixelSize(int size.Width, int size.Height)
+        use bitmap = new RenderTargetBitmap(pixels, Vector(96.0, 96.0))
+        bitmap.Render(control)
+        let options = PngBitmapEncoderOptions()
+        bitmap.Save(path, options)   // PNG
+
+    /// Directory in which to save frames.
+    let private imagesDirName = "Images"
+
     /// One tick before each rendered frame.
-    let frames (topLevel : TopLevel) : Subscribe<_> =
+    let frames (topLevel : TopLevel) saveFrame : Subscribe<_> =
         fun dispatch ->
             let mutable running = true
+            let mutable iFrame = 0
             let rec onFrame (_ : TimeSpan) =
                 if running then
+                    if saveFrame then
+                        Directory.CreateDirectory(imagesDirName)
+                            |> ignore
+                        let path =
+                            Path.Combine(
+                                imagesDirName, $"Ecos{iFrame:D5}.png")
+                        saveImage topLevel path
+                        iFrame <- iFrame + 1
                     dispatch Tick
                     topLevel.RequestAnimationFrame(onFrame)
             topLevel.RequestAnimationFrame(onFrame)
@@ -158,5 +182,6 @@ module Model =
                 member _.Dispose() = running <- false }
 
     /// Frame subscription.
-    let subscribe topLevel (_ : Model) : Sub<_> =
-        [ ["frames"], frames topLevel ]
+    let subscribe topLevel (model : Model) : Sub<_> =
+        let saveFrame = model.IsRunning
+        [ [ "frames"; string saveFrame ], frames topLevel saveFrame ]
