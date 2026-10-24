@@ -2,31 +2,6 @@ namespace rec Ecos
 
 open System
 
-/// Each bond type's parameters, cached for speed.
-type private BondTypeParameterCache =
-    {
-        /// Strong-bond parameters.
-        StrongParameters : BondTypeParameters
-
-        /// Weak-bond parameters.
-        WeakParameters : BondTypeParameters
-    }
-
-    /// Gets the parameters of the given bond type.
-    member inline this.Item(bondType) =
-        match bondType with
-            | Strong -> this.StrongParameters
-            | Weak -> this.WeakParameters
-
-module private BondTypeParameterCache =
-
-    /// Creates a cache.
-    let create parms =
-        {
-            StrongParameters = parms.BondParameterMap[Strong]
-            WeakParameters = parms.BondParameterMap[Weak]
-        }
-
 /// A lattice world containing atoms bonded into molecules.
 /// Every atom occupies a 2x2 square around its central
 /// location on the lattice, so in the drawing below, the
@@ -367,7 +342,7 @@ module World =
 
     /// Determines whether the given atom's bonds are valid.
     let private testBonds
-        (bondParmCache : BondTypeParameterCache) atom (world : World) =
+        (bondParmMap : BondParameterMap) atom (world : World) =
         behaviorMap
             |> Map.forall (fun bondType behavior ->
 
@@ -387,7 +362,7 @@ module World =
 
                         // test bond angles?
                     if isValid then
-                        let bendLimit = bondParmCache[bondType].BendLimit
+                        let bendLimit = bondParmMap[bondType].BendLimit
                         let partnerIds = Seq.toArray partnerIds
                         testCentralBonds
                             behavior bendLimit atom partnerIds world
@@ -430,13 +405,13 @@ module World =
 
     /// Applies the Metropolis rule to the change in bend energy from
     /// moving the given atom, if bends cost energy.
-    let private testBendEnergy
-        parms (bondParmCache : BondTypeParameterCache) rng
+    let private testBendEnergy parms rng
         atomBefore atomAfter (world : World) =
         let energyDelta =
             BondType.all
                 |> Array.sumBy (fun bondType ->
-                    let kappa = bondParmCache[bondType].BendStiffness
+                    let kappa =
+                        parms.BondParameterMap[bondType].BendStiffness
                     if kappa > 0.0 then
                         Bend.getEnergyDelta
                             kappa bondType atomBefore atomAfter world
@@ -448,8 +423,7 @@ module World =
             testMetropolis rng temp 0.0 energyDelta
 
     /// Attempts to move an atom in the given world.
-    let private tryUpdateAtom
-        parms bondParmCache (rng : Random) (world : World) =
+    let private tryUpdateAtom parms (rng : Random) (world : World) =
 
             // pick atom to move
         let id = rng.Next(world.Atoms.Length)
@@ -465,10 +439,10 @@ module World =
 
             // move the atom permanently?
         let isValid =
-            canMove atom' delta world                      // avoids overlap with other atoms?
-                && testBonds bondParmCache atom' world         // all of the atom's bonds are still valid?
-                && testBendEnergy
-                    parms bondParmCache rng atom atom' world   // bends, if they cost energy, accepted?
+            let bondParmMap = parms.BondParameterMap
+            canMove atom' delta world                          // avoids overlap with other atoms?
+                && testBonds bondParmMap atom' world           // all of the atom's bonds are still valid?
+                && testBendEnergy parms rng atom atom' world   // bends, if they cost energy, accepted?
         if isValid then
             let world = moveAtom atom atom' world
             let event = MoveAtom id
@@ -525,8 +499,7 @@ module World =
     /// Attempts to toggle a bond of the given type between
     /// the atoms with the given IDs in the given world.
     let private tryToggleBond
-        parms (bondParmCache : BondTypeParameterCache)
-        (rng : Random) bondType atomA atomB (world : World) =
+        parms (rng : Random) bondType atomA atomB (world : World) =
 
             // count adjacent stacks
         let behavior = behaviorMap[bondType]
@@ -534,7 +507,7 @@ module World =
             behavior.CountStacks atomA.Id atomB.Id world.BondTypeMap
 
             // compute bond energy
-        let bondParms = bondParmCache[bondType]
+        let bondParms = parms.BondParameterMap[bondType]
         let bondEnergy =
             let bendEnergy =
                 if bondParms.BendStiffness > 0.0 then
@@ -584,8 +557,7 @@ module World =
 
     /// Attempts to toggle a bond of the given type in the given
     /// world.
-    let private tryUpdateBond
-        parms bondParameters (rng : Random) bondType (world : World) =
+    let private tryUpdateBond parms (rng : Random) bondType (world : World) =
 
             // pick atom to bond
         let idA = rng.Next(world.Atoms.Length)
@@ -600,7 +572,7 @@ module World =
         match world[atomA.Location + delta] with
             | Cell.Atom idB ->
                 let atomB = world.Atoms[idB]
-                tryToggleBond parms bondParameters rng bondType atomA atomB world
+                tryToggleBond parms rng bondType atomA atomB world
             | _ -> None
 
     /// Fraction of updates that attempt to move an atom (aka "hop").
@@ -614,49 +586,46 @@ module World =
 
     /// Attempts to cause an event in the given world without
     /// cloning it.
-    let private tryUpdateImpl parms bondParameters (rng : Random) world =
+    let private tryUpdateImpl parms (rng : Random) world =
         assert(
             moveAtomRate
                 + toggleStrongBondRate
                 + toggleWeakBondRate = 1.0)
         let x = rng.NextDouble()
         if x <= moveAtomRate then
-            tryUpdateAtom parms bondParameters rng world
+            tryUpdateAtom parms rng world
         elif x <= moveAtomRate + toggleStrongBondRate then
-            tryUpdateBond parms bondParameters rng Strong world
+            tryUpdateBond parms rng Strong world
         else
-            tryUpdateBond parms bondParameters rng Weak world
+            tryUpdateBond parms rng Weak world
 
     /// Attempts to cause an event in the given world.
     let tryUpdate parms rng world =
-        let bondParmCache = BondTypeParameterCache.create parms
         copy world
-            |> tryUpdateImpl parms bondParmCache rng
+            |> tryUpdateImpl parms rng
 
     /// Causes an event in the given world without cloning it,
     /// or is a no-op if the event fails.
-    let private updateImpl parms bondParameters rng world =
-        match tryUpdateImpl parms bondParameters rng world with
+    let private updateImpl parms rng world =
+        match tryUpdateImpl parms rng world with
             | Some (world, event) -> world, Some event
             | None -> world, None
 
     /// Causes an event in the given world, or is a no-op if
     /// the event fails.
     let update parms rng world =
-        let bondParmCache = BondTypeParameterCache.create parms
         copy world
-            |> updateImpl parms bondParmCache rng
+            |> updateImpl parms rng
 
     /// Performs the given number of sweeps, where each sweep
     /// is one update per atom in the world, on average. Some
     /// atoms might be updated more than once, or not at all.
     let sweepWith parms rng numSweeps onEvent (world : World) =
         let nUpdates = numSweeps * world.Atoms.Length
-        let bondParmCache = BondTypeParameterCache.create parms
         (copy world, seq { 1 .. nUpdates })
             ||> Seq.fold (fun world _ ->
                 let world, eventOpt =
-                    updateImpl parms bondParmCache rng world
+                    updateImpl parms rng world
                 match eventOpt with
                     | Some event ->
                         onEvent event world.BondTypeMap
@@ -672,6 +641,8 @@ module World =
 
 module private Bend =
 
+    /// Tests the bend between bonds AB and AC:
+    ///
     /// A -- B
     ///  \
     ///   \
@@ -681,6 +652,8 @@ module private Bend =
         let deltaAC = World.getDisplacement atomA atomC world   // vector from A to C
         behavior.TestBend bendLimit deltaAB deltaAC
 
+    /// Tests multiple bends for bond AB:
+    ///
     /// A -?- B
     ///  \
     ///   \

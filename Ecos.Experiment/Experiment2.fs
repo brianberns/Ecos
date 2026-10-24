@@ -27,7 +27,7 @@ module Experiment2 =
             /// Bond parameters to run with. The strong bond barrier
             /// and its reduction are replaced by each combination of
             /// the values above in turn.
-            BondParameterMap : Map<BondType, BondTypeParameters>
+            BondParameterMap : BondParameterMap
 
             /// Number of independent runs (seeds) of each world, at
             /// each combination of the values above.
@@ -81,7 +81,7 @@ module Experiment2 =
                             BendLimit = Bend.any
                             BendStiffness = 0
                         }
-                ]
+                ] |> BondParameterMap.ofMap
             NumRuns = 16
             EquilibrationSweeps = 10000
             MaxJoins = 5

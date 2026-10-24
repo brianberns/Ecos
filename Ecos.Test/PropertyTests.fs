@@ -740,7 +740,7 @@ module PropertyTests =
                     Map [
                         Strong, { Energy = 30; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = TestParameters.straightBend; BendStiffness = 0 }
                         Weak, { Energy = 1; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = TestParameters.anyBend; BendStiffness = 0 }
-                    ]
+                    ] |> BondParameterMap.ofMap
                 PeelBarrier = Double.PositiveInfinity   // no peeling
             }
         let mutable world =
@@ -905,7 +905,7 @@ module PropertyTests =
                     Map [
                         Strong, { Energy = 0; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = TestParameters.straightBend; BendStiffness = 0 }
                         Weak, { Energy = 3; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = TestParameters.anyBend; BendStiffness = 0 }
-                    ]
+                    ] |> BondParameterMap.ofMap
                 PeelBarrier = Double.PositiveInfinity   // no peeling
             }
         let mutable world =
@@ -1313,7 +1313,7 @@ module PropertyTests =
                     Map [
                         Strong, { Energy = 0; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = TestParameters.straightBend; BendStiffness = 0 }
                         Weak, { Energy = 3; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = TestParameters.anyBend; BendStiffness = 0 }
-                    ]
+                    ] |> BondParameterMap.ofMap
                 PeelBarrier = Double.PositiveInfinity   // no peeling
             }
         for label, world in stackingWorlds do
@@ -1336,7 +1336,7 @@ module PropertyTests =
                     Map [
                         Strong, { Energy = 0; PairEnergyMap = Map.empty; Barrier = 3; BarrierStackReduction = 3; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = TestParameters.straightBend; BendStiffness = 0 }
                         Weak, { Energy = 3; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = TestParameters.anyBend; BendStiffness = 0 }
-                    ]
+                    ] |> BondParameterMap.ofMap
                 PeelBarrier = Double.PositiveInfinity   // no peeling
             }
         for label, world in stackingWorlds do
@@ -1359,7 +1359,7 @@ module PropertyTests =
                     Map [
                         Strong, { Energy = 2; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = strongEntropy; HydrolysisRate = 0; BendLimit = TestParameters.straightBend; BendStiffness = 0 }
                         Weak, { Energy = 3; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = weakEntropy; HydrolysisRate = 0; BendLimit = TestParameters.anyBend; BendStiffness = 0 }
-                    ]
+                    ] |> BondParameterMap.ofMap
                 PeelBarrier = Double.PositiveInfinity   // no peeling
             }
         inParallel [|
@@ -1410,7 +1410,7 @@ module PropertyTests =
                     Map [
                         Strong, { Energy = 0; PairEnergyMap = Map.empty; Barrier = 3; BarrierStackReduction = 5; StartBarrier = 1.5; Entropy = 0; HydrolysisRate = 0; BendLimit = TestParameters.straightBend; BendStiffness = 0 }
                         Weak, { Energy = 3; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0.5; Entropy = 0; HydrolysisRate = 0; BendLimit = TestParameters.anyBend; BendStiffness = 0 }
-                    ]
+                    ] |> BondParameterMap.ofMap
                 PeelBarrier = Double.PositiveInfinity   // no peeling
             }
             // strands start slowly but then grow freely, so most strong bonds
@@ -1422,7 +1422,7 @@ module PropertyTests =
                     Map [
                         Strong, { Energy = 2; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 2; Entropy = 0; HydrolysisRate = 0; BendLimit = TestParameters.straightBend; BendStiffness = 0 }
                         Weak, { Energy = 1; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = TestParameters.anyBend; BendStiffness = 0 }
-                    ]
+                    ] |> BondParameterMap.ofMap
                 PeelBarrier = Double.PositiveInfinity   // no peeling
             }
         inParallel [|
@@ -1480,7 +1480,7 @@ module PropertyTests =
                     Map [
                         Strong, { Energy = 30; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = TestParameters.straightBend; BendStiffness = 0 }
                         Weak, { Energy = 1; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = TestParameters.anyBend; BendStiffness = 0 }
-                    ]
+                    ] |> BondParameterMap.ofMap
                 PeelBarrier = 1.0   // peels with probability 1/e
             }
         inParallel [|
@@ -1515,7 +1515,7 @@ module PropertyTests =
                 let weak = { peeling.BondParameterMap[Weak] with Energy = 3.0 }
                 checkEventRates
                     "Box, with deep weak bonds and hydrolysis"
-                    ({ peeling with BondParameterMap = Map.add Weak weak peeling.BondParameterMap }
+                    ({ peeling with BondParameterMap = BondParameterMap.add Weak weak peeling.BondParameterMap }
                         |> TestParameters.withHydrolysis Strong 0.3
                         |> TestParameters.withHydrolysis Weak 0.05)
                     200000 (Random(8)) world
@@ -1551,7 +1551,7 @@ module PropertyTests =
             let weakParms = { parms.BondParameterMap[Weak] with Energy = 3.0 }
             { parms with
                 GetTemperature = step 1.0 10.0
-                BondParameterMap = Map.add Weak weakParms parms.BondParameterMap }
+                BondParameterMap = BondParameterMap.add Weak weakParms parms.BondParameterMap }
 
             // strong bonds that form freely and are too strong to break in
             // the usual way, so every break is a peel (and no weak bonds,
@@ -1563,7 +1563,7 @@ module PropertyTests =
                     Map [
                         Strong, { Energy = 30; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = TestParameters.straightBend; BendStiffness = 0 }
                         Weak, { Energy = 1; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = TestParameters.anyBend; BendStiffness = 0 }
-                    ]
+                    ] |> BondParameterMap.ofMap
                 PeelBarrier = 2.0
             }
 

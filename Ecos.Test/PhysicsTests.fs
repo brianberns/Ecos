@@ -569,7 +569,7 @@ module PhysicsTests =
             let weak = parms.BondParameterMap[Weak]
             { parms with   // weak bonds toggle rarely, so that hops do most of the bending
                 BondParameterMap =
-                    Map.add Weak { weak with Barrier = 3.0 } parms.BondParameterMap }
+                    BondParameterMap.add Weak { weak with Barrier = 3.0 } parms.BondParameterMap }
         let weak = parms.BondParameterMap[Weak]
         let candidates = [ 0, 2; 0, 3; 1, 2; 1, 3 ]   // (X, W)
         let lengthSq (d : Point) = d.X * d.X + d.Y * d.Y

@@ -17,7 +17,7 @@ module Experiment1 =
             Temperatures : float[]
 
             /// Bond parameters to run with.
-            BondParameterMap : Map<BondType, BondTypeParameters>
+            BondParameterMap : BondParameterMap
 
             /// Number of independent runs (seeds) per temperature.
             NumRuns : int
@@ -42,7 +42,7 @@ module Experiment1 =
                 Map [
                     Strong, { Energy = 12; PairEnergyMap = Map.empty; Barrier = 6; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = Bend.straight; BendStiffness = 0 }
                     Weak, { Energy = 1; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = Bend.any; BendStiffness = 0 }
-                ]
+                ] |> BondParameterMap.ofMap
             NumRuns = 16
             EquilibrationSweeps = 20000
             NumSamples = 2000
@@ -160,7 +160,7 @@ module Experiment1 =
             settings.NumSamples
             settings.SampleInterval
         printfn ""
-        for KeyValue(bondType, bondParms) in settings.BondParameterMap do
+        for KeyValue(bondType, bondParms) in BondParameterMap.toMap settings.BondParameterMap do
             printfn
                 "%A bonds: energy %g, barrier %g"
                 bondType bondParms.Energy bondParms.Barrier

@@ -373,7 +373,7 @@ module Scenario =
                                 BendLimit = Bend.any
                                 BendStiffness = 0
                             }
-                        ]
+                        ] |> BondParameterMap.ofMap
                     PeelBarrier = 6
                 }
             Schedule = Constant 0.25
@@ -391,7 +391,7 @@ module Scenario =
                     { scenario.Parameters with
                         BondParameterMap =
                             scenario.Parameters.BondParameterMap
-                                |> Map.add Strong {
+                                |> BondParameterMap.add Strong {
                                     Energy = 34
                                     PairEnergyMap = Map.empty
                                     Barrier = 20
@@ -424,7 +424,7 @@ module Scenario =
                 let bondParms = f parms.BondParameterMap[bondType]
                 { parms with
                     BondParameterMap =
-                        Map.add bondType bondParms parms.BondParameterMap })
+                        BondParameterMap.add bondType bondParms parms.BondParameterMap })
 
     /// Sets the given scenario's strong bond barrier, and its
     /// reduction per stack to the same value, so that a fully

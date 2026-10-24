@@ -29,7 +29,7 @@ module TestParameters =
         Map [
             Strong, { Energy = 12; PairEnergyMap = Map.empty; Barrier = 6; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = straightBend; BendStiffness = 0 }
             Weak, { Energy = 1; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = anyBend; BendStiffness = 0 }
-        ]
+        ] |> BondParameterMap.ofMap
 
     /// Standard parameters at the given temperature.
     let create kT =
@@ -54,15 +54,15 @@ module TestParameters =
         {
             GetTemperature = Parameters.getUniformTemperature kT
             BondParameterMap =
-                Map.add Strong strong standardBondParameterMap
+                BondParameterMap.add Strong strong standardBondParameterMap
             PeelBarrier = System.Double.PositiveInfinity   // no peeling
         }
 
     /// The given parameters, with the given start barrier for each bond
     /// type.
     let withStartBarrier strongBarrier weakBarrier (parms : Parameters) =
-        let set bondType barrier (map : Map<BondType, BondTypeParameters>) =
-            Map.add bondType { map[bondType] with StartBarrier = barrier } map
+        let set bondType barrier (bondParmMap : BondParameterMap) =
+            BondParameterMap.add bondType { bondParmMap[bondType] with StartBarrier = barrier } bondParmMap
         { parms with
             BondParameterMap =
                 parms.BondParameterMap
@@ -75,7 +75,7 @@ module TestParameters =
         let bondParms = parms.BondParameterMap[bondType]
         { parms with
             BondParameterMap =
-                Map.add bondType
+                BondParameterMap.add bondType
                     { bondParms with HydrolysisRate = rate }
                     parms.BondParameterMap }
 
@@ -85,7 +85,7 @@ module TestParameters =
         let bondParms = parms.BondParameterMap[bondType]
         { parms with
             BondParameterMap =
-                Map.add bondType
+                BondParameterMap.add bondType
                     { bondParms with
                         BendLimit = bendLimit
                         BendStiffness = kappa }
@@ -100,12 +100,12 @@ module TestParameters =
                     BondTypeParameters.addPairEnergy typeA typeB energy bondParms)
         { parms with
             BondParameterMap =
-                Map.add bondType bondParms parms.BondParameterMap }
+                BondParameterMap.add bondType bondParms parms.BondParameterMap }
 
     /// The given parameters, with the given entropy for each bond type.
     let withEntropy strongEntropy weakEntropy (parms : Parameters) =
-        let set bondType entropy (map : Map<BondType, BondTypeParameters>) =
-            Map.add bondType { map[bondType] with Entropy = entropy } map
+        let set bondType entropy (map : BondParameterMap) =
+            BondParameterMap.add bondType { map[bondType] with Entropy = entropy } map
         { parms with
             BondParameterMap =
                 parms.BondParameterMap

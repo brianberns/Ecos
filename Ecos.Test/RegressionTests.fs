@@ -52,7 +52,7 @@ module RegressionTests =
                 Map [
                     Strong, { Energy = 12; PairEnergyMap = Map.empty; Barrier = 6; BarrierStackReduction = 3; StartBarrier = 1; Entropy = 0.5; HydrolysisRate = 0.02; BendLimit = TestParameters.straightBend; BendStiffness = 0 }
                     Weak, { Energy = 2; PairEnergyMap = Map.empty; Barrier = 0.5; BarrierStackReduction = 0; StartBarrier = 0.5; Entropy = 1; HydrolysisRate = 0; BendLimit = TestParameters.anyBend; BendStiffness = 0 }
-                ]
+                ] |> BondParameterMap.ofMap
             PeelBarrier = 2.0
         }
 
@@ -77,7 +77,7 @@ module RegressionTests =
                 Map [
                     Strong, { Energy = 12; PairEnergyMap = Map.empty; Barrier = 6; BarrierStackReduction = 6; StartBarrier = 0.5; Entropy = 0; HydrolysisRate = 0; BendLimit = TestParameters.straightBend; BendStiffness = 0 }
                     Weak, { Energy = 2; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 1; HydrolysisRate = 0; BendLimit = TestParameters.anyBend; BendStiffness = 0 }
-                ]
+                ] |> BondParameterMap.ofMap
             PeelBarrier = 3.0
         }
 
@@ -134,7 +134,7 @@ module RegressionTests =
                 Map [
                     Strong, { Energy = 2; PairEnergyMap = Map.empty; Barrier = 3; BarrierStackReduction = 2; StartBarrier = 0.5; Entropy = 0; HydrolysisRate = 0; BendLimit = TestParameters.straightBend; BendStiffness = 0 }
                     Weak, { Energy = 3; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0.5; HydrolysisRate = 0; BendLimit = TestParameters.anyBend; BendStiffness = 0 }
-                ]
+                ] |> BondParameterMap.ofMap
             PeelBarrier = Double.PositiveInfinity
         }
 
