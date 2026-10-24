@@ -172,7 +172,7 @@ module Model =
                             |> ignore
                         let path =
                             Path.Combine(
-                                imagesDirName, $"Ecos{iFrame:D5}.png")
+                                imagesDirName, $"Ecos{iFrame:D6}.png")
                         saveImage topLevel path
                         iFrame <- iFrame + 1
                     dispatch Tick
