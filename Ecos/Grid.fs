@@ -100,18 +100,15 @@ module Grid =
     /// ID. This mutates the grid.
     let setAtom location id (grid : Grid) =
         grid.SetValue(location, Cell.Atom id)
-        grid
 
     /// Sets the given location to contain a wall. This mutates the grid.
     let setWall location (grid : Grid) =
         grid.SetValue(location, Cell.Wall)
-        grid
 
     /// Sets the given location to be an empty space. This mutates the
     /// grid.
     let setEmpty location (grid : Grid) =
         grid.SetValue(location, Cell.Empty)
-        grid
 
     /// Copies the given grid.
     let copy grid =

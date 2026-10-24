@@ -2,6 +2,57 @@ namespace rec Ecos
 
 open System
 
+/// Grid of cells, with tracked atoms and walls.
+type private AtomGrid =
+    {
+        /// Atoms in the grid, indexed by their IDs.
+        Atoms : Atom[]
+
+        /// Locations of walls in the world.
+        Walls : Point[]
+
+        /// Occupant of each cell.
+        Cells : Grid
+    }
+
+module private AtomGrid =
+
+    /// Creates an atom grid.
+    let create size =
+        {
+            Atoms = Array.empty
+            Walls = Array.empty
+            Cells = Grid.create size
+        }
+
+    /// The shortest vector from atom A to atom B in the given
+    /// grid, accounting for possible edge wrapping.
+    let getDisplacement atomA atomB grid =
+        Grid.getDisplacement
+            atomA.Location
+            atomB.Location
+            grid.Cells
+
+    /// Copies the given grid.
+    let copy grid =
+        {
+            grid with
+                Atoms = Array.copy grid.Atoms
+                Cells = Grid.copy grid.Cells
+        }
+
+    /// Adds the given atom to the given grid at the given location.
+    let addAtom atom location grid =
+        Grid.setAtom location atom.Id grid.Cells   // MUTATION
+        { grid with
+            Atoms = [| yield! grid.Atoms; yield atom |] }
+
+    /// Adds a wall to the given grid at the given location.
+    let addWall location grid =
+        Grid.setWall location grid.Cells   // MUTATION
+        { grid with
+            Walls = [| yield! grid.Walls; yield location |] }
+
 /// A lattice world containing atoms bonded into molecules.
 /// Every atom occupies a 2x2 square around its central
 /// location on the lattice, so in the drawing below, the
@@ -20,43 +71,37 @@ open System
 type World =
     private {
 
-        /// Atoms in the world, indexed by their IDs.
-        _Atoms : Atom[]
-
-        /// Locations of walls in the world.
-        _Walls : Point[]
+        /// Occupant of each cell in the world.
+        AtomGrid : AtomGrid
 
         /// Bonds between atoms in the world, by type.
         _BondTypeMap : BondTypeMap
-
-        /// Occupant of each cell in the world.
-        _Cells : Grid
     }
 
     /// Atoms in the world, indexed by their IDs.
-    member this.Atoms = this._Atoms
+    member this.Atoms = this.AtomGrid.Atoms
 
     /// Locations of walls in the world.
-    member this.Walls = this._Walls
-
-    /// Bonds between atoms in the world, by type.
-    member this.BondTypeMap = this._BondTypeMap
+    member this.Walls = this.AtomGrid.Walls
 
     /// Occupant of each cell in the world.
-    member this.Cells = this._Cells
+    member this.Cells = this.AtomGrid.Cells
 
     /// Size of this world.
-    member this.Size = this.Cells.Size
+    member this.Size = this.AtomGrid.Cells.Size
 
     /// Gets the occupant of the given location in this world.
-    member this.Item(x, y) = this.Cells[x, y]
+    member this.Item(x, y) = this.AtomGrid.Cells[x, y]
 
     /// Gets the occupant of the given location in this world.
-    member this.Item(location) = this.Cells[location]
+    member this.Item(location) = this.AtomGrid.Cells[location]
 
     /// Normalizes the given location onto this world.
     member this.NormalizeLocation(location) =
-        this.Cells.NormalizeLocation(location)
+        this.AtomGrid.Cells.NormalizeLocation(location)
+
+    /// Bonds between atoms in the world, by type.
+    member this.BondTypeMap = this._BondTypeMap
 
 /// An event in the world.
 type Event =
@@ -77,10 +122,8 @@ module World =
         assert(size.X % 2 = 0)   // must be even because atoms are 2x2
         assert(size.Y % 2 = 0)
         {
-            _Atoms = Array.empty
-            _Walls = Array.empty
             _BondTypeMap = BondTypeMap.empty
-            _Cells = Grid.create size
+            AtomGrid = AtomGrid.create size
         }
 
     /// Creates an empty square world of the given size.
@@ -91,11 +134,8 @@ module World =
     /// data structures. This is used to protect against mutating
     /// shared data unexpectedly.
     let private copy world =
-        {
-            world with
-                _Atoms = Array.copy world._Atoms
-                _Cells = Grid.copy world.Cells
-        }
+        { world with
+            AtomGrid = AtomGrid.copy world.AtomGrid }
 
     /// Moore neighborhood deltas, including center.
     let private mooreDeltas =
@@ -120,12 +160,13 @@ module World =
         let location = world.NormalizeLocation(location)
         if isAvailable location None world then
             let world = copy world
-            let id = world.Atoms.Length
-            let atom = Atom.create id atomType location
+            let atom =
+                let id = world.Atoms.Length
+                Atom.create id atomType location
             let world =
-                { world with
-                    _Atoms = [| yield! world.Atoms; atom |]
-                    _Cells = Grid.setAtom location id world.Cells }   // MUTATION
+                let atomGrid =
+                    AtomGrid.addAtom atom location world.AtomGrid   // MUTATION
+                { world with AtomGrid = atomGrid }
             Some (world, atom)
         else None
 
@@ -142,8 +183,8 @@ module World =
             let world = copy world
             Some
                 { world with
-                    _Walls = [| yield! world.Walls; location |]
-                    _Cells = Grid.setWall location world.Cells }    // MUTATION
+                    AtomGrid =
+                        AtomGrid.addWall location world.AtomGrid }   // MUTATION
         else None
 
     /// Adds a wall to the given world.
@@ -173,10 +214,7 @@ module World =
     /// The shortest vector from atom A to atom B in the given
     /// world, accounting for possible edge wrapping.
     let getDisplacement atomA atomB (world : World) =
-        Grid.getDisplacement
-            atomA.Location
-            atomB.Location
-            world.Cells
+        AtomGrid.getDisplacement atomA atomB world.AtomGrid
 
     /// Determines whether bonds between the given atoms cross.
     /// Since the atoms live on a torus, we need to view them
@@ -390,18 +428,11 @@ module World =
         assert(world.Atoms[atomBefore.Id] = atomBefore)
         assert(world[atomBefore.Location] = Cell.Atom atomBefore.Id)
 
+            // MUTATION
         let id = atomBefore.Id
-
-            // MUTATION
-        world._Atoms[id] <- atomAfter   // replaces `atomBefore`
-
-            // MUTATION
-        let cells =
-            world.Cells
-                |> Grid.setEmpty atomBefore.Location
-                |> Grid.setAtom atomAfter.Location id
-
-        { world with _Cells = cells }
+        world.AtomGrid.Atoms[id] <- atomAfter   // replaces `atomBefore`
+        Grid.setEmpty atomBefore.Location world.AtomGrid.Cells
+        Grid.setAtom atomAfter.Location id world.AtomGrid.Cells
 
     /// Applies the Metropolis rule to the change in bend energy from
     /// moving the given atom, if bends cost energy.
@@ -442,7 +473,7 @@ module World =
                 && testBonds parms atom' world                 // all of the atom's bonds are still valid?
                 && testBendEnergy parms rng atom atom' world   // bends, if they cost energy, accepted?
         if isValid then
-            let world = moveAtom atom atom' world
+            moveAtom atom atom' world   // MUTATION
             let event = MoveAtom id
             Some (world, event)
         else None
