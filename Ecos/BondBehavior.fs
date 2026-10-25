@@ -286,3 +286,19 @@ module private WeakBond =
             TestBend = testBend
             TestPeel = testPeel
         }
+
+/// Each bond type's behavior, optimized for speed.
+type private BehaviorMap =
+    {
+        /// Strong-bond behavior.
+        StrongBehavior : BondBehavior
+
+        /// Weak-bond behavior.
+        WeakBehavior : BondBehavior
+    }
+
+    /// Gets the behavior of the given bond type.
+    member inline this.Item(bondType) =
+        match bondType with
+            | Strong -> this.StrongBehavior
+            | Weak -> this.WeakBehavior

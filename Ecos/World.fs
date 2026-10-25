@@ -155,10 +155,10 @@ module World =
 
     /// Behavior of each bond type.
     let private behaviorMap =
-        Map [
-            Strong, StrongBond.behavior
-            Weak, WeakBond.behavior
-        ]
+        {
+            StrongBehavior = StrongBond.behavior
+            WeakBehavior = WeakBond.behavior
+        }
 
     /// The shortest vector from atom A to atom B in the given
     /// world, accounting for possible edge wrapping.
@@ -332,10 +332,11 @@ module World =
 
     /// Determines whether the given atom's bonds are valid.
     let private testBonds parms atom (world : World) =
-        behaviorMap
-            |> Map.forall (fun bondType behavior ->
+        BondType.all
+            |> Array.forall (fun bondType ->
 
                     // test the atom's bonds
+                let behavior = behaviorMap[bondType]
                 let bondMap = world.BondTypeMap[bondType]
                 let partnerIds = BondMap.getBonds atom.Id bondMap
                 if partnerIds.IsEmpty then true   // performance optimization: early exit if unbonded
