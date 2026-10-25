@@ -69,14 +69,26 @@ module TestParameters =
                     |> set Strong strongBarrier
                     |> set Weak weakBarrier }
 
-    /// The given parameters, with the given hydrolysis rate for the given
-    /// bond type.
+    /// The given parameters, with the given hydrolysis rate for all
+    /// bonds of the given type, protected or not.
     let withHydrolysis bondType rate (parms : Parameters) =
         let bondTypeParms = parms.BondTypeParameterMap[bondType]
         { parms with
             BondTypeParameterMap =
                 BondTypeParameterMap.add bondType
-                    { bondTypeParms with HydrolysisRate = rate }
+                    { bondTypeParms with
+                        HydrolysisRate = rate
+                        ProtectedHydrolysisRate = rate }
+                    parms.BondTypeParameterMap }
+
+    /// The given parameters, with the given hydrolysis rate for
+    /// protected bonds of the given type.
+    let withProtectedHydrolysis bondType rate (parms : Parameters) =
+        let bondTypeParms = parms.BondTypeParameterMap[bondType]
+        { parms with
+            BondTypeParameterMap =
+                BondTypeParameterMap.add bondType
+                    { bondTypeParms with ProtectedHydrolysisRate = rate }
                     parms.BondTypeParameterMap }
 
     /// The given parameters, with the given bend limit and stiffness
@@ -377,10 +389,20 @@ module Chain =
             | Weak -> Double.PositiveInfinity
 
     /// Oracle: probability that an attempt to break a bond of the given
-    /// type succeeds by hydrolysis, whatever its energy or position: the
-    /// bond type's own rate. A cap's bond is like any other.
-    let hydrolysisRate (parms : Parameters) bondType =
-        parms.BondTypeParameterMap[bondType].HydrolysisRate
+    /// type, between atoms with the given IDs, succeeds by hydrolysis,
+    /// whatever its energy or position. A strong bond is protected when
+    /// both of its atoms are weakly paired (to anything), and then
+    /// hydrolyzes at its type's protected rate; any other bond, a cap's
+    /// included, at its type's own rate.
+    let hydrolysisRate (parms : Parameters) bondType (world : World) idA idB =
+        let bondTypeParms = parms.BondTypeParameterMap[bondType]
+        let isPaired id =
+            world.BondTypeMap[Weak]
+                |> Map.tryFind id
+                |> Option.exists (not << Set.isEmpty)
+        if bondType = Strong && isPaired idA && isPaired idB then
+            bondTypeParms.ProtectedHydrolysisRate
+        else bondTypeParms.HydrolysisRate
 
     /// Oracle: energy of one weak bond between W and X, with the
     /// standard parameters.

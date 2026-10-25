@@ -433,7 +433,7 @@ module PropertyTests =
                                 + Chain.stackEnergy * float nStacks
                         if Bonds.areWeaklyBonded world idA idB then
                             let pBreak = acceptBreak kT Weak nStacks (isStart Weak idA idB) energy
-                            let pHydrolysis = Chain.hydrolysisRate parms Weak
+                            let pHydrolysis = Chain.hydrolysisRate parms Weak world idA idB
                             weakBreak <- weakBreak + 1.0 - (1.0 - pBreak) * (1.0 - pHydrolysis)
                         elif canFormWeakBond world idA idB then
                             weakForm <- weakForm + acceptForm kT Weak nStacks (isStart Weak idA idB) energy
@@ -458,7 +458,7 @@ module PropertyTests =
                                         if isExposed world idA idB then
                                             exp (-Chain.peelBarrier parms Strong / kT)
                                         else 0.0
-                                    let pHydrolysis = Chain.hydrolysisRate parms Strong
+                                    let pHydrolysis = Chain.hydrolysisRate parms Strong world idA idB
                                     1.0 - (1.0 - pBreak) * (1.0 - pPeel) * (1.0 - pHydrolysis)
                                 else 0.0
                             strongBreak <- strongBreak + p
@@ -1520,6 +1520,52 @@ module PropertyTests =
                         |> TestParameters.withHydrolysis Weak 0.05)
                     200000 (Random(8)) world
         |]
+
+    /// Protection from hydrolysis: a strong bond whose two atoms are both
+    /// weakly paired hydrolyzes at its type's protected rate, and any
+    /// other at the usual rate. A duplex, a strand of four W atoms paired
+    /// with one of three X atoms, sits in a box with a lone strand of
+    /// three Y atoms, which can't pair. Two of the W strand's bonds are
+    /// protected; its third has only one paired atom, and the Y strand's
+    /// bonds have none. Bonds of both types are too strong to break in
+    /// the usual way, and strong bonds have no barrier, so a hydrolyzed
+    /// bond soon forms again, which keeps hydrolysis going; nothing
+    /// peels. The two rates are far apart, so a model that ignored
+    /// protection, or protected a bond with only one paired atom, would
+    /// break bonds at the wrong rate.
+    [<Fact>]
+    let ``Paired strong bonds are protected from hydrolysis`` () =
+        let parms =
+            {
+                GetTemperature = Parameters.getUniformTemperature 1.0
+                BondTypeParameterMap =
+                    Map [
+                        Strong, { Energy = 30; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; ProtectedHydrolysisRate = 0; BendLimit = TestParameters.straightBend; BendStiffness = 0 }
+                        Weak, { Energy = 15; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; ProtectedHydrolysisRate = 0; BendLimit = TestParameters.anyBend; BendStiffness = 0 }
+                    ] |> BondTypeParameterMap.ofMap
+                PeelBarrier = Double.PositiveInfinity   // nothing peels
+            }
+                |> TestParameters.withHydrolysis Strong 0.3
+                |> TestParameters.withProtectedHydrolysis Strong 0.02
+        let addStrand atomType (locs : (int * int) list) world =
+            let first = (world : World).Atoms.Length
+            let world =
+                (world, locs)
+                    ||> List.fold (fun world (x, y) ->
+                        World.addAtom atomType (Point.create (x, y)) world)
+            (world, [ first + 1 .. world.Atoms.Length - 1 ])
+                ||> List.fold (fun world id ->
+                    World.addStrongBond parms (id - 1) id world)
+        let world =
+            TestWorld.empty
+                |> addStrand AtomType.W [ -3, 0; -1, 0; 1, 0; 3, 0 ]    // atoms 0 to 3
+                |> addStrand AtomType.X [ -3, 2; -1, 2; 1, 2 ]          // atoms 4 to 6
+                |> addStrand AtomType.Y [ -3, -3; -1, -3; 1, -3 ]       // atoms 7 to 9
+                |> World.addWeakBond parms 0 4
+                |> World.addWeakBond parms 1 5
+                |> World.addWeakBond parms 2 6
+                |> Chain.addBox 4
+        checkEventRates "Duplex and lone strand, with protection" parms 300000 (Random(0)) world
 
     /// Bonds, at the right rates, where temperature varies by location:
     /// two atoms in a small box with a step in temperature down the
