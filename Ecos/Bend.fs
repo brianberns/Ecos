@@ -8,7 +8,7 @@ module private Bend =
     ///  \
     ///   \
     ///    C
-    let test behavior bendLimit atomA atomB atomC grid =
+    let test behavior bendLimit grid atomA atomB atomC =
         let deltaAB = AtomGrid.getDisplacement atomA atomB grid   // vector from A to B
         let deltaAC = AtomGrid.getDisplacement atomA atomC grid   // vector from A to C
         behavior.TestBend bendLimit deltaAB deltaAC
@@ -19,10 +19,10 @@ module private Bend =
     ///  \
     ///   \
     ///    C
-    let testMany behavior bendLimit atomA atomB idsC grid =
+    let testMany behavior bendLimit grid atomA atomB idsC =
         Seq.forall (fun idC ->
             let atomC = grid.Atoms[idC]
-            test behavior bendLimit atomA atomB atomC grid)
+            test behavior bendLimit grid atomA atomB atomC)
             idsC
 
     /// Energy of a bend between the given bond vectors, which
@@ -35,7 +35,7 @@ module private Bend =
     /// Bend energy that a bond of the given type between atoms A
     /// and B adds to the given world, at A and at B, whether or
     /// not the bond exists yet.
-    let getBondEnergy kappa bondMap atomA atomB grid =
+    let getBondEnergy kappa grid bondMap atomA atomB =
 
         let at atomA atomB =
 
@@ -63,7 +63,7 @@ module private Bend =
     /// moving an atom: at the atom itself, and at each of its
     /// partners.
     let getEnergyDelta
-        kappa bondMap atomBefore atomAfter grid =
+        kappa grid bondMap atomBefore atomAfter =
 
         /// Computes bend at a partner, B, between the moved atom
         /// and B's other partner, if any.

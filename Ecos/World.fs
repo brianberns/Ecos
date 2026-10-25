@@ -222,9 +222,9 @@ module World =
                 && behavior.TestValence atomB bondTypeMap
                 && not (isCrossBond behavior atomA atomB world)
                 && Bend.testMany
-                    behavior bendLimit atomA atomB idsA world.AtomGrid
+                    behavior bendLimit world.AtomGrid atomA atomB idsA
                 && Bend.testMany
-                    behavior bendLimit atomB atomA idsB world.AtomGrid
+                    behavior bendLimit world.AtomGrid atomB atomA idsB
 
         if isValid then
             Some { world with _BondTypeMap = bondTypeMap }
@@ -306,7 +306,7 @@ module World =
                 let atomB = world.Atoms[idB]
                 let atomC = world.Atoms[idC]
                 Bend.test
-                    behavior bendLimit atom atomB atomC world.AtomGrid)
+                    behavior bendLimit world.AtomGrid atom atomB atomC)
 
     /// Tests angles in which the atom isn't central: A-B-C.
     let private testPeripheralBonds
@@ -320,8 +320,8 @@ module World =
                         else
                             let atomC = world.Atoms[idC]
                             Bend.test
-                                behavior bendLimit
-                                atomB atom atomC world.AtomGrid))
+                                behavior bendLimit world.AtomGrid
+                                atomB atom atomC))
 
     /// Determines whether the given atom's bonds are valid.
     let private testBonds parms atom (world : World) =
@@ -392,7 +392,7 @@ module World =
                     if kappa > 0.0 then
                         let bondMap = world.BondTypeMap[bondType]
                         Bend.getEnergyDelta
-                            kappa bondMap atomBefore atomAfter world.AtomGrid
+                            kappa world.AtomGrid bondMap atomBefore atomAfter
                     else 0.0)
         if energyDelta <= 0.0 then true   // downhill moves are always accepted
         else
@@ -491,7 +491,7 @@ module World =
                 let stiffness = bondTypeParms.BendStiffness
                 if stiffness > 0.0 then
                     Bend.getBondEnergy
-                        stiffness bondMap atomA atomB world.AtomGrid
+                        stiffness world.AtomGrid bondMap atomA atomB
                 else 0.0
             BondTypeParameters.getEnergy
                 atomA.Type atomB.Type bondTypeParms
