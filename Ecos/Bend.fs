@@ -32,9 +32,7 @@ module private Bend =
         let dot = float (u .* v)
         kappa * (1.0 + dot / sqrt (float (u .* u) * float (v .* v)))
 
-    /// Bend energy that a bond of the given type between atoms A
-    /// and B adds to the given world, at A and at B, whether or
-    /// not the bond exists yet.
+    /// Bend energy of a bond between atoms A and B.
     let getBondEnergy kappa grid bondMap atomA atomB =
 
         let at atomA atomB =
@@ -59,9 +57,8 @@ module private Bend =
 
         at atomA atomB + at atomB atomA
 
-    /// Change in the bend energy of bonds of the given type from
-    /// moving an atom: at the atom itself, and at each of its
-    /// partners.
+    /// Change in the bend energy of bonds from moving an atom:
+    /// at the atom itself, and at each of its partners.
     let getEnergyDelta
         kappa grid bondMap atomBefore atomAfter =
 
