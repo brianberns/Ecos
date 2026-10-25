@@ -34,8 +34,6 @@ module Program =
                 Experiment17.run Experiment17.defaultSettings
             "experiment17s", "The same, with eight-atom strands",
                 Experiment17.run Experiment17.shortSettings
-            "experiment18", "Melting of a hairpin and of duplexes, by temperature",
-                Experiment18.run Experiment18.defaultSettings
         ]
 
     /// Prints usage.
@@ -47,7 +45,7 @@ module Program =
         for name, description, _ in experiments do
             printfn "   %-13s %s" name description
         printfn ""
-        printfn "Experiments 6, 7, 9, 10, 12 and 13 are archived: see the git history."
+        printfn "Experiments 6, 7, 9, 10, 12, 13 and 18 are archived: see the git history."
         printfn ""
         printfn "checks: confirms, in several minutes, that the model's key accomplishments still hold."
 
