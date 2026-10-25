@@ -72,6 +72,10 @@ type private BondBehavior =
         /// Determines whether the given bond of this type can
         /// peel.
         TestPeel : Atom -> Atom -> BondMap -> bool
+
+        /// Determines whether the given bond of this type is
+        /// protected from normal hydrolysis.
+        TestHydrolysisProtection : Atom -> Atom -> BondTypeMap -> bool
     }
 
 module private BondBehavior =
@@ -187,6 +191,14 @@ module private StrongBond =
 
         isExposed atomA || isExposed atomB
 
+    /// A strong bond is protected from hydrolysis when both of
+    /// its atoms are weakly paired.
+    let testHydrolysisProtection atomA atomB (bondTypeMap : BondTypeMap) =
+        let weakBondMap = bondTypeMap[Weak]
+        let isPaired atom =
+            not (BondMap.getBonds atom.Id weakBondMap).IsEmpty
+        isPaired atomA && isPaired atomB
+
     /// Behavior of strong bonds.
     let behavior =
         {
@@ -198,6 +210,7 @@ module private StrongBond =
             CountStacks = countStacks
             TestBend = BondBehavior.testBendLimit
             TestPeel = testPeel
+            TestHydrolysisProtection = testHydrolysisProtection
         }
 
 module private WeakBond =
@@ -273,6 +286,10 @@ module private WeakBond =
     let testPeel _atomA _atomB _bondMap =
         false
 
+    /// Weak bonds need no hydrolysis protection.
+    let testHyrdolysisProtection _atomA _atomB _bondTypeMap =
+        false
+
     /// Behavior of weak bonds.
     let behavior =
         {
@@ -284,6 +301,7 @@ module private WeakBond =
             CountStacks = countStacks
             TestBend = testBend
             TestPeel = testPeel
+            TestHydrolysisProtection = testHyrdolysisProtection
         }
 
 /// Each bond type's behavior, optimized for speed.

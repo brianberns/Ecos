@@ -446,8 +446,15 @@ module World =
         else false
 
     /// Determines whether to break a bond by hydrolysis.
-    let private testHydrolysis (rng : Random) bondTypeParms =
-        rng.NextDouble() < bondTypeParms.HydrolysisRate
+    let private testHydrolysis
+        (rng : Random) bondTypeParms behavior atomA atomB bondTypeMap =
+        let rate =
+            let isProtected =
+                behavior.TestHydrolysisProtection
+                    atomA atomB bondTypeMap
+            if isProtected then bondTypeParms.ProtectedHydrolysisRate
+            else bondTypeParms.HydrolysisRate
+        rng.NextDouble() < rate
 
     /// Attempts to break the bond of the given type between the
     /// given atoms in the given world.
@@ -515,8 +522,11 @@ module World =
                 nStacks
         if BondMap.areBonded atomA.Id atomB.Id bondMap then
             if testBond bondTypeParms.Entropy bondEnergy
-                || testPeel rng parms temp behavior atomA atomB bondMap
-                || testHydrolysis rng bondTypeParms
+                || testPeel
+                    rng parms temp behavior atomA atomB bondMap
+                || testHydrolysis
+                    rng bondTypeParms behavior
+                    atomA atomB world.BondTypeMap
                 then
                 tryBreakBond bondType atomA atomB world
                     |> Option.map (fun world ->
