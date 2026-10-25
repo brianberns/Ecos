@@ -287,7 +287,7 @@ module private WeakBond =
         false
 
     /// Weak bonds need no hydrolysis protection.
-    let testHyrdolysisProtection _atomA _atomB _bondTypeMap =
+    let testHydrolysisProtection _atomA _atomB _bondTypeMap =
         false
 
     /// Behavior of weak bonds.
@@ -301,7 +301,7 @@ module private WeakBond =
             CountStacks = countStacks
             TestBend = testBend
             TestPeel = testPeel
-            TestHydrolysisProtection = testHyrdolysisProtection
+            TestHydrolysisProtection = testHydrolysisProtection
         }
 
 /// Each bond type's behavior, optimized for speed.
