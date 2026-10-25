@@ -446,12 +446,22 @@ module Scenario =
             |> mapParameters (fun parms ->
                 { parms with PeelBarrier = barrier })
 
-    /// Sets the given scenario's rate of hydrolysis of strong bonds. Zero
-    /// means strands never die.
+    /// Sets the given scenario's rate of hydrolysis of all strong bonds,
+    /// protected or not. Zero means strands never die.
     let withHydrolysisRate rate scenario =
         scenario
             |> mapBondTypeParameters Strong (fun bondTypeParms ->
-                { bondTypeParms with HydrolysisRate = rate })
+                { bondTypeParms with
+                    HydrolysisRate = rate
+                    ProtectedHydrolysisRate = rate })
+
+    /// Sets the given scenario's rate of hydrolysis of strong bonds that
+    /// are protected, because both of their atoms are weakly paired.
+    /// Other strong bonds keep the scenario's rate.
+    let withProtectedHydrolysisRate rate scenario =
+        scenario
+            |> mapBondTypeParameters Strong (fun bondTypeParms ->
+                { bondTypeParms with ProtectedHydrolysisRate = rate })
 
     /// Sets the sharpest bend allowed for the given bond type in the
     /// given scenario, and the energy cost of bending (kappa).
