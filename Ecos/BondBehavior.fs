@@ -1,43 +1,42 @@
 namespace Ecos
 
-/// Associates bond types with bond maps. Optimized for performance.
+/// Associates bond types with bond maps, optimized for speed.
 type BondTypeMap =
     {
-        /// Bond maps in this bond type map.
-        BondMaps : BondMap[]
+        /// Strong-bond map.
+        StrongBondMap : BondMap
+
+        /// Weak-bond map.
+        WeakBondMap : BondMap
     }
-
-    /// Strong bond index.
-    static member StrongIdx = 0
-
-    /// Weak bond indx.
-    static member WeakIdx = 1
 
     /// Gets the bond map associated with the given bond type.
     member inline this.Item(bondType) =
-        let idx =
-            match bondType with
-                | Strong -> BondTypeMap.StrongIdx
-                | Weak -> BondTypeMap.WeakIdx
-        this.BondMaps[idx]
+        match bondType with
+            | Strong -> this.StrongBondMap
+            | Weak -> this.WeakBondMap
+
+    /// All bond maps in this bond type map.
+    member this.BondMaps =
+        seq {
+            this.StrongBondMap
+            this.WeakBondMap
+        }
 
 module BondTypeMap =
 
     /// Empty bond type map.
     let empty =
-        let bondMaps =
-            BondType.all
-                |> Array.map (fun _ -> Map.empty)
-        { BondMaps = bondMaps }
+        {
+            StrongBondMap = Map.empty
+            WeakBondMap = Map.empty
+        }
 
     /// Sets the given bond type's bond map.
     let setBondMap bondType bondMap (bondTypeMap : BondTypeMap) =
-        let bondMaps =
-            BondType.all
-                |> Array.map (fun bt ->
-                    if bt = bondType then bondMap
-                    else bondTypeMap[bt])
-        { BondMaps = bondMaps }
+        match bondType with
+            | Strong -> { bondTypeMap with StrongBondMap = bondMap }
+            | Weak -> { bondTypeMap with WeakBondMap = bondMap }
 
 /// Specific behavior of a bond type.
 type private BondBehavior =
