@@ -93,13 +93,33 @@ module ControlPanel =
             ]
         ]
 
-    let private renderFrameRate frameRate =
+    let private renderFrameRate (frameRate : float) =
         StackPanel.create [
             StackPanel.dock Dock.Top
             StackPanel.orientation Orientation.Horizontal
             StackPanel.children [
                 renderLabel "Frame rate:" labelColumnWidth
-                renderLabel $"{frameRate:F1}" valueColumnWidth
+                renderLabel $"{frameRate:F1} fps" valueColumnWidth
+            ]
+        ]
+
+    let private renderIsRecording isRecording dispatch =
+        StackPanel.create [
+            StackPanel.dock Dock.Top
+            StackPanel.orientation Orientation.Horizontal
+            StackPanel.children [
+                renderLabel "Recording:" labelColumnWidth
+                CheckBox.create [
+                    CheckBox.isChecked (isRecording : bool)
+                    CheckBox.width valueColumnWidth
+                    CheckBox.margin margin
+                    CheckBox.onIsCheckedChanged (fun args -> 
+                        let checkBox = args.Source :?> CheckBox
+                        if checkBox.IsChecked.HasValue then
+                            checkBox.IsChecked.Value
+                                |> SetIsRecording
+                                |> dispatch)
+                ]
             ]
         ]
 
@@ -195,7 +215,7 @@ module ControlPanel =
                 let btn = args.Source :?> ToggleButton
                 if btn.IsChecked.HasValue then
                     btn.IsChecked.Value
-                        |> SetRun
+                        |> SetIsRunning
                         |> dispatch)
         ]
 
@@ -231,6 +251,7 @@ module ControlPanel =
                 renderScenario model dispatch
                 renderSweepCount model.Run.NumSweeps
                 renderFrameRate model.FrameRate
+                renderIsRecording model.IsRecording dispatch
                 renderTemperature model dispatch
                 renderSpeed model.Speed dispatch
                 renderSeed model.Seed dispatch
