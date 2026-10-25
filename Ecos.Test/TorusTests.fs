@@ -8,11 +8,14 @@ open Ecos
 module TorusTests =
 
     /// Parameters that use most rules, hot enough that bonds form and
-    /// break often.
+    /// break often, including bending (up to right angles, at a cost)
+    /// and protection from hydrolysis, which both depend on where atoms
+    /// are relative to each other.
     let private parameters =
         TestParameters.basic 1.0
-            |> TestParameters.withStrong (fun p -> { p with Energy = 6; Barrier = 3; BarrierStackReduction = 3; StartBarrier = 0.5; Entropy = 0.5; HydrolysisRate = 0.01; ProtectedHydrolysisRate = 0.01 })
+            |> TestParameters.withStrong (fun p -> { p with Energy = 6; Barrier = 3; BarrierStackReduction = 3; StartBarrier = 0.5; Entropy = 0.5; HydrolysisRate = 0.01; ProtectedHydrolysisRate = 0.002 })
             |> TestParameters.withWeak (fun p -> { p with Energy = 2; Entropy = 1 })
+            |> TestParameters.withBend Strong TestParameters.rightAngleBend 1.5
             |> TestParameters.withPeelBarrier 2.0
 
     /// A capped template with free atoms that can copy it, in a box at the
