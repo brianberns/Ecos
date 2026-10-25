@@ -28,6 +28,8 @@ module Program =
                 Experiment14.runCompetition Experiment14.defaultCompetitionSettings
             "experiment15", "Hairpins of a self-complementary strand, by bend limit and stiffness",
                 Experiment15.run Experiment15.defaultSettings
+            "experiment16", "Hairpins, duplexes and sheets in a living world, by cycle",
+                Experiment16.run Experiment16.defaultSettings
         ]
 
     /// Prints usage.

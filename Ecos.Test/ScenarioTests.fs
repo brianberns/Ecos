@@ -240,3 +240,26 @@ module ScenarioTests =
                         $"{group.Name}, {group.Scenarios[group.Scenarios.Length - 1].Name}: atom {atom.Id} at {loc} is outside the walls")
             for id in run.Template do
                 Assert.InRange(id, 0, run.World.Atoms.Length - 1)
+
+    [<Fact>]
+    let ``The longest hairpin stem needs complementary arms around a loop of two`` () =
+        let parse (text : string) =
+            text
+                |> Seq.map (function
+                    | 'W' -> AtomType.W | 'X' -> AtomType.X
+                    | 'Y' -> AtomType.Y | 'Z' -> AtomType.Z
+                    | 'P' -> AtomType.P | 'Q' -> AtomType.Q
+                    | c -> failwith $"Unknown atom type: {c}")
+                |> Seq.toArray
+        let expected =
+            [
+                "PWWYYXXQ", 3   // P-Q, W-X, W-X around the Y Y loop
+                "PWWYXXQ", 2    // a loop of one is too small for the inner W-X
+                "PWYXQ", 1      // only P-Q, around a loop of three
+                "PWXQ", 1       // P-Q around a loop of two; W-X would have none
+                "WWWW", 0       // nothing complementary
+                "PWWYYZXQ", 2   // P-Q and W-X, then W-Z doesn't pair
+            ]
+        for text, stem in expected do
+            Assert.True((Experiment16.getMaxStem (parse text) = stem), $"{text}: expected {stem}, got {Experiment16.getMaxStem (parse text)}")
+
