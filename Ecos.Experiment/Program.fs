@@ -30,6 +30,8 @@ module Program =
                 Experiment15.run Experiment15.defaultSettings
             "experiment16", "Hairpins, duplexes and sheets in a living world, by cycle",
                 Experiment16.run Experiment16.defaultSettings
+            "experiment18", "Melting of a hairpin and of duplexes, by temperature",
+                Experiment18.run Experiment18.defaultSettings
         ]
 
     /// Prints usage.
