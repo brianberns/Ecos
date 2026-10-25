@@ -107,5 +107,5 @@ module TorusTests =
                 Assert.InRange(loc.Y, 0, size - 1)
                 if abs (loc.X - start[atom.Id].X) > size / 2 || abs (loc.Y - start[atom.Id].Y) > size / 2 then
                     crossed <- true
-            Assert.True(Validity.isValid world, "World became invalid")
+            Assert.True(Validity.isValid parameters world, "World became invalid")
         Assert.True(crossed, "No atom crossed an edge")

@@ -57,32 +57,36 @@ module Validity =
             |> Option.defaultValue Set.empty
 
     /// Oracle: is the angle between the given atom's bonds of the given
-    /// type wide enough, when the atoms are at the locations given by
-    /// the given function? (Only an atom with two such bonds can fail
-    /// this.) For strong bonds, this keeps strands from bending
-    /// sharply; for weak bonds, it keeps an atom's two partners on
+    /// type allowed, with that type's bend limit in the given
+    /// parameters, when the atoms are at the locations given by the
+    /// given function? (Only an atom with two such bonds can fail
+    /// this.) For strong bonds, this keeps strands from bending too
+    /// sharply; for weak bonds, it also keeps an atom's two partners on
     /// opposite sides of it.
-    let anglesAreAllowed bondType (world : World) (loc : AtomId -> Point) id =
+    let anglesAreAllowed (parms : Parameters) bondType (world : World) (loc : AtomId -> Point) id =
+        let limit = parms.BondTypeParameterMap[bondType].BendLimit
         let ids = Set.toList (partners bondType world id)
         List.allPairs ids ids
             |> List.forall (fun (idB, idC) ->
                 idB >= idC
-                    || Bonds.isAngleAllowed bondType Point.zero
+                    || Bonds.isAngleAllowed bondType limit Point.zero
                         (Grid.getDisplacement (loc id) (loc idB) world.Cells)   // loc may place the atom elsewhere
                         (Grid.getDisplacement (loc id) (loc idC) world.Cells))
 
     /// Oracle: would the angle between the given atom's bonds of the
-    /// given type still be wide enough if it also had such a bond to
-    /// the given new partner?
-    let hasRoomAtAngle bondType (world : World) id idNew =
+    /// given type still be allowed, with the given parameters, if it
+    /// also had such a bond to the given new partner?
+    let hasRoomAtAngle (parms : Parameters) bondType (world : World) id idNew =
+        let limit = parms.BondTypeParameterMap[bondType].BendLimit
         partners bondType world id
             |> Set.forall (fun idB ->
-                Bonds.isAngleAllowed bondType Point.zero
+                Bonds.isAngleAllowed bondType limit Point.zero
                     (delta id idB world)
                     (delta id idNew world))
 
-    /// Checks all of a world's invariants.
-    let isValid (world : World) =
+    /// Checks all of a world's invariants, with the bend limits in the
+    /// given parameters.
+    let isValid parms (world : World) =
         let atoms = world.Atoms |> Seq.toArray
         let loc id = world.Atoms[id].Location
 
@@ -110,7 +114,7 @@ module Validity =
             (Bonds.strongBondMap world)
                 |> Map.forall (fun idA ids ->
                     ids.Count <= Chain.strongValence world.Atoms[idA].Type
-                        && anglesAreAllowed Strong world loc idA
+                        && anglesAreAllowed parms Strong world loc idA
                         && ids
                             |> Set.forall (fun idB ->
                                 isBondVector (delta idA idB world)
@@ -150,8 +154,7 @@ module Validity =
                 |> Map.forall (fun idA ids ->
                     ids.Count <= 2
                         && (ids.Count < 2 || not (partners Strong world idA).IsEmpty)
-                        && anglesAreAllowed Strong world loc idA
-                        && anglesAreAllowed Weak world loc idA
+                        && anglesAreAllowed parms Weak world loc idA
                         && List.allPairs (Set.toList ids) (Set.toList ids)
                             |> List.forall (fun (idB, idC) ->
                                 not (isStronglyBonded world idB idC)))

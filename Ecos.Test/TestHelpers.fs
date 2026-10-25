@@ -19,6 +19,10 @@ module TestParameters =
     /// most about 37 degrees at each atom.
     let straightBend = Rational.create -4 5
 
+    /// Bend limit that allows strands to bend up to a right angle at
+    /// each atom, as in the standard scenarios.
+    let rightAngleBend = Rational.create 0 1
+
     /// Bend limit that allows any angle, apart from the bond type's own
     /// rules.
     let anyBend = Rational.create 1 1
@@ -213,55 +217,46 @@ module Bonds =
     let weakBonds world =
         toPairs (weakBondMap world)
 
-    /// Oracle: is the angle between an atom's two bonds of the given
-    /// type wide enough, when the atom is at the given center and its
-    /// partners are at locations a and b? The rule depends on the bond
-    /// type:
-    /// * Strong: a strand can't bend sharply. The cosine of the angle
-    ///   between the two vectors from the center must be at most -0.8,
-    ///   whatever their lengths, so the strand bends by at most about
-    ///   37 degrees at each atom.
-    /// * Weak: an atom's two weak partners are on roughly opposite
-    ///   sides of it (about 125 degrees or more apart), which is also
-    ///   too far apart for them to be strongly bonded to each other.
-    ///   The dot product of the two vectors must be at most -3.
-    let isAngleAllowed bondType (center : Point) (a : Point) (b : Point) =
+    /// Cosine of the angle at the given center between the directions
+    /// to locations a and b.
+    let private cosine (center : Point) (a : Point) (b : Point) =
         let da = a - center
         let db = b - center
-        let dot = da.X * db.X + da.Y * db.Y
-        match bondType with
-            | Strong ->
-                let length (d : Point) =
-                    sqrt (float (d.X * d.X + d.Y * d.Y))
-                let cosine = float dot / (length da * length db)
-                cosine <= -0.8 + 1e-9   // some angles are exactly at the limit
-            | Weak -> dot <= -3
+        let length (d : Point) = sqrt (float (d.X * d.X + d.Y * d.Y))
+        float (da.X * db.X + da.Y * db.Y) / (length da * length db)
 
     /// Oracle: are locations a and b on roughly opposite sides of the
-    /// given center? An atom's two weak partners must be.
-    let areOpposite center a b =
-        isAngleAllowed Weak center a b
-
-    /// Oracle: is the angle between an atom's two strong bonds within
-    /// the given bend limit, when the atom is at the given center and
-    /// its partners are at locations a and b? The cosine of the angle
-    /// between the two vectors from the center must be at most the
-    /// limit.
-    let isBendAllowed (limit : Rational) (center : Point) (a : Point) (b : Point) =
+    /// given center? An atom's two weak partners must be: the dot
+    /// product of the two vectors from the center must be at most -3.
+    /// That keeps them about 125 degrees or more apart, which is also
+    /// too far apart for them to be strongly bonded to each other.
+    let areOpposite (center : Point) (a : Point) (b : Point) =
         let da = a - center
         let db = b - center
-        let length (d : Point) = sqrt (float (d.X * d.X + d.Y * d.Y))
-        let cosine = float (da.X * db.X + da.Y * db.Y) / (length da * length db)
-        cosine <= float limit.Numerator / float limit.Denominator + 1e-9   // some angles are exactly at the limit
+        da.X * db.X + da.Y * db.Y <= -3
+
+    /// Oracle: is the angle between an atom's two bonds within the
+    /// given bend limit, when the atom is at the given center and its
+    /// partners are at locations a and b? The cosine of the angle
+    /// between the two vectors from the center must be at most the
+    /// limit, whatever their lengths.
+    let isBendAllowed (limit : Rational) center a b =
+        cosine center a b <= float limit.Numerator / float limit.Denominator + 1e-9   // some angles are exactly at the limit
+
+    /// Oracle: is the angle between an atom's two bonds of the given
+    /// type allowed, with the given bend limit for that type, when the
+    /// atom is at the given center and its partners are at locations a
+    /// and b? The bend must be within the limit, and an atom's two weak
+    /// partners must also be on opposite sides of it.
+    let isAngleAllowed bondType limit center a b =
+        isBendAllowed limit center a b
+            && (bondType = Strong || areOpposite center a b)
 
     /// Oracle: energy of the bend at an atom at the given center, whose
-    /// strong partners are at locations a and b: kappa * (1 + cos phi),
-    /// where phi is the angle between the two vectors from the center.
-    let bendEnergy kappa (center : Point) (a : Point) (b : Point) =
-        let da = a - center
-        let db = b - center
-        let length (d : Point) = sqrt (float (d.X * d.X + d.Y * d.Y))
-        kappa * (1.0 + float (da.X * db.X + da.Y * db.Y) / (length da * length db))
+    /// partners are at locations a and b: kappa * (1 + cos phi), where
+    /// phi is the angle between the two vectors from the center.
+    let bendEnergy kappa center a b =
+        kappa * (1.0 + cosine center a b)
 
 /// Geometry helpers.
 module Geometry =

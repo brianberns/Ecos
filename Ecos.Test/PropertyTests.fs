@@ -20,11 +20,12 @@ module PropertyTests =
     /// Oracle: all valid moves in the given world, as (atom ID, step)
     /// pairs. A move is valid if the moved atom overlaps no other atom
     /// or wall, all of its bonds (strong and weak) remain in range, and
-    /// every bond angle it's part of remains wide enough: strands stay
-    /// straight enough, and
-    /// weak partners remain on opposite sides, both around the moved
-    /// atom and around each of its weak partners.
-    let private validMoves (world : World) =
+    /// every bond angle it's part of remains allowed, with the bend
+    /// limits in the given parameters: strands stay straight enough,
+    /// and weak partners remain on opposite sides, both around the moved
+    /// atom and around each of its partners. (Moves are valid whatever
+    /// they cost in bend energy; see runEventRates.)
+    let private validMoves parms (world : World) =
         let disp loc id =
             Grid.getDisplacement loc world.Atoms[id].Location world.Cells
         [
@@ -55,9 +56,9 @@ module PropertyTests =
                     let anglesOk =
                         BondType.all
                             |> Array.forall (fun bondType ->
-                                anglesAreAllowed bondType world loc id
+                                anglesAreAllowed parms bondType world loc id
                                     && partners bondType world id
-                                        |> Set.forall (anglesAreAllowed bondType world loc))
+                                        |> Set.forall (anglesAreAllowed parms bondType world loc))
                     if clear && strongBondsOk && weakBondsOk && anglesOk then
                         id, delta
         ]
@@ -68,14 +69,14 @@ module PropertyTests =
     /// be part of a strand (have a strong bond), in which case the
     /// existing partner must be on the opposite side from the new one;
     /// and the new bond must not cross any existing bond.
-    let private canFormWeakBond (world : World) idA idB =
+    let private canFormWeakBond parms (world : World) idA idB =
         let atomA = world.Atoms[idA]
         let atomB = world.Atoms[idB]
         let hasRoom idC idNew =
             let nWeak = (Bonds.weakPartners world idC).Count
             let inStrand = not (partners Strong world idC).IsEmpty
             (nWeak = 0 || (nWeak = 1 && inStrand))
-                && hasRoomAtAngle Weak world idC idNew
+                && hasRoomAtAngle parms Weak world idC idNew
         Chain.canPair atomA.Type atomB.Type
             && Array.contains (delta idA idB world) Chain.weakBondVectors
             && not (Bonds.areWeaklyBonded world idA idB)
@@ -115,7 +116,7 @@ module PropertyTests =
     /// not cross any existing bond or bend either atom's strand too
     /// sharply. Rings are allowed, if they're big enough to be that
     /// straight.
-    let private canFormStrongBond (world : World) idA idB =
+    let private canFormStrongBond parms (world : World) idA idB =
         let atomA = world.Atoms[idA]
         let atomB = world.Atoms[idB]
         isBondVector (delta idA idB world)
@@ -124,8 +125,8 @@ module PropertyTests =
             && strongBondCount world idB < Chain.strongValence atomB.Type
             && not (isStronglyBonded world idA idB)
             && not (Bonds.areWeaklyBonded world idA idB)
-            && hasRoomAtAngle Strong world idA idB
-            && hasRoomAtAngle Strong world idB idA
+            && hasRoomAtAngle parms Strong world idA idB
+            && hasRoomAtAngle parms Strong world idB idA
             && not (crossesAnyBond world idA idB)
 
     /// Oracle: number of stacks that exist only because of a strong
@@ -254,7 +255,7 @@ module PropertyTests =
                             let pBreak = acceptBreak kT Weak nStacks (isStart Weak idA idB) energy
                             let pHydrolysis = Chain.hydrolysisRate parms Weak world idA idB
                             weakBreak <- weakBreak + 1.0 - (1.0 - pBreak) * (1.0 - pHydrolysis)
-                        elif canFormWeakBond world idA idB then
+                        elif canFormWeakBond parms world idA idB then
                             weakForm <- weakForm + acceptForm kT Weak nStacks (isStart Weak idA idB) energy
                     | _ -> ()
 
@@ -283,7 +284,7 @@ module PropertyTests =
                             strongBreak <- strongBreak + p
                             if isLong v then longBreak <- longBreak + p
                             if nStacks > 0 then stackedBreak <- stackedBreak + p
-                        elif canFormStrongBond world idA idB then
+                        elif canFormStrongBond parms world idA idB then
                             let p = acceptForm kT Strong nStacks (isStart Strong idA idB) energy
                             strongForm <- strongForm + p
                             if isLong v then longForm <- longForm + p
@@ -352,7 +353,7 @@ module PropertyTests =
                             | Some world', true -> Some world'
                             | None, false -> Some world
                             | _ -> None))   // mismatch
-            |> Option.exists isValid
+            |> Option.exists (isValid TestParameters.standard)
 
     /// A strong bond between two non-overlapping atoms is accepted if
     /// and only if their separation is an allowed bond vector.
@@ -563,7 +564,7 @@ module PropertyTests =
             match World.tryUpdate parms rng world with
                 | Some (world', _) ->
                     nJoins <- nJoins + max 0 ((strongBonds world').Count - (strongBonds world).Count)
-                    Assert.True(isValid world', "World became invalid")
+                    Assert.True(isValid parms world', "World became invalid")
                     world <- world'
                 | None -> ()   // nothing happened
         Assert.Equal<Set<int * int>>(expected, strandBonds world)
@@ -623,33 +624,37 @@ module PropertyTests =
 
     /// Stiffness, exhaustively: atom A (at the origin) is strongly
     /// bonded to B. A second strong bond, to C, must be accepted if and
-    /// only if the angle between the two bonds at A is wide enough.
-    /// Checked for every pair of locations in strong bond range of A,
-    /// and with the new bond added from either end.
+    /// only if the angle between the two bonds at A is within the bend
+    /// limit. Checked for every pair of locations in strong bond range
+    /// of A, with the new bond added from either end, at the tests'
+    /// usual limit (nearly straight) and the standard scenarios' (right
+    /// angles).
     [<Fact>]
-    let ``tryAddStrongBond accepts a second bond exactly when it's straight enough`` () =
+    let ``tryAddStrongBond accepts a second bond exactly when it bends no more than the limit`` () =
         let a = Point.create (0, 0)
-        let mutable nAccepted, nRejected = 0, 0
-        for b in Chain.bondVectors do
-            for c in Chain.bondVectors do
-                if not (overlaps TestWorld.empty b c) then
-                    let world =
-                        TestWorld.empty
-                            |> World.addAtomW a   // 0
-                            |> World.addAtomW b   // 1
-                            |> World.addAtomW c   // 2
-                            |> World.addStrongBond TestParameters.standard 0 1
-                    let expected = Bonds.isAngleAllowed Strong a b c
-                    for idFrom, idTo in [ 0, 2; 2, 0 ] do
-                        Assert.True(
-                            ((World.tryAddStrongBond TestParameters.standard idFrom idTo world).IsSome = expected),
-                            $"B at {b}, C at {c}: expected {expected}")
-                    if expected then nAccepted <- nAccepted + 1
-                    else nRejected <- nRejected + 1
+        for limit in [ TestParameters.straightBend; TestParameters.rightAngleBend ] do
+            let parms = TestParameters.standard |> TestParameters.withBend Strong limit 0.0
+            let mutable nAccepted, nRejected = 0, 0
+            for b in Chain.bondVectors do
+                for c in Chain.bondVectors do
+                    if not (overlaps TestWorld.empty b c) then
+                        let world =
+                            TestWorld.empty
+                                |> World.addAtomW a   // 0
+                                |> World.addAtomW b   // 1
+                                |> World.addAtomW c   // 2
+                                |> World.addStrongBond parms 0 1
+                        let expected = Bonds.isAngleAllowed Strong limit a b c
+                        for idFrom, idTo in [ 0, 2; 2, 0 ] do
+                            Assert.True(
+                                ((World.tryAddStrongBond parms idFrom idTo world).IsSome = expected),
+                                $"Limit {limit.Numerator}/{limit.Denominator}, B at {b}, C at {c}: expected {expected}")
+                        if expected then nAccepted <- nAccepted + 1
+                        else nRejected <- nRejected + 1
 
-            // make sure the check isn't vacuous
-        Assert.True(nAccepted > 0, "No accepted configurations checked")
-        Assert.True(nRejected > 0, "No rejected configurations checked")
+                // make sure the check isn't vacuous
+            Assert.True(nAccepted > 0, "No accepted configurations checked")
+            Assert.True(nRejected > 0, "No rejected configurations checked")
 
     /// Opposite sides stay opposite: a hop can't bring an atom's two
     /// weak partners onto the same side of it. Here W0 sits between X1
@@ -677,7 +682,7 @@ module PropertyTests =
             world <- World.updateWith parms rng world
             if (Bonds.weakPartners world 0).Count = 2 then
                 nBothBonded <- nBothBonded + 1
-            Assert.True(isValid world, "World became invalid")
+            Assert.True(isValid parms world, "World became invalid")
 
             // make sure the check isn't vacuous
         Assert.True(nBothBonded > 1000, $"Both bonds existed in only {nBothBonded} updates")
@@ -717,7 +722,7 @@ module PropertyTests =
             if (strongBonds world').Count < (strongBonds world).Count then
                 nBroken <- nBroken + 1
             Assert.True(
-                isValid world',
+                isValid parms world',
                 "World became invalid: an atom has two weak partners and no strong bond")
             world <- world'
 
@@ -806,17 +811,23 @@ module PropertyTests =
     /// * a valid move that leaves all bonds unchanged, or
     /// * the breaking of one existing bond (if that's allowed), or
     /// * the forming of one allowed bond (strong or weak).
-    /// The world must stay valid throughout.
+    /// The world must stay valid throughout. Strands are either nearly
+    /// straight (the tests' usual parameters), or bend up to right
+    /// angles at a cost (as in the standard scenarios).
     [<Property>]
-    let ``update makes a single valid event`` (length : int) (seed : int) (iKT : int) (nSteps : int) =
+    let ``update makes a single valid event`` (length : int) (seed : int) (iKT : int) (nSteps : int) (canFold : bool) =
         let length = 2 + abs (length % 20)
         let kTs = Array.append temperatures [| hotKT |]
         let kT = kTs[abs (iKT % kTs.Length)]
+        let parms =
+            let parms = TestParameters.create kT
+            if canFold then parms |> TestParameters.withBend Strong TestParameters.rightAngleBend 1.5
+            else parms
         let rng = Random(seed)
         let mutable world = Chain.grow rng length |> Chain.withRandomTypes rng |> Chain.addSoup rng 10 |> Chain.addDimers rng 5 |> Chain.addObstacles rng 10
-        let mutable ok = isValid world
+        let mutable ok = isValid parms world
         for _ in 1 .. 500 + abs (nSteps % 1000) do
-            let world' = World.update kT rng world
+            let world' = World.updateWith parms rng world
             let weakBroken = weakBonds world - weakBonds world'
             let weakFormed = weakBonds world' - weakBonds world
             let strongBroken = strongBonds world - strongBonds world'
@@ -831,18 +842,18 @@ module PropertyTests =
                         elif nBondChanges > 1 then false
                         elif weakFormed.Count = 1 then
                             let idA, idB = Seq.exactlyOne weakFormed
-                            canFormWeakBond world idA idB
+                            canFormWeakBond parms world idA idB
                         elif strongFormed.Count = 1 then
                             let idA, idB = Seq.exactlyOne strongFormed
-                            canFormStrongBond world idA idB
+                            canFormStrongBond parms world idA idB
                         elif strongBroken.Count = 1 then
                             let idA, idB = Seq.exactlyOne strongBroken
                             canBreakStrongBond world idA idB
                         else true   // any existing weak bond may break
                     | [ move ] ->
-                        List.contains move (validMoves world) && nBondChanges = 0
+                        List.contains move (validMoves parms world) && nBondChanges = 0
                     | _ -> false
-            ok <- ok && eventOk && isValid world'
+            ok <- ok && eventOk && isValid parms world'
             world <- world'
         ok
 
@@ -852,11 +863,14 @@ module PropertyTests =
     ///
     /// An update chooses between a hop and a toggle of each bond type
     /// with World's fixed rates. A hop picks an atom and a direction
-    /// uniformly and accepts any valid move (no hop changes the energy
-    /// yet). For toggles, see toggleProbabilities. Over many updates,
-    /// the number of events of each kind must match the sum of its
-    /// probabilities.
+    /// uniformly and accepts any valid move, so the parameters must not
+    /// make bending cost energy: the tests of bend energy compare whole
+    /// distributions instead (see PhysicsTests). For toggles, see
+    /// toggleProbabilities. Over many updates, the number of events of
+    /// each kind must match the sum of its probabilities.
     let private runEventRates label (parms : Parameters) nSteps (rng : Random) (world : World) =
+        for bondType in BondType.all do
+            Assert.Equal(0.0, parms.BondTypeParameterMap[bondType].BendStiffness)
         let mutable world = world
 
             // expected and actual counts of each kind of event
@@ -878,7 +892,7 @@ module PropertyTests =
                 toggleProbabilities parms world
             [|
                 World.moveAtomRate
-                    * float (validMoves world).Length / float (4 * world.Atoms.Length)
+                    * float (validMoves parms world).Length / float (4 * world.Atoms.Length)
                 World.toggleWeakBondRate * weakForm
                 World.toggleWeakBondRate * weakBreak
                 World.toggleStrongBondRate * strongForm
@@ -937,17 +951,25 @@ module PropertyTests =
     /// Valid events are actually made, at the right rates, in crowded
     /// worlds of chains, free atoms, and walls. This catches an update
     /// that wrongly rejects valid events, or accepts them at the wrong
-    /// rate, which the test above cannot.
+    /// rate, which the test above cannot. Strands are nearly straight,
+    /// or can bend up to right angles (at no cost, which the rates
+    /// assume).
     [<Fact>]
     let ``update makes valid events at the expected rate`` () =
-        for kT in temperatures do
-            for length in [ 2; 20 ] do
-                let rng = Random(length)
-                Chain.grow rng length
-                    |> Chain.withRandomTypes rng
-                    |> Chain.addSoup rng 10
-                    |> Chain.addObstacles rng 10
-                    |> checkEventRates $"N = {length}" (TestParameters.create kT) 20000 rng
+        for limit in [ TestParameters.straightBend; TestParameters.rightAngleBend ] do
+            for kT in temperatures do
+                for length in [ 2; 20 ] do
+                    let rng = Random(length)
+                    let parms =
+                        TestParameters.create kT
+                            |> TestParameters.withBend Strong limit 0.0
+                    Chain.grow rng length
+                        |> Chain.withRandomTypes rng
+                        |> Chain.addSoup rng 10
+                        |> Chain.addObstacles rng 10
+                        |> checkEventRates
+                            $"N = {length}, kT {kT}, limit {limit.Numerator}/{limit.Denominator}"
+                            parms 20000 rng
 
     /// Peeling: with strong bonds otherwise frozen (an impassable
     /// barrier), the only way one can break is by peeling from an
