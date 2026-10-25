@@ -491,11 +491,11 @@ module World =
 
             // compute bond energy
         let bondTypeParms = parms.BondTypeParameterMap[bondType]
+        let bondMap = world.BondTypeMap[bondType]
         let bondEnergy =
             let bendEnergy =
                 let stiffness = bondTypeParms.BendStiffness
                 if stiffness > 0.0 then
-                    let bondMap = world.BondTypeMap[bondType]
                     Bend.getBondEnergy
                         stiffness bondMap atomA atomB world.AtomGrid
                 else 0.0
@@ -505,7 +505,6 @@ module World =
                 - bendEnergy
 
             // compute start barrier
-        let bondMap = world.BondTypeMap[bondType]
         let startBarrier =
             if bondTypeParms.StartBarrier > 0
                 && BondBehavior.testStrandStart atomA atomB bondMap then

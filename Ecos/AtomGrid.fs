@@ -6,10 +6,10 @@ type private AtomGrid =
         /// Atoms in the grid, indexed by their IDs.
         Atoms : Atom[]
 
-        /// Locations of walls in the world.
+        /// Locations of walls in the grid.
         Walls : Point[]
 
-        /// Occupant of each cell.
+        /// Occupant of each cell in the grid.
         Cells : Grid
     }
 

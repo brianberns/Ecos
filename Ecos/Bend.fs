@@ -8,9 +8,9 @@ module private Bend =
     ///  \
     ///   \
     ///    C
-    let test behavior bendLimit atomA atomB atomC world =
-        let deltaAB = AtomGrid.getDisplacement atomA atomB world   // vector from A to B
-        let deltaAC = AtomGrid.getDisplacement atomA atomC world   // vector from A to C
+    let test behavior bendLimit atomA atomB atomC grid =
+        let deltaAB = AtomGrid.getDisplacement atomA atomB grid   // vector from A to B
+        let deltaAC = AtomGrid.getDisplacement atomA atomC grid   // vector from A to C
         behavior.TestBend bendLimit deltaAB deltaAC
 
     /// Tests multiple bends for bond AB:
