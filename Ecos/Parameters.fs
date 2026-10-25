@@ -74,6 +74,10 @@ type BondTypeParameters =
         /// hydrolysis.
         HydrolysisRate : float
 
+        /// Determines how often bonds of this type break due to
+        /// paired hydrolysis.
+        PairedHydrolysisRate : float
+
         /// Sharpest bend allowed at an atom between two bonds of
         /// this type: the cosine of the angle between the bonds
         /// must be at most this value.

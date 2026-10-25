@@ -27,8 +27,8 @@ module TestParameters =
     /// tests' temperatures are chosen to suit them.
     let standardBondTypeParameterMap =
         Map [
-            Strong, { Energy = 12; PairEnergyMap = Map.empty; Barrier = 6; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = straightBend; BendStiffness = 0 }
-            Weak, { Energy = 1; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = anyBend; BendStiffness = 0 }
+            Strong, { Energy = 12; PairEnergyMap = Map.empty; Barrier = 6; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; PairedHydrolysisRate = 0; BendLimit = straightBend; BendStiffness = 0 }
+            Weak, { Energy = 1; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; PairedHydrolysisRate = 0; BendLimit = anyBend; BendStiffness = 0 }
         ] |> BondTypeParameterMap.ofMap
 
     /// Standard parameters at the given temperature.

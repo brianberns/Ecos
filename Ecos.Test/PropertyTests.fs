@@ -738,8 +738,8 @@ module PropertyTests =
                 GetTemperature = Parameters.getUniformTemperature 1.0
                 BondTypeParameterMap =
                     Map [
-                        Strong, { Energy = 30; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = TestParameters.straightBend; BendStiffness = 0 }
-                        Weak, { Energy = 1; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = TestParameters.anyBend; BendStiffness = 0 }
+                        Strong, { Energy = 30; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; PairedHydrolysisRate = 0; BendLimit = TestParameters.straightBend; BendStiffness = 0 }
+                        Weak, { Energy = 1; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; PairedHydrolysisRate = 0; BendLimit = TestParameters.anyBend; BendStiffness = 0 }
                     ] |> BondTypeParameterMap.ofMap
                 PeelBarrier = Double.PositiveInfinity   // no peeling
             }
@@ -903,8 +903,8 @@ module PropertyTests =
                 GetTemperature = Parameters.getUniformTemperature 1.0
                 BondTypeParameterMap =
                     Map [
-                        Strong, { Energy = 0; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = TestParameters.straightBend; BendStiffness = 0 }
-                        Weak, { Energy = 3; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = TestParameters.anyBend; BendStiffness = 0 }
+                        Strong, { Energy = 0; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; PairedHydrolysisRate = 0; BendLimit = TestParameters.straightBend; BendStiffness = 0 }
+                        Weak, { Energy = 3; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; PairedHydrolysisRate = 0; BendLimit = TestParameters.anyBend; BendStiffness = 0 }
                     ] |> BondTypeParameterMap.ofMap
                 PeelBarrier = Double.PositiveInfinity   // no peeling
             }
@@ -1311,8 +1311,8 @@ module PropertyTests =
                 GetTemperature = Parameters.getUniformTemperature 1.0
                 BondTypeParameterMap =
                     Map [
-                        Strong, { Energy = 0; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = TestParameters.straightBend; BendStiffness = 0 }
-                        Weak, { Energy = 3; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = TestParameters.anyBend; BendStiffness = 0 }
+                        Strong, { Energy = 0; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; PairedHydrolysisRate = 0; BendLimit = TestParameters.straightBend; BendStiffness = 0 }
+                        Weak, { Energy = 3; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; PairedHydrolysisRate = 0; BendLimit = TestParameters.anyBend; BendStiffness = 0 }
                     ] |> BondTypeParameterMap.ofMap
                 PeelBarrier = Double.PositiveInfinity   // no peeling
             }
@@ -1334,8 +1334,8 @@ module PropertyTests =
                 GetTemperature = Parameters.getUniformTemperature 1.0
                 BondTypeParameterMap =
                     Map [
-                        Strong, { Energy = 0; PairEnergyMap = Map.empty; Barrier = 3; BarrierStackReduction = 3; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = TestParameters.straightBend; BendStiffness = 0 }
-                        Weak, { Energy = 3; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = TestParameters.anyBend; BendStiffness = 0 }
+                        Strong, { Energy = 0; PairEnergyMap = Map.empty; Barrier = 3; BarrierStackReduction = 3; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; PairedHydrolysisRate = 0; BendLimit = TestParameters.straightBend; BendStiffness = 0 }
+                        Weak, { Energy = 3; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; PairedHydrolysisRate = 0; BendLimit = TestParameters.anyBend; BendStiffness = 0 }
                     ] |> BondTypeParameterMap.ofMap
                 PeelBarrier = Double.PositiveInfinity   // no peeling
             }
@@ -1357,8 +1357,8 @@ module PropertyTests =
                 GetTemperature = Parameters.getUniformTemperature 1.0
                 BondTypeParameterMap =
                     Map [
-                        Strong, { Energy = 2; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = strongEntropy; HydrolysisRate = 0; BendLimit = TestParameters.straightBend; BendStiffness = 0 }
-                        Weak, { Energy = 3; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = weakEntropy; HydrolysisRate = 0; BendLimit = TestParameters.anyBend; BendStiffness = 0 }
+                        Strong, { Energy = 2; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = strongEntropy; HydrolysisRate = 0; PairedHydrolysisRate = 0; BendLimit = TestParameters.straightBend; BendStiffness = 0 }
+                        Weak, { Energy = 3; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = weakEntropy; HydrolysisRate = 0; PairedHydrolysisRate = 0; BendLimit = TestParameters.anyBend; BendStiffness = 0 }
                     ] |> BondTypeParameterMap.ofMap
                 PeelBarrier = Double.PositiveInfinity   // no peeling
             }
@@ -1408,8 +1408,8 @@ module PropertyTests =
                 GetTemperature = Parameters.getUniformTemperature 1.0
                 BondTypeParameterMap =
                     Map [
-                        Strong, { Energy = 0; PairEnergyMap = Map.empty; Barrier = 3; BarrierStackReduction = 5; StartBarrier = 1.5; Entropy = 0; HydrolysisRate = 0; BendLimit = TestParameters.straightBend; BendStiffness = 0 }
-                        Weak, { Energy = 3; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0.5; Entropy = 0; HydrolysisRate = 0; BendLimit = TestParameters.anyBend; BendStiffness = 0 }
+                        Strong, { Energy = 0; PairEnergyMap = Map.empty; Barrier = 3; BarrierStackReduction = 5; StartBarrier = 1.5; Entropy = 0; HydrolysisRate = 0; PairedHydrolysisRate = 0; BendLimit = TestParameters.straightBend; BendStiffness = 0 }
+                        Weak, { Energy = 3; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0.5; Entropy = 0; HydrolysisRate = 0; PairedHydrolysisRate = 0; BendLimit = TestParameters.anyBend; BendStiffness = 0 }
                     ] |> BondTypeParameterMap.ofMap
                 PeelBarrier = Double.PositiveInfinity   // no peeling
             }
@@ -1420,8 +1420,8 @@ module PropertyTests =
                 GetTemperature = Parameters.getUniformTemperature 1.0
                 BondTypeParameterMap =
                     Map [
-                        Strong, { Energy = 2; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 2; Entropy = 0; HydrolysisRate = 0; BendLimit = TestParameters.straightBend; BendStiffness = 0 }
-                        Weak, { Energy = 1; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = TestParameters.anyBend; BendStiffness = 0 }
+                        Strong, { Energy = 2; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 2; Entropy = 0; HydrolysisRate = 0; PairedHydrolysisRate = 0; BendLimit = TestParameters.straightBend; BendStiffness = 0 }
+                        Weak, { Energy = 1; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; PairedHydrolysisRate = 0; BendLimit = TestParameters.anyBend; BendStiffness = 0 }
                     ] |> BondTypeParameterMap.ofMap
                 PeelBarrier = Double.PositiveInfinity   // no peeling
             }
@@ -1478,8 +1478,8 @@ module PropertyTests =
                 GetTemperature = Parameters.getUniformTemperature 1.0
                 BondTypeParameterMap =
                     Map [
-                        Strong, { Energy = 30; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = TestParameters.straightBend; BendStiffness = 0 }
-                        Weak, { Energy = 1; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = TestParameters.anyBend; BendStiffness = 0 }
+                        Strong, { Energy = 30; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; PairedHydrolysisRate = 0; BendLimit = TestParameters.straightBend; BendStiffness = 0 }
+                        Weak, { Energy = 1; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; PairedHydrolysisRate = 0; BendLimit = TestParameters.anyBend; BendStiffness = 0 }
                     ] |> BondTypeParameterMap.ofMap
                 PeelBarrier = 1.0   // peels with probability 1/e
             }
@@ -1561,8 +1561,8 @@ module PropertyTests =
                 GetTemperature = step 0.25 25.0
                 BondTypeParameterMap =
                     Map [
-                        Strong, { Energy = 30; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = TestParameters.straightBend; BendStiffness = 0 }
-                        Weak, { Energy = 1; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; BendLimit = TestParameters.anyBend; BendStiffness = 0 }
+                        Strong, { Energy = 30; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; PairedHydrolysisRate = 0; BendLimit = TestParameters.straightBend; BendStiffness = 0 }
+                        Weak, { Energy = 1; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; PairedHydrolysisRate = 0; BendLimit = TestParameters.anyBend; BendStiffness = 0 }
                     ] |> BondTypeParameterMap.ofMap
                 PeelBarrier = 2.0
             }

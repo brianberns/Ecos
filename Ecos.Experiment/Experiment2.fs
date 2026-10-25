@@ -66,6 +66,7 @@ module Experiment2 =
                             StartBarrier = 0
                             Entropy = 0
                             HydrolysisRate = 0
+                            PairedHydrolysisRate = 0
                             BendLimit = Bend.straight
                             BendStiffness = 0
                         }
@@ -78,6 +79,7 @@ module Experiment2 =
                             StartBarrier = 0
                             Entropy = 0
                             HydrolysisRate = 0
+                            PairedHydrolysisRate = 0
                             BendLimit = Bend.any
                             BendStiffness = 0
                         }
