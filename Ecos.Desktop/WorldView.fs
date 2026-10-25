@@ -32,15 +32,16 @@ module WorldView =
     let private (~~)(ecosPt : Ecos.Point) =
         Avalonia.Point(ecosPt.X, ecosPt.Y)
 
-    let renderRectangle location size (color : Color) =
-        assert(size % 2 = 0)
-        let half = size / 2
+    /// Renders a rectangle with its top-left corner at the given location.
+    let private renderRectangle
+        (corner : Ecos.Point)
+        (size : Ecos.Point)
+        (color : Color) =
         Rectangle.create [
-            Rectangle.width size
-            Rectangle.height size
-            let pt = location - Point.create(half, half)
-            Rectangle.left pt.X
-            Rectangle.top pt.Y
+            Rectangle.left corner.X
+            Rectangle.top corner.Y
+            Rectangle.width size.X
+            Rectangle.height size.Y
             Rectangle.fill color
             Rectangle.useLayoutRounding false   // don't snap to pixels before scaling
         ] :> IView
@@ -70,20 +71,27 @@ module WorldView =
         let spacing = 8
         let size = model.Run.World.Size
         [
-            for x in 0 .. spacing .. size.X - spacing do
-                for y in 0 .. spacing .. size.Y - spacing do
-                    let loc =
-                        Point.create (x + spacing / 2, y + spacing / 2)
-                    loc
+            for x in 0 .. spacing .. size.X - 1 do
+                for y in 0 .. spacing .. size.Y - 1 do
+
+                    let width = min spacing (size.X - x)    // the last tile in a row or column may be smaller
+                    let height = min spacing (size.Y - y)
+                    let size = Point.create (width, height)
+                    let corner = Point.create (x, y)
+                    let center = Point.create (x + width / 2, y + height / 2)
+
+                    center
                         |> Run.getTemperature model.Run
                         |> getColor
-                        |> renderRectangle loc spacing
+                        |> renderRectangle corner size
         ]
 
     let private renderWalls (world : World) =
         [
             for loc in world.Walls do
-                renderRectangle loc 2 Colors.Gray
+                let corner = loc - Point.create (1, 1)   // every wall is 2x2 centered on its location
+                let size = Point.create(2, 2)
+                renderRectangle corner size Colors.Gray
         ]
 
     let private renderAtoms model =
