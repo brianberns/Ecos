@@ -11,8 +11,6 @@ module ScenarioTests =
 
     let private fingerprint = RegressionTests.fingerprint
 
-    /// Scenario B's world and parameters, with a short cycle, so that a
-    /// test can cross several changes of temperature quickly.
     /// The given schedule's temperature after the given number of
     /// sweeps (at the origin, since these schedules are uniform), and
     /// the number of sweeps until it next changes.
@@ -21,6 +19,8 @@ module ScenarioTests =
             Schedule.getTemperature numSweeps schedule
         getTemperature Point.zero, untilChangeOpt
 
+    /// Scenario B's world and parameters, with a short cycle, so that a
+    /// test can cross several changes of temperature quickly.
     let private shortCycle =
         { Scenario.createScenarioB true with
             Schedule =

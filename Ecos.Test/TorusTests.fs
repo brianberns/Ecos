@@ -10,33 +10,15 @@ module TorusTests =
     /// Parameters that use most rules, hot enough that bonds form and
     /// break often.
     let private parameters =
-        {
-            GetTemperature = Parameters.getUniformTemperature 1.0
-            BondTypeParameterMap =
-                Map [
-                    Strong, { Energy = 6; PairEnergyMap = Map.empty; Barrier = 3; BarrierStackReduction = 3; StartBarrier = 0.5; Entropy = 0.5; HydrolysisRate = 0.01; ProtectedHydrolysisRate = 0.01; BendLimit = TestParameters.straightBend; BendStiffness = 0 }
-                    Weak, { Energy = 2; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 1; HydrolysisRate = 0; ProtectedHydrolysisRate = 0; BendLimit = TestParameters.anyBend; BendStiffness = 0 }
-                ] |> BondTypeParameterMap.ofMap
-            PeelBarrier = 2.0
-        }
+        TestParameters.basic 1.0
+            |> TestParameters.withStrong (fun p -> { p with Energy = 6; Barrier = 3; BarrierStackReduction = 3; StartBarrier = 0.5; Entropy = 0.5; HydrolysisRate = 0.01; ProtectedHydrolysisRate = 0.01 })
+            |> TestParameters.withWeak (fun p -> { p with Energy = 2; Entropy = 1 })
+            |> TestParameters.withPeelBarrier 2.0
 
     /// A capped template with free atoms that can copy it, in a box at the
     /// center of a torus of the given size, well away from its edges.
     let private boxedTemplateWorld size seed =
-        let rng = Random(seed)
-        let types =
-            [|
-                AtomType.P
-                for _ in 1 .. 6 do
-                    if rng.Next(2) = 0 then AtomType.W else AtomType.Y
-                AtomType.Q
-            |]
-        let world =
-            (World.createSquare size, Array.indexed types)
-                ||> Array.fold (fun world (i, atomType) ->
-                    let world = World.addAtom atomType (Point.create (2 * i - 8, 0)) world
-                    if i > 0 then World.addStrongBond TestParameters.standard (i - 1) i world
-                    else world)
+        let world = Chain.addTemplate (Random(seed)) (World.createSquare size)
         let free =
             [|
                 for x in -8 .. 2 .. 8 do
@@ -98,9 +80,9 @@ module TorusTests =
 
     /// In an open torus with no walls, a chain and free atoms wander
     /// freely across the edges, and the world stays valid throughout:
-    /// every atom's location is inside the torus and is where the grid
-    /// says it is, no two atoms overlap (measured around the torus), and
-    /// every bond is within range (measured the same way).
+    /// every atom's location is inside the torus, and the world obeys
+    /// every rule (see Validity.isValid), with distances measured around
+    /// the torus.
     [<Fact>]
     let ``Atoms wander across the edges of an open torus and the world stays valid`` () =
         let size = 16
@@ -123,19 +105,7 @@ module TorusTests =
                 let loc = atom.Location
                 Assert.InRange(loc.X, 0, size - 1)
                 Assert.InRange(loc.Y, 0, size - 1)
-                Assert.Equal(Cell.Atom atom.Id, world[loc])
                 if abs (loc.X - start[atom.Id].X) > size / 2 || abs (loc.Y - start[atom.Id].Y) > size / 2 then
                     crossed <- true
-            for a in world.Atoms do
-                for b in world.Atoms do
-                    if a.Id < b.Id then
-                        let d = World.getDisplacement a b world
-                        Assert.True(
-                            abs d.X >= 2 || abs d.Y >= 2,
-                            $"Atoms {a.Id} and {b.Id} overlap")
-            for idA, idB in Seq.append (Bonds.strongBonds world) (Bonds.weakBonds world) do
-                let d = World.getDisplacement world.Atoms[idA] world.Atoms[idB] world
-                Assert.True(
-                    max (abs d.X) (abs d.Y) <= 3,
-                    $"Bond {idA}-{idB} spans {d}")
+            Assert.True(Validity.isValid world, "World became invalid")
         Assert.True(crossed, "No atom crossed an edge")

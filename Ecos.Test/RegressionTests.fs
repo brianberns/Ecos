@@ -46,15 +46,10 @@ module RegressionTests =
     /// Parameters that use every rule: barriers with stack and start
     /// reductions, entropy for both bond types, peeling, and hydrolysis.
     let private allRules =
-        {
-            GetTemperature = Parameters.getUniformTemperature 1.5
-            BondTypeParameterMap =
-                Map [
-                    Strong, { Energy = 12; PairEnergyMap = Map.empty; Barrier = 6; BarrierStackReduction = 3; StartBarrier = 1; Entropy = 0.5; HydrolysisRate = 0.02; ProtectedHydrolysisRate = 0.02; BendLimit = TestParameters.straightBend; BendStiffness = 0 }
-                    Weak, { Energy = 2; PairEnergyMap = Map.empty; Barrier = 0.5; BarrierStackReduction = 0; StartBarrier = 0.5; Entropy = 1; HydrolysisRate = 0; ProtectedHydrolysisRate = 0; BendLimit = TestParameters.anyBend; BendStiffness = 0 }
-                ] |> BondTypeParameterMap.ofMap
-            PeelBarrier = 2.0
-        }
+        TestParameters.basic 1.5
+            |> TestParameters.withStrong (fun p -> { p with Energy = 12; Barrier = 6; BarrierStackReduction = 3; StartBarrier = 1; Entropy = 0.5; HydrolysisRate = 0.02; ProtectedHydrolysisRate = 0.02 })
+            |> TestParameters.withWeak (fun p -> { p with Energy = 2; Barrier = 0.5; StartBarrier = 0.5; Entropy = 1 })
+            |> TestParameters.withPeelBarrier 2.0
 
     /// A crowded world with no enclosing box: a chain, free atoms,
     /// dimers and walls, with every atom type. Atoms can wander off in
@@ -71,32 +66,16 @@ module RegressionTests =
     /// barrier off a strong bond, so free atoms paired side by side on
     /// the template join, and stacks form and break constantly.
     let private copying =
-        {
-            GetTemperature = Parameters.getUniformTemperature 0.7
-            BondTypeParameterMap =
-                Map [
-                    Strong, { Energy = 12; PairEnergyMap = Map.empty; Barrier = 6; BarrierStackReduction = 6; StartBarrier = 0.5; Entropy = 0; HydrolysisRate = 0; ProtectedHydrolysisRate = 0; BendLimit = TestParameters.straightBend; BendStiffness = 0 }
-                    Weak, { Energy = 2; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 1; HydrolysisRate = 0; ProtectedHydrolysisRate = 0; BendLimit = TestParameters.anyBend; BendStiffness = 0 }
-                ] |> BondTypeParameterMap.ofMap
-            PeelBarrier = 3.0
-        }
+        TestParameters.basic 0.7
+            |> TestParameters.withStrong (fun p -> { p with Energy = 12; Barrier = 6; BarrierStackReduction = 6; StartBarrier = 0.5 })
+            |> TestParameters.withWeak (fun p -> { p with Energy = 2; Entropy = 1 })
+            |> TestParameters.withPeelBarrier 3.0
 
     /// A capped template strand in a box, with free atoms that can pair
     /// with it (X and Z) and join into a copy, and caps for the copy's
     /// ends.
     let private templateWorld seed =
-        let rng = Random(seed)
-        let template =
-            [| AtomType.P |]
-                |> Array.append <| Array.init 6 (fun _ ->
-                    if rng.Next(2) = 0 then AtomType.W else AtomType.Y)
-                |> Array.append <| [| AtomType.Q |]
-        let world =
-            (TestWorld.empty, Array.indexed template)
-                ||> Array.fold (fun world (i, atomType) ->
-                    let world = World.addAtom atomType (Point.create (2 * i - 8, 0)) world
-                    if i > 0 then World.addStrongBond TestParameters.standard (i - 1) i world
-                    else world)
+        let world = Chain.addTemplate (Random(seed)) TestWorld.empty
         let free =
             [|
                 for x in -8 .. 2 .. 8 do
@@ -128,15 +107,9 @@ module RegressionTests =
     /// Parameters for the ladder: strong bonds can also break and
     /// re-form, with and without a stack.
     let private stacking =
-        {
-            GetTemperature = Parameters.getUniformTemperature 1.0
-            BondTypeParameterMap =
-                Map [
-                    Strong, { Energy = 2; PairEnergyMap = Map.empty; Barrier = 3; BarrierStackReduction = 2; StartBarrier = 0.5; Entropy = 0; HydrolysisRate = 0; ProtectedHydrolysisRate = 0; BendLimit = TestParameters.straightBend; BendStiffness = 0 }
-                    Weak, { Energy = 3; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0.5; HydrolysisRate = 0; ProtectedHydrolysisRate = 0; BendLimit = TestParameters.anyBend; BendStiffness = 0 }
-                ] |> BondTypeParameterMap.ofMap
-            PeelBarrier = Double.PositiveInfinity
-        }
+        TestParameters.basic 1.0
+            |> TestParameters.withStrong (fun p -> { p with Energy = 2; Barrier = 3; BarrierStackReduction = 2; StartBarrier = 0.5 })
+            |> TestParameters.withWeak (fun p -> { p with Energy = 3; Entropy = 0.5 })
 
     /// The cases: a name, parameters, a function that builds a world
     /// from a seed, and the seed.

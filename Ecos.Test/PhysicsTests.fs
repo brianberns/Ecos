@@ -563,13 +563,9 @@ module PhysicsTests =
         let size = 4   // atom locations have |x| <= size and |y| <= size
         let kT = 1.0
         let parms =
-            let parms =
-                TestParameters.createFrozen kT
-                    |> TestParameters.withBend Weak bendLimit kappa
-            let weak = parms.BondTypeParameterMap[Weak]
-            { parms with   // weak bonds toggle rarely, so that hops do most of the bending
-                BondTypeParameterMap =
-                    BondTypeParameterMap.add Weak { weak with Barrier = 3.0 } parms.BondTypeParameterMap }
+            TestParameters.createFrozen kT
+                |> TestParameters.withBend Weak bendLimit kappa
+                |> TestParameters.withWeak (fun p -> { p with Barrier = 3.0 })   // weak bonds toggle rarely, so that hops do most of the bending
         let weak = parms.BondTypeParameterMap[Weak]
         let candidates = [ 0, 2; 0, 3; 1, 2; 1, 3 ]   // (X, W)
         let lengthSq (d : Point) = d.X * d.X + d.Y * d.Y

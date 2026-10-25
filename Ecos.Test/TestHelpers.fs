@@ -23,21 +23,66 @@ module TestParameters =
     /// rules.
     let anyBend = Rational.create 1 1
 
-    /// Standard bond-type parameters. Most tests use these, and the exact
-    /// tests' temperatures are chosen to suit them.
-    let standardBondTypeParameterMap =
-        Map [
-            Strong, { Energy = 12; PairEnergyMap = Map.empty; Barrier = 6; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; ProtectedHydrolysisRate = 0; BendLimit = straightBend; BendStiffness = 0 }
-            Weak, { Energy = 1; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; ProtectedHydrolysisRate = 0; BendLimit = anyBend; BendStiffness = 0 }
-        ] |> BondTypeParameterMap.ofMap
-
-    /// Standard parameters at the given temperature.
-    let create kT =
+    /// Parameters at the given temperature with nothing switched on:
+    /// bonds of both types have no energy, barrier, entropy or
+    /// hydrolysis, strands stay nearly straight at no cost, and nothing
+    /// peels. Tests add what they need with the functions below, so each
+    /// states only what it changes.
+    let basic kT =
+        let bondTypeParms bendLimit =
+            {
+                Energy = 0
+                PairEnergyMap = Map.empty
+                Barrier = 0
+                BarrierStackReduction = 0
+                StartBarrier = 0
+                Entropy = 0
+                HydrolysisRate = 0
+                ProtectedHydrolysisRate = 0
+                BendLimit = bendLimit
+                BendStiffness = 0
+            }
         {
             GetTemperature = Parameters.getUniformTemperature kT
-            BondTypeParameterMap = standardBondTypeParameterMap
-            PeelBarrier = System.Double.PositiveInfinity   // no peeling
+            BondTypeParameterMap =
+                Map [
+                    Strong, bondTypeParms straightBend
+                    Weak, bondTypeParms anyBend
+                ] |> BondTypeParameterMap.ofMap
+            PeelBarrier = System.Double.PositiveInfinity
         }
+
+    /// The given parameters, with the given bond type's changed by the
+    /// given function.
+    let withBondType bondType f (parms : Parameters) =
+        { parms with
+            BondTypeParameterMap =
+                BondTypeParameterMap.add
+                    bondType (f parms.BondTypeParameterMap[bondType])
+                    parms.BondTypeParameterMap }
+
+    /// The given parameters, with strong bonds' changed by the given
+    /// function.
+    let withStrong f parms = withBondType Strong f parms
+
+    /// The given parameters, with weak bonds' changed by the given
+    /// function.
+    let withWeak f parms = withBondType Weak f parms
+
+    /// The given parameters, with the given barrier to peeling.
+    let withPeelBarrier barrier (parms : Parameters) =
+        { parms with PeelBarrier = barrier }
+
+    /// The given parameters, with the given temperature at each location.
+    let withTemperature getTemperature (parms : Parameters) =
+        { parms with GetTemperature = getTemperature }
+
+    /// Standard parameters at the given temperature. Most tests use
+    /// these, and the exact tests' temperatures are chosen to suit them.
+    let create kT =
+        basic kT
+            |> withStrong (fun p -> { p with Energy = 12; Barrier = 6 })
+            |> withWeak (fun p -> { p with Energy = 1 })
 
     /// Standard parameters, for building worlds by hand. Building
     /// doesn't depend on temperature, so it is NaN.
@@ -48,81 +93,51 @@ module TestParameters =
     /// impassable. For tests whose exact enumeration treats strong
     /// bonds as fixed.
     let createFrozen kT =
-        let strong =
-            { standardBondTypeParameterMap[Strong] with
-                Barrier = System.Double.PositiveInfinity }
-        {
-            GetTemperature = Parameters.getUniformTemperature kT
-            BondTypeParameterMap =
-                BondTypeParameterMap.add Strong strong standardBondTypeParameterMap
-            PeelBarrier = System.Double.PositiveInfinity   // no peeling
-        }
+        create kT
+            |> withStrong (fun p -> { p with Barrier = System.Double.PositiveInfinity })
 
     /// The given parameters, with the given start barrier for each bond
     /// type.
-    let withStartBarrier strongBarrier weakBarrier (parms : Parameters) =
-        let set bondType barrier (bondTypeParmMap : BondTypeParameterMap) =
-            BondTypeParameterMap.add bondType { bondTypeParmMap[bondType] with StartBarrier = barrier } bondTypeParmMap
-        { parms with
-            BondTypeParameterMap =
-                parms.BondTypeParameterMap
-                    |> set Strong strongBarrier
-                    |> set Weak weakBarrier }
+    let withStartBarrier strongBarrier weakBarrier parms =
+        parms
+            |> withStrong (fun p -> { p with StartBarrier = strongBarrier })
+            |> withWeak (fun p -> { p with StartBarrier = weakBarrier })
+
+    /// The given parameters, with the given entropy for each bond type.
+    let withEntropy strongEntropy weakEntropy parms =
+        parms
+            |> withStrong (fun p -> { p with Entropy = strongEntropy })
+            |> withWeak (fun p -> { p with Entropy = weakEntropy })
 
     /// The given parameters, with the given hydrolysis rate for all
     /// bonds of the given type, protected or not.
-    let withHydrolysis bondType rate (parms : Parameters) =
-        let bondTypeParms = parms.BondTypeParameterMap[bondType]
-        { parms with
-            BondTypeParameterMap =
-                BondTypeParameterMap.add bondType
-                    { bondTypeParms with
-                        HydrolysisRate = rate
-                        ProtectedHydrolysisRate = rate }
-                    parms.BondTypeParameterMap }
+    let withHydrolysis bondType rate parms =
+        parms
+            |> withBondType bondType (fun p ->
+                { p with HydrolysisRate = rate; ProtectedHydrolysisRate = rate })
 
     /// The given parameters, with the given hydrolysis rate for
     /// protected bonds of the given type.
-    let withProtectedHydrolysis bondType rate (parms : Parameters) =
-        let bondTypeParms = parms.BondTypeParameterMap[bondType]
-        { parms with
-            BondTypeParameterMap =
-                BondTypeParameterMap.add bondType
-                    { bondTypeParms with ProtectedHydrolysisRate = rate }
-                    parms.BondTypeParameterMap }
+    let withProtectedHydrolysis bondType rate parms =
+        parms
+            |> withBondType bondType (fun p ->
+                { p with ProtectedHydrolysisRate = rate })
 
     /// The given parameters, with the given bend limit and stiffness
     /// for the given bond type.
-    let withBend bondType bendLimit kappa (parms : Parameters) =
-        let bondTypeParms = parms.BondTypeParameterMap[bondType]
-        { parms with
-            BondTypeParameterMap =
-                BondTypeParameterMap.add bondType
-                    { bondTypeParms with
-                        BendLimit = bendLimit
-                        BendStiffness = kappa }
-                    parms.BondTypeParameterMap }
+    let withBend bondType bendLimit kappa parms =
+        parms
+            |> withBondType bondType (fun p ->
+                { p with BendLimit = bendLimit; BendStiffness = kappa })
 
     /// The given parameters, with energies for particular pairs of atom
     /// types.
-    let withPairEnergies bondType (pairs : ((AtomType * AtomType) * float) list) (parms : Parameters) =
-        let bondTypeParms =
-            (parms.BondTypeParameterMap[bondType], pairs)
-                ||> List.fold (fun bondTypeParms ((typeA, typeB), energy) ->
-                    BondTypeParameters.addPairEnergy typeA typeB energy bondTypeParms)
-        { parms with
-            BondTypeParameterMap =
-                BondTypeParameterMap.add bondType bondTypeParms parms.BondTypeParameterMap }
-
-    /// The given parameters, with the given entropy for each bond type.
-    let withEntropy strongEntropy weakEntropy (parms : Parameters) =
-        let set bondType entropy (map : BondTypeParameterMap) =
-            BondTypeParameterMap.add bondType { map[bondType] with Entropy = entropy } map
-        { parms with
-            BondTypeParameterMap =
-                parms.BondTypeParameterMap
-                    |> set Strong strongEntropy
-                    |> set Weak weakEntropy }
+    let withPairEnergies bondType (pairs : ((AtomType * AtomType) * float) list) parms =
+        parms
+            |> withBondType bondType (fun p ->
+                (p, pairs)
+                    ||> List.fold (fun p ((typeA, typeB), energy) ->
+                        BondTypeParameters.addPairEnergy typeA typeB energy p))
 
 module World =
 
@@ -279,7 +294,7 @@ module Chain =
     /// All allowed bond vectors in the 2D bond fluctuation model
     /// (Carmesin & Kremer 1988): integer vectors b with 4 <= |b|^2 <= 13.
     /// This is an independent statement of the rule that
-    /// World.tryAddStrongBond TestParameters.standard enforces, so tests can use it as an oracle.
+    /// World.tryAddStrongBond enforces, so tests can use it as an oracle.
     let bondVectors =
         [|
             for x in -3 .. 3 do
@@ -291,7 +306,7 @@ module Chain =
 
     /// Allowed weak bond vectors: the closest separations at which two
     /// atoms don't overlap, i.e. 4 <= |b|^2 <= 8. An independent
-    /// statement of the range World.tryAddWeakBond TestParameters.standard enforces.
+    /// statement of the range World.tryAddWeakBond enforces.
     let weakBondVectors =
         bondVectors
             |> Array.filter (fun v -> v.X * v.X + v.Y * v.Y <= 8)
@@ -501,6 +516,25 @@ module Chain =
             | Some world -> world
             | None -> grow rng n
 
+    /// Adds a capped template strand to the given world, which must have
+    /// no atoms yet: P, then six coding atoms, each a random W or Y, then
+    /// Q, in a row along the x axis from -8 to 6, strongly bonded in
+    /// order (atoms 0 to 7).
+    let addTemplate (rng : Random) (world : World) =
+        assert(world.Atoms.Length = 0)
+        let types =
+            [|
+                AtomType.P
+                for _ in 1 .. 6 do
+                    if rng.Next(2) = 0 then AtomType.W else AtomType.Y
+                AtomType.Q
+            |]
+        (world, Array.indexed types)
+            ||> Array.fold (fun world (i, atomType) ->
+                let world = World.addAtom atomType (Point.create (2 * i - 8, 0)) world
+                if i > 0 then World.addStrongBond TestParameters.standard (i - 1) i world
+                else world)
+
     /// Adds n free (unbonded) atoms of random types at random
     /// locations near the origin, packed closely enough that weak
     /// bonds form and break often.
@@ -570,18 +604,13 @@ module Chain =
                         World.tryAddWall (Point.create (x, y)) world   // corners are attempted twice
                             |> Option.defaultValue world))
 
-    /// Temperature for tests of the athermal model. Atoms created by
-    /// the Atom.create helper above are all type W, which can't form
+    /// Temperature for tests of the athermal model. Atoms added by
+    /// World.addAtomW above are all type W, which can't form
     /// weak bonds, so hops and weak bond toggles never change the
     /// energy, and the temperature doesn't affect them. It's set very
     /// low so that strong bonds, which could otherwise form between a
     /// chain's ends or break, are frozen: the barrier is never crossed.
     let athermalKT = 0.1
-
-    /// Performs one sweep with the standard parameters at the given
-    /// temperature: N updates for N atoms.
-    let sweep kT rng (world : World) =
-        Ecos.World.sweep (TestParameters.create kT) rng 1 world
 
     /// Performs about the given number of updates with the given
     /// parameters, as whole sweeps (rounding up). Much faster than
@@ -593,11 +622,6 @@ module Chain =
     /// Performs the given number of sweeps with the given parameters.
     let sweepsWith parms rng count (world : World) =
         Ecos.World.sweep parms rng count world
-
-    /// Performs the given number of sweeps with the standard
-    /// parameters at the given temperature.
-    let sweeps kT rng count world =
-        sweepsWith (TestParameters.create kT) rng count world
 
     /// Atom locations as floating-point (x, y) pairs, in ID order, for a
     /// chain whose atoms are bonded in ID order. They are unwrapped: each
@@ -621,22 +645,6 @@ module Chain =
     let centerOfMass world =
         let locs = locations world
         Array.averageBy fst locs, Array.averageBy snd locs
-
-    /// Squared distance between the chain's first and last atoms,
-    /// measured along the chain.
-    let endToEndSquared (world : World) =
-        let locs = locations world
-        let x0, y0 = locs[0]
-        let x1, y1 = locs[locs.Length - 1]
-        (x1 - x0) ** 2.0 + (y1 - y0) ** 2.0
-
-    /// Squared radius of gyration: mean squared distance of atoms
-    /// from the center of mass.
-    let radiusOfGyrationSquared world =
-        let xc, yc = centerOfMass world
-        locations world
-            |> Array.averageBy (fun (x, y) ->
-                (x - xc) ** 2.0 + (y - yc) ** 2.0)
 
 /// Simple statistics helpers.
 module Stats =

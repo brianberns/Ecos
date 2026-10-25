@@ -6,192 +6,11 @@ open FsCheck.Xunit
 open Xunit
 open Ecos
 open Ecos.Test.Geometry
+open Ecos.Test.Validity
 
 /// Fuzz tests of the model's rules, checked against independent
 /// statements of those rules.
 module PropertyTests =
-
-    /// Oracle: do atoms at the given locations overlap? Each atom
-    /// occupies a 2x2 square, so they overlap if they are closer than
-    /// 2 along both axes, measured around the torus.
-    let private overlaps (world : World) (a : Point) (b : Point) =
-        let d = Grid.getDisplacement a b world.Cells
-        abs d.X < 2 && abs d.Y < 2
-
-    /// Oracle: is the given vector an allowed bond?
-    let private isBondVector (v : Point) =
-        Array.contains v Chain.bondVectors
-
-    /// Are the given atoms strongly bonded?
-    let private isStronglyBonded = Bonds.areStronglyBonded
-
-    /// Strong bonds in the given world, as (smaller ID, larger ID)
-    /// pairs.
-    let private strongBonds = Bonds.strongBonds
-
-    /// Weak bonds in the given world, as (smaller ID, larger ID) pairs.
-    let private weakBonds = Bonds.weakBonds
-
-    /// All bonds in the given world, strong and weak, as
-    /// (smaller ID, larger ID) pairs.
-    let private allBonds (world : World) =
-        Set.toList (strongBonds world) @ Set.toList (weakBonds world)
-
-    /// Gets the displacement between the atoms with the given IDs in
-    /// the given world.
-    let private delta idA idB (world : World) =
-        World.getDisplacement world.Atoms[idA] world.Atoms[idB] world
-
-    /// Oracle: would a bond between the given atoms cross any bond in
-    /// the given world? Bonds that share an atom with it can't cross
-    /// it. This checks every bond in the world, so it doesn't depend on
-    /// World's assumption that only nearby bonds need checking.
-    let private crossesAnyBond (world : World) idA idB =
-        allBonds world
-            |> List.exists (fun (idC, idD) ->
-                idC <> idA && idC <> idB && idD <> idA && idD <> idB
-                    && (let rel id = delta idA id world   // relative to A, around the torus
-                        let c = rel idC
-                        segmentsIntersect Point.zero (rel idB) c (c + delta idC idD world)))
-
-    /// The given atom's partners by bonds of the given type.
-    let private partners bondType (world : World) id =
-        world.BondTypeMap[bondType]
-            |> Map.tryFind id
-            |> Option.defaultValue Set.empty
-
-    /// Oracle: is the angle between the given atom's bonds of the given
-    /// type wide enough, when the atoms are at the locations given by
-    /// the given function? (Only an atom with two such bonds can fail
-    /// this.) For strong bonds, this keeps strands from bending
-    /// sharply; for weak bonds, it keeps an atom's two partners on
-    /// opposite sides of it.
-    let private anglesAreAllowed bondType (world : World) (loc : AtomId -> Point) id =
-        let ids = Set.toList (partners bondType world id)
-        List.allPairs ids ids
-            |> List.forall (fun (idB, idC) ->
-                idB >= idC
-                    || Bonds.isAngleAllowed bondType Point.zero
-                        (Grid.getDisplacement (loc id) (loc idB) world.Cells)   // loc may place the atom elsewhere
-                        (Grid.getDisplacement (loc id) (loc idC) world.Cells))
-
-    /// Oracle: would the angle between the given atom's bonds of the
-    /// given type still be wide enough if it also had such a bond to
-    /// the given new partner?
-    let private hasRoomAtAngle bondType (world : World) id idNew =
-        let loc id = world.Atoms[id].Location
-        partners bondType world id
-            |> Set.forall (fun idB ->
-                Bonds.isAngleAllowed bondType Point.zero
-                    (delta id idB world)
-                    (delta id idNew world))
-
-    /// Checks all of a world's invariants.
-    let private isValid (world : World) =
-        let atoms = world.Atoms |> Seq.toArray
-        let loc id = world.Atoms[id].Location
-
-            // no two atoms overlap, no atom overlaps a wall, and no two
-            // walls overlap (a wall occupies the same square as an atom)
-        let noOverlaps =
-            atoms
-                |> Seq.forall (fun a ->
-                    atoms
-                        |> Array.forall (fun b ->
-                            a.Id = b.Id || not (overlaps world a.Location b.Location))
-                        && world.Walls
-                            |> Seq.forall (fun wall -> not (overlaps world a.Location wall)))
-                && world.Walls
-                    |> Seq.forall (fun wallA ->
-                        world.Walls
-                            |> Seq.forall (fun wallB ->
-                                wallA = wallB || not (overlaps world wallA wallB)))
-
-            // every strong bond is allowed and symmetric, no atom has more
-            // than its type permits (one for a cap, otherwise two), no two
-            // caps are bonded, and two bonds at one atom don't bend too
-            // sharply
-        let strongBondsValid =
-            (Bonds.strongBondMap world)
-                |> Map.forall (fun idA ids ->
-                    ids.Count <= Chain.strongValence world.Atoms[idA].Type
-                        && anglesAreAllowed Strong world loc idA
-                        && ids
-                            |> Set.forall (fun idB ->
-                                isBondVector (delta idA idB world)
-                                    && Chain.canJoin world.Atoms[idA].Type world.Atoms[idB].Type
-                                    && isStronglyBonded world idB idA))
-
-            // no atom is listed with an empty set of bonds
-        let bondSetsValid =
-            world.BondTypeMap.BondMaps
-                |> Seq.forall (Map.forall (fun _ ids -> not ids.IsEmpty))
-
-            // no bond, strong or weak, crosses another
-        let noCrossings =
-            allBonds world
-                |> List.forall (fun (idA, idB) ->
-                    not (crossesAnyBond world idA idB))
-
-            // every weak bond is symmetric, in range, between
-            // complementary types, and between atoms that aren't also
-            // strongly bonded
-        let weakBondsValid =
-            (Bonds.weakBondMap world)
-                |> Map.forall (fun idA ids ->
-                    ids
-                        |> Set.forall (fun idB ->
-                            Bonds.areWeaklyBonded world idB idA
-                                && Array.contains (delta idA idB world) Chain.weakBondVectors
-                                && Chain.canPair world.Atoms[idA].Type world.Atoms[idB].Type
-                                && not (isStronglyBonded world idA idB)))
-
-            // no atom has more than two weak partners, and only an atom
-            // in a strand (one with a strong bond) has two; two partners are
-            // on opposite sides of the atom, and (as a consequence) are
-            // never strongly bonded to each other
-        let weakPartnersValid =
-            (Bonds.weakBondMap world)
-                |> Map.forall (fun idA ids ->
-                    ids.Count <= 2
-                        && (ids.Count < 2 || not (partners Strong world idA).IsEmpty)
-                        && anglesAreAllowed Strong world loc idA
-                        && anglesAreAllowed Weak world loc idA
-                        && List.allPairs (Set.toList ids) (Set.toList ids)
-                            |> List.forall (fun (idB, idC) ->
-                                not (isStronglyBonded world idB idC)))
-
-            // every atom is stored under its own ID, and the world's cells
-            // say exactly where the atoms and walls are: each atom's and
-            // wall's cell holds it, and every other cell in the region they
-            // occupy (with a margin) is empty
-        let occupancyConsistent =
-            let walls = set world.Walls
-            let locations =
-                Array.append (atoms |> Array.map _.Location) world.Walls
-            let regionConsistent () =
-                let xs = locations |> Array.map _.X
-                let ys = locations |> Array.map _.Y
-                Seq.allPairs
-                    [ Array.min xs - 2 .. Array.max xs + 2 ]
-                    [ Array.min ys - 2 .. Array.max ys + 2 ]
-                    |> Seq.forall (fun (x, y) ->
-                        let loc = Point.create (x, y)
-                        match world[loc] with
-                            | Cell.Atom id ->
-                                id < atoms.Length && atoms[id].Location = world.NormalizeLocation(loc)
-                            | Cell.Wall -> walls.Contains (world.NormalizeLocation(loc))
-                            | Cell.Empty -> true)
-            atoms
-                |> Array.indexed
-                |> Array.forall (fun (i, atom) ->
-                    atom.Id = i && world[atom.Location] = Cell.Atom atom.Id)
-                && world.Walls
-                    |> Array.forall (fun loc -> world[loc] = Cell.Wall)
-                && (locations.Length = 0 || regionConsistent ())
-
-        noOverlaps && strongBondsValid && bondSetsValid && noCrossings
-            && weakBondsValid && weakPartnersValid && occupancyConsistent
 
     /// Unit steps an atom can attempt.
     let private directions =
@@ -477,21 +296,6 @@ module PropertyTests =
             longForm / nStrong, longBreak / nStrong,
             stackedBreak / nStrong
 
-    /// All pairs of bonds that intersect, excluding pairs that share
-    /// an atom.
-    let private crossings (world : World) =
-        let bonds = allBonds world
-        let loc id = world.Atoms[id].Location
-        set [
-            for i, (a, b) in List.indexed bonds do
-                for c, d in List.skip (i + 1) bonds do
-                    if a <> c && a <> d && b <> c && b <> d
-                        && (let rel id = delta a id world   // relative to a, around the torus
-                            let c' = rel c
-                            segmentsIntersect Point.zero (rel b) c' (c' + delta c d world)) then
-                        (a, b), (c, d)
-        ]
-
     /// Points have hand-written equality, ordering and hashing (for
     /// speed). They must behave exactly like their coordinates do:
     /// equal when both coordinates are, ordered by X and then Y, and
@@ -734,15 +538,9 @@ module PropertyTests =
     let ``A capped strand is never extended`` () =
         let rng = Random(0)
         let parms =
-            {
-                GetTemperature = Parameters.getUniformTemperature 1.0
-                BondTypeParameterMap =
-                    Map [
-                        Strong, { Energy = 30; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; ProtectedHydrolysisRate = 0; BendLimit = TestParameters.straightBend; BendStiffness = 0 }
-                        Weak, { Energy = 1; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; ProtectedHydrolysisRate = 0; BendLimit = TestParameters.anyBend; BendStiffness = 0 }
-                    ] |> BondTypeParameterMap.ofMap
-                PeelBarrier = Double.PositiveInfinity   // no peeling
-            }
+            TestParameters.basic 1.0
+                |> TestParameters.withStrong (fun p -> { p with Energy = 30 })
+                |> TestParameters.withWeak (fun p -> { p with Energy = 1 })
         let mutable world =
             TestWorld.empty
                 |> World.addAtom AtomType.P (Point.create (-3, 0))   // 0
@@ -899,15 +697,8 @@ module PropertyTests =
     let ``An atom with two weak partners keeps a strong bond`` () =
         let rng = Random(0)
         let parms =
-            {
-                GetTemperature = Parameters.getUniformTemperature 1.0
-                BondTypeParameterMap =
-                    Map [
-                        Strong, { Energy = 0; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; ProtectedHydrolysisRate = 0; BendLimit = TestParameters.straightBend; BendStiffness = 0 }
-                        Weak, { Energy = 3; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; ProtectedHydrolysisRate = 0; BendLimit = TestParameters.anyBend; BendStiffness = 0 }
-                    ] |> BondTypeParameterMap.ofMap
-                PeelBarrier = Double.PositiveInfinity   // no peeling
-            }
+            TestParameters.basic 1.0
+                |> TestParameters.withWeak (fun p -> { p with Energy = 3 })
         let mutable world =
             TestWorld.empty
                 |> World.addAtom AtomType.W (Point.create (0, 0))    // 0
@@ -1198,19 +989,23 @@ module PropertyTests =
             unpeeled <- Chain.updatesWith frozen rng 20000 unpeeled
             Assert.Equal<Set<int * int>>(strongBonds world, strongBonds unpeeled)
 
+            // a strand P0-W1-W2 capped at its other end by the given cap
+            // (atom 3), among free atoms
+        let cappedStrand endCap rng =
+            TestWorld.empty
+                |> World.addAtom AtomType.P (Point.create (-3, 0))   // 0
+                |> World.addAtom AtomType.W (Point.create (-1, 0))   // 1
+                |> World.addAtom AtomType.W (Point.create (1, 0))    // 2
+                |> World.addAtom endCap (Point.create (3, 0))        // 3
+                |> World.addStrongBond TestParameters.standard 0 1
+                |> World.addStrongBond TestParameters.standard 1 2
+                |> World.addStrongBond TestParameters.standard 2 3
+                |> Chain.addSoup rng 10
+
             // a capped strand doesn't peel
         let checkCapped () =
             let rng = Random(0)
-            let capped =
-                TestWorld.empty
-                    |> World.addAtom AtomType.P (Point.create (-3, 0))   // 0
-                    |> World.addAtom AtomType.W (Point.create (-1, 0))   // 1
-                    |> World.addAtom AtomType.W (Point.create (1, 0))    // 2
-                    |> World.addAtom AtomType.P (Point.create (3, 0))    // 3
-                    |> World.addStrongBond TestParameters.standard 0 1
-                    |> World.addStrongBond TestParameters.standard 1 2
-                    |> World.addStrongBond TestParameters.standard 2 3
-                    |> Chain.addSoup rng 10
+            let capped = cappedStrand AtomType.P rng
             let mutable world = capped
             world <- Chain.updatesWith { peeling with PeelBarrier = 0.0 } rng 50000 world
             Assert.Equal<Set<int * int>>(strongBonds capped, strongBonds world)
@@ -1219,16 +1014,7 @@ module PropertyTests =
             // breaks, and then the pieces peel
         let checkHydrolysis () =
             let rng = Random(1)
-            let capped =
-                TestWorld.empty
-                    |> World.addAtom AtomType.P (Point.create (-3, 0))   // 0
-                    |> World.addAtom AtomType.W (Point.create (-1, 0))   // 1
-                    |> World.addAtom AtomType.W (Point.create (1, 0))    // 2
-                    |> World.addAtom AtomType.Q (Point.create (3, 0))    // 3
-                    |> World.addStrongBond TestParameters.standard 0 1
-                    |> World.addStrongBond TestParameters.standard 1 2
-                    |> World.addStrongBond TestParameters.standard 2 3
-                    |> Chain.addSoup rng 10
+            let capped = cappedStrand AtomType.Q rng
             let mutable world = capped
             world <- Chain.updatesWith (TestParameters.withHydrolysis Strong 0.2 peeling) rng 100000 world   // each bond expects several breaks
             Assert.Empty(
@@ -1240,16 +1026,7 @@ module PropertyTests =
             // happen (and nothing re-forms, since the barrier is impassable)
         let checkHydrolysisOnly () =
             let rng = Random(2)
-            let capped =
-                TestWorld.empty
-                    |> World.addAtom AtomType.P (Point.create (-3, 0))   // 0
-                    |> World.addAtom AtomType.W (Point.create (-1, 0))   // 1
-                    |> World.addAtom AtomType.W (Point.create (1, 0))    // 2
-                    |> World.addAtom AtomType.Q (Point.create (3, 0))    // 3
-                    |> World.addStrongBond TestParameters.standard 0 1
-                    |> World.addStrongBond TestParameters.standard 1 2
-                    |> World.addStrongBond TestParameters.standard 2 3
-                    |> Chain.addSoup rng 10
+            let capped = cappedStrand AtomType.Q rng
             let parms =
                 { frozen with PeelBarrier = Double.PositiveInfinity }
                     |> TestParameters.withHydrolysis Strong 1.0
@@ -1307,15 +1084,8 @@ module PropertyTests =
     [<Fact>]
     let ``Stacked strong bonds break at the expected rate`` () =
         let parms =
-            {
-                GetTemperature = Parameters.getUniformTemperature 1.0
-                BondTypeParameterMap =
-                    Map [
-                        Strong, { Energy = 0; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; ProtectedHydrolysisRate = 0; BendLimit = TestParameters.straightBend; BendStiffness = 0 }
-                        Weak, { Energy = 3; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; ProtectedHydrolysisRate = 0; BendLimit = TestParameters.anyBend; BendStiffness = 0 }
-                    ] |> BondTypeParameterMap.ofMap
-                PeelBarrier = Double.PositiveInfinity   // no peeling
-            }
+            TestParameters.basic 1.0
+                |> TestParameters.withWeak (fun p -> { p with Energy = 3 })
         for label, world in stackingWorlds do
             checkEventRates label parms 200000 (Random(0)) world
 
@@ -1330,15 +1100,9 @@ module PropertyTests =
     [<Fact>]
     let ``A stack lowers the barrier of its strong bonds`` () =
         let parms =
-            {
-                GetTemperature = Parameters.getUniformTemperature 1.0
-                BondTypeParameterMap =
-                    Map [
-                        Strong, { Energy = 0; PairEnergyMap = Map.empty; Barrier = 3; BarrierStackReduction = 3; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; ProtectedHydrolysisRate = 0; BendLimit = TestParameters.straightBend; BendStiffness = 0 }
-                        Weak, { Energy = 3; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; ProtectedHydrolysisRate = 0; BendLimit = TestParameters.anyBend; BendStiffness = 0 }
-                    ] |> BondTypeParameterMap.ofMap
-                PeelBarrier = Double.PositiveInfinity   // no peeling
-            }
+            TestParameters.basic 1.0
+                |> TestParameters.withStrong (fun p -> { p with Barrier = 3; BarrierStackReduction = 3 })
+                |> TestParameters.withWeak (fun p -> { p with Energy = 3 })
         for label, world in stackingWorlds do
             checkEventRates label parms 200000 (Random(1)) world
 
@@ -1353,15 +1117,9 @@ module PropertyTests =
     [<Fact>]
     let ``Bonds with entropy form and break at the expected rate`` () =
         let parms weakEntropy strongEntropy =
-            {
-                GetTemperature = Parameters.getUniformTemperature 1.0
-                BondTypeParameterMap =
-                    Map [
-                        Strong, { Energy = 2; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = strongEntropy; HydrolysisRate = 0; ProtectedHydrolysisRate = 0; BendLimit = TestParameters.straightBend; BendStiffness = 0 }
-                        Weak, { Energy = 3; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = weakEntropy; HydrolysisRate = 0; ProtectedHydrolysisRate = 0; BendLimit = TestParameters.anyBend; BendStiffness = 0 }
-                    ] |> BondTypeParameterMap.ofMap
-                PeelBarrier = Double.PositiveInfinity   // no peeling
-            }
+            TestParameters.basic 1.0
+                |> TestParameters.withStrong (fun p -> { p with Energy = 2; Entropy = strongEntropy })
+                |> TestParameters.withWeak (fun p -> { p with Energy = 3; Entropy = weakEntropy })
         inParallel [|
             for iWorld, (label, world) in List.indexed stackingWorlds do
                 for iCase, (weakEntropy, strongEntropy) in List.indexed [ 1.5, 1.0; 6.0, 5.0 ] do
@@ -1404,27 +1162,15 @@ module PropertyTests =
             TestParameters.create hotKT
                 |> TestParameters.withStartBarrier hotKT (hotKT / 2.0)
         let stacked =
-            {
-                GetTemperature = Parameters.getUniformTemperature 1.0
-                BondTypeParameterMap =
-                    Map [
-                        Strong, { Energy = 0; PairEnergyMap = Map.empty; Barrier = 3; BarrierStackReduction = 5; StartBarrier = 1.5; Entropy = 0; HydrolysisRate = 0; ProtectedHydrolysisRate = 0; BendLimit = TestParameters.straightBend; BendStiffness = 0 }
-                        Weak, { Energy = 3; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0.5; Entropy = 0; HydrolysisRate = 0; ProtectedHydrolysisRate = 0; BendLimit = TestParameters.anyBend; BendStiffness = 0 }
-                    ] |> BondTypeParameterMap.ofMap
-                PeelBarrier = Double.PositiveInfinity   // no peeling
-            }
+            TestParameters.basic 1.0
+                |> TestParameters.withStrong (fun p -> { p with Barrier = 3; BarrierStackReduction = 5; StartBarrier = 1.5 })
+                |> TestParameters.withWeak (fun p -> { p with Energy = 3; StartBarrier = 0.5 })
             // strands start slowly but then grow freely, so most strong bonds
             // formed extend a strand and must not get the start barrier
         let growing =
-            {
-                GetTemperature = Parameters.getUniformTemperature 1.0
-                BondTypeParameterMap =
-                    Map [
-                        Strong, { Energy = 2; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 2; Entropy = 0; HydrolysisRate = 0; ProtectedHydrolysisRate = 0; BendLimit = TestParameters.straightBend; BendStiffness = 0 }
-                        Weak, { Energy = 1; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; ProtectedHydrolysisRate = 0; BendLimit = TestParameters.anyBend; BendStiffness = 0 }
-                    ] |> BondTypeParameterMap.ofMap
-                PeelBarrier = Double.PositiveInfinity   // no peeling
-            }
+            TestParameters.basic 1.0
+                |> TestParameters.withStrong (fun p -> { p with Energy = 2; StartBarrier = 2 })
+                |> TestParameters.withWeak (fun p -> { p with Energy = 1 })
         inParallel [|
             fun () -> checkEventRates "Box, strands growing" growing 150000 (Random(9)) box
             fun () -> checkEventRates "Box, with start barriers" hot 150000 (Random(4)) box
@@ -1474,15 +1220,10 @@ module PropertyTests =
             // here: with caps, the atoms soon settle into capped strands
             // that never peel.
         let peeling =
-            {
-                GetTemperature = Parameters.getUniformTemperature 1.0
-                BondTypeParameterMap =
-                    Map [
-                        Strong, { Energy = 30; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; ProtectedHydrolysisRate = 0; BendLimit = TestParameters.straightBend; BendStiffness = 0 }
-                        Weak, { Energy = 1; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; ProtectedHydrolysisRate = 0; BendLimit = TestParameters.anyBend; BendStiffness = 0 }
-                    ] |> BondTypeParameterMap.ofMap
-                PeelBarrier = 1.0   // peels with probability 1/e
-            }
+            TestParameters.basic 1.0
+                |> TestParameters.withStrong (fun p -> { p with Energy = 30 })
+                |> TestParameters.withWeak (fun p -> { p with Energy = 1 })
+                |> TestParameters.withPeelBarrier 1.0   // peels with probability 1/e
         inParallel [|
             fun () -> checkEventRates "Box" parms 100000 (Random(1)) world
             fun () ->
@@ -1512,10 +1253,10 @@ module PropertyTests =
                     // deep weak bonds, which seldom break by the usual test,
                     // so that how often they hydrolyze shows: each bond type
                     // at its own rate, far apart
-                let weak = { peeling.BondTypeParameterMap[Weak] with Energy = 3.0 }
                 checkEventRates
                     "Box, with deep weak bonds and hydrolysis"
-                    ({ peeling with BondTypeParameterMap = BondTypeParameterMap.add Weak weak peeling.BondTypeParameterMap }
+                    (peeling
+                        |> TestParameters.withWeak (fun p -> { p with Energy = 3.0 })
                         |> TestParameters.withHydrolysis Strong 0.3
                         |> TestParameters.withHydrolysis Weak 0.05)
                     200000 (Random(8)) world
@@ -1536,15 +1277,9 @@ module PropertyTests =
     [<Fact>]
     let ``Paired strong bonds are protected from hydrolysis`` () =
         let parms =
-            {
-                GetTemperature = Parameters.getUniformTemperature 1.0
-                BondTypeParameterMap =
-                    Map [
-                        Strong, { Energy = 30; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; ProtectedHydrolysisRate = 0; BendLimit = TestParameters.straightBend; BendStiffness = 0 }
-                        Weak, { Energy = 15; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; ProtectedHydrolysisRate = 0; BendLimit = TestParameters.anyBend; BendStiffness = 0 }
-                    ] |> BondTypeParameterMap.ofMap
-                PeelBarrier = Double.PositiveInfinity   // nothing peels
-            }
+            TestParameters.basic 1.0
+                |> TestParameters.withStrong (fun p -> { p with Energy = 30 })
+                |> TestParameters.withWeak (fun p -> { p with Energy = 15 })
                 |> TestParameters.withHydrolysis Strong 0.3
                 |> TestParameters.withProtectedHydrolysis Strong 0.02
         let addStrand atomType (locs : (int * int) list) world =
@@ -1593,25 +1328,19 @@ module PropertyTests =
             // weak bonds with some depth, so that how often they break
             // depends steeply on temperature; strong bonds frozen
         let weak =
-            let parms = TestParameters.createFrozen 1.0
-            let weakParms = { parms.BondTypeParameterMap[Weak] with Energy = 3.0 }
-            { parms with
-                GetTemperature = step 1.0 10.0
-                BondTypeParameterMap = BondTypeParameterMap.add Weak weakParms parms.BondTypeParameterMap }
+            TestParameters.createFrozen 1.0
+                |> TestParameters.withTemperature (step 1.0 10.0)
+                |> TestParameters.withWeak (fun p -> { p with Energy = 3.0 })
 
             // strong bonds that form freely and are too strong to break in
             // the usual way, so every break is a peel (and no weak bonds,
             // since the atoms are of the same type)
         let peeling =
-            {
-                GetTemperature = step 0.25 25.0
-                BondTypeParameterMap =
-                    Map [
-                        Strong, { Energy = 30; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; ProtectedHydrolysisRate = 0; BendLimit = TestParameters.straightBend; BendStiffness = 0 }
-                        Weak, { Energy = 1; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; ProtectedHydrolysisRate = 0; BendLimit = TestParameters.anyBend; BendStiffness = 0 }
-                    ] |> BondTypeParameterMap.ofMap
-                PeelBarrier = 2.0
-            }
+            TestParameters.basic nan
+                |> TestParameters.withTemperature (step 0.25 25.0)
+                |> TestParameters.withStrong (fun p -> { p with Energy = 30 })
+                |> TestParameters.withWeak (fun p -> { p with Energy = 1 })
+                |> TestParameters.withPeelBarrier 2.0
 
         inParallel [|
             fun () ->
@@ -1671,18 +1400,3 @@ module PropertyTests =
             // make sure the check isn't vacuous
         Assert.True(nChecked > 100000, $"Only {nChecked} configurations checked")
         Assert.True(nCrossed > 0, "No crossed configurations checked")
-
-    /// Topology: bonds never cross. A world can't be built with crossed
-    /// bonds, a single step can never carry one bond across another,
-    /// and a bond can't form across another bond, so no pair of bonds
-    /// (strong or weak) may ever intersect.
-    [<Property>]
-    let ``Bonds never cross`` (length : int) (seed : int) (nSteps : int) =
-        let length = 4 + abs (length % 20)
-        let rng = Random(seed)
-        let mutable world = Chain.grow rng length |> Chain.withRandomTypes rng |> Chain.addSoup rng 10 |> Chain.addDimers rng 5 |> Chain.addObstacles rng 10
-        let mutable ok = (crossings world).IsEmpty
-        for _ in 1 .. 500 + abs (nSteps % 500) do
-            world <- World.update 1.0 rng world
-            ok <- ok && (crossings world).IsEmpty
-        ok

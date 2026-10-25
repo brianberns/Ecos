@@ -6,7 +6,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="Chain.fs" />
+    <Compile Include="TestHelpers.fs" />
+    <Compile Include="Validity.fs" />
     <Compile Include="PhysicsTests.fs" />
     <Compile Include="PropertyTests.fs" />
     <Compile Include="RegressionTests.fs" />
