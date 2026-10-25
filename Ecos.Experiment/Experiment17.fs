@@ -212,7 +212,7 @@ module Experiment17 =
             |> Scenario.withHydrolysisRate settings.HydrolysisRate
             |> Scenario.withProtectedHydrolysisRate variant.ProtectedHydrolysisRate
             |> Scenario.withBend Strong Bend.rightAngle variant.BendStiffness
-            |> Scenario.withBuildStep addStrands
+            |> Scenario.withTemplateStep addStrands   // so that the seeded strands can be followed in the desktop app
             |> Scenario.withName $"Hairpins head to head, length {settings.HairpinFormer.Length}, kappa {variant.BendStiffness}, protected rate {variant.ProtectedHydrolysisRate}"
 
     /// The experiment's scenarios: one for each variant.

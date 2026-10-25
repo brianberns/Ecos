@@ -203,6 +203,26 @@ module ScenarioTests =
         Assert.NotEqual<AtomType[]>(types runA, types runC)
 
     [<Fact>]
+    let ``A template step marks exactly the atoms it adds as the template`` () =
+        let strand = [| AtomType.P; AtomType.W; AtomType.Y; AtomType.Q |]
+        let step parms rng world =
+            world
+                |> Build.addStrandAtRandom parms rng 70 strand
+                |> Build.addStrandAtRandom parms rng 70 strand
+        let scenario = Scenario.createScenarioB true   // with a template already
+        let plain = Run.create 5 (Scenario.withBuildStep step scenario)
+        let marked = Run.create 5 (Scenario.withTemplateStep step scenario)
+
+            // the same world, with the new atoms added to the template
+        Assert.Equal(fingerprint plain.World, fingerprint marked.World)
+        let nAtoms = marked.World.Atoms.Length
+        let added = [| nAtoms - 2 * strand.Length .. nAtoms - 1 |]
+        Assert.Equal<AtomId[]>(Array.append plain.Template added, marked.Template)
+        Assert.Equal<AtomType[]>(
+            Array.append strand strand,
+            added |> Array.map (fun id -> marked.World.Atoms[id].Type))
+
+    [<Fact>]
     let ``Every registered scenario is well formed`` () =
         for group in Registry.groups do
             Assert.NotEmpty(group.Scenarios)

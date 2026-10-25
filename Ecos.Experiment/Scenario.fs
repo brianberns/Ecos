@@ -503,6 +503,18 @@ module Scenario =
             step parms rng world, template
         { scenario with Build = build }
 
+    /// Adds a step to the end of building the given scenario's world,
+    /// and marks the atoms it adds as the world's template, in addition
+    /// to any template it already has, so that the desktop app shows
+    /// them as such.
+    let withTemplateStep (step : Parameters -> Random -> World -> World) scenario =
+        let build parms rng =
+            let world, template = scenario.Build parms rng
+            let nBefore = world.Atoms.Length
+            let world = step parms rng world
+            world, Array.append template [| nBefore .. world.Atoms.Length - 1 |]
+        { scenario with Build = build }
+
     /// A vent along the seam of the standard 160x160 torus (x = 0): during
     /// a pulse, kT 3.0 at the vent (the hot temperature of scenario B),
     /// falling linearly to 0.3 (its cold temperature) halfway around, at
