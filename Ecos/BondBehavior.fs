@@ -301,3 +301,12 @@ type private BehaviorMap =
         match bondType with
             | Strong -> this.StrongBehavior
             | Weak -> this.WeakBehavior
+
+module private BehaviorMap =
+
+    /// Standard behavior of each bond type.
+    let standard =
+        {
+            StrongBehavior = StrongBond.behavior
+            WeakBehavior = WeakBond.behavior
+        }

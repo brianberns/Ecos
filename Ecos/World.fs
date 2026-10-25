@@ -153,13 +153,6 @@ module World =
         world.BondTypeMap.BondMaps
             |> Seq.exists (BondMap.areBonded idA idB)
 
-    /// Behavior of each bond type.
-    let private behaviorMap =
-        {
-            StrongBehavior = StrongBond.behavior
-            WeakBehavior = WeakBond.behavior
-        }
-
     /// The shortest vector from atom A to atom B in the given
     /// world, accounting for possible edge wrapping.
     let getDisplacement atomA atomB (world : World) =
@@ -217,7 +210,7 @@ module World =
 
             // new bond is valid?
         let isValid =
-            let behavior = behaviorMap[bondType]
+            let behavior = BehaviorMap.standard[bondType]
             let idsA = BondMap.getBonds atomA.Id bondMap
             let idsB = BondMap.getBonds atomB.Id bondMap
             let delta = getDisplacement atomA atomB world
@@ -336,7 +329,7 @@ module World =
             |> Array.forall (fun bondType ->
 
                     // test the atom's bonds
-                let behavior = behaviorMap[bondType]
+                let behavior = BehaviorMap.standard[bondType]
                 let bondMap = world.BondTypeMap[bondType]
                 let partnerIds = BondMap.getBonds atom.Id bondMap
                 if partnerIds.IsEmpty then true   // performance optimization: early exit if unbonded
@@ -472,7 +465,7 @@ module World =
         let isValid =
             BondType.all
                 |> Seq.forall (fun bondType ->
-                    let behavior = behaviorMap[bondType]
+                    let behavior = BehaviorMap.standard[bondType]
                     behavior.TestValence atomA bondTypeMap
                         && behavior.TestValence atomB bondTypeMap)
 
@@ -486,7 +479,7 @@ module World =
         parms (rng : Random) bondType atomA atomB (world : World) =
 
             // count adjacent stacks
-        let behavior = behaviorMap[bondType]
+        let behavior = BehaviorMap.standard[bondType]
         let nStacks =
             behavior.CountStacks atomA.Id atomB.Id world.BondTypeMap
 
@@ -551,7 +544,7 @@ module World =
 
             // pick a direction to bond in
         let delta =
-            let deltas = behaviorMap[bondType].Deltas
+            let deltas = BehaviorMap.standard[bondType].Deltas
             deltas[rng.Next(deltas.Length)]
 
             // toggle bond with atom at that location?
