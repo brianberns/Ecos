@@ -40,8 +40,8 @@ module Experiment1 =
             Temperatures = [| for i in 3 .. 20 -> float i / 10.0 |]   // 0.3 to 2.0
             BondTypeParameterMap =
                 Map [
-                    Strong, { Energy = 12; PairEnergyMap = Map.empty; Barrier = 6; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; PairedHydrolysisRate = 0; BendLimit = Bend.straight; BendStiffness = 0 }
-                    Weak, { Energy = 1; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; PairedHydrolysisRate = 0; BendLimit = Bend.any; BendStiffness = 0 }
+                    Strong, { Energy = 12; PairEnergyMap = Map.empty; Barrier = 6; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; ProtectedHydrolysisRate = 0; BendLimit = Bend.straight; BendStiffness = 0 }
+                    Weak, { Energy = 1; PairEnergyMap = Map.empty; Barrier = 0; BarrierStackReduction = 0; StartBarrier = 0; Entropy = 0; HydrolysisRate = 0; ProtectedHydrolysisRate = 0; BendLimit = Bend.any; BendStiffness = 0 }
                 ] |> BondTypeParameterMap.ofMap
             NumRuns = 16
             EquilibrationSweeps = 20000

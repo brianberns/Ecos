@@ -70,13 +70,13 @@ type BondTypeParameters =
         /// Implicit entropy in this bond type (s).
         Entropy : float
 
-        /// Determines how often bonds of this type break due to
-        /// hydrolysis.
+        /// Rate at which unprotected bonds of this type break due
+        /// to hydrolysis.
         HydrolysisRate : float
 
-        /// Determines how often bonds of this type break due to
-        /// paired hydrolysis.
-        PairedHydrolysisRate : float
+        /// Rate at which protected bonds of this type break due
+        /// to hydrolysis.
+        ProtectedHydrolysisRate : float
 
         /// Sharpest bend allowed at an atom between two bonds of
         /// this type: the cosine of the angle between the bonds

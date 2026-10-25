@@ -359,7 +359,7 @@ module Scenario =
                                 StartBarrier = 1
                                 Entropy = 0
                                 HydrolysisRate = 0
-                                PairedHydrolysisRate = 0
+                                ProtectedHydrolysisRate = 0
                                 BendLimit = Bend.rightAngle   // so that strands can fold
                                 BendStiffness = 1.5   // but prefer to be straight (experiment 15)
                             }
@@ -371,7 +371,7 @@ module Scenario =
                                 StartBarrier = 0
                                 Entropy = 3
                                 HydrolysisRate = 0
-                                PairedHydrolysisRate = 0
+                                ProtectedHydrolysisRate = 0
                                 BendLimit = Bend.any
                                 BendStiffness = 0
                             }
@@ -401,7 +401,7 @@ module Scenario =
                                     StartBarrier = 1
                                     Entropy = 0
                                     HydrolysisRate = 1e-4   // about 5% of strong bonds break per cycle
-                                    PairedHydrolysisRate = 1e-4
+                                    ProtectedHydrolysisRate = 1e-4
                                     BendLimit = Bend.rightAngle   // so that strands can fold
                                     BendStiffness = 1.5   // but prefer to be straight (experiment 15)
                                 } }
