@@ -263,3 +263,22 @@ module ScenarioTests =
         for text, stem in expected do
             Assert.True((Experiment16.getMaxStem (parse text) = stem), $"{text}: expected {stem}, got {Experiment16.getMaxStem (parse text)}")
 
+            // experiment 17's strands
+        Assert.Equal(3, Experiment16.getMaxStem Experiment17.shortHairpinFormer)
+        Assert.Equal(1, Experiment16.getMaxStem Experiment17.shortNonFormer)
+        Assert.Equal(4, Experiment16.getMaxStem Experiment17.longHairpinFormer)
+        Assert.Equal(1, Experiment16.getMaxStem Experiment17.longNonFormer)
+        for former, nonFormer in
+            [
+                Experiment17.shortHairpinFormer, Experiment17.shortNonFormer
+                Experiment17.longHairpinFormer, Experiment17.longNonFormer
+            ] do
+            Assert.Equal<AtomType[]>(Array.sort former, Array.sort nonFormer)   // the same atoms
+
+    [<Fact>]
+    let ``The sign test gives the binomial tail`` () =
+        Assert.Equal(0.75, Experiment17.getSignTestP 1 1, 10)   // at least one of two
+        Assert.Equal(1.0, Experiment17.getSignTestP 0 3, 10)
+        Assert.Equal(1.0 / 8.0, Experiment17.getSignTestP 3 0, 10)
+        Assert.Equal(37.0 / 256.0, Experiment17.getSignTestP 6 2, 10)   // (28 + 8 + 1) / 2^8
+

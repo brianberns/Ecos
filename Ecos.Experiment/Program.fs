@@ -30,6 +30,10 @@ module Program =
                 Experiment15.run Experiment15.defaultSettings
             "experiment16", "Hairpins, duplexes and sheets in a living world, by cycle",
                 Experiment16.run Experiment16.defaultSettings
+            "experiment17", "Head to head between ten-atom hairpin-forming and non-forming strands, with and without protection",
+                Experiment17.run Experiment17.defaultSettings
+            "experiment17s", "The same, with eight-atom strands",
+                Experiment17.run Experiment17.shortSettings
             "experiment18", "Melting of a hairpin and of duplexes, by temperature",
                 Experiment18.run Experiment18.defaultSettings
         ]

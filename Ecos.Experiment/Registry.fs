@@ -72,4 +72,11 @@ module Registry =
                 Name = "Experiment 15"
                 Scenarios = Experiment15.getScenarios Experiment15.defaultSettings
             }
+            {
+                Name = "Experiment 17"
+                Scenarios =
+                    Array.append
+                        (Experiment17.getScenarios Experiment17.defaultSettings)
+                        (Experiment17.getScenarios Experiment17.shortSettings)
+            }
         |]

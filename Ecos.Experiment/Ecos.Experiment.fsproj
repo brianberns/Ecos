@@ -18,6 +18,7 @@
     <Compile Include="Experiment14.fs" />
     <Compile Include="Experiment15.fs" />
     <Compile Include="Experiment16.fs" />
+    <Compile Include="Experiment17.fs" />
     <Compile Include="Experiment18.fs" />
     <Compile Include="Checks.fs" />
     <Compile Include="Registry.fs" />
