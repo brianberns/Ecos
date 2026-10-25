@@ -66,15 +66,22 @@ module private Bend =
         /// and B's other partner, if any.
         let atPartner idB =
 
+                // get B's partner IDs (one of which is the moved atom)
             let idsB = BondMap.getBonds idB bondMap
+            assert(idsB.Contains(atomBefore.Id))
             assert(idsB.Count <= 2)
 
             if idsB.Count < 2 then 0.0
             else
+                    // find other bonded atom, assuming there's not more than one
                 let idC =
                     if idsB.MinimumElement = atomBefore.Id then
                         idsB.MaximumElement
-                    else idsB.MinimumElement
+                    else
+                        assert(idsB.MaximumElement = atomBefore.Id)
+                        idsB.MinimumElement
+
+                    // compute the before/after energy delta
                 let atomB = grid.Atoms[idB]
                 let deltaBC =
                     AtomGrid.getDisplacement atomB grid.Atoms[idC] grid
@@ -84,16 +91,18 @@ module private Bend =
                     getEnergy kappa deltaAB deltaBC
                 getEnergy atomAfter - getEnergy atomBefore
 
-        let ids = BondMap.getBonds atomBefore.Id bondMap
-        assert(ids.Count <= 2)
+        let idsA = BondMap.getBonds atomBefore.Id bondMap
+        assert(idsA.Count <= 2)
 
-        if ids.IsEmpty then 0.0
+        if idsA.IsEmpty then 0.0   // no bend
         else
-            let idB = ids.MinimumElement
-            if ids.Count = 1 then atPartner idB
+                // assume atom has no more than two partners
+            let idB = idsA.MinimumElement
+            if idsA.Count = 1 then
+                atPartner idB   // partner's bend only
             else
                     // bend at the moved atom, between its two partners
-                let idC = ids.MaximumElement
+                let idC = idsA.MaximumElement
                 let atomB = grid.Atoms[idB]
                 let atomC = grid.Atoms[idC]
                 let at atom =
