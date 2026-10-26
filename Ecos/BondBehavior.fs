@@ -191,13 +191,10 @@ module private StrongBond =
 
         isExposed atomA || isExposed atomB
 
-    /// A strong bond is protected from hydrolysis when both of
-    /// its atoms are weakly paired.
-    let testHydrolysisProtection atomA atomB (bondTypeMap : BondTypeMap) =
-        let weakBondMap = bondTypeMap[Weak]
-        let isPaired atom =
-            not (BondMap.getBonds atom.Id weakBondMap).IsEmpty
-        isPaired atomA && isPaired atomB
+    /// A strong bond is protected from hydrolysis when it is 
+    /// part of a stack.
+    let testHydrolysisProtection atomA atomB bondTypeMap =
+        countStacks atomA.Id atomB.Id bondTypeMap > 0
 
     /// Behavior of strong bonds.
     let behavior =
