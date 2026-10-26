@@ -153,6 +153,52 @@ module Experiment19 =
     let confirmationSettings =
         { starvedSettings with NumRuns = 32; FirstSeed = 8 }
 
+    /// A hairpin-former with an 8-pair stem (counting the caps' pair),
+    /// long enough to stay folded at kT 0.5, at which free atoms can
+    /// hardly copy a single strand (experiment 20).
+    let windowHairpinFormer =
+        [|
+            AtomType.P
+            yield! Array.replicate 7 AtomType.W
+            AtomType.Y; AtomType.Y
+            yield! Array.replicate 7 AtomType.X
+            AtomType.Q
+        |]
+
+    /// The window hairpin-former's atoms, in an order that pairs as
+    /// little as possible with it and its copy (at most two pairs in a
+    /// row), and can fold only into a 2-pair stem, too short to hold at
+    /// kT 0.5. (No order of these atoms does better on both counts.)
+    let windowNonFormer =
+        [|
+            AtomType.P
+            AtomType.W; AtomType.Y; AtomType.W; AtomType.W; AtomType.X; AtomType.X
+            AtomType.W; AtomType.X; AtomType.X; AtomType.W; AtomType.X; AtomType.W
+            AtomType.Y; AtomType.X; AtomType.W; AtomType.X
+            AtomType.Q
+        |]
+
+    /// Settings for an adverse phase in the window found by experiment
+    /// 20: at kT 0.5, a folded 8-pair stem holds, but free atoms can't
+    /// copy a single strand, so the living world, free atoms and all, is
+    /// in effect starved. Hydrolysis is slow, since a long hairpin-former
+    /// takes long to fold; a non-folder, with all 17 of its bonds
+    /// exposed, has about a 30% chance of escaping it. At the standard
+    /// stiffness.
+    let windowSettings =
+        { defaultSettings with
+            HairpinFormer = windowHairpinFormer
+            NonFormer = windowNonFormer
+            AdverseTemperature = 0.5
+            AdverseHydrolysisRate = 0.00025
+            SampleTimes = [| 0; 5000; 10000; 20000; 50000 |]
+            Variants =
+                [|
+                    for protectedRate in [ 0.00025; 0.0 ] do
+                        { BendStiffness = 1.5; ProtectedHydrolysisRate = protectedRate }
+                |]
+            NumRuns = 16 }
+
     /// The given variant of the living world, at the given temperature,
     /// with the given rates of hydrolysis.
     let private getParameters variant kT rate protectedRate =
@@ -293,7 +339,7 @@ module Experiment19 =
             world, hairpinFormers
         let where = if settings.HasFreeAtoms then "living world" else "starved"
         { scenario with
-            Name = $"Adverse phase, {where}, protected rate {variant.ProtectedHydrolysisRate}"
+            Name = $"Adverse phase at kT {settings.AdverseTemperature}, {where}, protected rate {variant.ProtectedHydrolysisRate}"
             Build = build
             Schedule = Constant settings.AdverseTemperature }
 

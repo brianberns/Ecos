@@ -290,10 +290,14 @@ module ScenarioTests =
         Assert.Equal(1, Experiment16.getMaxStem Experiment17.longNonFormer)
         Assert.Equal(1, Experiment17.getMaxCrossPairing Experiment17.shortHairpinFormer Experiment17.shortNonFormer)
         Assert.Equal(2, Experiment17.getMaxCrossPairing Experiment17.longHairpinFormer Experiment17.longNonFormer)
+        Assert.Equal(8, Experiment16.getMaxStem Experiment19.windowHairpinFormer)
+        Assert.Equal(2, Experiment16.getMaxStem Experiment19.windowNonFormer)
+        Assert.Equal(2, Experiment17.getMaxCrossPairing Experiment19.windowHairpinFormer Experiment19.windowNonFormer)
         for former, nonFormer in
             [
                 Experiment17.shortHairpinFormer, Experiment17.shortNonFormer
                 Experiment17.longHairpinFormer, Experiment17.longNonFormer
+                Experiment19.windowHairpinFormer, Experiment19.windowNonFormer
             ] do
             Assert.Equal<AtomType[]>(Array.sort former, Array.sort nonFormer)   // the same atoms
 
