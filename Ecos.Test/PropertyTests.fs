@@ -1284,20 +1284,24 @@ module PropertyTests =
                     200000 (Random(8)) world
         |]
 
-    /// Protection from hydrolysis: a strong bond whose two atoms are both
-    /// weakly paired hydrolyzes at its type's protected rate, and any
-    /// other at the usual rate. A duplex, a strand of four W atoms paired
-    /// with one of three X atoms, sits in a box with a lone strand of
-    /// three Y atoms, which can't pair. Two of the W strand's bonds are
-    /// protected; its third has only one paired atom, and the Y strand's
-    /// bonds have none. Bonds of both types are too strong to break in
-    /// the usual way, and strong bonds have no barrier, so a hydrolyzed
-    /// bond soon forms again, which keeps hydrolysis going; nothing
-    /// peels. The two rates are far apart, so a model that ignored
-    /// protection, or protected a bond with only one paired atom, would
-    /// break bonds at the wrong rate.
+    /// Protection from hydrolysis: a strong bond that is one side of a
+    /// stack hydrolyzes at its type's protected rate, and any other at
+    /// the usual rate. In a box:
+    /// * A duplex: a strand of four W atoms paired with one of three X
+    ///   atoms. Two of the W strand's bonds are stacked, and so
+    ///   protected; its third has only one paired atom.
+    /// * A capped strand P Y Y Q, with a free Z atom paired with each Y,
+    ///   one above the strand and one below, too far apart to bond.
+    ///   Both atoms of the Y-Y bond are paired, but it isn't stacked, so
+    ///   it isn't protected.
+    /// Bonds of both types are too strong to break in the usual way, and
+    /// strong bonds have no barrier, so a hydrolyzed bond soon forms
+    /// again, which keeps hydrolysis going; nothing peels. The two rates
+    /// are far apart, so a model that ignored protection, protected a
+    /// bond with only one paired atom, or protected any bond whose atoms
+    /// are both paired, would break bonds at the wrong rate.
     [<Fact>]
-    let ``Paired strong bonds are protected from hydrolysis`` () =
+    let ``Stacked strong bonds are protected from hydrolysis`` () =
         let parms =
             TestParameters.basic 1.0
                 |> TestParameters.withStrong (fun p -> { p with Energy = 30 })
@@ -1317,12 +1321,22 @@ module PropertyTests =
             TestWorld.empty
                 |> addStrand AtomType.W [ -3, 0; -1, 0; 1, 0; 3, 0 ]    // atoms 0 to 3
                 |> addStrand AtomType.X [ -3, 2; -1, 2; 1, 2 ]          // atoms 4 to 6
-                |> addStrand AtomType.Y [ -3, -3; -1, -3; 1, -3 ]       // atoms 7 to 9
                 |> World.addWeakBond parms 0 4
                 |> World.addWeakBond parms 1 5
                 |> World.addWeakBond parms 2 6
-                |> Chain.addBox 4
-        checkEventRates "Duplex and lone strand, with protection" parms 300000 (Random(0)) world
+                |> World.addAtom AtomType.P (Point.create (-3, -6))     // 7
+                |> World.addAtom AtomType.Y (Point.create (-1, -6))     // 8
+                |> World.addAtom AtomType.Y (Point.create (1, -6))      // 9
+                |> World.addAtom AtomType.Q (Point.create (3, -6))      // 10
+                |> World.addStrongBond parms 7 8
+                |> World.addStrongBond parms 8 9
+                |> World.addStrongBond parms 9 10
+                |> World.addAtom AtomType.Z (Point.create (-1, -4))     // 11, above Y8
+                |> World.addAtom AtomType.Z (Point.create (1, -8))      // 12, below Y9
+                |> World.addWeakBond parms 8 11
+                |> World.addWeakBond parms 9 12
+                |> Chain.addBox 8
+        checkEventRates "Duplex and paired strand, with protection" parms 300000 (Random(0)) world
 
     /// Bonds, at the right rates, where temperature varies by location:
     /// two atoms in a small box with a step in temperature down the

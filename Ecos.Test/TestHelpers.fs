@@ -401,16 +401,21 @@ module Chain =
     /// Oracle: probability that an attempt to break a bond of the given
     /// type, between atoms with the given IDs, succeeds by hydrolysis,
     /// whatever its energy or position. A strong bond is protected when
-    /// both of its atoms are weakly paired (to anything), and then
-    /// hydrolyzes at its type's protected rate; any other bond, a cap's
-    /// included, at its type's own rate.
+    /// it is one side of a stack: A and B are weakly paired with atoms
+    /// A' and B' that are strongly bonded to each other, so that the
+    /// bond lies in a double-stranded stretch. It then hydrolyzes at its
+    /// type's protected rate; any other bond, a cap's included, at its
+    /// type's own rate. (Two atoms that are merely paired, with free
+    /// atoms say, aren't protected.)
     let hydrolysisRate (parms : Parameters) bondType (world : World) idA idB =
         let bondTypeParms = parms.BondTypeParameterMap[bondType]
-        let isPaired id =
-            world.BondTypeMap[Weak]
-                |> Map.tryFind id
-                |> Option.exists (not << Set.isEmpty)
-        if bondType = Strong && isPaired idA && isPaired idB then
+        let isStacked =
+            Bonds.weakPartners world idA
+                |> Set.exists (fun idA' ->
+                    Bonds.weakPartners world idB
+                        |> Set.exists (fun idB' ->
+                            Bonds.areStronglyBonded world idA' idB'))
+        if bondType = Strong && isStacked then
             bondTypeParms.ProtectedHydrolysisRate
         else bondTypeParms.HydrolysisRate
 

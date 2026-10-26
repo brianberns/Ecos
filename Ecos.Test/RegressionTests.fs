@@ -72,8 +72,8 @@ module RegressionTests =
             |> TestParameters.withPeelBarrier 3.0
 
     /// Copying under the rules as in the standard scenarios: strands
-    /// bend up to right angles, at a cost, and a strong bond whose atoms
-    /// are both paired, as a template's and its copy's are, is protected,
+    /// bend up to right angles, at a cost, and a strong bond that is one
+    /// side of a stack, as a template's and its copy's are, is protected,
     /// hydrolyzing at a hundredth of the usual rate. Hydrolysis is frequent,
     /// so that protection often decides whether a bond breaks.
     let private standardPhysics =
@@ -161,7 +161,8 @@ module RegressionTests =
     /// which changed none of them except ("hot", 1), whose atoms wander
     /// far enough to reach around it; that one was recorded again. The
     /// standard physics cases were recorded once strands could bend and
-    /// paired bonds were protected (commit 13b9b3c).
+    /// paired bonds were protected (commit 13b9b3c), and the first again
+    /// once only stacked bonds were (commit 6b38978).
     let private expected =
         Map [
             ("cold", 1), [ "39b648c110a17624"; "99ce0bfa34d59eb3"; "31b991455bb9c20c"; "ca699a36166ef37c" ]
@@ -172,7 +173,7 @@ module RegressionTests =
             ("all rules", 2), [ "587bcd6cb790917b"; "a360f2e65d2feec8"; "cd302bdcbfd0145c"; "b7f03e2cf82e1125" ]
             ("copying", 1), [ "a7c6ff2eae63f7f4"; "9c525d3403942ad3"; "729ba3208c42eb17"; "b404136268009063" ]
             ("copying", 2), [ "1ff9eca18af2d82a"; "c221658a85ba0bda"; "712999403e57158c"; "2f0f7893aa224dde" ]
-            ("standard physics", 1), [ "32249d55130befba"; "eb4be03bf674e707"; "9311fe3e9c93a8f0"; "f22ee1a07fa258c7" ]
+            ("standard physics", 1), [ "32249d55130befba"; "168ba3e7dab0a672"; "e84c97e5e4c2914b"; "4e09958ff2db6201" ]
             ("standard physics", 2), [ "c9e85c1db7652e38"; "696b4530e9c1d06f"; "39204fa75ffe1685"; "4754fae6a33da5f2" ]
             ("stacking", 1), [ "a7d79956c3e49538"; "f462bac3b9350b3d"; "472f912a46f85b54"; "cb8aff596006fd6f" ]
             ("stacking", 2), [ "3699e163ec09dfcc"; "9742142691cf2eff"; "8a4fbe5b8398f6cd"; "d0fbdd4aa440b5d0" ]
