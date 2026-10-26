@@ -8,12 +8,14 @@ open Ecos
 open Ecos.Test.Geometry
 open Ecos.Test.Validity
 
-/// Fuzz tests of the model's rules, checked against independent
-/// statements of those rules.
-module PropertyTests =
+/// Oracles for the property tests below: independent statements of
+/// which events an update may make, and how likely each is, against
+/// which World is checked. (Each module of tests below runs in parallel
+/// with the others.)
+module PropertyOracles =
 
     /// Unit steps an atom can attempt.
-    let private directions =
+    let directions =
         [ 1, 0; 0, -1; -1, 0; 0, 1 ]
             |> List.map Point.create
 
@@ -25,7 +27,7 @@ module PropertyTests =
     /// and weak partners remain on opposite sides, both around the moved
     /// atom and around each of its partners. (Moves are valid whatever
     /// they cost in bend energy; see runEventRates.)
-    let private validMoves parms (world : World) =
+    let validMoves parms (world : World) =
         let disp loc id =
             Grid.getDisplacement loc world.Atoms[id].Location world.Cells
         [
@@ -69,7 +71,7 @@ module PropertyTests =
     /// be part of a strand (have a strong bond), in which case the
     /// existing partner must be on the opposite side from the new one;
     /// and the new bond must not cross any existing bond.
-    let private canFormWeakBond parms (world : World) idA idB =
+    let canFormWeakBond parms (world : World) idA idB =
         let atomA = world.Atoms[idA]
         let atomB = world.Atoms[idB]
         let hasRoom idC idNew =
@@ -87,7 +89,7 @@ module PropertyTests =
 
     /// Oracle: are the two given weak bonds stacked? They are if their
     /// ends are strongly bonded on both sides, either way round.
-    let private areStacked (world : World) (idA, idB) (idC, idD) =
+    let areStacked (world : World) (idA, idB) (idC, idD) =
         (isStronglyBonded world idA idC && isStronglyBonded world idB idD)
             || (isStronglyBonded world idA idD && isStronglyBonded world idB idC)
 
@@ -95,7 +97,7 @@ module PropertyTests =
     /// atoms takes part in (or would, if formed): the other weak bonds
     /// that it's stacked with. Found by scanning every weak bond in
     /// the world, rather than by walking out from A as World does.
-    let private countStacks (world : World) idA idB =
+    let countStacks (world : World) idA idB =
         weakBonds world
             |> Seq.filter (fun (idC, idD) ->
                 set [ idC; idD ] <> set [ idA; idB ]
@@ -103,7 +105,7 @@ module PropertyTests =
             |> Seq.length
 
     /// Number of strong bonds the given atom has.
-    let private strongBondCount (world : World) id =
+    let strongBondCount (world : World) id =
         Bonds.strongBondMap world
             |> Map.tryFind id
             |> Option.map Set.count
@@ -116,7 +118,7 @@ module PropertyTests =
     /// not cross any existing bond or bend either atom's strand too
     /// sharply. Rings are allowed, if they're big enough to be that
     /// straight.
-    let private canFormStrongBond parms (world : World) idA idB =
+    let canFormStrongBond parms (world : World) idA idB =
         let atomA = world.Atoms[idA]
         let atomB = world.Atoms[idB]
         isBondVector (delta idA idB world)
@@ -137,7 +139,7 @@ module PropertyTests =
     /// are strongly bonded to each other, unless the pair is already
     /// stacked the other way round. With two weak partners each, up to
     /// two stacks can depend on one strong bond: one on each side.
-    let private countStacksStrong (world : World) idA idB =
+    let countStacksStrong (world : World) idA idB =
         List.sum [
             for idPartnerA in Bonds.weakPartners world idA do
                 for idPartnerB in Bonds.weakPartners world idB do
@@ -156,7 +158,7 @@ module PropertyTests =
     /// Oracle: can the strong bond between the given atoms break? Not
     /// if it's the last strong bond of an atom that has two weak
     /// partners, since only an atom in a strand can have two.
-    let private canBreakStrongBond (world : World) idA idB =
+    let canBreakStrongBond (world : World) idA idB =
         [ idA; idB ]
             |> List.forall (fun id ->
                 (Bonds.weakPartners world id).Count < 2
@@ -165,24 +167,24 @@ module PropertyTests =
     /// Oracle: is the strong bond between the given atoms at an exposed
     /// end of a strand? It is if either atom has no other strong bond
     /// and isn't a cap. Such a bond can peel.
-    let private isExposed (world : World) idA idB =
+    let isExposed (world : World) idA idB =
         [ idA; idB ]
             |> List.exists (fun id ->
                 not (Chain.isCap world.Atoms[id].Type)
                     && (partners Strong world id).Count = 1)
 
     /// Is the given bond vector longer than any weak bond?
-    let private isLong (v : Point) =
+    let isLong (v : Point) =
         not (Array.contains v Chain.weakBondVectors)
 
     /// Do the given bonds include one longer than any weak bond?
-    let private isLongBond (world : World) (bonds : Set<AtomId * AtomId>) =
+    let isLongBond (world : World) (bonds : Set<AtomId * AtomId>) =
         bonds
             |> Set.exists (fun (idA, idB) ->
                 isLong (delta idA idB world))
 
     /// Do the given strong bonds include one that a stack depends on?
-    let private isStackedBond (world : World) (bonds : Set<AtomId * AtomId>) =
+    let isStackedBond (world : World) (bonds : Set<AtomId * AtomId>) =
         bonds
             |> Set.exists (fun (idA, idB) ->
                 countStacksStrong world idA idB > 0)
@@ -214,7 +216,7 @@ module PropertyTests =
     /// hydrolyze.
     /// Nothing reverses these, so they take the
     /// model out of equilibrium.
-    let private toggleProbabilities (parms : Parameters) (world : World) =
+    let toggleProbabilities (parms : Parameters) (world : World) =
             // each bond has its own temperature (see Chain.bondTemperature)
         let nAtoms = float world.Atoms.Length
         let mutable weakForm, weakBreak = 0.0, 0.0
@@ -296,6 +298,142 @@ module PropertyTests =
             strongForm / nStrong, strongBreak / nStrong,
             longForm / nStrong, longBreak / nStrong,
             stackedBreak / nStrong
+
+    /// Moves made by a single update, as (atom ID, step) pairs.
+    let movesBetween (world : World) (world' : World) =
+        Seq.toList world.Atoms
+            |> List.choose (fun atom ->
+                let d =
+                    Grid.getDisplacement
+                        atom.Location world'.Atoms[atom.Id].Location world'.Cells
+                if d = Point.create (0, 0) then None else Some (atom.Id, d))
+
+    /// Temperatures for tests with bonds: cold enough that weak bonds
+    /// persist, and hot enough that strong bonds form and break.
+    let temperatures = [| 0.3; 1.0; 3.0 |]
+
+    /// Temperature at which strong bonds form and break often.
+    let hotKT = 20.0
+
+    /// Runs the given number of updates on the given world, and checks
+    /// that each kind of event (move, or a bond of either type formed
+    /// or broken) happens as often as expected.
+    ///
+    /// An update chooses between a hop and a toggle of each bond type
+    /// with World's fixed rates. A hop picks an atom and a direction
+    /// uniformly and accepts any valid move, so the parameters must not
+    /// make bending cost energy: the tests of bend energy compare whole
+    /// distributions instead (see PhysicsTests). For toggles, see
+    /// toggleProbabilities. Over many updates, the number of events of
+    /// each kind must match the sum of its probabilities.
+    let runEventRates label (parms : Parameters) nSteps (rng : Random) (world : World) =
+        for bondType in BondType.all do
+            Assert.Equal(0.0, parms.BondTypeParameterMap[bondType].BendStiffness)
+        let mutable world = world
+
+            // expected and actual counts of each kind of event
+        let kinds =
+            [|
+                "moves"
+                "weak bonds formed"; "weak bonds broken"
+                "strong bonds formed"; "strong bonds broken"
+                "long strong bonds formed"; "long strong bonds broken"
+                "stacked strong bonds broken"
+            |]
+        let expected = Array.zeroCreate<float> kinds.Length
+        let variance = Array.zeroCreate<float> kinds.Length
+        let actual = Array.zeroCreate<int> kinds.Length
+
+        /// Probability of each kind of event in the given world.
+        let getProbabilities world =
+            let weakForm, weakBreak, strongForm, strongBreak, longForm, longBreak, stackedBreak =
+                toggleProbabilities parms world
+            [|
+                World.moveAtomRate
+                    * float (validMoves parms world).Length / float (4 * world.Atoms.Length)
+                World.toggleWeakBondRate * weakForm
+                World.toggleWeakBondRate * weakBreak
+                World.toggleStrongBondRate * strongForm
+                World.toggleStrongBondRate * strongBreak
+                World.toggleStrongBondRate * longForm
+                World.toggleStrongBondRate * longBreak
+                World.toggleStrongBondRate * stackedBreak
+            |]
+
+            // the probabilities depend only on the world, so they're
+            // computed again only when an update changes it (most don't)
+        let mutable ps = getProbabilities world
+        for _ in 1 .. nSteps do
+            for i, p in Array.indexed ps do
+                expected[i] <- expected[i] + p
+                variance[i] <- variance[i] + p * (1.0 - p)
+            match World.tryUpdate parms rng world with
+                | Some (world', _) ->
+                    let nWeak, nWeak' = (weakBonds world).Count, (weakBonds world').Count
+                    let nStrong, nStrong' = (strongBonds world).Count, (strongBonds world').Count
+                    let moved =
+                        Seq.exists2 (fun (atom : Atom) (atom' : Atom) ->
+                            atom.Location <> atom'.Location)
+                            world.Atoms world'.Atoms
+                    if moved then actual[0] <- actual[0] + 1
+                    if nWeak' > nWeak then actual[1] <- actual[1] + 1
+                    if nWeak' < nWeak then actual[2] <- actual[2] + 1
+                    if nStrong' > nStrong then actual[3] <- actual[3] + 1
+                    if nStrong' < nStrong then actual[4] <- actual[4] + 1
+                    if isLongBond world' (strongBonds world' - strongBonds world) then actual[5] <- actual[5] + 1
+                    if isLongBond world (strongBonds world - strongBonds world') then actual[6] <- actual[6] + 1
+                    if isStackedBond world (strongBonds world - strongBonds world') then actual[7] <- actual[7] + 1
+                    world <- world'
+                    ps <- getProbabilities world
+                | None -> ()   // nothing happened
+
+        for i, kind in Array.indexed kinds do
+            let tolerance = 5.0 * sqrt variance[i] + 0.5   // 5 standard deviations
+            Assert.True(
+                abs (float actual[i] - expected[i]) <= tolerance,
+                $"{label}: {actual[i]} {kind}, expected {expected[i]:F1} ± {tolerance:F1}")
+        world
+
+    /// As runEventRates, but answers nothing.
+    let checkEventRates label parms nSteps rng world =
+        runEventRates label parms nSteps rng world |> ignore
+
+    /// Runs the given independent checks at the same time, to keep the
+    /// tests quick. Each check needs its own random number generator.
+    let inParallel (checks : (unit -> unit)[]) =
+        try
+            Array.Parallel.iter (fun check -> check ()) checks
+        with :? AggregateException as exn ->
+            raise (exn.Flatten().InnerExceptions[0])   // report the first failure itself
+
+    /// Worlds for testing stacking: four atoms confined to a small box,
+    /// so that bonds between them form and break constantly.
+    ///
+    /// * Ladder: W0-W1 and X2-X3 are both strongly bonded. When both
+    ///   rungs (0-2 and 1-3, or 0-3 and 1-2) exist, they form a stack.
+    /// * Near miss: W0-W1 is strongly bonded, but X2 and X3 are free.
+    ///   The same two rungs can exist, but they don't form a stack,
+    ///   since X2 and X3 aren't strongly bonded.
+    let stackingWorlds =
+        let atoms =
+            TestWorld.empty
+                |> World.addAtom AtomType.W (Point.create (-1, -1))   // 0
+                |> World.addAtom AtomType.W (Point.create (1, -1))    // 1
+                |> World.addAtom AtomType.X (Point.create (-1, 1))    // 2
+                |> World.addAtom AtomType.X (Point.create (1, 1))     // 3
+                |> World.addStrongBond TestParameters.standard 0 1
+                |> Chain.addBox 2
+        [
+            "Ladder", World.addStrongBond TestParameters.standard 2 3 atoms
+            "Near miss", atoms
+        ]
+
+/// Building a world: each way of adding an atom, wall or bond is
+/// accepted exactly when the rules allow it, checked exhaustively or
+/// against random cases.
+module ConstructionTests =
+
+    open PropertyOracles
 
     /// Points have hand-written equality, ordering and hashing (for
     /// speed). They must behave exactly like their coordinates do:
@@ -528,51 +666,6 @@ module PropertyTests =
             (World.tryAddWeakBond TestParameters.standard 0 3 world).IsSome,
             "Cap in a strand was refused a second weak bond")
 
-    /// A capped strand is never extended. The strand P0-W1-W2-P3 sits
-    /// among free atoms of every type. Strong bonds have no barrier,
-    /// so the free atoms join each other, and the strand's inner
-    /// atoms, at every opportunity; and they're too strong to break.
-    /// After every update, the world must still be valid, which
-    /// includes each cap having at most one strong bond, and at the
-    /// end the strand must be exactly the same four atoms.
-    [<Fact>]
-    let ``A capped strand is never extended`` () =
-        let rng = Random(0)
-        let parms =
-            TestParameters.basic 1.0
-                |> TestParameters.withStrong (fun p -> { p with Energy = 30 })
-                |> TestParameters.withWeak (fun p -> { p with Energy = 1 })
-        let mutable world =
-            TestWorld.empty
-                |> World.addAtom AtomType.P (Point.create (-3, 0))   // 0
-                |> World.addAtom AtomType.W (Point.create (-1, 0))   // 1
-                |> World.addAtom AtomType.W (Point.create (1, 0))    // 2
-                |> World.addAtom AtomType.P (Point.create (3, 0))    // 3
-                |> World.addStrongBond TestParameters.standard 0 1
-                |> World.addStrongBond TestParameters.standard 1 2
-                |> World.addStrongBond TestParameters.standard 2 3
-                |> Chain.addSoup rng 30
-                |> Chain.addBox 10
-        let strand = set [ 0; 1; 2; 3 ]
-        let strandBonds world =
-            strongBonds world
-                |> Set.filter (fun (idA, idB) ->
-                    strand.Contains idA || strand.Contains idB)
-        let expected = set [ 0, 1; 1, 2; 2, 3 ]
-        let mutable nJoins = 0
-        for _ in 1 .. 50000 do
-            match World.tryUpdate parms rng world with
-                | Some (world', _) ->
-                    nJoins <- nJoins + max 0 ((strongBonds world').Count - (strongBonds world).Count)
-                    Assert.True(isValid parms world', "World became invalid")
-                    world <- world'
-                | None -> ()   // nothing happened
-        Assert.Equal<Set<int * int>>(expected, strandBonds world)
-
-            // make sure the check isn't vacuous: free atoms did join each
-            // other, including some that started next to the strand
-        Assert.True(nJoins > 5, $"Only {nJoins} strong bonds formed")
-
     /// Opposite sides, exhaustively: atom A (type W, at the origin) is
     /// weakly bonded to B (type X). A second weak bond, to C (also type
     /// X), must be accepted if and only if B and C are on opposite
@@ -656,6 +749,163 @@ module PropertyTests =
             Assert.True(nAccepted > 0, "No accepted configurations checked")
             Assert.True(nRejected > 0, "No rejected configurations checked")
 
+    /// Topology, exhaustively: atoms A (type W, at the origin) and B
+    /// (type X) are separated by one of the given bond vectors, and
+    /// atoms C (type Y) and D (type Z) are bonded to each other,
+    /// strongly or weakly. For every such local configuration, the
+    /// given function, which tries to add a bond A-B, must succeed if
+    /// and only if A-B doesn't cross bond C-D. C ranges over every
+    /// location within the given distance of A, which must be far
+    /// enough for bond C-D to reach bond A-B.
+    let private checkCrossingRejected bondVectors range tryAddBond =
+        let a = Point.create (0, 0)
+        let mutable nChecked, nCrossed = 0, 0
+        for bondAB in bondVectors do
+            let b = a + bondAB
+            for cx in -range .. range do
+                for cy in -range .. range do
+                    let c = Point.create (cx, cy)
+                    for bondCD in Chain.bondVectors do
+                        let d = c + bondCD
+                        let atomsOpt =
+                            Some TestWorld.empty
+                                |> Option.bind (World.tryAddAtom AtomType.W a)
+                                |> Option.map fst
+                                |> Option.bind (World.tryAddAtom AtomType.X b)
+                                |> Option.map fst
+                                |> Option.bind (World.tryAddAtom AtomType.Y c)
+                                |> Option.map fst
+                                |> Option.bind (World.tryAddAtom AtomType.Z d)
+                                |> Option.map fst
+                        let worlds =
+                            [
+                                atomsOpt |> Option.bind (World.tryAddStrongBond TestParameters.standard 2 3)
+                                atomsOpt |> Option.bind (World.tryAddWeakBond TestParameters.standard 2 3)   // only if C-D is in weak bond range
+                            ] |> List.choose id
+                        for world in worlds do
+                            nChecked <- nChecked + 1
+                            let crosses = segmentsIntersect a b c d
+                            if crosses then nCrossed <- nCrossed + 1
+                            if (tryAddBond 0 1 world : Option<World>).IsSome = crosses then
+                                Assert.Fail(
+                                    $"A {a}, B {b}, C {c}, D {d}: crosses = {crosses}, but accepted = {not crosses}")
+
+            // make sure the check isn't vacuous
+        Assert.True(nChecked > 10000, $"Only {nChecked} configurations checked")
+        Assert.True(nCrossed > 0, "No crossed configurations checked")
+
+    /// A weak bond is accepted if and only if it doesn't cross another
+    /// bond.
+    [<Fact>]
+    let ``tryAddWeakBond rejects exactly the bonds that would cross`` () =
+        checkCrossingRejected Chain.weakBondVectors 6 (World.tryAddWeakBond TestParameters.standard)
+
+    /// A strong bond is accepted if and only if it doesn't cross
+    /// another bond.
+    [<Fact>]
+    let ``tryAddStrongBond rejects exactly the bonds that would cross`` () =
+        checkCrossingRejected Chain.bondVectors 8 (World.tryAddStrongBond TestParameters.standard)
+
+    /// Topology, exhaustively: atom A (at the origin) is bonded to B
+    /// and steps to A'; C and D are bonded to each other. For every
+    /// such local configuration that is valid both before and after
+    /// the step, bond AB must intersect bond CD before the step if and
+    /// only if A'B intersects CD after it.
+    ///
+    /// This is a statement about the model's rules, so validity is
+    /// decided by the oracles (no overlapping atoms, allowed bond
+    /// vectors), which other tests check World against. World itself
+    /// can't be used here, since it refuses to build a configuration
+    /// with crossed bonds, and those must be covered too: a step must
+    /// not be able to uncross bonds either. C ranges over every
+    /// location from which bond CD could reach the region swept by the
+    /// moving bond.
+    [<Fact>]
+    let ``No single move can carry one bond across another`` () =
+
+            // are bonds A-B and C-D a valid configuration, crossed or not?
+        let isValidConfig (a : Point) b c d =
+            isBondVector (b - a)
+                && isBondVector (d - c)
+                && not (overlaps TestWorld.empty a c) && not (overlaps TestWorld.empty a d)
+                && not (overlaps TestWorld.empty b c) && not (overlaps TestWorld.empty b d)
+
+        let a = Point.create (0, 0)
+        let mutable nChecked, nCrossed = 0, 0
+        for bondAB in Chain.bondVectors do
+            let b = a + bondAB
+            for cx in -7 .. 7 do
+                for cy in -7 .. 7 do
+                    let c = Point.create (cx, cy)
+                    for bondCD in Chain.bondVectors do
+                        let d = c + bondCD
+                        if isValidConfig a b c d then
+                            let before = segmentsIntersect a b c d
+                            for delta in directions do
+                                let a' = a + delta
+                                if isValidConfig a' b c d then
+                                    nChecked <- nChecked + 1
+                                    if before then nCrossed <- nCrossed + 1
+                                    if segmentsIntersect a' b c d <> before then
+                                        Assert.Fail(
+                                            $"A {a} -> {a'}, B {b}, C {c}, D {d}: crossing changed")
+
+            // make sure the check isn't vacuous
+        Assert.True(nChecked > 100000, $"Only {nChecked} configurations checked")
+        Assert.True(nCrossed > 0, "No crossed configurations checked")
+
+/// Updating a world: every update makes at most one valid event, and
+/// the world stays valid, in crowded worlds and in small ones built to
+/// test particular rules.
+module DynamicsTests =
+
+    open PropertyOracles
+
+    /// A capped strand is never extended. The strand P0-W1-W2-P3 sits
+    /// among free atoms of every type. Strong bonds have no barrier,
+    /// so the free atoms join each other, and the strand's inner
+    /// atoms, at every opportunity; and they're too strong to break.
+    /// After every update, the world must still be valid, which
+    /// includes each cap having at most one strong bond, and at the
+    /// end the strand must be exactly the same four atoms.
+    [<Fact>]
+    let ``A capped strand is never extended`` () =
+        let rng = Random(0)
+        let parms =
+            TestParameters.basic 1.0
+                |> TestParameters.withStrong (fun p -> { p with Energy = 30 })
+                |> TestParameters.withWeak (fun p -> { p with Energy = 1 })
+        let mutable world =
+            TestWorld.empty
+                |> World.addAtom AtomType.P (Point.create (-3, 0))   // 0
+                |> World.addAtom AtomType.W (Point.create (-1, 0))   // 1
+                |> World.addAtom AtomType.W (Point.create (1, 0))    // 2
+                |> World.addAtom AtomType.P (Point.create (3, 0))    // 3
+                |> World.addStrongBond TestParameters.standard 0 1
+                |> World.addStrongBond TestParameters.standard 1 2
+                |> World.addStrongBond TestParameters.standard 2 3
+                |> Chain.addSoup rng 30
+                |> Chain.addBox 10
+        let strand = set [ 0; 1; 2; 3 ]
+        let strandBonds world =
+            strongBonds world
+                |> Set.filter (fun (idA, idB) ->
+                    strand.Contains idA || strand.Contains idB)
+        let expected = set [ 0, 1; 1, 2; 2, 3 ]
+        let mutable nJoins = 0
+        for _ in 1 .. 50000 do
+            match World.tryUpdate parms rng world with
+                | Some (world', _) ->
+                    nJoins <- nJoins + max 0 ((strongBonds world').Count - (strongBonds world).Count)
+                    Assert.True(isValid parms world', "World became invalid")
+                    world <- world'
+                | None -> ()   // nothing happened
+        Assert.Equal<Set<int * int>>(expected, strandBonds world)
+
+            // make sure the check isn't vacuous: free atoms did join each
+            // other, including some that started next to the strand
+        Assert.True(nJoins > 5, $"Only {nJoins} strong bonds formed")
+
     /// Opposite sides stay opposite: a hop can't bring an atom's two
     /// weak partners onto the same side of it. Here W0 sits between X1
     /// and X2, weakly bonded to both, and is strongly bonded to Y3 (so
@@ -730,79 +980,6 @@ module PropertyTests =
         Assert.True(nBothBonded > 1000, $"Both weak bonds existed in only {nBothBonded} updates")
         Assert.True(nBroken > 0, "No strong bond ever broke")
 
-    /// Topology, exhaustively: atoms A (type W, at the origin) and B
-    /// (type X) are separated by one of the given bond vectors, and
-    /// atoms C (type Y) and D (type Z) are bonded to each other,
-    /// strongly or weakly. For every such local configuration, the
-    /// given function, which tries to add a bond A-B, must succeed if
-    /// and only if A-B doesn't cross bond C-D. C ranges over every
-    /// location within the given distance of A, which must be far
-    /// enough for bond C-D to reach bond A-B.
-    let private checkCrossingRejected bondVectors range tryAddBond =
-        let a = Point.create (0, 0)
-        let mutable nChecked, nCrossed = 0, 0
-        for bondAB in bondVectors do
-            let b = a + bondAB
-            for cx in -range .. range do
-                for cy in -range .. range do
-                    let c = Point.create (cx, cy)
-                    for bondCD in Chain.bondVectors do
-                        let d = c + bondCD
-                        let atomsOpt =
-                            Some TestWorld.empty
-                                |> Option.bind (World.tryAddAtom AtomType.W a)
-                                |> Option.map fst
-                                |> Option.bind (World.tryAddAtom AtomType.X b)
-                                |> Option.map fst
-                                |> Option.bind (World.tryAddAtom AtomType.Y c)
-                                |> Option.map fst
-                                |> Option.bind (World.tryAddAtom AtomType.Z d)
-                                |> Option.map fst
-                        let worlds =
-                            [
-                                atomsOpt |> Option.bind (World.tryAddStrongBond TestParameters.standard 2 3)
-                                atomsOpt |> Option.bind (World.tryAddWeakBond TestParameters.standard 2 3)   // only if C-D is in weak bond range
-                            ] |> List.choose id
-                        for world in worlds do
-                            nChecked <- nChecked + 1
-                            let crosses = segmentsIntersect a b c d
-                            if crosses then nCrossed <- nCrossed + 1
-                            if (tryAddBond 0 1 world : Option<World>).IsSome = crosses then
-                                Assert.Fail(
-                                    $"A {a}, B {b}, C {c}, D {d}: crosses = {crosses}, but accepted = {not crosses}")
-
-            // make sure the check isn't vacuous
-        Assert.True(nChecked > 10000, $"Only {nChecked} configurations checked")
-        Assert.True(nCrossed > 0, "No crossed configurations checked")
-
-    /// A weak bond is accepted if and only if it doesn't cross another
-    /// bond.
-    [<Fact>]
-    let ``tryAddWeakBond rejects exactly the bonds that would cross`` () =
-        checkCrossingRejected Chain.weakBondVectors 6 (World.tryAddWeakBond TestParameters.standard)
-
-    /// A strong bond is accepted if and only if it doesn't cross
-    /// another bond.
-    [<Fact>]
-    let ``tryAddStrongBond rejects exactly the bonds that would cross`` () =
-        checkCrossingRejected Chain.bondVectors 8 (World.tryAddStrongBond TestParameters.standard)
-
-    /// Moves made by a single update, as (atom ID, step) pairs.
-    let private movesBetween (world : World) (world' : World) =
-        Seq.toList world.Atoms
-            |> List.choose (fun atom ->
-                let d =
-                    Grid.getDisplacement
-                        atom.Location world'.Atoms[atom.Id].Location world'.Cells
-                if d = Point.create (0, 0) then None else Some (atom.Id, d))
-
-    /// Temperatures for tests with bonds: cold enough that weak bonds
-    /// persist, and hot enough that strong bonds form and break.
-    let private temperatures = [| 0.3; 1.0; 3.0 |]
-
-    /// Temperature at which strong bonds form and break often.
-    let private hotKT = 20.0
-
     /// Worlds for these tests are a chain plus a "soup" of free atoms
     /// and dimers packed around it, since an isolated chain rarely
     /// brings atoms that can bond into range.
@@ -857,233 +1034,11 @@ module PropertyTests =
             world <- world'
         ok
 
-    /// Runs the given number of updates on the given world, and checks
-    /// that each kind of event (move, or a bond of either type formed
-    /// or broken) happens as often as expected.
-    ///
-    /// An update chooses between a hop and a toggle of each bond type
-    /// with World's fixed rates. A hop picks an atom and a direction
-    /// uniformly and accepts any valid move, so the parameters must not
-    /// make bending cost energy: the tests of bend energy compare whole
-    /// distributions instead (see PhysicsTests). For toggles, see
-    /// toggleProbabilities. Over many updates, the number of events of
-    /// each kind must match the sum of its probabilities.
-    let private runEventRates label (parms : Parameters) nSteps (rng : Random) (world : World) =
-        for bondType in BondType.all do
-            Assert.Equal(0.0, parms.BondTypeParameterMap[bondType].BendStiffness)
-        let mutable world = world
+/// Event rates with stacks, bond entropy and the start barrier: each
+/// kind of event happens as often as the oracle predicts.
+module StackingRateTests =
 
-            // expected and actual counts of each kind of event
-        let kinds =
-            [|
-                "moves"
-                "weak bonds formed"; "weak bonds broken"
-                "strong bonds formed"; "strong bonds broken"
-                "long strong bonds formed"; "long strong bonds broken"
-                "stacked strong bonds broken"
-            |]
-        let expected = Array.zeroCreate<float> kinds.Length
-        let variance = Array.zeroCreate<float> kinds.Length
-        let actual = Array.zeroCreate<int> kinds.Length
-
-        /// Probability of each kind of event in the given world.
-        let getProbabilities world =
-            let weakForm, weakBreak, strongForm, strongBreak, longForm, longBreak, stackedBreak =
-                toggleProbabilities parms world
-            [|
-                World.moveAtomRate
-                    * float (validMoves parms world).Length / float (4 * world.Atoms.Length)
-                World.toggleWeakBondRate * weakForm
-                World.toggleWeakBondRate * weakBreak
-                World.toggleStrongBondRate * strongForm
-                World.toggleStrongBondRate * strongBreak
-                World.toggleStrongBondRate * longForm
-                World.toggleStrongBondRate * longBreak
-                World.toggleStrongBondRate * stackedBreak
-            |]
-
-            // the probabilities depend only on the world, so they're
-            // computed again only when an update changes it (most don't)
-        let mutable ps = getProbabilities world
-        for _ in 1 .. nSteps do
-            for i, p in Array.indexed ps do
-                expected[i] <- expected[i] + p
-                variance[i] <- variance[i] + p * (1.0 - p)
-            match World.tryUpdate parms rng world with
-                | Some (world', _) ->
-                    let nWeak, nWeak' = (weakBonds world).Count, (weakBonds world').Count
-                    let nStrong, nStrong' = (strongBonds world).Count, (strongBonds world').Count
-                    let moved =
-                        Seq.exists2 (fun (atom : Atom) (atom' : Atom) ->
-                            atom.Location <> atom'.Location)
-                            world.Atoms world'.Atoms
-                    if moved then actual[0] <- actual[0] + 1
-                    if nWeak' > nWeak then actual[1] <- actual[1] + 1
-                    if nWeak' < nWeak then actual[2] <- actual[2] + 1
-                    if nStrong' > nStrong then actual[3] <- actual[3] + 1
-                    if nStrong' < nStrong then actual[4] <- actual[4] + 1
-                    if isLongBond world' (strongBonds world' - strongBonds world) then actual[5] <- actual[5] + 1
-                    if isLongBond world (strongBonds world - strongBonds world') then actual[6] <- actual[6] + 1
-                    if isStackedBond world (strongBonds world - strongBonds world') then actual[7] <- actual[7] + 1
-                    world <- world'
-                    ps <- getProbabilities world
-                | None -> ()   // nothing happened
-
-        for i, kind in Array.indexed kinds do
-            let tolerance = 5.0 * sqrt variance[i] + 0.5   // 5 standard deviations
-            Assert.True(
-                abs (float actual[i] - expected[i]) <= tolerance,
-                $"{label}: {actual[i]} {kind}, expected {expected[i]:F1} ± {tolerance:F1}")
-        world
-
-    /// As runEventRates, but answers nothing.
-    let private checkEventRates label parms nSteps rng world =
-        runEventRates label parms nSteps rng world |> ignore
-
-    /// Runs the given independent checks at the same time, to keep the
-    /// tests quick. Each check needs its own random number generator.
-    let private inParallel (checks : (unit -> unit)[]) =
-        try
-            Array.Parallel.iter (fun check -> check ()) checks
-        with :? AggregateException as exn ->
-            raise (exn.Flatten().InnerExceptions[0])   // report the first failure itself
-
-    /// Valid events are actually made, at the right rates, in crowded
-    /// worlds of chains, free atoms, and walls. This catches an update
-    /// that wrongly rejects valid events, or accepts them at the wrong
-    /// rate, which the test above cannot. Strands are nearly straight,
-    /// or can bend up to right angles (at no cost, which the rates
-    /// assume).
-    [<Fact>]
-    let ``update makes valid events at the expected rate`` () =
-        inParallel [|
-            for limit in [ TestParameters.straightBend; TestParameters.rightAngleBend ] do
-                for kT in temperatures do
-                    for length in [ 2; 20 ] do
-                        fun () ->
-                            let rng = Random(length)
-                            let parms =
-                                TestParameters.create kT
-                                    |> TestParameters.withBend Strong limit 0.0
-                            Chain.grow rng length
-                                |> Chain.withRandomTypes rng
-                                |> Chain.addSoup rng 10
-                                |> Chain.addObstacles rng 10
-                                |> checkEventRates
-                                    $"N = {length}, kT {kT}, limit {limit.Numerator}/{limit.Denominator}"
-                                    parms 20000 rng
-        |]
-
-    /// Peeling: with strong bonds otherwise frozen (an impassable
-    /// barrier), the only way one can break is by peeling from an
-    /// exposed end, and none can form.
-    /// * In crowded worlds of uncapped chains and dimers, strong bonds
-    ///   break at the expected rate until few are left. (See
-    ///   toggleProbabilities.)
-    /// * A capped strand, P0-W1-W2-P3, never loses a bond.
-    /// * With hydrolysis, a capped strand is taken apart: a bond breaks,
-    ///   and the pieces peel.
-    /// * Hydrolysis breaks bonds without peeling too, anywhere in a
-    ///   strand.
-    /// * With peeling turned off, nothing breaks at all.
-    [<Fact>]
-    let ``Exposed ends peel at the expected rate, and capped strands only once hydrolysis cuts them`` () =
-        let frozen = TestParameters.createFrozen 1.0
-        let peeling = { frozen with PeelBarrier = 0.5 }
-
-            // uncapped chains and dimers peel
-        let checkSeed seed () =
-            let rng = Random(seed)
-            let world =
-                Chain.grow rng 12
-                    |> Chain.withRandomTypes rng
-                    |> Chain.addDimers rng 5
-                    |> Chain.addSoup rng 5
-            let nBefore = (strongBonds world).Count
-            let peeled =
-                runEventRates $"Peeling, seed {seed}" peeling 40000 rng world
-
-                // make sure the check isn't vacuous
-            let nAfter = (strongBonds peeled).Count
-            Assert.True(
-                nAfter <= nBefore - 4,   // most of the five dimers, at least (a chain can be capped)
-                $"Seed {seed}: only {nBefore - nAfter} of {nBefore} strong bonds peeled")
-
-                // nothing breaks with peeling off
-            let mutable unpeeled = world
-            unpeeled <- Chain.updatesWith frozen rng 20000 unpeeled
-            Assert.Equal<Set<int * int>>(strongBonds world, strongBonds unpeeled)
-
-            // a strand P0-W1-W2 capped at its other end by the given cap
-            // (atom 3), among free atoms
-        let cappedStrand endCap rng =
-            TestWorld.empty
-                |> World.addAtom AtomType.P (Point.create (-3, 0))   // 0
-                |> World.addAtom AtomType.W (Point.create (-1, 0))   // 1
-                |> World.addAtom AtomType.W (Point.create (1, 0))    // 2
-                |> World.addAtom endCap (Point.create (3, 0))        // 3
-                |> World.addStrongBond TestParameters.standard 0 1
-                |> World.addStrongBond TestParameters.standard 1 2
-                |> World.addStrongBond TestParameters.standard 2 3
-                |> Chain.addSoup rng 10
-
-            // a capped strand doesn't peel
-        let checkCapped () =
-            let rng = Random(0)
-            let capped = cappedStrand AtomType.P rng
-            let mutable world = capped
-            world <- Chain.updatesWith { peeling with PeelBarrier = 0.0 } rng 50000 world
-            Assert.Equal<Set<int * int>>(strongBonds capped, strongBonds world)
-
-            // with hydrolysis, a capped strand is taken apart: a bond
-            // breaks, and then the pieces peel
-        let checkHydrolysis () =
-            let rng = Random(1)
-            let capped = cappedStrand AtomType.Q rng
-            let mutable world = capped
-            world <- Chain.updatesWith (TestParameters.withHydrolysis Strong 0.2 peeling) rng 100000 world   // each bond expects several breaks
-            Assert.Empty(
-                strongBonds world
-                    |> Set.filter (fun (idA, idB) -> idA <= 3 && idB <= 3))
-
-            // hydrolysis alone, with peeling off, breaks every bond of a
-            // capped strand, interior and caps alike, when it is sure to
-            // happen (and nothing re-forms, since the barrier is impassable)
-        let checkHydrolysisOnly () =
-            let rng = Random(2)
-            let capped = cappedStrand AtomType.Q rng
-            let parms =
-                { frozen with PeelBarrier = Double.PositiveInfinity }
-                    |> TestParameters.withHydrolysis Strong 1.0
-            let mutable world = capped
-            world <- Chain.updatesWith parms rng 50000 world
-            Assert.Empty(
-                strongBonds world
-                    |> Set.filter (fun (idA, idB) -> idA <= 3 && idB <= 3))
-
-        inParallel [| checkSeed 0; checkSeed 1; checkSeed 2; checkCapped; checkHydrolysis; checkHydrolysisOnly |]
-
-    /// Worlds for testing stacking: four atoms confined to a small box,
-    /// so that bonds between them form and break constantly.
-    ///
-    /// * Ladder: W0-W1 and X2-X3 are both strongly bonded. When both
-    ///   rungs (0-2 and 1-3, or 0-3 and 1-2) exist, they form a stack.
-    /// * Near miss: W0-W1 is strongly bonded, but X2 and X3 are free.
-    ///   The same two rungs can exist, but they don't form a stack,
-    ///   since X2 and X3 aren't strongly bonded.
-    let private stackingWorlds =
-        let atoms =
-            TestWorld.empty
-                |> World.addAtom AtomType.W (Point.create (-1, -1))   // 0
-                |> World.addAtom AtomType.W (Point.create (1, -1))    // 1
-                |> World.addAtom AtomType.X (Point.create (-1, 1))    // 2
-                |> World.addAtom AtomType.X (Point.create (1, 1))     // 3
-                |> World.addStrongBond TestParameters.standard 0 1
-                |> Chain.addBox 2
-        [
-            "Ladder", World.addStrongBond TestParameters.standard 2 3 atoms
-            "Near miss", atoms
-        ]
+    open PropertyOracles
 
     /// Stacking and weak bonds, at the right rates: with the standard
     /// parameters, strong bonds stay fixed, and a stack makes each of
@@ -1205,6 +1160,12 @@ module PropertyTests =
                         $"{label}, with start barriers" stacked 200000 (Random(5 + i)) world
         |]
 
+/// Event rates of strong bonds: forming and breaking, peeling, and
+/// hydrolysis, with and without protection.
+module BondRateTests =
+
+    open PropertyOracles
+
     /// Strong bonds, at the right rates: eight atoms of random types
     /// are sealed in a box, at a temperature high enough that strong
     /// bonds form and break constantly. Chains, branches of weak bonds,
@@ -1287,6 +1248,95 @@ module PropertyTests =
                     200000 (Random(8)) world
         |]
 
+    /// Peeling: with strong bonds otherwise frozen (an impassable
+    /// barrier), the only way one can break is by peeling from an
+    /// exposed end, and none can form.
+    /// * In crowded worlds of uncapped chains and dimers, strong bonds
+    ///   break at the expected rate until few are left. (See
+    ///   toggleProbabilities.)
+    /// * A capped strand, P0-W1-W2-P3, never loses a bond.
+    /// * With hydrolysis, a capped strand is taken apart: a bond breaks,
+    ///   and the pieces peel.
+    /// * Hydrolysis breaks bonds without peeling too, anywhere in a
+    ///   strand.
+    /// * With peeling turned off, nothing breaks at all.
+    [<Fact>]
+    let ``Exposed ends peel at the expected rate, and capped strands only once hydrolysis cuts them`` () =
+        let frozen = TestParameters.createFrozen 1.0
+        let peeling = { frozen with PeelBarrier = 0.5 }
+
+            // uncapped chains and dimers peel
+        let checkSeed seed () =
+            let rng = Random(seed)
+            let world =
+                Chain.grow rng 12
+                    |> Chain.withRandomTypes rng
+                    |> Chain.addDimers rng 5
+                    |> Chain.addSoup rng 5
+            let nBefore = (strongBonds world).Count
+            let peeled =
+                runEventRates $"Peeling, seed {seed}" peeling 40000 rng world
+
+                // make sure the check isn't vacuous
+            let nAfter = (strongBonds peeled).Count
+            Assert.True(
+                nAfter <= nBefore - 4,   // most of the five dimers, at least (a chain can be capped)
+                $"Seed {seed}: only {nBefore - nAfter} of {nBefore} strong bonds peeled")
+
+                // nothing breaks with peeling off
+            let mutable unpeeled = world
+            unpeeled <- Chain.updatesWith frozen rng 20000 unpeeled
+            Assert.Equal<Set<int * int>>(strongBonds world, strongBonds unpeeled)
+
+            // a strand P0-W1-W2 capped at its other end by the given cap
+            // (atom 3), among free atoms
+        let cappedStrand endCap rng =
+            TestWorld.empty
+                |> World.addAtom AtomType.P (Point.create (-3, 0))   // 0
+                |> World.addAtom AtomType.W (Point.create (-1, 0))   // 1
+                |> World.addAtom AtomType.W (Point.create (1, 0))    // 2
+                |> World.addAtom endCap (Point.create (3, 0))        // 3
+                |> World.addStrongBond TestParameters.standard 0 1
+                |> World.addStrongBond TestParameters.standard 1 2
+                |> World.addStrongBond TestParameters.standard 2 3
+                |> Chain.addSoup rng 10
+
+            // a capped strand doesn't peel
+        let checkCapped () =
+            let rng = Random(0)
+            let capped = cappedStrand AtomType.P rng
+            let mutable world = capped
+            world <- Chain.updatesWith { peeling with PeelBarrier = 0.0 } rng 50000 world
+            Assert.Equal<Set<int * int>>(strongBonds capped, strongBonds world)
+
+            // with hydrolysis, a capped strand is taken apart: a bond
+            // breaks, and then the pieces peel
+        let checkHydrolysis () =
+            let rng = Random(1)
+            let capped = cappedStrand AtomType.Q rng
+            let mutable world = capped
+            world <- Chain.updatesWith (TestParameters.withHydrolysis Strong 0.2 peeling) rng 100000 world   // each bond expects several breaks
+            Assert.Empty(
+                strongBonds world
+                    |> Set.filter (fun (idA, idB) -> idA <= 3 && idB <= 3))
+
+            // hydrolysis alone, with peeling off, breaks every bond of a
+            // capped strand, interior and caps alike, when it is sure to
+            // happen (and nothing re-forms, since the barrier is impassable)
+        let checkHydrolysisOnly () =
+            let rng = Random(2)
+            let capped = cappedStrand AtomType.Q rng
+            let parms =
+                { frozen with PeelBarrier = Double.PositiveInfinity }
+                    |> TestParameters.withHydrolysis Strong 1.0
+            let mutable world = capped
+            world <- Chain.updatesWith parms rng 50000 world
+            Assert.Empty(
+                strongBonds world
+                    |> Set.filter (fun (idA, idB) -> idA <= 3 && idB <= 3))
+
+        inParallel [| checkSeed 0; checkSeed 1; checkSeed 2; checkCapped; checkHydrolysis; checkHydrolysisOnly |]
+
     /// Protection from hydrolysis: a strong bond that is one side of a
     /// stack hydrolyzes at its type's protected rate, and any other at
     /// the usual rate. In a box:
@@ -1341,6 +1391,38 @@ module PropertyTests =
                 |> Chain.addBox 8
         checkEventRates "Duplex and paired strand, with protection" parms 300000 (Random(0)) world
 
+/// Event rates in crowded worlds of chains, free atoms and walls, and
+/// where temperature varies by location.
+module UpdateRateTests =
+
+    open PropertyOracles
+
+    /// Valid events are actually made, at the right rates, in crowded
+    /// worlds of chains, free atoms, and walls. This catches an update
+    /// that wrongly rejects valid events, or accepts them at the wrong
+    /// rate, which the test above cannot. Strands are nearly straight,
+    /// or can bend up to right angles (at no cost, which the rates
+    /// assume).
+    [<Fact>]
+    let ``update makes valid events at the expected rate`` () =
+        inParallel [|
+            for limit in [ TestParameters.straightBend; TestParameters.rightAngleBend ] do
+                for kT in temperatures do
+                    for length in [ 2; 20 ] do
+                        fun () ->
+                            let rng = Random(length)
+                            let parms =
+                                TestParameters.create kT
+                                    |> TestParameters.withBend Strong limit 0.0
+                            Chain.grow rng length
+                                |> Chain.withRandomTypes rng
+                                |> Chain.addSoup rng 10
+                                |> Chain.addObstacles rng 10
+                                |> checkEventRates
+                                    $"N = {length}, kT {kT}, limit {limit.Numerator}/{limit.Denominator}"
+                                    parms 20000 rng
+        |]
+
     /// Bonds, at the right rates, where temperature varies by location:
     /// two atoms in a small box with a step in temperature down the
     /// middle, so that most bonds between them join atoms at very
@@ -1391,51 +1473,3 @@ module PropertyTests =
                     "Peeling across a step"
                     peeling 1000000 (Random(2)) (createWorld AtomType.W AtomType.W)
         |]
-
-    /// Topology, exhaustively: atom A (at the origin) is bonded to B
-    /// and steps to A'; C and D are bonded to each other. For every
-    /// such local configuration that is valid both before and after
-    /// the step, bond AB must intersect bond CD before the step if and
-    /// only if A'B intersects CD after it.
-    ///
-    /// This is a statement about the model's rules, so validity is
-    /// decided by the oracles (no overlapping atoms, allowed bond
-    /// vectors), which other tests check World against. World itself
-    /// can't be used here, since it refuses to build a configuration
-    /// with crossed bonds, and those must be covered too: a step must
-    /// not be able to uncross bonds either. C ranges over every
-    /// location from which bond CD could reach the region swept by the
-    /// moving bond.
-    [<Fact>]
-    let ``No single move can carry one bond across another`` () =
-
-            // are bonds A-B and C-D a valid configuration, crossed or not?
-        let isValidConfig (a : Point) b c d =
-            isBondVector (b - a)
-                && isBondVector (d - c)
-                && not (overlaps TestWorld.empty a c) && not (overlaps TestWorld.empty a d)
-                && not (overlaps TestWorld.empty b c) && not (overlaps TestWorld.empty b d)
-
-        let a = Point.create (0, 0)
-        let mutable nChecked, nCrossed = 0, 0
-        for bondAB in Chain.bondVectors do
-            let b = a + bondAB
-            for cx in -7 .. 7 do
-                for cy in -7 .. 7 do
-                    let c = Point.create (cx, cy)
-                    for bondCD in Chain.bondVectors do
-                        let d = c + bondCD
-                        if isValidConfig a b c d then
-                            let before = segmentsIntersect a b c d
-                            for delta in directions do
-                                let a' = a + delta
-                                if isValidConfig a' b c d then
-                                    nChecked <- nChecked + 1
-                                    if before then nCrossed <- nCrossed + 1
-                                    if segmentsIntersect a' b c d <> before then
-                                        Assert.Fail(
-                                            $"A {a} -> {a'}, B {b}, C {c}, D {d}: crossing changed")
-
-            // make sure the check isn't vacuous
-        Assert.True(nChecked > 100000, $"Only {nChecked} configurations checked")
-        Assert.True(nCrossed > 0, "No crossed configurations checked")

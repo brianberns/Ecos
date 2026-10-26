@@ -4,24 +4,23 @@ open System
 open Xunit
 open Ecos
 
-/// Checks that the model reproduces known physics: small systems
-/// match their exact equilibrium distributions, and chains diffuse as
-/// expected.
-///
-/// Each measurement averages over many independent runs. Seeds are
-/// fixed, so results are reproducible.
-module PhysicsTests =
+/// Helpers for checking that the model reproduces known physics: small
+/// systems match their exact equilibrium distributions, and chains
+/// diffuse as expected. Each measurement averages over many independent
+/// runs. Seeds are fixed, so results are reproducible. (Each module of
+/// tests below runs in parallel with the others.)
+module PhysicsHelpers =
 
     /// Oracle: do atoms at the given locations overlap? Each atom
     /// occupies a 2x2 square, so they overlap if they are closer than
     /// 2 along both axes.
-    let private overlaps (a : Point) (b : Point) =
+    let overlaps (a : Point) (b : Point) =
         abs (a.X - b.X) < 2 && abs (a.Y - b.Y) < 2
 
     /// Chi-squared goodness of fit of observed counts against exact
     /// weights. Bins expected to hold fewer than 5 samples are merged
     /// into one. Fails if any observed state has no exact weight.
-    let private checkFit name (exact : Map<'state, float>) (samples : 'state[]) =
+    let checkFit name (exact : Map<'state, float>) (samples : 'state[]) =
         let observed = samples |> Array.countBy id |> Map.ofArray
         for state in observed.Keys do
             Assert.True(exact.ContainsKey state, $"{name}: invalid state {state}")
@@ -51,7 +50,7 @@ module PhysicsTests =
     /// parameters. Each runs for burnIn sweeps, and then takes nSamples
     /// samples, sampleInterval sweeps apart, by applying the given
     /// function to the world.
-    let private sample
+    let sample
         parms nRuns burnIn sampleInterval nSamples
         (observe : World -> 'sample) (world : World) =
         Array.Parallel.init nRuns (fun iRun ->
@@ -65,17 +64,23 @@ module PhysicsTests =
             |> Array.concat
 
     /// Adds a dictionary entry, or adds to an existing one.
-    let private addWeight (dict : Collections.Generic.Dictionary<'key, float>) key weight =
+    let addWeight (dict : Collections.Generic.Dictionary<'key, float>) key weight =
         dict[key] <-
             match dict.TryGetValue key with
                 | true, w -> w + weight
                 | _ -> weight
 
     /// Converts a dictionary to a map.
-    let private toMap (dict : Collections.Generic.Dictionary<'key, float>) =
+    let toMap (dict : Collections.Generic.Dictionary<'key, float>) =
         dict
             |> Seq.map (fun (KeyValue(key, weight)) -> key, weight)
             |> Map.ofSeq
+
+/// Chains: conformations with and without bend stiffness, bonds that
+/// form and break with bends, and diffusion.
+module ChainPhysicsTests =
+
+    open PhysicsHelpers
 
     /// Equilibrium of a chain: update's hops are proposed symmetrically
     /// and accepted only when valid, so in the long run every valid
@@ -284,6 +289,100 @@ module PhysicsTests =
                         getState locs (Bonds.strongBonds world |> Set.toList))
 
         checkFit "Bonds and bend" (toMap exact) samples
+
+    /// Chain lengths for the diffusion tests.
+    let private lengths = [ 8; 16; 32; 64 ]
+
+    /// Independent chains per length.
+    let private nChains = 32
+
+    /// Centre-of-mass mean squared displacement (MSD) at various lags,
+    /// for each chain length. Shared by the diffusion tests. Chains are
+    /// all type W, and strong bonds are frozen.
+    let private diffusionData =
+        lazy (
+            let parms = TestParameters.createFrozen Chain.athermalKT
+            let nFrames, frameInterval = 200, 10   // sweeps
+            let lags = [ 1; 2; 5; 10; 20 ]         // frames (i.e. 10 to 200 sweeps)
+            [
+                for n in lengths do
+
+                        // centre-of-mass trajectory of each chain
+                    let trajectories =
+                        Array.Parallel.init nChains (fun iChain ->
+                            let rng = Random(5000 * n + iChain)
+                            let mutable world = Chain.grow rng n
+
+                                // the center of mass is followed continuously: its
+                                // step between frames is far less than the size of
+                                // the torus, so it is measured the shorter way around
+                            let wrap d size = d - float size * round (d / float size)
+                            let traj = Array.zeroCreate (nFrames + 1)
+                            let mutable com = Chain.centerOfMass world
+                            traj[0] <- com
+                            for iFrame in 1 .. nFrames do
+                                world <- Chain.sweepsWith parms rng frameInterval world
+                                let com' = Chain.centerOfMass world
+                                let x, y = traj[iFrame - 1]
+                                traj[iFrame] <-
+                                    let size = world.Size
+                                    x + wrap (fst com' - fst com) size.X,
+                                    y + wrap (snd com' - snd com) size.Y
+                                com <- com'
+                            traj)
+
+                        // MSD averaged over chains and over all time origins
+                    let msd lag =
+                        trajectories
+                            |> Array.collect (fun traj ->
+                                Array.init (nFrames + 1 - lag) (fun i ->
+                                    let x0, y0 = traj[i]
+                                    let x1, y1 = traj[i + lag]
+                                    (x1 - x0) ** 2.0 + (y1 - y0) ** 2.0))
+                            |> Array.average
+
+                    n, [ for lag in lags -> float (lag * frameInterval), msd lag ]
+            ])
+
+    /// Diffusion: the centre of mass performs a random walk, so its MSD
+    /// grows linearly with time, i.e. MSD = 4 D t in 2D.
+    ///
+    /// Stiff chains fall slightly short of that over the times measured
+    /// here (MSD ~ t^0.9, for every length). An atom inside a stiff
+    /// chain can only move a little before its neighbors must follow,
+    /// so a move is often followed by its reverse, and successive
+    /// displacements are anticorrelated. The exponent rises slowly
+    /// toward 1 at longer times.
+    [<Fact>]
+    let ``Chain's centre of mass diffuses`` () =
+        for n, msds in diffusionData.Value do
+            let exponent = Stats.logLogSlope msds
+            Assert.True(
+                exponent > 0.85 && exponent < 1.1,
+                $"N = {n}: MSD ~ t^{exponent:F3}, expected about t^1")
+
+    /// Rouse dynamics: with only local moves (and no solvent), each
+    /// move shifts the centre of mass by 1/N of a step, so the diffusion
+    /// constant scales roughly as D ~ 1/N. Chains are stiff, though, so
+    /// the atoms at a chain's ends move more freely than those inside
+    /// it. That helps short chains most, so D falls off somewhat faster
+    /// than 1/N over these lengths.
+    [<Fact>]
+    let ``Diffusion constant scales inversely with chain length`` () =
+        let points =
+            [
+                for n, msds in diffusionData.Value do
+                    let d = Stats.slope ((0.0, 0.0) :: msds) / 4.0
+                    float n, d
+            ]
+        let exponent = Stats.logLogSlope points
+        Assert.InRange(exponent, -1.35, -0.85)
+
+/// Atoms in a box: bonds of both types, entropy, the start barrier,
+/// pair energies, and stacking.
+module BoxPhysicsTests =
+
+    open PhysicsHelpers
 
     /// The bond between two atoms, if any.
     type private Bond = NoBond | WeakBond | StrongBond
@@ -541,6 +640,12 @@ module PhysicsTests =
         checkFit "Weak bonds" (toMap bondSetWeights) (Array.map fst samples)
         checkFit "Separation" (toMap separationWeights) (Array.map snd samples)
 
+/// Weak bends: an atom with two weak partners, within a bend limit and
+/// at a cost for bending.
+module WeakBendPhysicsTests =
+
+    open PhysicsHelpers
+
     /// Weak bends: a dimer (X0-X1, strongly bonded) and two free atoms
     /// (W2 and W3) are confined to a small box. Each W can pair with
     /// either X, but with only one, since a second weak bond needs a
@@ -682,91 +787,3 @@ module PhysicsTests =
     [<Fact>]
     let ``A dimer and two free atoms in a box follow the Boltzmann distribution with weak bend stiffness`` () =
         checkWeakBend TestParameters.anyBend 8.0
-
-    /// Chain lengths for the diffusion tests.
-    let private lengths = [ 8; 16; 32; 64 ]
-
-    /// Independent chains per length.
-    let private nChains = 32
-
-    /// Centre-of-mass mean squared displacement (MSD) at various lags,
-    /// for each chain length. Shared by the diffusion tests. Chains are
-    /// all type W, and strong bonds are frozen.
-    let private diffusionData =
-        lazy (
-            let parms = TestParameters.createFrozen Chain.athermalKT
-            let nFrames, frameInterval = 200, 10   // sweeps
-            let lags = [ 1; 2; 5; 10; 20 ]         // frames (i.e. 10 to 200 sweeps)
-            [
-                for n in lengths do
-
-                        // centre-of-mass trajectory of each chain
-                    let trajectories =
-                        Array.Parallel.init nChains (fun iChain ->
-                            let rng = Random(5000 * n + iChain)
-                            let mutable world = Chain.grow rng n
-
-                                // the center of mass is followed continuously: its
-                                // step between frames is far less than the size of
-                                // the torus, so it is measured the shorter way around
-                            let wrap d size = d - float size * round (d / float size)
-                            let traj = Array.zeroCreate (nFrames + 1)
-                            let mutable com = Chain.centerOfMass world
-                            traj[0] <- com
-                            for iFrame in 1 .. nFrames do
-                                world <- Chain.sweepsWith parms rng frameInterval world
-                                let com' = Chain.centerOfMass world
-                                let x, y = traj[iFrame - 1]
-                                traj[iFrame] <-
-                                    let size = world.Size
-                                    x + wrap (fst com' - fst com) size.X,
-                                    y + wrap (snd com' - snd com) size.Y
-                                com <- com'
-                            traj)
-
-                        // MSD averaged over chains and over all time origins
-                    let msd lag =
-                        trajectories
-                            |> Array.collect (fun traj ->
-                                Array.init (nFrames + 1 - lag) (fun i ->
-                                    let x0, y0 = traj[i]
-                                    let x1, y1 = traj[i + lag]
-                                    (x1 - x0) ** 2.0 + (y1 - y0) ** 2.0))
-                            |> Array.average
-
-                    n, [ for lag in lags -> float (lag * frameInterval), msd lag ]
-            ])
-
-    /// Diffusion: the centre of mass performs a random walk, so its MSD
-    /// grows linearly with time, i.e. MSD = 4 D t in 2D.
-    ///
-    /// Stiff chains fall slightly short of that over the times measured
-    /// here (MSD ~ t^0.9, for every length). An atom inside a stiff
-    /// chain can only move a little before its neighbors must follow,
-    /// so a move is often followed by its reverse, and successive
-    /// displacements are anticorrelated. The exponent rises slowly
-    /// toward 1 at longer times.
-    [<Fact>]
-    let ``Chain's centre of mass diffuses`` () =
-        for n, msds in diffusionData.Value do
-            let exponent = Stats.logLogSlope msds
-            Assert.True(
-                exponent > 0.85 && exponent < 1.1,
-                $"N = {n}: MSD ~ t^{exponent:F3}, expected about t^1")
-
-    /// Rouse dynamics: with only local moves (and no solvent), each
-    /// move shifts the centre of mass by 1/N of a step, so the diffusion
-    /// constant scales roughly as D ~ 1/N. Chains are stiff, though, so
-    /// the atoms at a chain's ends move more freely than those inside
-    /// it. That helps short chains most, so D falls off somewhat faster
-    /// than 1/N over these lengths.
-    [<Fact>]
-    let ``Diffusion constant scales inversely with chain length`` () =
-        let points =
-            [
-                for n, msds in diffusionData.Value do
-                    let d = Stats.slope ((0.0, 0.0) :: msds) / 4.0
-                    float n, d
-            ]
-        let exponent = Stats.logLogSlope points
-        Assert.InRange(exponent, -1.35, -0.85)
