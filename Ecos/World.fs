@@ -488,7 +488,7 @@ module World =
             // count adjacent stacks
         let behavior = BehaviorMap.standard[bondType]
         let nStacks =
-            behavior.CountStacks atomA.Id atomB.Id world.BondTypeMap
+            behavior.CountStacks atomA atomB world.BondTypeMap
 
             // compute bond energy
         let bondTypeParms = parms.BondTypeParameterMap[bondType]

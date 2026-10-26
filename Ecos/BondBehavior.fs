@@ -60,9 +60,9 @@ type private BondBehavior =
         /// well, via the given map).
         TestValence : Atom -> BondTypeMap -> bool
 
-        /// Counts stacks adjacent to the given (existing or 
-        /// proposed) bond.
-        CountStacks : AtomId -> AtomId -> BondTypeMap -> int
+        /// Counts stacks adjacent to a bond (existing or 
+        /// proposed) between the given atoms.
+        CountStacks : Atom -> Atom -> BondTypeMap -> int
 
         /// Determines whether the angle between the given vectors,
         /// which start at the same atom, is valid for a bond of
@@ -167,11 +167,11 @@ module private StrongBond =
     ///    A  ═?═ B
     ///    ┆      ┆
     ///    A' ═══ B'
-    let countStacks idA idB (bondTypeMap : BondTypeMap) =
+    let countStacks atomA atomB (bondTypeMap : BondTypeMap) =
         let strongBondMap = bondTypeMap[Strong]
         let weakBondMap = bondTypeMap[Weak]
-        let bPrimes = BondMap.getBonds idB weakBondMap
-        BondMap.getBonds idA weakBondMap
+        let bPrimes = BondMap.getBonds atomB.Id weakBondMap
+        BondMap.getBonds atomA.Id weakBondMap
             |> Seq.where (fun idA' ->
                 BondMap.getBonds idA' strongBondMap
                     |> Seq.exists (fun idB' ->
@@ -194,7 +194,7 @@ module private StrongBond =
     /// A strong bond is protected from hydrolysis when it is 
     /// part of a stack.
     let testHydrolysisProtection atomA atomB bondTypeMap =
-        countStacks atomA.Id atomB.Id bondTypeMap > 0
+        countStacks atomA atomB bondTypeMap > 0
 
     /// Behavior of strong bonds.
     let behavior =
@@ -253,18 +253,18 @@ module private WeakBond =
                 strongIds.Count > 0
             | _ -> false
 
-    /// Counts stacks adjacent to the given (existing or 
+    /// Counts stacks affected by the given (existing or 
     /// proposed) weak bond:
     ///    A' ══ A ══ A'   ══ strong bond
     ///    ┆     ┆    ┆    ┆  weak bond
     ///    ┆     ?    ┆
     ///    ┆     ┆    ┆
     ///    B' ══ B ══ B'
-    let countStacks idA idB (bondTypeMap : BondTypeMap) =
+    let countStacks atomA atomB (bondTypeMap : BondTypeMap) =
         let strongBondMap = bondTypeMap[Strong]
         let weakBondMap = bondTypeMap[Weak]
-        let bPrimes = BondMap.getBonds idB strongBondMap
-        BondMap.getBonds idA strongBondMap
+        let bPrimes = BondMap.getBonds atomB.Id strongBondMap
+        BondMap.getBonds atomA.Id strongBondMap
             |> Seq.where (fun idA' ->
                 BondMap.getBonds idA' weakBondMap
                     |> Seq.exists (fun idB' ->
