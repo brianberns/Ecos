@@ -42,6 +42,8 @@ module Program =
                 Experiment19.run Experiment19.slowSettings
             "experiment19n", "The same, with no free atoms, so that nothing can copy a single strand",
                 Experiment19.run Experiment19.starvedSettings
+            "experiment19c", "The same, on more runs with other seeds, to confirm it",
+                Experiment19.run Experiment19.confirmationSettings
         ]
 
     /// Prints usage.

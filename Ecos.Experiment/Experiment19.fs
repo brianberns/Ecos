@@ -75,6 +75,9 @@ module Experiment19 =
             /// Number of independent runs (seeds) of each variant.
             NumRuns : int
 
+            /// Seed of the first run. The others follow in order.
+            FirstSeed : int
+
             /// Whether the world has the living world's free atoms. Without
             /// them, nothing can copy a single strand.
             HasFreeAtoms : bool
@@ -103,6 +106,7 @@ module Experiment19 =
                             { BendStiffness = kappa; ProtectedHydrolysisRate = protectedRate }
                 |]
             NumRuns = 8
+            FirstSeed = 0
             HasFreeAtoms = true
         }
 
@@ -143,6 +147,11 @@ module Experiment19 =
     /// hairpin-former can fold on its own.
     let starvedSettings =
         { slowSettings with HasFreeAtoms = false }
+
+    /// The starved settings again, on more runs and with seeds that they
+    /// don't use, to confirm their result.
+    let confirmationSettings =
+        { starvedSettings with NumRuns = 32; FirstSeed = 8 }
 
     /// The given variant of the living world, at the given temperature,
     /// with the given rates of hydrolysis.
@@ -268,17 +277,46 @@ module Experiment19 =
                             :: seeds)
         let seeds = List.toArray seeds
 
+            // each seeded strand's strong bonds, as (smaller ID, larger ID)
+        let seedOfBond =
+            dict [
+                for iSeed, seed in Array.indexed seeds do
+                    for a, b in Array.pairwise seed.AtomIds do
+                        (min a b, max a b), iSeed
+            ]
+
+            // during the adverse phase, how often each seeded strand loses a
+            // bond, and how often a bond it lost forms again (is repaired)
+        let breaks = Array.zeroCreate<int> seeds.Length
+        let repairs = Array.zeroCreate<int> seeds.Length
+        let broken = Collections.Generic.HashSet<AtomId * AtomId>()
+        let onEvent event _ =
+            match event with
+                | BreakBond (Strong, a, b) ->
+                    let key = min a b, max a b
+                    match seedOfBond.TryGetValue(key) with
+                        | true, iSeed ->
+                            breaks[iSeed] <- breaks[iSeed] + 1
+                            broken.Add(key) |> ignore
+                        | _ -> ()
+                | CreateBond (Strong, a, b) ->
+                    let key = min a b, max a b
+                    if broken.Remove(key) then
+                        let iSeed = seedOfBond[key]
+                        repairs[iSeed] <- repairs[iSeed] + 1
+                | _ -> ()
+
             // melt, then the adverse phase
         let mutable world = World.sweep hot rng settings.HotSweeps world
         let mutable elapsed = 0
         let states =
             [|
                 for time in settings.SampleTimes do
-                    world <- World.sweep adverse rng (time - elapsed) world
+                    world <- World.sweepWith adverse rng (time - elapsed) onEvent world
                     elapsed <- time
                     seeds |> Array.map (getState world)
             |]
-        seeds |> Array.map _.IsHairpinFormer, states
+        seeds |> Array.map _.IsHairpinFormer, states, breaks, repairs
 
     /// Runs the experiment, prints a table of results, and writes them
     /// to the given CSV file.
@@ -287,7 +325,7 @@ module Experiment19 =
         let combos =
             [|
                 for variant in settings.Variants do
-                    for seed in 0 .. settings.NumRuns - 1 do
+                    for seed in settings.FirstSeed .. settings.FirstSeed + settings.NumRuns - 1 do
                         variant, seed
             |]
 
@@ -310,7 +348,8 @@ module Experiment19 =
             (toText settings.HairpinFormer) (toText settings.NonFormer) settings.NumDuplexes
         printfn "Living world, strong barrier 15; hot phase kT %g for %d sweeps; then adverse phase kT %g, unprotected hydrolysis %g"
             settings.HotTemperature settings.HotSweeps settings.AdverseTemperature settings.AdverseHydrolysisRate
-        printfn "%d runs of each variant%s" settings.NumRuns
+        printfn "%d runs of each variant (seeds %d to %d)%s" settings.NumRuns
+            settings.FirstSeed (settings.FirstSeed + settings.NumRuns - 1)
             (if settings.HasFreeAtoms then "" else "; no free atoms")
 
         use writer = new StreamWriter(csvPath)
@@ -327,7 +366,7 @@ module Experiment19 =
                 let summarize isHairpinFormer =
                     let states =
                         runs
-                            |> Array.collect (fun (kinds, states) ->
+                            |> Array.collect (fun (kinds, states, _, _) ->
                                 Array.zip kinds states[iTime]
                                     |> Array.where (fun (kind, _) -> kind = isHairpinFormer)
                                     |> Array.map snd)
@@ -342,8 +381,46 @@ module Experiment19 =
                     sprintf "%6.2f   %6.2f   %9.2f" intact folded prot
                 printfn "  %6d      %s      %s" time (summarize true) (summarize false)
 
+                // repairs of each kind's bonds over the adverse phase
+            for isHairpinFormer in [ true; false ] do
+                let counts =
+                    runs
+                        |> Array.collect (fun (kinds, _, breaks, repairs) ->
+                            Array.zip3 kinds breaks repairs
+                                |> Array.where (fun (kind, _, _) -> kind = isHairpinFormer))
+                let nBreaks = counts |> Array.sumBy (fun (_, n, _) -> n)
+                let nRepairs = counts |> Array.sumBy (fun (_, _, n) -> n)
+                printfn "  %s: %d bonds broken in the adverse phase, %d of them formed again (%.0f%%)"
+                    (if isHairpinFormer then "Hairpin-formers" else "Non-formers")
+                    nBreaks nRepairs (100.0 * float nRepairs / float (max 1 nBreaks))
+
+                // per run, the fraction of each kind's strands intact at the end
+            let survival isHairpinFormer (kinds : bool[], states : SeedState[][], _, _) =
+                Array.zip kinds states[states.Length - 1]
+                    |> Array.where (fun (kind, _) -> kind = isHairpinFormer)
+                    |> Array.averageBy (fun (_, state) -> if state.Intact then 1.0 else 0.0)
+            let meanAndError (xs : float[]) =
+                let mean = Array.average xs
+                let sd = sqrt ((xs |> Array.sumBy (fun x -> (x - mean) ** 2.0)) / float (xs.Length - 1))
+                mean, sd / sqrt (float xs.Length)
+            let hairpins = runs |> Array.map (survival true)
+            let nonFormers = runs |> Array.map (survival false)
+            let differences = Array.map2 (-) hairpins nonFormers
+            let mH, eH = meanAndError hairpins
+            let mN, eN = meanAndError nonFormers
+            let mD, eD = meanAndError differences
+            let nAhead = differences |> Array.where (fun d -> d > 0.0) |> Array.length
+            let nBehind = differences |> Array.where (fun d -> d < 0.0) |> Array.length
+            printfn "  Intact at the end, per run: hairpin-formers %.3f +/- %.3f, non-formers %.3f +/- %.3f"
+                mH eH mN eN
+            printfn "  Difference per run %.3f +/- %.3f; hairpin-formers ahead in %d runs, behind in %d, tied in %d; one-sided sign test p = %.3g"
+                mD eD nAhead nBehind (runs.Length - nAhead - nBehind)
+                (Experiment17.getSignTestP nAhead nBehind)
+
         printfn ""
         printfn "Fractions of seeded strands (both strands of each duplex, followed separately)."
         printfn "intact: all of its strong bonds present. folded: at least two weak bonds within it."
         printfn "protected: mean fraction of its present strong bonds that are one side of a stack."
+        printfn "formed again: a seeded strand's bond that broke and then formed again between the same atoms, as a repair."
+        printfn "Per-run figures are means over runs, with standard errors between runs."
         printfn "Results written to %s" (Path.GetFullPath csvPath)
