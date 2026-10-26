@@ -275,8 +275,9 @@ module Experiment19 =
 
     /// The adverse phase of the given variant, for the desktop app: its
     /// world is built as it is at the start of the phase (see
-    /// buildMelted), with the seeded strands as its template, so that
-    /// they can be followed.
+    /// buildMelted), with the seeded hairpin-formers (and their copies,
+    /// which can fold too) as its template, so that they can be told
+    /// apart from the non-formers.
     let getScenario settings variant =
         let scenario =
             Experiment4.getScenario Experiment4.livingWorldSettings 15.0
@@ -285,7 +286,11 @@ module Experiment19 =
                 |> Scenario.withProtectedHydrolysisRate variant.ProtectedHydrolysisRate
         let build _ rng =
             let world, seeds = buildMelted settings variant rng
-            world, seeds |> Array.collect _.AtomIds
+            let hairpinFormers =
+                seeds
+                    |> Array.where _.IsHairpinFormer
+                    |> Array.collect _.AtomIds
+            world, hairpinFormers
         let where = if settings.HasFreeAtoms then "living world" else "starved"
         { scenario with
             Name = $"Adverse phase, {where}, protected rate {variant.ProtectedHydrolysisRate}"

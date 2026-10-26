@@ -202,7 +202,7 @@ Experiments run their worlds in parallel and print their progress. They take fro
 | Vent | Scenario B's world heated by a pulsing vent along its seam, seeded with W/X and Y/Z strands |
 | Vent window | Templates of each kind in a cooler vent whose pulses span their melting points, with scarce caps, for watching in the desktop app (also at twice the size, "Vent window, 2x") |
 
-Every standard world is a 160×160 torus with no walls; scenarios lay their atoms out around its center, halfway around from the seam. Each comes with or without a template strand, and experiments build their variants from these. In all of them, strands can bend to a right angle at the standard stiffness. To watch a strand fold, see the desktop app's "Experiment 15" group, which puts one self-complementary strand alone in a small world, stiff, at the standard stiffness, and floppy. The "Experiment 19" group starts at the adverse phase after the heat, in the living world or a starved one, with and without protection, and shows the seeded strands filled.
+Every standard world is a 160×160 torus with no walls; scenarios lay their atoms out around its center, halfway around from the seam. Each comes with or without a template strand, and experiments build their variants from these. In all of them, strands can bend to a right angle at the standard stiffness. To watch a strand fold, see the desktop app's "Experiment 15" group, which puts one self-complementary strand alone in a small world, stiff, at the standard stiffness, and floppy. The "Experiment 19" group starts at the adverse phase after the heat, in the living world or a starved one, with and without protection, and shows the seeded hairpin-formers filled.
 
 ## How the model is tested
 
