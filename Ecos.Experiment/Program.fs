@@ -44,6 +44,8 @@ module Program =
                 Experiment19.run Experiment19.starvedSettings
             "experiment19c", "The same, on more runs with other seeds, to confirm it",
                 Experiment19.run Experiment19.confirmationSettings
+            "experiment20", "Is there a temperature at which hairpins stay folded but single strands can't be copied?",
+                Experiment20.run Experiment20.defaultSettings
         ]
 
     /// Prints usage.
