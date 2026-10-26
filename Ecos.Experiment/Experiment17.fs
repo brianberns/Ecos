@@ -18,8 +18,10 @@ open Ecos.Experiment.Experiment3
 /// W-X and W-X, around a Y Y loop). It hardly ever folds in a crowded
 /// world, so the long one uses P W W W Y Y X X X Q, with a four-pair
 /// stem. In each, the non-former has the same atoms, in an order that
-/// can't fold, and the copy of each strand can fold exactly as well as
-/// the strand itself.
+/// can't fold, and that pairs as little as possible with the
+/// hairpin-former and its copies, so that the two kinds don't tie each
+/// other up. The copy of each strand can fold exactly as well as the
+/// strand itself.
 ///
 /// Chains are counted at the end of each cycle, after the hot phase, and
 /// folding at the end of each cold phase, while strands are paired.
@@ -41,15 +43,16 @@ module Experiment17 =
             AtomType.Q
         |]
 
-    /// The short hairpin-former's atoms, in an order that can't fold:
-    /// its caps pair, as every strand's can, but no two consecutive
-    /// pairs form around any loop.
+    /// The short hairpin-former's atoms, in an order that can't fold
+    /// (its caps pair, as every strand's can, but no two consecutive
+    /// pairs form around any loop), and that forms only single pairs
+    /// with the hairpin-former and with copies of either.
     let shortNonFormer =
         [|
             AtomType.P
-            AtomType.W; AtomType.W
             AtomType.Y
-            AtomType.X; AtomType.X
+            AtomType.W; AtomType.X
+            AtomType.W; AtomType.X
             AtomType.Y
             AtomType.Q
         |]
@@ -64,17 +67,41 @@ module Experiment17 =
             AtomType.Q
         |]
 
-    /// The long hairpin-former's atoms, in an order that can't fold.
+    /// The long hairpin-former's atoms, in an order that can't fold, and
+    /// that forms no more than two consecutive pairs with the
+    /// hairpin-former or with copies of either, the fewest possible.
     let longNonFormer =
         [|
             AtomType.P
-            AtomType.W; AtomType.W; AtomType.W
-            AtomType.X; AtomType.X
-            AtomType.Y
-            AtomType.X
-            AtomType.Y
+            AtomType.W; AtomType.Y; AtomType.W
+            AtomType.X; AtomType.W; AtomType.X
+            AtomType.X; AtomType.Y
             AtomType.Q
         |]
+
+    /// The longest run of consecutive pairs that strands A and B can
+    /// form with each other, side by side and running in opposite
+    /// directions, as a template and its copy do.
+    let getMaxPairing (a : AtomType[]) (b : AtomType[]) =
+        seq {
+            for i in 0 .. a.Length - 1 do
+                for j in 0 .. b.Length - 1 do
+                    Seq.initInfinite id
+                        |> Seq.takeWhile (fun k ->
+                            i + k < a.Length && j - k >= 0
+                                && complement a[i + k] = b[j - k])
+                        |> Seq.length
+        } |> Seq.max
+
+    /// The longest run of consecutive pairs between the given two kinds
+    /// of strand: between them, and between each and the other's copy.
+    let getMaxCrossPairing (former : AtomType[]) (nonFormer : AtomType[]) =
+        let copy (strand : AtomType[]) = strand |> Array.rev |> Array.map complement
+        List.max [
+            for a in [ former; copy former ] do
+                for b in [ nonFormer; copy nonFormer ] do
+                    getMaxPairing a b
+        ]
 
     /// A variant of the experiment.
     type Variant =

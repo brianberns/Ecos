@@ -288,12 +288,39 @@ module ScenarioTests =
         Assert.Equal(1, Experiment16.getMaxStem Experiment17.shortNonFormer)
         Assert.Equal(4, Experiment16.getMaxStem Experiment17.longHairpinFormer)
         Assert.Equal(1, Experiment16.getMaxStem Experiment17.longNonFormer)
+        Assert.Equal(1, Experiment17.getMaxCrossPairing Experiment17.shortHairpinFormer Experiment17.shortNonFormer)
+        Assert.Equal(2, Experiment17.getMaxCrossPairing Experiment17.longHairpinFormer Experiment17.longNonFormer)
         for former, nonFormer in
             [
                 Experiment17.shortHairpinFormer, Experiment17.shortNonFormer
                 Experiment17.longHairpinFormer, Experiment17.longNonFormer
             ] do
             Assert.Equal<AtomType[]>(Array.sort former, Array.sort nonFormer)   // the same atoms
+
+    [<Fact>]
+    let ``The longest pairing between two strands runs in opposite directions`` () =
+        let parse (text : string) =
+            text
+                |> Seq.map (function
+                    | 'W' -> AtomType.W | 'X' -> AtomType.X
+                    | 'Y' -> AtomType.Y | 'Z' -> AtomType.Z
+                    | 'P' -> AtomType.P | 'Q' -> AtomType.Q
+                    | c -> failwith $"Unknown atom type: {c}")
+                |> Seq.toArray
+        let expected =
+            [
+                "PWWQ", "PXXQ", 4   // a strand and its copy pair all along
+                "PWYQ", "PZXQ", 4
+                "PWYQ", "PXZQ", 1   // complementary atoms, but in the wrong order: single pairs only
+                "WWW", "XX", 2      // a run of three W against two X
+                "WYW", "XZX", 3     // palindromes, so antiparallel pairing matches all three
+                "WY", "XZ", 1       // complementary letters, but in the wrong order
+                "WWW", "WWW", 0
+            ]
+        for a, b, run in expected do
+            Assert.True(
+                (Experiment17.getMaxPairing (parse a) (parse b) = run),
+                $"{a} with {b}: expected {run}, got {Experiment17.getMaxPairing (parse a) (parse b)}")
 
     [<Fact>]
     let ``The sign test gives the binomial tail`` () =
