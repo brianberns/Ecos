@@ -34,6 +34,14 @@ module Program =
                 Experiment17.run Experiment17.defaultSettings
             "experiment17s", "The same, with eight-atom strands",
                 Experiment17.run Experiment17.shortSettings
+            "experiment19", "Does folding protect a strand through an adverse phase after the heat?",
+                Experiment19.run Experiment19.defaultSettings
+            "experiment19g", "The same, with a gentler and longer adverse phase",
+                Experiment19.run Experiment19.gentleSettings
+            "experiment19s", "The same, with a slow adverse phase that need only cut each strand once",
+                Experiment19.run Experiment19.slowSettings
+            "experiment19n", "The same, with no free atoms, so that nothing can copy a single strand",
+                Experiment19.run Experiment19.starvedSettings
         ]
 
     /// Prints usage.

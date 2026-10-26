@@ -1,0 +1,349 @@
+namespace Ecos.Experiment
+
+open System
+open System.IO
+open System.Threading
+
+open Ecos
+open Ecos.Experiment.Experiment3
+
+/// Experiment 19: does folding protect a strand through an adverse
+/// phase? A living world (that of experiment 16) is seeded with
+/// duplexes, each a strand paired with its copy: some of experiment 17's
+/// hairpin-formers, and as many of its non-formers. A hot phase melts
+/// the duplexes, and their strands drift apart. Then, at a warm
+/// temperature, comes an adverse phase, in which unprotected strong
+/// bonds hydrolyze quickly, while protected ones (each one side of a
+/// stack, in a double-stranded stretch) hydrolyze slowly or not at all.
+///
+/// The idea: a hairpin-former's arms are tethered, so it can fold up in
+/// place and protect itself, while a non-former, whose partner has
+/// drifted away, is left single and exposed, until it re-anneals or is
+/// copied.
+///
+/// Each strand of each seeded duplex is followed separately. At the
+/// start of the adverse phase, and at times through it, each is
+/// recorded as intact (all of its strong bonds present), folded (at
+/// least two weak bonds within it), and with the fraction of its strong
+/// bonds that are protected.
+module Experiment19 =
+
+    /// A variant of the experiment.
+    type Variant =
+        {
+            /// Strong-bond bend stiffness, with the standard bend limit
+            /// (right angles).
+            BendStiffness : float
+
+            /// Rate of hydrolysis of protected strong bonds during the
+            /// adverse phase.
+            ProtectedHydrolysisRate : float
+        }
+
+    /// Settings for the experiment.
+    type Settings =
+        {
+            /// The strand that can fold into a hairpin.
+            HairpinFormer : AtomType[]
+
+            /// A strand with the same atoms that can't fold.
+            NonFormer : AtomType[]
+
+            /// Number of duplexes of each kind to start with.
+            NumDuplexes : int
+
+            /// Temperature of the hot phase.
+            HotTemperature : float
+
+            /// Length of the hot phase, in sweeps.
+            HotSweeps : int
+
+            /// Temperature of the adverse phase.
+            AdverseTemperature : float
+
+            /// Rate of hydrolysis of unprotected strong bonds during the
+            /// adverse phase. (Before it, the living world's own rate.)
+            AdverseHydrolysisRate : float
+
+            /// Times during the adverse phase, in sweeps from its start,
+            /// at which to record the strands. The last is its end.
+            SampleTimes : int[]
+
+            /// Variants to run.
+            Variants : Variant[]
+
+            /// Number of independent runs (seeds) of each variant.
+            NumRuns : int
+
+            /// Whether the world has the living world's free atoms. Without
+            /// them, nothing can copy a single strand.
+            HasFreeAtoms : bool
+        }
+
+    /// Default settings: experiment 17's long contest, a hot phase as
+    /// long as scenario B's, and an adverse phase at a temperature at
+    /// which a lone hairpin is folded about 90% of the time (experiment
+    /// 18), harsh enough to cut most unprotected ten-atom strands. With
+    /// and without protection, at the standard stiffness and a softer
+    /// one, at which folds start more readily.
+    let defaultSettings =
+        {
+            HairpinFormer = Experiment17.longHairpinFormer
+            NonFormer = Experiment17.longNonFormer
+            NumDuplexes = 8
+            HotTemperature = 3.0
+            HotSweeps = 10_000
+            AdverseTemperature = 0.4
+            AdverseHydrolysisRate = 0.05
+            SampleTimes = [| 0; 100; 250; 500; 1000; 2000 |]
+            Variants =
+                [|
+                    for kappa in [ 1.5; 0.5 ] do
+                        for protectedRate in [ 0.05; 0.0 ] do
+                            { BendStiffness = kappa; ProtectedHydrolysisRate = protectedRate }
+                |]
+            NumRuns = 8
+            HasFreeAtoms = true
+        }
+
+    /// Settings for a gentler and longer adverse phase, in which strands
+    /// last long enough to fold: at the default rate, an unprotected
+    /// strand's half-life (about 250 sweeps) is far shorter than the time
+    /// a hairpin-former takes to fold.
+    let gentleSettings =
+        { defaultSettings with
+            AdverseHydrolysisRate = 0.005
+            SampleTimes = [| 0; 500; 1000; 2000; 5000; 10000 |]
+            Variants =
+                defaultSettings.Variants
+                    |> Array.map (fun variant ->
+                        if variant.ProtectedHydrolysisRate > 0.0 then
+                            { variant with ProtectedHydrolysisRate = 0.005 }
+                        else variant) }
+
+    /// Settings for a slow adverse phase, which cuts each strand once at
+    /// most, so to speak: a non-former, with all nine of its bonds
+    /// exposed, has about a 70% chance of being cut over the phase, while
+    /// a hairpin-former that folds early has only its three loop bonds
+    /// exposed for most of it. At the softer stiffness only, since at the
+    /// standard one hairpins hardly fold at this temperature.
+    let slowSettings =
+        { defaultSettings with
+            AdverseHydrolysisRate = 0.0005
+            SampleTimes = [| 0; 2000; 5000; 10000; 20000; 50000 |]
+            Variants =
+                [|
+                    for protectedRate in [ 0.0005; 0.0 ] do
+                        { BendStiffness = 0.5; ProtectedHydrolysisRate = protectedRate }
+                |] }
+
+    /// Settings for the slow adverse phase in a starved world, with no
+    /// free atoms, so that nothing can copy a single strand: a non-former
+    /// is protected only if it finds its partner again, while a
+    /// hairpin-former can fold on its own.
+    let starvedSettings =
+        { slowSettings with HasFreeAtoms = false }
+
+    /// The given variant of the living world, at the given temperature,
+    /// with the given rates of hydrolysis.
+    let private getParameters variant kT rate protectedRate =
+        let scenario =
+            Experiment4.getScenario Experiment4.livingWorldSettings 15.0
+                |> Scenario.withBend Strong Bend.rightAngle variant.BendStiffness
+                |> Scenario.withHydrolysisRate rate
+                |> Scenario.withProtectedHydrolysisRate protectedRate
+        { scenario.Parameters with
+            GetTemperature = Parameters.getUniformTemperature kT }
+
+    /// The copy of the given strand, read from P to Q.
+    let private copyOf (strand : AtomType[]) =
+        strand |> Array.rev |> Array.map complement
+
+    /// Adds a duplex of the given strand and its copy at a random empty
+    /// place: the strand along a row, and the copy in the row above,
+    /// each atom paired with the one below it. Answers the world and the
+    /// atom IDs of the two strands.
+    let private addDuplex parms (rng : Random) (strand : AtomType[]) (world : World) =
+        let n = strand.Length
+        let rec loop () =
+            let x = 2 * rng.Next(-35, 36 - n)
+            let y = 2 * rng.Next(-35, 35)
+            let first = world.Atoms.Length
+            let worldOpt =
+                Build.tryAddStrand parms x y strand world
+                    |> Option.bind (
+                            // the copy, laid out the other way, so that each
+                            // atom faces its complement
+                        Build.tryAddStrand parms x (y + 2) (Array.map complement strand))
+            match worldOpt with
+                | Some world ->
+                    let idsA = [| first .. first + n - 1 |]
+                    let idsB = [| first + n .. first + 2 * n - 1 |]
+                    let world =
+                        (world, Array.zip idsA idsB)
+                            ||> Array.fold (fun world (idA, idB) ->
+                                World.addWeakBond parms idA idB world)
+                    world, idsA, idsB
+                | None -> loop ()
+        loop ()
+
+    /// A seeded strand: its kind, and its atoms in order.
+    type private Seed =
+        {
+            /// Whether it can fold.
+            IsHairpinFormer : bool
+
+            /// Its atoms, in order along the strand.
+            AtomIds : AtomId[]
+        }
+
+    /// The state of a seeded strand at some moment.
+    type private SeedState =
+        {
+            /// All of its strong bonds are present.
+            Intact : bool
+
+            /// At least two weak bonds within it.
+            Folded : bool
+
+            /// Fraction of its strong bonds that are one side of a stack
+            /// (their atoms are paired with atoms that are strongly bonded
+            /// to each other), and so protected.
+            Protected : float
+        }
+
+    /// The state of the given seeded strand in the given world.
+    let private getState (world : World) seed =
+        let strong = world.BondTypeMap[Strong]
+        let weak = world.BondTypeMap[Weak]
+        let bonds = Array.pairwise seed.AtomIds
+        let isStacked (a, b) =
+            BondMap.getBonds a weak
+                |> Set.exists (fun a' ->
+                    BondMap.getBonds b weak
+                        |> Set.exists (fun b' -> BondMap.areBonded a' b' strong))
+        let atoms = set seed.AtomIds
+        let inner =
+            seed.AtomIds
+                |> Array.sumBy (fun id ->
+                    BondMap.getBonds id weak |> Set.intersect atoms |> Set.count)
+        {
+            Intact = bonds |> Array.forall (fun (a, b) -> BondMap.areBonded a b strong)
+            Folded = inner / 2 >= 2
+            Protected =
+                let present = bonds |> Array.where (fun (a, b) -> BondMap.areBonded a b strong)
+                if present.Length = 0 then 0.0
+                else
+                    float (present |> Array.where isStacked).Length
+                        / float present.Length
+        }
+
+    /// Runs one world. Answers each seed's kind, and its state at each
+    /// sample time of the adverse phase.
+    let private runOne settings variant seed =
+        let rng = Random(seed)
+        let baseRate =
+            (Experiment4.getScenario Experiment4.livingWorldSettings 15.0)
+                .Parameters.BondTypeParameterMap[Strong].HydrolysisRate
+        let hot = getParameters variant settings.HotTemperature baseRate baseRate
+        let adverse =
+            getParameters variant settings.AdverseTemperature
+                settings.AdverseHydrolysisRate variant.ProtectedHydrolysisRate
+
+            // the living world's free atoms (or none), and the duplexes
+        let world =
+            if settings.HasFreeAtoms then
+                (Experiment4.getScenario Experiment4.livingWorldSettings 15.0).Build hot rng |> fst
+            else
+                World.createSquare 160
+        let world, seeds =
+            ((world, []), [ for _ in 1 .. settings.NumDuplexes do yield true; yield false ])
+                ||> List.fold (fun (world, seeds) isHairpinFormer ->
+                    let strand =
+                        if isHairpinFormer then settings.HairpinFormer else settings.NonFormer
+                    let world, idsA, idsB = addDuplex hot rng strand world
+                    world,
+                        { IsHairpinFormer = isHairpinFormer; AtomIds = idsA }
+                            :: { IsHairpinFormer = isHairpinFormer; AtomIds = Array.rev idsB }   // in order along the copy
+                            :: seeds)
+        let seeds = List.toArray seeds
+
+            // melt, then the adverse phase
+        let mutable world = World.sweep hot rng settings.HotSweeps world
+        let mutable elapsed = 0
+        let states =
+            [|
+                for time in settings.SampleTimes do
+                    world <- World.sweep adverse rng (time - elapsed) world
+                    elapsed <- time
+                    seeds |> Array.map (getState world)
+            |]
+        seeds |> Array.map _.IsHairpinFormer, states
+
+    /// Runs the experiment, prints a table of results, and writes them
+    /// to the given CSV file.
+    let run (settings : Settings) (csvPath : string) =
+
+        let combos =
+            [|
+                for variant in settings.Variants do
+                    for seed in 0 .. settings.NumRuns - 1 do
+                        variant, seed
+            |]
+
+            // run every combination in parallel
+        let mutable nDone = 0
+        let results =
+            combos
+                |> Array.Parallel.map (fun (variant, seed) ->
+                    let result = runOne settings variant seed
+                    let n = Interlocked.Increment(&nDone)
+                    eprintfn "Finished run %d of %d" n combos.Length
+                    variant, result)
+                |> Array.groupBy fst
+                |> Array.map (fun (variant, group) -> variant, Array.map snd group)
+                |> Map
+
+        let toText = Array.map string >> String.concat " "
+        printfn "Experiment 19: folding through an adverse phase"
+        printfn "Hairpin-former: %s; non-former: %s; %d duplexes of each (strand and copy) per run"
+            (toText settings.HairpinFormer) (toText settings.NonFormer) settings.NumDuplexes
+        printfn "Living world, strong barrier 15; hot phase kT %g for %d sweeps; then adverse phase kT %g, unprotected hydrolysis %g"
+            settings.HotTemperature settings.HotSweeps settings.AdverseTemperature settings.AdverseHydrolysisRate
+        printfn "%d runs of each variant%s" settings.NumRuns
+            (if settings.HasFreeAtoms then "" else "; no free atoms")
+
+        use writer = new StreamWriter(csvPath)
+        writer.WriteLine("kappa,protected_rate,kind,time,intact,folded,protected")
+        let invariant (x : float) = x.ToString(Globalization.CultureInfo.InvariantCulture)
+        for variant in settings.Variants do
+            let runs = results[variant]
+            printfn ""
+            printfn "Strong bend stiffness %g, protected hydrolysis rate %g in the adverse phase"
+                variant.BendStiffness variant.ProtectedHydrolysisRate
+            printfn "                 |------- hairpin-formers -------|   |-------- non-formers --------|"
+            printfn "  sweeps         intact   folded   protected        intact   folded   protected"
+            for iTime, time in Array.indexed settings.SampleTimes do
+                let summarize isHairpinFormer =
+                    let states =
+                        runs
+                            |> Array.collect (fun (kinds, states) ->
+                                Array.zip kinds states[iTime]
+                                    |> Array.where (fun (kind, _) -> kind = isHairpinFormer)
+                                    |> Array.map snd)
+                    let intact = states |> Array.averageBy (fun s -> if s.Intact then 1.0 else 0.0)
+                    let folded = states |> Array.averageBy (fun s -> if s.Folded then 1.0 else 0.0)
+                    let prot = states |> Array.averageBy _.Protected
+                    writer.WriteLine(
+                        String.Join(",",
+                            [ invariant variant.BendStiffness; invariant variant.ProtectedHydrolysisRate
+                              (if isHairpinFormer then "hairpin" else "non-former"); string time
+                              invariant intact; invariant folded; invariant prot ]))
+                    sprintf "%6.2f   %6.2f   %9.2f" intact folded prot
+                printfn "  %6d      %s      %s" time (summarize true) (summarize false)
+
+        printfn ""
+        printfn "Fractions of seeded strands (both strands of each duplex, followed separately)."
+        printfn "intact: all of its strong bonds present. folded: at least two weak bonds within it."
+        printfn "protected: mean fraction of its present strong bonds that are one side of a stack."
+        printfn "Results written to %s" (Path.GetFullPath csvPath)
