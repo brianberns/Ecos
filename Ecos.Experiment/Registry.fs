@@ -79,4 +79,11 @@ module Registry =
                         (Experiment17.getScenarios Experiment17.defaultSettings)
                         (Experiment17.getScenarios Experiment17.shortSettings)
             }
+            {
+                Name = "Experiment 19"
+                Scenarios =
+                    Array.append
+                        (Experiment19.getScenarios Experiment19.slowSettings)
+                        (Experiment19.getScenarios Experiment19.starvedSettings)
+            }
         |]

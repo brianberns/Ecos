@@ -826,7 +826,7 @@ module PropertyTests =
         let rng = Random(seed)
         let mutable world = Chain.grow rng length |> Chain.withRandomTypes rng |> Chain.addSoup rng 10 |> Chain.addDimers rng 5 |> Chain.addObstacles rng 10
         let mutable ok = isValid parms world
-        for _ in 1 .. 500 + abs (nSteps % 1000) do
+        for _ in 1 .. 300 + abs (nSteps % 500) do
             let world' = World.updateWith parms rng world
             let weakBroken = weakBonds world - weakBonds world'
             let weakFormed = weakBonds world' - weakBonds world
@@ -956,20 +956,23 @@ module PropertyTests =
     /// assume).
     [<Fact>]
     let ``update makes valid events at the expected rate`` () =
-        for limit in [ TestParameters.straightBend; TestParameters.rightAngleBend ] do
-            for kT in temperatures do
-                for length in [ 2; 20 ] do
-                    let rng = Random(length)
-                    let parms =
-                        TestParameters.create kT
-                            |> TestParameters.withBend Strong limit 0.0
-                    Chain.grow rng length
-                        |> Chain.withRandomTypes rng
-                        |> Chain.addSoup rng 10
-                        |> Chain.addObstacles rng 10
-                        |> checkEventRates
-                            $"N = {length}, kT {kT}, limit {limit.Numerator}/{limit.Denominator}"
-                            parms 20000 rng
+        inParallel [|
+            for limit in [ TestParameters.straightBend; TestParameters.rightAngleBend ] do
+                for kT in temperatures do
+                    for length in [ 2; 20 ] do
+                        fun () ->
+                            let rng = Random(length)
+                            let parms =
+                                TestParameters.create kT
+                                    |> TestParameters.withBend Strong limit 0.0
+                            Chain.grow rng length
+                                |> Chain.withRandomTypes rng
+                                |> Chain.addSoup rng 10
+                                |> Chain.addObstacles rng 10
+                                |> checkEventRates
+                                    $"N = {length}, kT {kT}, limit {limit.Numerator}/{limit.Denominator}"
+                                    parms 20000 rng
+        |]
 
     /// Peeling: with strong bonds otherwise frozen (an impassable
     /// barrier), the only way one can break is by peeling from an

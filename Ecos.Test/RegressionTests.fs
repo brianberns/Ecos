@@ -140,16 +140,25 @@ module RegressionTests =
             "stacking", stacking, ladderWorld, 2
         ]
 
+    /// Makes exactly the given number of updates to the given world. A
+    /// sweep makes the same updates as single updates do, with the same
+    /// random numbers, but without copying the world for each one, so
+    /// this sweeps as far as it can and makes the rest singly.
+    let private update parms rng nUpdates (world : World) =
+        let nAtoms = world.Atoms.Length
+        let mutable world = Ecos.World.sweep parms rng (nUpdates / nAtoms) world
+        for _ in 1 .. nUpdates % nAtoms do
+            world <- World.updateWith parms rng world
+        world
+
     /// Runs the given case and answers fingerprints of its world after
-    /// 10,000, 20,000 and 30,000 single updates, and then after 20
-    /// sweeps.
+    /// 10,000, 20,000 and 30,000 updates, and then after 20 more sweeps.
     let private runCase parms createWorld seed =
         let rng = Random(100 + seed)
         let mutable world = createWorld seed
         [
             for _ in 1 .. 3 do
-                for _ in 1 .. 10000 do
-                    world <- World.updateWith parms rng world
+                world <- update parms rng 10000 world
                 fingerprint world
             for _ in 1 .. 20 do
                 world <- Ecos.World.sweep parms rng 1 world
@@ -190,8 +199,13 @@ module RegressionTests =
     /// The model reproduces the recorded worlds exactly.
     [<Fact>]
     let ``Recorded worlds are reproduced exactly`` () =
-        for name, parms, createWorld, seed in cases do
-            Assert.Equal<string list>(expected[name, seed], runCase parms createWorld seed)
+        let actual =
+            cases
+                |> List.toArray
+                |> Array.Parallel.map (fun (_, parms, createWorld, seed) ->
+                    runCase parms createWorld seed)   // the cases are independent
+        for (name, _, _, seed), prints in Array.zip (List.toArray cases) actual do
+            Assert.Equal<string list>(expected[name, seed], prints)
 
     /// Updating a world never changes it: update and sweep answer a new
     /// world and leave the one they were given as it was. Several worlds

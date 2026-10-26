@@ -247,19 +247,15 @@ module Experiment19 =
                         / float present.Length
         }
 
-    /// Runs one world. Answers each seed's kind, and its state at each
-    /// sample time of the adverse phase.
-    let private runOne settings variant seed =
-        let rng = Random(seed)
+    /// Builds the given variant's world, as it is at the start of the
+    /// adverse phase: the living world's free atoms (or none), and the
+    /// seeded duplexes, melted by the hot phase. Answers the world and
+    /// the seeded strands.
+    let private buildMelted settings variant (rng : Random) =
         let baseRate =
             (Experiment4.getScenario Experiment4.livingWorldSettings 15.0)
                 .Parameters.BondTypeParameterMap[Strong].HydrolysisRate
         let hot = getParameters variant settings.HotTemperature baseRate baseRate
-        let adverse =
-            getParameters variant settings.AdverseTemperature
-                settings.AdverseHydrolysisRate variant.ProtectedHydrolysisRate
-
-            // the living world's free atoms (or none), and the duplexes
         let world =
             if settings.HasFreeAtoms then
                 (Experiment4.getScenario Experiment4.livingWorldSettings 15.0).Build hot rng |> fst
@@ -275,7 +271,39 @@ module Experiment19 =
                         { IsHairpinFormer = isHairpinFormer; AtomIds = idsA }
                             :: { IsHairpinFormer = isHairpinFormer; AtomIds = Array.rev idsB }   // in order along the copy
                             :: seeds)
-        let seeds = List.toArray seeds
+        World.sweep hot rng settings.HotSweeps world, List.toArray seeds
+
+    /// The adverse phase of the given variant, for the desktop app: its
+    /// world is built as it is at the start of the phase (see
+    /// buildMelted), with the seeded strands as its template, so that
+    /// they can be followed.
+    let getScenario settings variant =
+        let scenario =
+            Experiment4.getScenario Experiment4.livingWorldSettings 15.0
+                |> Scenario.withBend Strong Bend.rightAngle variant.BendStiffness
+                |> Scenario.withHydrolysisRate settings.AdverseHydrolysisRate
+                |> Scenario.withProtectedHydrolysisRate variant.ProtectedHydrolysisRate
+        let build _ rng =
+            let world, seeds = buildMelted settings variant rng
+            world, seeds |> Array.collect _.AtomIds
+        let where = if settings.HasFreeAtoms then "living world" else "starved"
+        { scenario with
+            Name = $"Adverse phase, {where}, protected rate {variant.ProtectedHydrolysisRate}"
+            Build = build
+            Schedule = Constant settings.AdverseTemperature }
+
+    /// The experiment's scenarios: one for each variant.
+    let getScenarios settings =
+        settings.Variants |> Array.map (getScenario settings)
+
+    /// Runs one world. Answers each seed's kind, and its state at each
+    /// sample time of the adverse phase.
+    let private runOne settings variant seed =
+        let rng = Random(seed)
+        let adverse =
+            getParameters variant settings.AdverseTemperature
+                settings.AdverseHydrolysisRate variant.ProtectedHydrolysisRate
+        let world, seeds = buildMelted settings variant rng
 
             // each seeded strand's strong bonds, as (smaller ID, larger ID)
         let seedOfBond =
@@ -306,8 +334,8 @@ module Experiment19 =
                         repairs[iSeed] <- repairs[iSeed] + 1
                 | _ -> ()
 
-            // melt, then the adverse phase
-        let mutable world = World.sweep hot rng settings.HotSweeps world
+            // the adverse phase
+        let mutable world = world
         let mutable elapsed = 0
         let states =
             [|
