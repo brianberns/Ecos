@@ -416,7 +416,6 @@ module Experiment3 =
                         let strong =
                             bonds[Strong]
                                 |> BondMap.remove idA idB
-                                |> BondMap.remove idB idA
                         BondTypeMap.setBondMap Strong strong bonds
                     joins.Add(getJoin template before idA idB)
                 | BreakBond (Strong, _, _) -> nBreaks <- nBreaks + 1

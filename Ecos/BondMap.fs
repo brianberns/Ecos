@@ -43,10 +43,17 @@ module BondMap =
             |> impl idA idB
             |> impl idB idA
 
-    /// Removes atom B from atom A's bond set.
-    let remove idA idB (bondMap : BondMap) : BondMap =
-        let ids = bondMap[idA].Remove(idB)
-        if ids.IsEmpty then
-            Map.remove idA bondMap
-        else
-            Map.add idA ids bondMap
+    /// Removes the bidirectional bond between the given atoms. If
+    /// bond does not exist, this is a no-op.
+    let remove idA idB bondMap =
+
+        let impl idA idB (bondMap : BondMap) : BondMap =
+            let ids = bondMap[idA].Remove(idB)
+            if ids.IsEmpty then
+                Map.remove idA bondMap
+            else
+                Map.add idA ids bondMap
+
+        bondMap
+            |> impl idA idB
+            |> impl idB idA
