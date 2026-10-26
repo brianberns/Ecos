@@ -53,8 +53,7 @@ module Validity =
     /// The given atom's partners by bonds of the given type.
     let partners bondType (world : World) id =
         world.BondTypeMap[bondType]
-            |> Map.tryFind id
-            |> Option.defaultValue Set.empty
+            |> BondMap.getBonds id
 
     /// Oracle: is the angle between the given atom's bonds of the given
     /// type allowed, with that type's bend limit in the given
@@ -112,7 +111,7 @@ module Validity =
             // sharply
         let strongBondsValid =
             (Bonds.strongBondMap world)
-                |> Map.forall (fun idA ids ->
+                |> BondMap.forall (fun idA ids ->
                     ids.Count <= Chain.strongValence world.Atoms[idA].Type
                         && anglesAreAllowed parms Strong world loc idA
                         && ids
@@ -124,7 +123,7 @@ module Validity =
             // no atom is listed with an empty set of bonds
         let bondSetsValid =
             world.BondTypeMap.BondMaps
-                |> Seq.forall (Map.forall (fun _ ids -> not ids.IsEmpty))
+                |> Seq.forall (BondMap.forall (fun _ ids -> not ids.IsEmpty))
 
             // no bond, strong or weak, crosses another
         let noCrossings =
@@ -137,7 +136,7 @@ module Validity =
             // strongly bonded
         let weakBondsValid =
             (Bonds.weakBondMap world)
-                |> Map.forall (fun idA ids ->
+                |> BondMap.forall (fun idA ids ->
                     ids
                         |> Set.forall (fun idB ->
                             Bonds.areWeaklyBonded world idB idA
@@ -151,7 +150,7 @@ module Validity =
             // never strongly bonded to each other
         let weakPartnersValid =
             (Bonds.weakBondMap world)
-                |> Map.forall (fun idA ids ->
+                |> BondMap.forall (fun idA ids ->
                     ids.Count <= 2
                         && (ids.Count < 2 || not (partners Strong world idA).IsEmpty)
                         && anglesAreAllowed parms Weak world loc idA

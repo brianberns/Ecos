@@ -104,8 +104,7 @@ module Experiment3 =
     /// The atoms that the given atom is bonded to.
     let getPartners bondType (world : World) id =
         world.BondTypeMap[bondType]
-            |> Map.tryFind id
-            |> Option.defaultValue Set.empty
+            |> BondMap.getBonds id
 
     /// All strands in the given world. An atom has at most two strong
     /// bonds, so every strand is either a chain or a ring.
@@ -348,8 +347,7 @@ module Experiment3 =
     /// The atoms that the given atom is bonded to, in the given bonds.
     let private partnersIn (bonds : BondTypeMap) bondType id =
         bonds[bondType]
-            |> Map.tryFind id
-            |> Option.defaultValue Set.empty
+            |> BondMap.getBonds id
 
     /// The atoms of the strand that the given atom belongs to. A free
     /// atom is a strand of one, for this purpose.

@@ -46,8 +46,7 @@ module PropertyOracles =
                                 |> Seq.forall (fun wall -> not (overlaps world newLoc wall))
                     let strongBondsOk =
                         (Bonds.strongBondMap world)
-                            |> Map.tryFind id
-                            |> Option.defaultValue Set.empty
+                            |> BondMap.getBonds id
                             |> Set.forall (fun idB ->
                                 isBondVector (disp newLoc idB))
                     let weakPartners = Bonds.weakPartners world id
@@ -107,9 +106,8 @@ module PropertyOracles =
     /// Number of strong bonds the given atom has.
     let strongBondCount (world : World) id =
         Bonds.strongBondMap world
-            |> Map.tryFind id
-            |> Option.map Set.count
-            |> Option.defaultValue 0
+            |> BondMap.getBonds id
+            |> Set.count
 
     /// Oracle: can the given atoms form a new strong bond? They must
     /// be in range, not both be caps, each have fewer strong bonds than

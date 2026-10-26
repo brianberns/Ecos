@@ -28,8 +28,8 @@ module BondTypeMap =
     /// Empty bond type map.
     let empty =
         {
-            StrongBondMap = Map.empty
-            WeakBondMap = Map.empty
+            StrongBondMap = BondMap.empty
+            WeakBondMap = BondMap.empty
         }
 
     /// Sets the given bond type's bond map.

@@ -4,19 +4,40 @@ namespace Ecos
 type AtomId = int
 
 /// Bidirectional bonds between atoms.
-type BondMap = Map<AtomId, Set<AtomId>>
+type BondMap =
+    private {
+        Data : Map<AtomId, Set<AtomId>>
+    }
+
+    member this.ContainsKey(id) =
+        this.Data.ContainsKey(id)
+
+    member this.Keys =
+        this.Data.Keys
+
+    member this.IsEmpty =
+        this.Data.IsEmpty
 
 module BondMap =
+
+    /// An empty bond map.
+    let empty = { Data = Map.empty }
+
+    let toSeq bondMap =
+        Map.toSeq bondMap.Data
+
+    let forall predicate bondMap =
+        Map.forall predicate bondMap.Data
 
     /// Answers the IDs of all atoms bonded with the given atom.
     let getBonds id (bondMap : BondMap) =
         let ids =
-            bondMap
+            bondMap.Data
                 |> Map.tryFind id
                 |> Option.defaultValue Set.empty
         assert(
             Seq.forall (fun idB ->
-                bondMap[idB].Contains(id))
+                bondMap.Data[idB].Contains(id))
                 ids)
         ids
 
@@ -34,10 +55,10 @@ module BondMap =
 
         let impl idA idB (bondMap : BondMap) : BondMap =
             let ids =
-                Map.tryFind idA bondMap
+                Map.tryFind idA bondMap.Data
                     |> Option.defaultValue Set.empty
                     |> Set.add idB
-            Map.add idA ids bondMap
+            { Data = Map.add idA ids bondMap.Data }
 
         bondMap
             |> impl idA idB
@@ -48,11 +69,11 @@ module BondMap =
     let remove idA idB bondMap =
 
         let impl idA idB (bondMap : BondMap) : BondMap =
-            let ids = bondMap[idA].Remove(idB)
+            let ids = bondMap.Data[idA].Remove(idB)
             if ids.IsEmpty then
-                Map.remove idA bondMap
+                { Data = Map.remove idA bondMap.Data }
             else
-                Map.add idA ids bondMap
+                { Data = Map.add idA ids bondMap.Data }
 
         bondMap
             |> impl idA idB
