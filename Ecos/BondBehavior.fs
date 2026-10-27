@@ -241,8 +241,7 @@ module private WeakBond =
             | AtomType.P, AtomType.Q -> true
             | _ -> false
 
-    /// Weak bond valence test. To have a second weak bond,
-    /// an atom must have at least one strong bond.
+    /// Weak bond valence test.
     let testValence atom (bondTypeMap : BondTypeMap) =
         let bonds = BondMap.getBonds atom.Id bondTypeMap[Weak]
         bonds.Count <= 1
