@@ -464,7 +464,7 @@ module World =
         let bondTypeMap =
             let bondMap =
                 world.BondTypeMap[bondType]
-                    |> BondMap.remove atomA.Id atomB.Id
+                    |> BondMap.removeBond atomA.Id atomB.Id
             BondTypeMap.setBondMap bondType bondMap world.BondTypeMap
 
             // enforce valence rules
