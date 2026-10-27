@@ -2,6 +2,10 @@ namespace Ecos
 
 open System
 
+/// Directional bond map.
+type BondDirectionMap =
+    Map<AtomId (*predecessor*), AtomId (*successor*)>
+
 /// A lattice world containing atoms bonded into molecules.
 /// Every atom occupies a 2x2 square around its central
 /// location on the lattice, so in the drawing below, the
@@ -28,8 +32,7 @@ type World =
         _BondTypeMap : BondTypeMap
 
         /// Direction of strong bonds.
-        BondDirectionMap :
-            Map<AtomId (*predecessor*), AtomId (*successor*)>
+        StrongBondDirectionMap : BondDirectionMap
     }
 
     /// Atoms in the world, indexed by their IDs.
@@ -78,7 +81,7 @@ module World =
         {
             AtomGrid = AtomGrid.create size
             _BondTypeMap = BondTypeMap.empty
-            BondDirectionMap = Map.empty
+            StrongBondDirectionMap = Map.empty
         }
 
     /// Creates an empty square world of the given size.
@@ -203,7 +206,7 @@ module World =
     /// Determines whether the atom with the given ID can
     /// become the predecessor in a new bond of the given type.
     let private testBondDirection
-        (bondType : BondType) idPred dirMap =
+        (bondType : BondType) idPred (dirMap : BondDirectionMap) =
         if bondType.IsStrong then
             Map.tryFind idPred dirMap   // is already the predecessor in another bond?
                 |> Option.isNone
@@ -213,7 +216,8 @@ module World =
     /// predecessor atom to the given successor atom in the
     /// given map.
     let private addBondDirection
-        (bondType : BondType) idPred idSucc dirMap =
+        (bondType : BondType) idPred idSucc (dirMap : BondDirectionMap)
+            : BondDirectionMap =
         if bondType.IsStrong then
             assert(Map.tryFind idPred dirMap |> Option.isNone)
             Map.add idPred idSucc dirMap
@@ -223,7 +227,8 @@ module World =
     /// given atoms in the given map, without assuming which
     /// one is the predecessor.
     let private removeBondDirection
-        (bondType : BondType) idA idB dirMap =
+        (bondType : BondType) idA idB (dirMap : BondDirectionMap)
+            : BondDirectionMap =
         if bondType.IsStrong then
             let idPred =
                 if Map.tryFind idA dirMap = Some idB then
@@ -241,6 +246,7 @@ module World =
 
             // get existing bond map
         let bondMap = world.BondTypeMap[bondType]
+        let dirMap = world.StrongBondDirectionMap
 
             // create bond provisionally                
         let bondTypeMap =
@@ -254,7 +260,6 @@ module World =
             let idsA = BondMap.getBonds atomA.Id bondMap
             let idsB = BondMap.getBonds atomB.Id bondMap
             let delta = getDisplacement atomA atomB world
-            let dirMap = world.BondDirectionMap
             let bendLimit = bondTypeParms.BendLimit
             behavior.AreCompatible atomA.Type atomB.Type
                 && not (areBonded atomA.Id atomB.Id world)
@@ -271,12 +276,11 @@ module World =
             // update world
         if isValid then
             let dirMap = 
-                addBondDirection
-                    bondType atomA.Id atomB.Id world.BondDirectionMap
+                addBondDirection bondType atomA.Id atomB.Id dirMap
             Some {
                 world with
                     _BondTypeMap = bondTypeMap
-                    BondDirectionMap = dirMap
+                    StrongBondDirectionMap = dirMap
             }
         else None
 
@@ -530,11 +534,11 @@ module World =
         if isValid then
             let dirMap =
                 removeBondDirection
-                    bondType atomA.Id atomB.Id world.BondDirectionMap
+                    bondType atomA.Id atomB.Id world.StrongBondDirectionMap
             Some {
                 world with
                     _BondTypeMap = bondTypeMap
-                    BondDirectionMap = dirMap
+                    StrongBondDirectionMap = dirMap
             }
         else None
 
