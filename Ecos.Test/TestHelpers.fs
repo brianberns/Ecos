@@ -201,7 +201,7 @@ module Bonds =
 
     /// The bonds in the given bond map, as (smaller ID, larger ID)
     /// pairs.
-    let private toPairs (bondMap : BondMap) =
+    let private toPairs bondMap =
         set [
             for idA, ids in BondMap.toSeq bondMap do
                 for idB in ids do

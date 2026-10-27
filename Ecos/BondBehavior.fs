@@ -4,10 +4,10 @@ namespace Ecos
 type BondTypeMap =
     {
         /// Strong-bond map.
-        StrongBondMap : BondMap
+        StrongBondMap : IBondMap
 
         /// Weak-bond map.
-        WeakBondMap : BondMap
+        WeakBondMap : IBondMap
     }
 
     /// Gets the bond map associated with the given bond type.
@@ -28,8 +28,8 @@ module BondTypeMap =
     /// Empty bond type map.
     let empty =
         {
-            StrongBondMap = BondMap.empty
-            WeakBondMap = BondMap.empty
+            StrongBondMap = StrongBondMap.empty
+            WeakBondMap = WeakBondMap.empty
         }
 
     /// Sets the given bond type's bond map.
@@ -71,7 +71,7 @@ type private BondBehavior =
 
         /// Determines whether the given bond of this type can
         /// peel.
-        TestPeel : Atom -> Atom -> BondMap -> bool
+        TestPeel : Atom -> Atom -> IBondMap -> bool
 
         /// Determines whether the given bond of this type is
         /// protected from normal hydrolysis.
