@@ -26,6 +26,10 @@ type World =
 
         /// Bonds between atoms in the world, by type.
         _BondTypeMap : BondTypeMap
+
+        /// Direction of strong bonds.
+        BondDirectionMap :
+            Map<AtomId (*predecessor*), AtomId (*successor*)>
     }
 
     /// Atoms in the world, indexed by their IDs.
@@ -72,8 +76,9 @@ module World =
         assert(size.X % 2 = 0)   // must be even because atoms are 2x2
         assert(size.Y % 2 = 0)
         {
-            _BondTypeMap = BondTypeMap.empty
             AtomGrid = AtomGrid.create size
+            _BondTypeMap = BondTypeMap.empty
+            BondDirectionMap = Map.empty
         }
 
     /// Creates an empty square world of the given size.
@@ -231,11 +236,24 @@ module World =
             Some { world with _BondTypeMap = bondTypeMap }
         else None
 
-    /// Adds a strong bond between the given atoms in the given
-    /// world if it is valid.
-    let tryAddStrongBond parms idA idB (world : World) =
-        tryAddBond Strong parms.BondTypeParameterMap[Strong]
-            world.Atoms[idA] world.Atoms[idB] world
+    /// Adds a bond direction from the given predecessor atom
+    /// to the given successor atom in the given world.
+    let private addBondDirection idPred idSucc world =
+        let dirMap = world.BondDirectionMap
+        assert(Map.tryFind idPred dirMap |> Option.isNone)
+        let dirMap = Map.add idPred idSucc dirMap
+        { world with BondDirectionMap = dirMap }
+
+    /// Adds a strong bond from the given predecessor atom to
+    /// the given successor atom in the given world if it is
+    /// valid.
+    let tryAddStrongBond parms idPred idSucc (world : World) =
+        let bondParms = parms.BondTypeParameterMap[Strong]
+        let atomPred = world.Atoms[idPred]
+        let atomSucc = world.Atoms[idSucc]
+        world
+            |> tryAddBond Strong bondParms atomPred atomSucc
+            |> Option.map (addBondDirection idPred idSucc)
 
     /// Adds a strong bond between the given atoms in the given
     /// world.
