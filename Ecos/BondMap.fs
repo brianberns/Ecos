@@ -10,23 +10,28 @@ module BondMap =
 
     /// Answers the IDs of all atoms bonded with the given atom.
     let getBonds id (bondMap : BondMap) =
-        let ids =
+
+        let impl id =
             bondMap
                 |> Map.tryFind id
                 |> Option.defaultValue Set.empty
-        assert(
-            Seq.forall (fun idB ->
-                bondMap[idB].Contains(id))
-                ids)
-        ids
+
+        let result = impl id
+        assert(Seq.forall (impl >> Set.contains id) result)
+        result
 
     /// Indicates whether the atoms with the given IDs are already
     /// bonded.
     let areBonded idA idB bondMap =
-        assert(
-            (getBonds idA bondMap).Contains(idB) =
-                (getBonds idB bondMap).Contains(idA))
-        (getBonds idA bondMap).Contains(idB)
+
+        let impl idA idB =
+            bondMap
+                |> getBonds idA
+                |> Set.contains idB
+
+        let result = impl idA idB
+        assert(impl idB idA = result)
+        result
 
     /// Creates a bidirectional bond between the given atoms. If
     /// the bond already exists, this is a no-op.
