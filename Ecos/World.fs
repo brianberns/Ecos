@@ -203,14 +203,72 @@ module World =
                                             (atomA, atomB) (atomC, atomD) world)
                     | _ -> false)
 
-    /// Determines whether the atom with the given ID can
-    /// become the predecessor in a new bond of the given type.
-    let private testBondDirection
-        (bondType : BondType) idPred (dirMap : BondDirectionMap) =
-        if bondType.IsStrong then
-            Map.tryFind idPred dirMap   // is already the predecessor in another bond?
-                |> Option.isNone
-        else true
+    /// Determines whether the given atom can become the
+    /// predecessor in a strong bond.
+    let private testStrongBondDirection atomPred world =
+        Map.tryFind atomPred.Id world.StrongBondDirectionMap   // is already the predecessor in another bond?
+            |> Option.isNone
+
+    /// Get a strand's tangent direction at the given atom, if
+    /// the atom is in a strong-bond strand.
+    ///
+    /// Pred ══ A ══ Succ   ══ strong bond
+    ///         |
+    ///         ↓
+    let private tryGetTangent atom (world : World) =
+
+            // find this atom's strand neighbors
+        let ids =
+            world.BondTypeMap[Strong]
+                |> BondMap.getBonds atom.Id
+        assert(ids.Count <= 2)
+
+            // atom is in a strand?
+        if ids.IsEmpty then
+            assert(
+                world.StrongBondDirectionMap.ContainsKey(atom.Id)
+                    |> not)
+            None
+        else
+            let idPred, idSucc =
+
+                    // atom has a successor?
+                match Map.tryFind atom.Id world.StrongBondDirectionMap with
+
+                        // yes: its other partner (if any) is its predecessor
+                    | Some idSucc ->
+                        assert(ids.Contains(idSucc))
+                        let idPred =
+                            ids.Remove(idSucc)
+                                |> Seq.tryExactlyOne
+                                |> Option.defaultValue atom.Id
+                        idPred, idSucc
+
+                        // no: its one partner must be its predecessor
+                    | None ->
+                        assert(ids.Count = 1)
+                        atom.Id, Seq.exactlyOne ids
+
+            assert(idPred <> idSucc)
+            let atomPred = world.Atoms[idPred]
+            let atomSucc = world.Atoms[idSucc]
+            Some (getDisplacement atomPred atomSucc world)
+
+    /// Pred ══ A ══ Succ   ══ strong bond
+    ///         ┆           ┆  weak bond
+    ///         B
+    let private testWeakBondDirection atomA atomB world =
+
+        let impl atomA atomB =
+            let tangentOpt = tryGetTangent atomA world
+            true
+                
+        impl atomA atomB && impl atomB atomA
+
+    let private testBondDirection bondType atomA atomB world =
+        match bondType with
+            | Strong -> testStrongBondDirection atomA world
+            | Weak -> testWeakBondDirection atomA atomB world
 
     /// Adds a bond direction, if necessary, from the given
     /// predecessor atom to the given successor atom in the
@@ -246,7 +304,6 @@ module World =
 
             // get existing bond map
         let bondMap = world.BondTypeMap[bondType]
-        let dirMap = world.StrongBondDirectionMap
 
             // create bond provisionally                
         let bondTypeMap =
@@ -266,7 +323,7 @@ module World =
                 && Neighborhood.testBond delta behavior.Neighborhood
                 && behavior.TestValence atomA bondTypeMap
                 && behavior.TestValence atomB bondTypeMap
-                && testBondDirection bondType atomA.Id dirMap
+                && testBondDirection bondType atomA atomB world
                 && not (isCrossBond behavior atomA atomB world)
                 && Bend.testMany
                     behavior bendLimit world.AtomGrid atomA atomB idsA
@@ -275,8 +332,9 @@ module World =
 
             // update world
         if isValid then
-            let dirMap = 
-                addBondDirection bondType atomA.Id atomB.Id dirMap
+            let dirMap =
+                world.StrongBondDirectionMap
+                    |> addBondDirection bondType atomA.Id atomB.Id
             Some {
                 world with
                     _BondTypeMap = bondTypeMap
