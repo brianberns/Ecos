@@ -128,15 +128,14 @@ module Experiment2 =
     /// among the given atoms.
     let private getPartners (candidates : Set<AtomId>) (bonds : BondTypeMap) id =
         bonds[Weak]
-            |> Map.tryFind id
-            |> Option.defaultValue Set.empty
+            |> BondMap.getBonds id
             |> Set.intersect candidates
 
     /// Indicates whether the given atoms are strongly bonded.
     let private areStronglyBonded (bonds : BondTypeMap) idA idB =
         bonds[Strong]
-            |> Map.tryFind idA
-            |> Option.exists (Set.contains idB)
+            |> BondMap.getBonds idA
+            |> Set.contains idB
 
     /// Indicates whether the given atoms are weakly bonded to template
     /// atoms that are strongly bonded to each other.
@@ -180,8 +179,7 @@ module Experiment2 =
             | id :: rest ->
                 let partners =
                     strongBondMap
-                        |> Map.tryFind id
-                        |> Option.defaultValue Set.empty
+                        |> BondMap.getBonds id
                         |> Seq.where atoms.Contains
                         |> Seq.toList
                 visit (seen.Add id) (partners @ rest)

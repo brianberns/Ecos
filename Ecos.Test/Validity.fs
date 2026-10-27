@@ -53,8 +53,7 @@ module Validity =
     /// The given atom's partners by bonds of the given type.
     let partners bondType (world : World) id =
         world.BondTypeMap[bondType]
-            |> Map.tryFind id
-            |> Option.defaultValue Set.empty
+            |> BondMap.getBonds id
 
     /// Oracle: is the angle between the given atom's bonds of the given
     /// type allowed, with that type's bend limit in the given

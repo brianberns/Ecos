@@ -187,8 +187,7 @@ module Bonds =
     /// The given atom's weak bond partners.
     let weakPartners (world : World) id =
         weakBondMap world
-            |> Map.tryFind id
-            |> Option.defaultValue Set.empty
+            |> BondMap.getBonds id
 
     /// Are the given atoms weakly bonded?
     let areWeaklyBonded (world : World) idA idB =
@@ -197,8 +196,8 @@ module Bonds =
     /// Are the given atoms strongly bonded?
     let areStronglyBonded (world : World) idA idB =
         strongBondMap world
-            |> Map.tryFind idA
-            |> Option.exists (Set.contains idB)
+            |> BondMap.getBonds idA
+            |> Set.contains idB
 
     /// The bonds in the given bond map, as (smaller ID, larger ID)
     /// pairs.
@@ -445,8 +444,7 @@ module Chain =
         let strongBondMap = Bonds.strongBondMap world
         let strongPartners id =
             strongBondMap
-                |> Map.tryFind id
-                |> Option.defaultValue Set.empty
+                |> BondMap.getBonds id
         let pick (types : AtomType[]) = types[rng.Next types.Length]
 
             // choose types in ID order
