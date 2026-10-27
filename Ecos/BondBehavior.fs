@@ -123,7 +123,7 @@ module private BondBehavior =
                     .Remove(other.Id)
                     .IsEmpty)
 
-module private StrongBond =
+module private StrongBondBehavior =
 
     /// All normalized strong bond vectors.
     let neighborhood : Neighborhood =
@@ -196,8 +196,8 @@ module private StrongBond =
     let testHydrolysisProtection atomA atomB bondTypeMap =
         countStacks atomA atomB bondTypeMap > 0
 
-    /// Behavior of strong bonds.
-    let behavior =
+    /// Standard behavior of strong bonds.
+    let standard =
         {
             Neighborhood = neighborhood
             Deltas = deltas
@@ -210,7 +210,7 @@ module private StrongBond =
             TestHydrolysisProtection = testHydrolysisProtection
         }
 
-module private WeakBond =
+module private WeakBondBehavior =
 
     /// All normalized weak bond vectors.
     let neighborhood : Neighborhood =
@@ -287,8 +287,8 @@ module private WeakBond =
     let testHydrolysisProtection _atomA _atomB _bondTypeMap =
         false
 
-    /// Behavior of weak bonds.
-    let behavior =
+    /// Standard behavior of weak bonds.
+    let standard =
         {
             Neighborhood = neighborhood
             Deltas = deltas
@@ -322,6 +322,6 @@ module private BehaviorMap =
     /// Standard behavior of each bond type.
     let standard =
         {
-            StrongBehavior = StrongBond.behavior
-            WeakBehavior = WeakBond.behavior
+            StrongBehavior = StrongBondBehavior.standard
+            WeakBehavior = WeakBondBehavior.standard
         }
