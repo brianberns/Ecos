@@ -200,6 +200,40 @@ module World =
                                             (atomA, atomB) (atomC, atomD) world)
                     | _ -> false)
 
+    /// Determines whether the atom with the given ID can
+    /// become the predecessor in a new bond of the given type.
+    let private testBondDirection
+        (bondType : BondType) idPred dirMap =
+        if bondType.IsStrong then
+            Map.tryFind idPred dirMap   // is already the predecessor in another bond?
+                |> Option.isNone
+        else true
+
+    /// Adds a bond direction, if necessary, from the given
+    /// predecessor atom to the given successor atom in the
+    /// given map.
+    let private addBondDirection
+        (bondType : BondType) idPred idSucc dirMap =
+        if bondType.IsStrong then
+            assert(Map.tryFind idPred dirMap |> Option.isNone)
+            Map.add idPred idSucc dirMap
+        else dirMap
+
+    /// Removes the bond direction, if necessary, between the
+    /// given atoms in the given map, without assuming which
+    /// one is the predecessor.
+    let private removeBondDirection
+        (bondType : BondType) idA idB dirMap =
+        if bondType.IsStrong then
+            let idPred =
+                if Map.tryFind idA dirMap = Some idB then
+                    idA
+                else
+                    assert(Map.tryFind idB dirMap = Some idA)
+                    idB
+            Map.remove idPred dirMap
+        else dirMap
+
     /// Adds a bond of the given type between the given atoms in
     /// the given world if it is valid.
     let private tryAddBond
@@ -220,54 +254,38 @@ module World =
             let idsA = BondMap.getBonds atomA.Id bondMap
             let idsB = BondMap.getBonds atomB.Id bondMap
             let delta = getDisplacement atomA atomB world
+            let dirMap = world.BondDirectionMap
             let bendLimit = bondTypeParms.BendLimit
             behavior.AreCompatible atomA.Type atomB.Type
                 && not (areBonded atomA.Id atomB.Id world)
                 && Neighborhood.testBond delta behavior.Neighborhood
                 && behavior.TestValence atomA bondTypeMap
                 && behavior.TestValence atomB bondTypeMap
+                && testBondDirection bondType atomA.Id dirMap
                 && not (isCrossBond behavior atomA atomB world)
                 && Bend.testMany
                     behavior bendLimit world.AtomGrid atomA atomB idsA
                 && Bend.testMany
                     behavior bendLimit world.AtomGrid atomB atomA idsB
 
+            // update world
         if isValid then
-            Some { world with _BondTypeMap = bondTypeMap }
+            let dirMap = 
+                addBondDirection
+                    bondType atomA.Id atomB.Id world.BondDirectionMap
+            Some {
+                world with
+                    _BondTypeMap = bondTypeMap
+                    BondDirectionMap = dirMap
+            }
         else None
-
-    /// Adds a bond direction from the given predecessor atom
-    /// to the given successor atom in the given world.
-    let private addBondDirection idPred idSucc world =
-        let dirMap = world.BondDirectionMap
-        assert(Map.tryFind idPred dirMap |> Option.isNone)
-        let dirMap = Map.add idPred idSucc dirMap
-        { world with BondDirectionMap = dirMap }
-
-    /// Removes the bond direction between the given atoms in
-    /// the given world, without assuming which one is the
-    /// predecessor.
-    let private removeBondDirection idA idB world =
-        let dirMap = world.BondDirectionMap
-        let idPred =
-            if Map.tryFind idA dirMap = Some idB then
-                idA
-            else
-                assert(Map.tryFind idB dirMap = Some idA)
-                idB
-        let dirMap = Map.remove idPred dirMap
-        { world with BondDirectionMap = dirMap }
 
     /// Adds a strong bond from the given predecessor atom to
     /// the given successor atom in the given world if it is
     /// valid.
     let tryAddStrongBond parms idPred idSucc (world : World) =
-        let bondParms = parms.BondTypeParameterMap[Strong]
-        let atomPred = world.Atoms[idPred]
-        let atomSucc = world.Atoms[idSucc]
-        world
-            |> tryAddBond Strong bondParms atomPred atomSucc
-            |> Option.map (addBondDirection idPred idSucc)
+        tryAddBond Strong parms.BondTypeParameterMap[Strong]
+            world.Atoms[idPred] world.Atoms[idSucc] world
 
     /// Adds a strong bond between the given atoms in the given
     /// world.
@@ -508,16 +526,16 @@ module World =
                     behavior.TestValence atomA bondTypeMap
                         && behavior.TestValence atomB bondTypeMap)
 
+            // update world
         if isValid then
-
-                // remove bond direction?
-            let world =
-                if bondType.IsStrong then
-                    removeBondDirection atomA.Id atomB.Id world
-                else world
-
-            Some { world with _BondTypeMap = bondTypeMap }
-
+            let dirMap =
+                removeBondDirection
+                    bondType atomA.Id atomB.Id world.BondDirectionMap
+            Some {
+                world with
+                    _BondTypeMap = bondTypeMap
+                    BondDirectionMap = dirMap
+            }
         else None
 
     /// Attempts to toggle a bond of the given type between
