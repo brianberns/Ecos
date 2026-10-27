@@ -15,6 +15,7 @@ open System
 /// * Metropolis dynamics
 /// * Pairing of complementary strands
 /// * Stacking of bonded pairs (a la DNA)
+/// * Hydrolysis that breaks bonds
 ///
 /// Walls are immovable obstacles, each the size of an atom.
 type World =
@@ -79,13 +80,6 @@ module World =
     let createSquare size =
         create (Point.create(size, size))
 
-    /// Creates a copy of the given world with its own mutable
-    /// data structures. This is used to protect against mutating
-    /// shared data unexpectedly.
-    let private copy world =
-        { world with
-            AtomGrid = AtomGrid.copy world.AtomGrid }
-
     /// Moore neighborhood deltas, including center.
     let private mooreDeltas =
         [|
@@ -102,6 +96,13 @@ module World =
                     | Cell.Atom id -> Some id = idOpt   // an atom can occupy its own location
                     | Cell.Wall -> false
                     | Cell.Empty -> true)
+
+    /// Creates a copy of the given world with its own mutable
+    /// data structures. Public-facign functions call this to
+    /// protect against mutating shared data unexpectedly.
+    let private copy world =
+        { world with
+            AtomGrid = AtomGrid.copy world.AtomGrid }
 
     /// Adds an atom with the given attributes to the given world
     /// if it is valid.
