@@ -245,13 +245,7 @@ module private WeakBond =
     /// an atom must have at least one strong bond.
     let testValence atom (bondTypeMap : BondTypeMap) =
         let bonds = BondMap.getBonds atom.Id bondTypeMap[Weak]
-        match bonds.Count with
-            | 0 | 1 -> true
-            | 2 ->
-                let strongIds =
-                    BondMap.getBonds atom.Id bondTypeMap[Strong]
-                strongIds.Count > 0
-            | _ -> false
+        bonds.Count <= 1
 
     /// Counts stacks affected by the given (existing or 
     /// proposed) weak bond:
