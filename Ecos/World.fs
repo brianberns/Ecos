@@ -447,19 +447,20 @@ module World =
                                 behavior bendLimit world.AtomGrid
                                 atomB atom atomC))
 
-    /// Test directions of the given atoms' bonds.
-    let private testBondDirections
-        bondType (partnerIds : _[]) atom (world : World) =
-        match bondType with
-            | Strong ->
-                seq {
-                    yield atom.Id
-                    yield! partnerIds
-                }
-                    |> Seq.forall (fun idB ->
-                        let atomB = world.Atoms[idB]
-                        testBondDirection Weak atom atomB world)
-            | Weak -> true
+    /// Tests directions of the given atoms' bonds.
+    let private testBondDirections atom (world : World) =
+        let strongBondMap = world.BondTypeMap[Strong]
+        let weakBondMap = world.BondTypeMap[Weak]
+        seq {
+            yield atom.Id
+            yield! BondMap.getBonds atom.Id strongBondMap
+        }
+            |> Seq.forall (fun idStrong ->
+                let atomStrong = world.Atoms[idStrong]
+                BondMap.getBonds idStrong weakBondMap
+                    |> Seq.forall (fun idWeak ->
+                        let atomWeak = world.Atoms[idWeak]
+                        testBondDirection Weak atom atomWeak world))
 
     /// Determines whether the given atom's bonds are valid.
     let private testBonds parms atom (world : World) =
@@ -490,9 +491,10 @@ module World =
                             behavior bendLimit atom partnerIds world
                             && testPeripheralBonds
                                 behavior bendLimit atom bondMap partnerIds world
-                            && testBondDirections
-                                bondType partnerIds atom world
                     else false)
+
+                // test bond directions
+            && testBondDirections atom world
 
     /// Applies the Metropolis rule:
     /// * A move that lowers the energy, or leaves it unchanged,
