@@ -283,21 +283,21 @@ module World =
 
     /// Adds a bond direction, if necessary, from the given
     /// predecessor atom to the given successor atom in the
-    /// given map.
+    /// given world.
     let private addBondDirection
-        (bondType : BondType) idPred idSucc (dirMap : BondDirectionMap)
-            : BondDirectionMap =
+        (bondType : BondType) idPred idSucc world : BondDirectionMap =
+        let dirMap = world.StrongBondDirectionMap
         if bondType.IsStrong then
             assert(Map.tryFind idPred dirMap |> Option.isNone)
             Map.add idPred idSucc dirMap
         else dirMap
 
     /// Removes the bond direction, if necessary, between the
-    /// given atoms in the given map, without assuming which
+    /// given atoms in the given world, without assuming which
     /// one is the predecessor.
     let private removeBondDirection
-        (bondType : BondType) idA idB (dirMap : BondDirectionMap)
-            : BondDirectionMap =
+        (bondType : BondType) idA idB world  : BondDirectionMap =
+        let dirMap = world.StrongBondDirectionMap
         if bondType.IsStrong then
             let idPred =
                 if Map.tryFind idA dirMap = Some idB then
@@ -344,8 +344,7 @@ module World =
             // update world
         if isValid then
             let dirMap =
-                world.StrongBondDirectionMap
-                    |> addBondDirection bondType atomA.Id atomB.Id
+                addBondDirection bondType atomA.Id atomB.Id world
             Some {
                 world with
                     _BondTypeMap = bondTypeMap
@@ -620,8 +619,7 @@ module World =
             // update world
         if isValid then
             let dirMap =
-                removeBondDirection
-                    bondType atomA.Id atomB.Id world.StrongBondDirectionMap
+                removeBondDirection bondType atomA.Id atomB.Id world
             Some {
                 world with
                     _BondTypeMap = bondTypeMap
