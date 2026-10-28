@@ -624,6 +624,8 @@ module World =
                     let behavior = BehaviorMap.standard[bondType]
                     behavior.TestValence atomA bondTypeMap
                         && behavior.TestValence atomB bondTypeMap)
+                && testBondDirections atomA world
+                && testBondDirections atomB world
 
             // update world
         if isValid then
