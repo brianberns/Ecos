@@ -203,46 +203,33 @@ module World =
                                             (atomA, atomB) (atomC, atomD) world)
                     | _ -> false)
 
-    /// Get a strand's tangent direction at the given atom, if
-    /// the atom is in a strong-bond strand.
+    /// Gets a strong-bond strand's tangent direction at the given
+    /// atom, if it exists.
     ///
     /// Pred ══ A ══ Succ   ══ strong bond
     ///    --tangent->
     let private tryGetTangent atom (world : World) =
 
-            // find this atom's strand neighbors
+            // get this atom's strand partners
         let ids =
-            world.BondTypeMap[Strong]
-                |> BondMap.getBonds atom.Id
+            BondMap.getBonds atom.Id world.BondTypeMap[Strong]
         assert(ids.Count <= 2)
 
-            // atom is in a strand?
-        let dirMap = world.StrongBondDirectionMap
-        if ids.IsEmpty then
-            assert(dirMap.ContainsKey(atom.Id) |> not)
-            None
+            // tangent is the sum of the atom's strong-bond vectors
+        if ids.IsEmpty then None
         else
-            let idPred, idSucc =
-                match Map.tryFind atom.Id dirMap with
-
-                        // atom has a successor, so its other partner (if any) is its predecessor
-                    | Some idSucc ->
-                        assert(ids.Contains(idSucc))
-                        let idPred =
-                            ids.Remove(idSucc)
-                                |> Seq.tryExactlyOne
-                                |> Option.defaultValue atom.Id
-                        idPred, idSucc
-
-                        // atom has no successor, so its one partner must be its predecessor
-                    | None ->
-                        assert(ids.Count = 1)
-                        Seq.exactlyOne ids, atom.Id
-
-            assert(idPred <> idSucc)
-            let atomPred = world.Atoms[idPred]
-            let atomSucc = world.Atoms[idSucc]
-            Some (getDisplacement atomPred atomSucc world)
+                // get this atom's successor, if any
+            let succOpt =
+                Map.tryFind atom.Id world.StrongBondDirectionMap
+            ids
+                |> Seq.map (fun id ->
+                    let partner = world.Atoms[id]
+                    if succOpt = Some id then
+                        getDisplacement atom partner world    // A -> successor
+                    else
+                        getDisplacement partner atom world)   // predecessor -> A
+                |> Seq.reduce (+)
+                |> Some
 
     /// Determines whether the first given atom can become or
     /// remain the predecessor of the second atom in a strong
