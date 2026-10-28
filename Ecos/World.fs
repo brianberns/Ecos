@@ -237,7 +237,7 @@ module World =
                         // atom has no successor, so its one partner must be its predecessor
                     | None ->
                         assert(ids.Count = 1)
-                        atom.Id, Seq.exactlyOne ids
+                        Seq.exactlyOne ids, atom.Id
 
             assert(idPred <> idSucc)
             let atomPred = world.Atoms[idPred]
