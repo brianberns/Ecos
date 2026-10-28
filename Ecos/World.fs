@@ -213,8 +213,7 @@ module World =
     /// the atom is in a strong-bond strand.
     ///
     /// Pred ══ A ══ Succ   ══ strong bond
-    ///         |
-    ///         ↓
+    ///    --tangent->
     let private tryGetTangent atom (world : World) =
 
             // find this atom's strand neighbors
@@ -224,18 +223,15 @@ module World =
         assert(ids.Count <= 2)
 
             // atom is in a strand?
+        let dirMap = world.StrongBondDirectionMap
         if ids.IsEmpty then
-            assert(
-                world.StrongBondDirectionMap.ContainsKey(atom.Id)
-                    |> not)
+            assert(dirMap.ContainsKey(atom.Id) |> not)
             None
         else
             let idPred, idSucc =
+                match Map.tryFind atom.Id dirMap with
 
-                    // atom has a successor?
-                match Map.tryFind atom.Id world.StrongBondDirectionMap with
-
-                        // yes: its other partner (if any) is its predecessor
+                        // atom has a successor, so its other partner (if any) is its predecessor
                     | Some idSucc ->
                         assert(ids.Contains(idSucc))
                         let idPred =
@@ -244,7 +240,7 @@ module World =
                                 |> Option.defaultValue atom.Id
                         idPred, idSucc
 
-                        // no: its one partner must be its predecessor
+                        // atom has no successor, so its one partner must be its predecessor
                     | None ->
                         assert(ids.Count = 1)
                         atom.Id, Seq.exactlyOne ids
@@ -254,14 +250,18 @@ module World =
             let atomSucc = world.Atoms[idSucc]
             Some (getDisplacement atomPred atomSucc world)
 
+    ///     Strand face
+    ///         ↑
+    ///         |
     /// Pred ══ A ══ Succ   ══ strong bond
-    ///         ┆           ┆  weak bond
-    ///         B
     let private testWeakBondDirection atomA atomB world =
 
         let impl atomA atomB =
-            let tangentOpt = tryGetTangent atomA world
-            true
+            tryGetTangent atomA world
+                |> Option.map (fun tangent ->
+                    let delta = getDisplacement atomA atomB world
+                    tangent *^ delta > 0)   // B is on the strand face?
+                |> Option.defaultValue true
                 
         impl atomA atomB && impl atomB atomA
 
