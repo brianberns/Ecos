@@ -246,11 +246,19 @@ module World =
 
     /// Determines whether the first given atom can become or
     /// remain the predecessor of the second atom in a strong
-    /// bond.
+    /// bond, and the second atom can become or remain the
+    /// successor of the first atom.
     let private testStrongBondDirection atomA atomB world =
         let succIdOpt =
             Map.tryFind atomA.Id world.StrongBondDirectionMap
-        succIdOpt.IsNone || succIdOpt = Some atomB.Id
+        if succIdOpt.IsNone || succIdOpt = Some atomB.Id then   // if A has a successor, it must be be B
+            world.BondTypeMap[Strong]
+                |> BondMap.getBonds atomB.Id
+                |> Set.remove atomA.Id
+                |> Seq.forall (fun id ->                        // if B has a predecessor, it must be A
+                    Map.tryFind id world.StrongBondDirectionMap
+                        <> Some atomB.Id)
+        else false
 
     /// Determines whether the two given atoms can become or
     /// remain weak-bonded based on the direction of that bond
@@ -289,6 +297,7 @@ module World =
         let dirMap = world.StrongBondDirectionMap
         if bondType.IsStrong then
             assert(Map.tryFind idPred dirMap |> Option.isNone)
+            assert(dirMap.Values |> Seq.forall ((<>) idSucc))
             Map.add idPred idSucc dirMap
         else dirMap
 
