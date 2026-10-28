@@ -203,13 +203,6 @@ module World =
                                             (atomA, atomB) (atomC, atomD) world)
                     | _ -> false)
 
-    /// Determines whether the first given atom is or can become
-    /// the predecessor of the second atom in a strong bond.
-    let private testStrongBondDirection atomA atomB world =
-        let succIdOpt =
-            Map.tryFind atomA.Id world.StrongBondDirectionMap
-        succIdOpt.IsNone || succIdOpt = Some atomB.Id
-
     /// Get a strand's tangent direction at the given atom, if
     /// the atom is in a strong-bond strand.
     ///
@@ -251,11 +244,19 @@ module World =
             let atomSucc = world.Atoms[idSucc]
             Some (getDisplacement atomPred atomSucc world)
 
-    /// Determines whether the two given atoms are or can become
-    /// weak-bonded based on the direction of that bond relative
-    /// to the atoms' strong-bond strands. This ensures that
-    /// such pairing occurs only on one side of the strand (its
-    /// "face").
+    /// Determines whether the first given atom can become or
+    /// remain the predecessor of the second atom in a strong
+    /// bond.
+    let private testStrongBondDirection atomA atomB world =
+        let succIdOpt =
+            Map.tryFind atomA.Id world.StrongBondDirectionMap
+        succIdOpt.IsNone || succIdOpt = Some atomB.Id
+
+    /// Determines whether the two given atoms can become or
+    /// remain weak-bonded based on the direction of that bond
+    /// relative to the atoms' strong-bond strands. This ensures
+    /// that such pairing occurs only on one side of the strand
+    /// (its "face").
     ///
     ///     Strand face
     ///         ↑
@@ -272,6 +273,9 @@ module World =
                 
         impl atomA atomB && impl atomB atomA
 
+    /// Determines whether the two given atoms can become or
+    /// remain bonded based on the directions of their strong-bond
+    /// strands.
     let private testBondDirection bondType atomA atomB world =
         match bondType with
             | Strong -> testStrongBondDirection atomA atomB world
