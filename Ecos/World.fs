@@ -251,6 +251,12 @@ module World =
             let atomSucc = world.Atoms[idSucc]
             Some (getDisplacement atomPred atomSucc world)
 
+    /// Determines whether the two given atoms are or can become
+    /// weak-bonded based on the direction of that bond relative
+    /// to the atoms' strong-bond strands. This ensures that
+    /// such pairing occurs only on one side of the strand (its
+    /// "face").
+    ///
     ///     Strand face
     ///         ↑
     ///         |
