@@ -253,10 +253,9 @@ module World =
     /// that such pairing occurs only on one side of the strand
     /// (its "face").
     ///
-    ///     Strand face
-    ///         ↑
-    ///         |
-    /// Pred ══ A ══ Succ   ══ strong bond
+    ///         B           ══ strong bond
+    ///         ┆           ┆  weak bond
+    /// Pred ══ A ══ Succ
     let private testWeakBondDirection atomA atomB world =
 
         let impl atomA atomB =
