@@ -203,11 +203,12 @@ module World =
                                             (atomA, atomB) (atomC, atomD) world)
                     | _ -> false)
 
-    /// Determines whether the given atom can become the
-    /// predecessor in a strong bond.
-    let private testStrongBondDirection atomPred world =
-        Map.tryFind atomPred.Id world.StrongBondDirectionMap   // is already the predecessor in another bond?
-            |> Option.isNone
+    /// Determines whether the first given atom is or can become
+    /// the predecessor of the second atom in a strong bond.
+    let private testStrongBondDirection atomA atomB world =
+        let succIdOpt =
+            Map.tryFind atomA.Id world.StrongBondDirectionMap
+        succIdOpt.IsNone || succIdOpt = Some atomB.Id
 
     /// Get a strand's tangent direction at the given atom, if
     /// the atom is in a strong-bond strand.
@@ -267,7 +268,7 @@ module World =
 
     let private testBondDirection bondType atomA atomB world =
         match bondType with
-            | Strong -> testStrongBondDirection atomA world
+            | Strong -> testStrongBondDirection atomA atomB world
             | Weak -> testWeakBondDirection atomA atomB world
 
     /// Adds a bond direction, if necessary, from the given
