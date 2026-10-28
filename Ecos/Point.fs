@@ -92,7 +92,14 @@ type Point =
     static member (.*)(a, b) =
         (a.X * b.X) + (a.Y * b.Y)
 
-    /// Cross product.
+    /// Cross product. A positive value indicates that `b` is
+    /// counterclockwise from `a` (on the left, looking along
+    /// `a`), a negative value indicates that `b` is counter-
+    /// clockwise from `a`, and zero indicates that the two
+    /// vectors are parallel or anti-parallel. (The scalar value
+    /// is actually the z-coordinate of a vector perpendicular
+    /// to the 2D plane of the two vectors, but we don't use
+    /// it for that purpose.) 
     static member ( *^)(a, b) =
         (a.X * b.Y) - (a.Y * b.X)
 

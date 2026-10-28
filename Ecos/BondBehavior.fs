@@ -80,8 +80,8 @@ type private BondBehavior =
 
 module private BondBehavior =
 
-    /// Determines orientation of the path connecting
-    /// the given points (a-b-c):
+    /// Determines orientation of the path connecting the given
+    /// points (a-b-c):
     /// * Positive: left turn
     /// * Negative: right turn
     let private orient (a : Point) (b : Point) (c : Point) =
