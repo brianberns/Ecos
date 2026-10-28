@@ -447,6 +447,20 @@ module World =
                                 behavior bendLimit world.AtomGrid
                                 atomB atom atomC))
 
+    /// Test directions of the given atoms' bonds.
+    let private testBondDirections
+        bondType (partnerIds : _[]) atom (world : World) =
+        match bondType with
+            | Strong ->
+                seq {
+                    yield atom.Id
+                    yield! partnerIds
+                }
+                    |> Seq.forall (fun idB ->
+                        let atomB = world.Atoms[idB]
+                        testBondDirection Weak atom atomB world)
+            | Weak -> true
+
     /// Determines whether the given atom's bonds are valid.
     let private testBonds parms atom (world : World) =
         BondType.all
@@ -476,6 +490,8 @@ module World =
                             behavior bendLimit atom partnerIds world
                             && testPeripheralBonds
                                 behavior bendLimit atom bondMap partnerIds world
+                            && testBondDirections
+                                bondType partnerIds atom world
                     else false)
 
     /// Applies the Metropolis rule:
