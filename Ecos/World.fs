@@ -257,23 +257,11 @@ module World =
     ///         ┆           ┆  weak bond
     /// Pred ══ A ══ Succ
     let private testWeakBondDirection atomA atomB world =
-
-        let impl atomA atomB =
-            tryGetTangent atomA world
-                |> Option.map (fun tangent ->
-                    let delta = getDisplacement atomA atomB world
-                    tangent *^ delta > 0)   // B is on the strand face?
-                |> Option.defaultValue true
-                
-        impl atomA atomB && impl atomB atomA
-
-    /// Determines whether the two given atoms can become or
-    /// remain bonded based on the directions of their strong-bond
-    /// strands.
-    let private testBondDirection bondType atomA atomB world =
-        match bondType with
-            | Strong -> testStrongBondDirection atomA atomB world
-            | Weak -> testWeakBondDirection atomA atomB world
+        tryGetTangent atomA world
+            |> Option.map (fun tangent ->
+                let delta = getDisplacement atomA atomB world
+                tangent *^ delta > 0)   // B is on the strand face?
+            |> Option.defaultValue true
 
     /// Adds a bond direction, if necessary, from the given
     /// predecessor atom to the given successor atom in the
@@ -329,7 +317,6 @@ module World =
                 && Neighborhood.testBond delta behavior.Neighborhood
                 && behavior.TestValence atomA bondTypeMap
                 && behavior.TestValence atomB bondTypeMap
-                && testBondDirection bondType atomA atomB world
                 && not (isCrossBond behavior atomA atomB world)
                 && Bend.testMany
                     behavior bendLimit world.AtomGrid atomA atomB idsA
@@ -441,21 +428,6 @@ module World =
                                 behavior bendLimit world.AtomGrid
                                 atomB atom atomC))
 
-    /// Tests directions of the given atoms' bonds.
-    let private testBondDirections atom (world : World) =
-        let strongBondMap = world.BondTypeMap[Strong]
-        let weakBondMap = world.BondTypeMap[Weak]
-        seq {
-            yield atom.Id
-            yield! BondMap.getBonds atom.Id strongBondMap
-        }
-            |> Seq.forall (fun idStrong ->
-                let atomStrong = world.Atoms[idStrong]
-                BondMap.getBonds idStrong weakBondMap
-                    |> Seq.forall (fun idWeak ->
-                        let atomWeak = world.Atoms[idWeak]
-                        testBondDirection Weak atom atomWeak world))
-
     /// Determines whether the given atom's bonds are valid.
     let private testBonds parms atom (world : World) =
         BondType.all
@@ -487,9 +459,6 @@ module World =
                                 behavior bendLimit atom bondMap partnerIds world
                     else false)
 
-                // test bond directions
-            && testBondDirections atom world
-
     /// Applies the Metropolis rule:
     /// * A move that lowers the energy, or leaves it unchanged,
     ///   is always accepted.
@@ -505,6 +474,7 @@ module World =
         x >= 0 || rng.NextDouble() < exp x
 
     /// Updates the given atom's location in the given world.
+    /// (Claude calls this a "hop".)
     let private moveAtom atomBefore atomAfter (world : World) =
         assert(atomBefore.Id = atomAfter.Id)
         assert(world.Atoms[atomBefore.Id] = atomBefore)
@@ -515,6 +485,40 @@ module World =
         world.AtomGrid.Atoms[id] <- atomAfter   // replaces `atomBefore`
         Grid.setEmpty atomBefore.Location world.AtomGrid.Cells
         Grid.setAtom atomAfter.Location id world.AtomGrid.Cells
+
+    /// When moving an atom, A, we need to check the following:
+    /// * For a single atom, B, to which A is weak-bonded:
+    ///   * Check that B is still on A's face
+    ///   * Check that A is still on B's face
+    /// * For each atom, N, to which A is strong-bonded:
+    ///   * For a single atom, M, to which N is weak-bonded:
+    ///     * Check that M is still on N's face
+    ///
+    /// M    B    M      ══ strong bond
+    /// ┆    ┆    ┆      ┆  weak bond
+    /// N ══ A ══ N
+    let private testMoveFaces atom (world : World) =
+
+            // check weak bond to B
+        let weakBondMap = world.BondTypeMap[Weak]
+        let isValid =
+            BondMap.getBonds atom.Id weakBondMap
+                |> Seq.forall (fun idB ->
+                    let atomB = world.Atoms[idB]
+                    testWeakBondDirection atom atomB world
+                        && testWeakBondDirection atomB atom world)
+
+            // check strong bonds to Ns?
+        if isValid then
+            let strongBondMap = world.BondTypeMap[Strong]
+            BondMap.getBonds atom.Id strongBondMap
+                |> Seq.forall (fun idN ->
+                    let atomN = world.Atoms[idN]
+                    BondMap.getBonds idN weakBondMap
+                        |> Seq.forall (fun idM ->
+                            let atomM = world.Atoms[idM]
+                            testWeakBondDirection atomN atomM world))
+        else false
 
     /// Applies the Metropolis rule to the change in bend energy from
     /// moving the given atom, if bends cost energy.
@@ -552,14 +556,17 @@ module World =
             { atom with Location = loc }
 
             // move the atom permanently?
-        let isValid =
-            canMove atom' delta world                          // avoids overlap with other atoms?
-                && testBonds parms atom' world                 // all of the atom's bonds are still valid?
-                && testBendEnergy parms rng atom atom' world   // bends, if they cost energy, accepted?
-        if isValid then
-            moveAtom atom atom' world   // MUTATION
-            let event = MoveAtom id
-            Some (world, event)
+        if canMove atom' delta world then
+            moveAtom atom atom' world       // MUTATION: update world provisionally
+            let isValid =
+                testBonds parms atom' world
+                    && testMoveFaces atom' world
+                    && testBendEnergy parms rng atom atom' world
+            if isValid then
+                Some (world, MoveAtom id)
+            else
+                moveAtom atom' atom world   // MUTATION: undo move
+                None
         else None
 
     /// Additional energy from a stacked weak bond.
@@ -610,8 +617,6 @@ module World =
                     let behavior = BehaviorMap.standard[bondType]
                     behavior.TestValence atomA bondTypeMap
                         && behavior.TestValence atomB bondTypeMap)
-                && testBondDirections atomA world
-                && testBondDirections atomB world
 
             // update world
         if isValid then
