@@ -2,10 +2,6 @@ namespace Ecos
 
 open System
 
-/// Directional bond map.
-type BondDirectionMap =
-    Map<AtomId (*predecessor*), AtomId (*successor*)>
-
 /// A lattice world containing atoms bonded into molecules.
 /// Every atom occupies a 2x2 square around its central
 /// location on the lattice, so in the drawing below, the
@@ -30,9 +26,6 @@ type World =
 
         /// Bonds between atoms in the world, by type.
         _BondTypeMap : BondTypeMap
-
-        /// Direction of strong bonds.
-        StrongBondDirectionMap : BondDirectionMap
     }
 
     /// Atoms in the world, indexed by their IDs.
@@ -81,7 +74,6 @@ module World =
         {
             AtomGrid = AtomGrid.create size
             _BondTypeMap = BondTypeMap.empty
-            StrongBondDirectionMap = Map.empty
         }
 
     /// Creates an empty square world of the given size.
