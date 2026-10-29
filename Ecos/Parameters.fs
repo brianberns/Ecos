@@ -2,36 +2,6 @@ namespace Ecos
 
 open System
 
-/// Bond type.
-type BondType =
-
-    /// Long-term, long-range bonds.
-    | Strong
-
-    /// Short-term, short-range bonds.
-    | Weak
-
-module BondType =
-
-    /// All bond types.
-    let all = [| Strong; Weak |]
-
-/// A rational number, such as -1/2.
-type Rational =
-    {
-        Numerator : int
-        Denominator : int
-    }
-
-module Rational =
-
-    /// Creates a rational number.
-    let create numerator denominator =
-        {
-            Numerator = numerator
-            Denominator = denominator
-        }
-
 /// Bond type-specific parameters.
 /// 
 /// Energy

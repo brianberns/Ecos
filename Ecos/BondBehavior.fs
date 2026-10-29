@@ -1,42 +1,20 @@
 namespace Ecos
 
-/// Associates bond types with bond maps, optimized for speed.
-type BondTypeMap =
+/// A rational number, such as -1/2.
+type Rational =
     {
-        /// Strong-bond map.
-        StrongBondMap : BondMap
-
-        /// Weak-bond map.
-        WeakBondMap : BondMap
+        Numerator : int
+        Denominator : int
     }
 
-    /// Gets the bond map associated with the given bond type.
-    member inline this.Item(bondType) =
-        match bondType with
-            | Strong -> this.StrongBondMap
-            | Weak -> this.WeakBondMap
+module Rational =
 
-    /// All bond maps in this bond type map.
-    member this.BondMaps =
-        seq {
-            this.StrongBondMap
-            this.WeakBondMap
-        }
-
-module BondTypeMap =
-
-    /// Empty bond type map.
-    let empty =
+    /// Creates a rational number.
+    let create numerator denominator =
         {
-            StrongBondMap = Map.empty
-            WeakBondMap = Map.empty
+            Numerator = numerator
+            Denominator = denominator
         }
-
-    /// Sets the given bond type's bond map.
-    let setBondMap bondType bondMap (bondTypeMap : BondTypeMap) =
-        match bondType with
-            | Strong -> { bondTypeMap with StrongBondMap = bondMap }
-            | Weak -> { bondTypeMap with WeakBondMap = bondMap }
 
 /// Specific behavior of a bond type.
 type private BondBehavior =
