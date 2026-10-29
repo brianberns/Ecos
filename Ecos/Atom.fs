@@ -30,3 +30,6 @@ module Atom =
             Type = typ
             Location = location
         }
+
+/// Unique ID of an atom in a world.
+type AtomId = int

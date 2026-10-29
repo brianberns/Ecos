@@ -1,8 +1,5 @@
 namespace Ecos
 
-/// Unique ID of an atom in a world.
-type AtomId = int
-
 /// Bidirectional bonds between atoms.
 type BondMap = Map<AtomId, Set<AtomId>>
 
