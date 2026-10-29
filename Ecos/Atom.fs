@@ -8,6 +8,9 @@ type AtomType =
     | W | X | Y | Z   // coding atoms within a strand
     | P | Q           // non-coding "cap" atoms at each end of complete strand
 
+/// Unique ID of an atom in a world.
+type AtomId = int
+
 /// An indivisible atom.
 type Atom =
     {
@@ -15,7 +18,7 @@ type Atom =
         Type : AtomType
 
         /// Unique identifier of the atom in the world.
-        Id : int
+        Id : AtomId
 
         /// Location of the atom in the world.
         Location : Point
@@ -30,6 +33,3 @@ module Atom =
             Type = typ
             Location = location
         }
-
-/// Unique ID of an atom in a world.
-type AtomId = int
