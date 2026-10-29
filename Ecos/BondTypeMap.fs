@@ -18,7 +18,7 @@ module BondType =
 type BondDirectionMap =
     Map<AtomId (*predecessor*), AtomId (*successor*)>
 
-/// Associates bond types with bond maps, optimized for speed.
+/// Associates bond types with bond maps.
 type BondTypeMap =
     {
         /// Strong-bond map.
@@ -111,7 +111,26 @@ module BondTypeMap =
                 let bondMap =
                     BondMap.createBond
                         atomA.Id atomB.Id bondTypeMap[bondType]
-                {
-                    setBondMap bondType bondMap bondTypeMap with
-                        StrongBondDirectionMap = dirMap
-                })
+                { setBondMap bondType bondMap bondTypeMap with
+                    StrongBondDirectionMap = dirMap })
+
+    /// Removes the bidirectional bond of the given type between
+    /// the given atoms from the given bond-type map.
+    let removeBond
+        (bondType : BondType) atomA atomB (bondTypeMap : BondTypeMap) =
+
+            // update direction map
+        let dirMap =
+            if bondType.IsStrong then
+                Map.remove
+                    atomA.Id bondTypeMap.StrongBondDirectionMap
+            else
+                bondTypeMap.StrongBondDirectionMap
+
+            // update bond map
+        let bondMap =
+            bondTypeMap[bondType]
+                |> BondMap.removeBond atomA.Id atomB.Id
+
+        { setBondMap bondType bondMap bondTypeMap with
+            StrongBondDirectionMap = dirMap }
