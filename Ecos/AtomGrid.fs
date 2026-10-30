@@ -1,7 +1,7 @@
 namespace Ecos
 
 /// Grid of cells, with tracked atoms and walls.
-type private AtomGrid =
+type AtomGrid =
     {
         /// Atoms in the grid, indexed by their IDs.
         Atoms : Atom[]
@@ -13,7 +13,7 @@ type private AtomGrid =
         Cells : Grid
     }
 
-module private AtomGrid =
+module AtomGrid =
 
     /// Creates an atom grid.
     let create size =

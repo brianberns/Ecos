@@ -195,136 +195,41 @@ module World =
                                             (atomA, atomB) (atomC, atomD) world)
                     | _ -> false)
 
-    /// Gets a strong-bond strand's tangent direction at the given
-    /// atom, if it exists.
-    ///
-    /// Pred ══ A ══ Succ   ══ strong bond
-    ///    --tangent->
-    let private tryGetTangent atom (world : World) =
-
-            // get this atom's strand partners
-        let ids =
-            BondMap.getBonds atom.Id world.BondTypeMap[Strong]
-        assert(ids.Count <= 2)
-
-            // tangent is the sum of the atom's strong-bond vectors
-        if ids.IsEmpty then None
-        else
-                // get this atom's successor, if any
-            let succOpt =
-                Map.tryFind atom.Id world.StrongBondDirectionMap
-            ids
-                |> Seq.map (fun id ->
-                    let partner = world.Atoms[id]
-                    if succOpt = Some id then
-                        getDisplacement atom partner world    // A -> successor
-                    else
-                        getDisplacement partner atom world)   // predecessor -> A
-                |> Seq.reduce (+)
-                |> Some
-
-    /// Determines whether the first given atom can become or
-    /// remain the predecessor of the second atom in a strong
-    /// bond, and the second atom can become or remain the
-    /// successor of the first atom.
-    let private testStrongBondDirection atomA atomB world =
-        let succIdOpt =
-            Map.tryFind atomA.Id world.StrongBondDirectionMap
-        if succIdOpt.IsNone || succIdOpt = Some atomB.Id then   // if A has a successor, it must be be B
-            world.BondTypeMap[Strong]
-                |> BondMap.getBonds atomB.Id
-                |> Set.remove atomA.Id
-                |> Seq.forall (fun id ->                        // if B has a predecessor, it must be A
-                    Map.tryFind id world.StrongBondDirectionMap
-                        <> Some atomB.Id)
-        else false
-
-    /// Determines whether the two given atoms can become or
-    /// remain weak-bonded based on the direction of that bond
-    /// relative to the atoms' strong-bond strands. This ensures
-    /// that such pairing occurs only on one side of the strand
-    /// (its "face").
-    ///
-    ///         B           ══ strong bond
-    ///         ┆           ┆  weak bond
-    /// Pred ══ A ══ Succ
-    let private testWeakBondDirection atomA atomB world =
-        tryGetTangent atomA world
-            |> Option.map (fun tangent ->
-                let delta = getDisplacement atomA atomB world
-                tangent *^ delta > 0)   // B is on the strand face?
-            |> Option.defaultValue true
-
-    /// Adds a bond direction, if necessary, from the given
-    /// predecessor atom to the given successor atom in the
-    /// given world.
-    let private addBondDirection
-        (bondType : BondType) idPred idSucc world : BondDirectionMap =
-        let dirMap = world.StrongBondDirectionMap
-        if bondType.IsStrong then
-            assert(Map.tryFind idPred dirMap |> Option.isNone)
-            assert(dirMap.Values |> Seq.forall ((<>) idSucc))
-            Map.add idPred idSucc dirMap
-        else dirMap
-
-    /// Removes the bond direction, if necessary, between the
-    /// given atoms in the given world, without assuming which
-    /// one is the predecessor.
-    let private removeBondDirection
-        (bondType : BondType) idA idB world  : BondDirectionMap =
-        let dirMap = world.StrongBondDirectionMap
-        if bondType.IsStrong then
-            let idPred =
-                if Map.tryFind idA dirMap = Some idB then
-                    idA
-                else
-                    assert(Map.tryFind idB dirMap = Some idA)
-                    idB
-            Map.remove idPred dirMap
-        else dirMap
-
     /// Adds a bond of the given type between the given atoms in
     /// the given world if it is valid.
     let private tryAddBond
         bondType bondTypeParms atomA atomB (world : World) =
 
-            // get existing bond map
-        let bondMap = world.BondTypeMap[bondType]
+            // create bond provisionally, if possible
+        world.BondTypeMap
+            |> BondTypeMap.tryAddBond bondType atomA atomB
+            |> Option.bind (fun bondTypeMap ->
 
-            // create bond provisionally                
-        let bondTypeMap =
-            let bondMap =
-                BondMap.createBond atomA.Id atomB.Id bondMap
-            BondTypeMap.setBondMap bondType bondMap world.BondTypeMap
+                    // new bond is valid?
+                let isValid =
+                    let behavior = BehaviorMap.standard[bondType]
+                    let bondMap = bondTypeMap[bondType]
+                    let idsA = BondMap.getBonds atomA.Id bondMap
+                    let idsB = BondMap.getBonds atomB.Id bondMap
+                    let delta = getDisplacement atomA atomB world
+                    let bendLimit = bondTypeParms.BendLimit
+                    behavior.AreCompatible atomA.Type atomB.Type
+                        && not (areBonded atomA.Id atomB.Id world)
+                        && Neighborhood.testBond delta behavior.Neighborhood
+                        && behavior.TestValence atomA bondTypeMap
+                        && behavior.TestValence atomB bondTypeMap
+                        && not (isCrossBond behavior atomA atomB world)
+                        && Face.test world.AtomGrid bondTypeMap atomA
+                        && Face.test world.AtomGrid bondTypeMap atomB
+                        && Bend.testMany
+                            behavior bendLimit world.AtomGrid atomA atomB idsA
+                        && Bend.testMany
+                            behavior bendLimit world.AtomGrid atomB atomA idsB
 
-            // new bond is valid?
-        let isValid =
-            let behavior = BehaviorMap.standard[bondType]
-            let idsA = BondMap.getBonds atomA.Id bondMap
-            let idsB = BondMap.getBonds atomB.Id bondMap
-            let delta = getDisplacement atomA atomB world
-            let bendLimit = bondTypeParms.BendLimit
-            behavior.AreCompatible atomA.Type atomB.Type
-                && not (areBonded atomA.Id atomB.Id world)
-                && Neighborhood.testBond delta behavior.Neighborhood
-                && behavior.TestValence atomA bondTypeMap
-                && behavior.TestValence atomB bondTypeMap
-                && not (isCrossBond behavior atomA atomB world)
-                && Bend.testMany
-                    behavior bendLimit world.AtomGrid atomA atomB idsA
-                && Bend.testMany
-                    behavior bendLimit world.AtomGrid atomB atomA idsB
-
-            // update world
-        if isValid then
-            let dirMap =
-                addBondDirection bondType atomA.Id atomB.Id world
-            Some {
-                world with
-                    _BondTypeMap = bondTypeMap
-                    StrongBondDirectionMap = dirMap
-            }
-        else None
+                    // update world
+                if isValid then
+                    Some { world with _BondTypeMap = bondTypeMap }
+                else None)
 
     /// Adds a strong bond from the given predecessor atom to
     /// the given successor atom in the given world if it is
@@ -478,38 +383,18 @@ module World =
         Grid.setEmpty atomBefore.Location world.AtomGrid.Cells
         Grid.setAtom atomAfter.Location id world.AtomGrid.Cells
 
-    /// When moving an atom, A, we need to check the following:
-    /// * For a single atom, B, to which A is weak-bonded:
-    ///   * Check that B is still on A's face
-    ///   * Check that A is still on B's face
-    /// * For each atom, N, to which A is strong-bonded:
-    ///   * For a single atom, M, to which N is weak-bonded:
-    ///     * Check that M is still on N's face
-    ///
-    /// M    B    M      ══ strong bond
-    /// ┆    ┆    ┆      ┆  weak bond
-    /// N ══ A ══ N
+    /// When moving an atom, A, we need to check the atom's face
+    /// and its strong-bond partners' faces.
     let private testMoveFaces atom (world : World) =
 
-            // check weak bond to B
-        let weakBondMap = world.BondTypeMap[Weak]
-        let isValid =
-            BondMap.getBonds atom.Id weakBondMap
-                |> Seq.forall (fun idB ->
-                    let atomB = world.Atoms[idB]
-                    testWeakBondDirection atom atomB world
-                        && testWeakBondDirection atomB atom world)
+        let testFace =
+            Face.test world.AtomGrid world.BondTypeMap
 
-            // check strong bonds to Ns?
-        if isValid then
-            let strongBondMap = world.BondTypeMap[Strong]
-            BondMap.getBonds atom.Id strongBondMap
-                |> Seq.forall (fun idN ->
-                    let atomN = world.Atoms[idN]
-                    BondMap.getBonds idN weakBondMap
-                        |> Seq.forall (fun idM ->
-                            let atomM = world.Atoms[idM]
-                            testWeakBondDirection atomN atomM world))
+        if testFace atom then
+            world.BondTypeMap[Strong]
+                |> BondMap.getBonds atom.Id
+                |> Set.forall (fun idB ->
+                    testFace world.Atoms[idB])
         else false
 
     /// Applies the Metropolis rule to the change in bend energy from
@@ -595,12 +480,10 @@ module World =
     /// given atoms in the given world.
     let private tryBreakBond bondType atomA atomB (world : World) =
 
-            // remove the bond provisionally
+            // remove bond provisionally
         let bondTypeMap =
-            let bondMap =
-                world.BondTypeMap[bondType]
-                    |> BondMap.removeBond atomA.Id atomB.Id
-            BondTypeMap.setBondMap bondType bondMap world.BondTypeMap
+            world.BondTypeMap
+                |> BondTypeMap.removeBond bondType atomA atomB
 
             // enforce valence rules
         let isValid =
@@ -608,17 +491,13 @@ module World =
                 |> Seq.forall (fun bondType ->
                     let behavior = BehaviorMap.standard[bondType]
                     behavior.TestValence atomA bondTypeMap
-                        && behavior.TestValence atomB bondTypeMap)
+                        && behavior.TestValence atomB bondTypeMap
+                        && Face.test world.AtomGrid bondTypeMap atomA
+                        && Face.test world.AtomGrid bondTypeMap atomB)
 
             // update world
         if isValid then
-            let dirMap =
-                removeBondDirection bondType atomA.Id atomB.Id world
-            Some {
-                world with
-                    _BondTypeMap = bondTypeMap
-                    StrongBondDirectionMap = dirMap
-            }
+            Some { world with _BondTypeMap = bondTypeMap }
         else None
 
     /// Attempts to toggle a bond of the given type between

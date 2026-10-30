@@ -55,7 +55,8 @@ module BondTypeMap =
         }
 
     /// Sets the given bond type's bond map.
-    let setBondMap bondType bondMap (bondTypeMap : BondTypeMap) =
+    let private setBondMap
+        bondType bondMap (bondTypeMap : BondTypeMap) =
         match bondType with
             | Strong -> { bondTypeMap with StrongBondMap = bondMap }
             | Weak -> { bondTypeMap with WeakBondMap = bondMap }
