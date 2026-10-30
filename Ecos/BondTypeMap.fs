@@ -115,18 +115,40 @@ module BondTypeMap =
                 { setBondMap bondType bondMap bondTypeMap with
                     StrongBondDirectionMap = dirMap })
 
+    /// Removes the bond direction, if necessary, between the
+    /// given atoms in the given world, without assuming which
+    /// one is the predecessor.
+    let private removeBondDirection
+        (bondType : BondType) idA idB world  : BondDirectionMap =
+        let dirMap = world.StrongBondDirectionMap
+        if bondType.IsStrong then
+            let idPred =
+                if Map.tryFind idA dirMap = Some idB then
+                    idA
+                else
+                    assert(Map.tryFind idB dirMap = Some idA)
+                    idB
+            Map.remove idPred dirMap
+        else dirMap
+
     /// Removes the bidirectional bond of the given type between
-    /// the given atoms from the given bond-type map.
+    /// the given atoms from the given bond-type map, without
+    /// assuming which one is the predecessor.
     let removeBond
         (bondType : BondType) atomA atomB (bondTypeMap : BondTypeMap) =
 
             // update direction map
         let dirMap =
+            let dirMap = bondTypeMap.StrongBondDirectionMap
             if bondType.IsStrong then
-                Map.remove
-                    atomA.Id bondTypeMap.StrongBondDirectionMap
-            else
-                bondTypeMap.StrongBondDirectionMap
+                let idPred =
+                    if Map.tryFind atomA.Id dirMap = Some atomB.Id then
+                        atomA.Id
+                    else
+                        assert(Map.tryFind atomB.Id dirMap = Some atomA.Id)
+                        atomB.Id
+                Map.remove atomA.Id dirMap
+            else dirMap
 
             // update bond map
         let bondMap =
