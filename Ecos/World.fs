@@ -200,6 +200,11 @@ module World =
     let private tryAddBond
         bondType bondTypeParms atomA atomB (world : World) =
 
+            // get partner atom IDs before creating bond
+        let bondMap = world.BondTypeMap[bondType]
+        let idsA = BondMap.getBonds atomA.Id bondMap
+        let idsB = BondMap.getBonds atomB.Id bondMap
+
             // create bond provisionally, if possible
         world.BondTypeMap
             |> BondTypeMap.tryAddBond bondType atomA atomB
@@ -208,9 +213,6 @@ module World =
                     // new bond is valid?
                 let isValid =
                     let behavior = BehaviorMap.standard[bondType]
-                    let bondMap = bondTypeMap[bondType]
-                    let idsA = BondMap.getBonds atomA.Id bondMap
-                    let idsB = BondMap.getBonds atomB.Id bondMap
                     let delta = getDisplacement atomA atomB world
                     let bendLimit = bondTypeParms.BendLimit
                     behavior.AreCompatible atomA.Type atomB.Type
