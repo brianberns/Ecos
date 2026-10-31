@@ -22,18 +22,19 @@ open Ecos
 module RegressionTests =
 
     /// A fingerprint of the given world: a 64-bit hash of every atom's
-    /// ID, type and location, and every bond. (Walls are left out, since
-    /// nothing moves them.) Locations are measured from the origin, the
-    /// short way around the torus, so that a world hashes the same
-    /// whichever way its grid labels its coordinates.
+    /// ID, type and location, and every bond, with the way each strong
+    /// bond runs. (Walls are left out, since nothing moves them.)
+    /// Locations are measured from the origin, the short way around the
+    /// torus, so that a world hashes the same whichever way its grid
+    /// labels its coordinates.
     let fingerprint (world : World) =
         let sb = StringBuilder()
         for atom in world.Atoms do
             let loc = Grid.getDisplacement Point.zero atom.Location world.Cells
             sb.Append($"{atom.Id}:{atom.Type}:{loc.X},{loc.Y};")
                 |> ignore
-        for idA, idB in Bonds.strongBonds world do
-            sb.Append($"S{idA}-{idB};") |> ignore
+        for idPred, idSucc in Bonds.directedStrongBonds world do
+            sb.Append($"S{idPred}>{idSucc};") |> ignore
         for idA, idB in Bonds.weakBonds world do
             sb.Append($"W{idA}-{idB};") |> ignore
 
@@ -84,14 +85,16 @@ module RegressionTests =
 
     /// A capped template strand in a box, with free atoms that can pair
     /// with it (X and Z) and join into a copy, and caps for the copy's
-    /// ends.
+    /// ends. Each row of free atoms has both kinds, so that the row on
+    /// the template's face (above it) can pair with any of its atoms.
     let private templateWorld seed =
         let world = Chain.addTemplate (Random(seed)) TestWorld.empty
         let free =
             [|
                 for x in -8 .. 2 .. 8 do
-                    yield AtomType.X, Point.create (x, 4)
-                    yield AtomType.Z, Point.create (x, -4)
+                    let isX = (x / 2) % 2 = 0
+                    yield (if isX then AtomType.X else AtomType.Z), Point.create (x, 4)
+                    yield (if isX then AtomType.Z else AtomType.X), Point.create (x, -4)
                 yield AtomType.Q, Point.create (-8, 7)
                 yield AtomType.P, Point.create (8, 7)
                 yield AtomType.Q, Point.create (-8, -7)
@@ -102,9 +105,9 @@ module RegressionTests =
                 World.addAtom atomType loc world)
             |> Chain.addBox 10
 
-    /// Two strongly bonded pairs, W0-W1 and X2-X3, in a box so small
-    /// that their weak bonds form and break constantly, making and
-    /// unmaking stacks. (The seed is not used.)
+    /// Two strongly bonded pairs, W0->W1 and X3->X2, facing each other,
+    /// in a box so small that their weak bonds form and break
+    /// constantly, making and unmaking stacks. (The seed is not used.)
     let private ladderWorld (_seed : int) =
         TestWorld.empty
             |> World.addAtom AtomType.W (Point.create (-1, -1))   // 0
@@ -112,7 +115,7 @@ module RegressionTests =
             |> World.addAtom AtomType.X (Point.create (-1, 1))    // 2
             |> World.addAtom AtomType.X (Point.create (1, 1))     // 3
             |> World.addStrongBond TestParameters.standard 0 1
-            |> World.addStrongBond TestParameters.standard 2 3
+            |> World.addStrongBond TestParameters.standard 3 2
             |> Chain.addBox 2
 
     /// Parameters for the ladder: strong bonds can also break and
@@ -165,27 +168,24 @@ module RegressionTests =
             fingerprint world
         ]
 
-    /// Fingerprints recorded from the model once strong bonds could
-    /// hydrolyze (commit 45ddcd6). Every world became a torus after that,
-    /// which changed none of them except ("hot", 1), whose atoms wander
-    /// far enough to reach around it; that one was recorded again. The
-    /// standard physics cases were recorded once strands could bend and
-    /// paired bonds were protected (commit 13b9b3c), and the first again
-    /// once only stacked bonds were (commit 6b38978).
+    /// Fingerprints recorded once strong bonds ran one way and atoms
+    /// paired only on their strands' faces (commit 46dbe18), which
+    /// changed every world. The fingerprints now include the way each
+    /// strong bond runs.
     let private expected =
         Map [
-            ("cold", 1), [ "39b648c110a17624"; "99ce0bfa34d59eb3"; "31b991455bb9c20c"; "ca699a36166ef37c" ]
-            ("cold", 2), [ "235be71c8731e8d4"; "e714ff43a59914d4"; "343d78326d527865"; "0442bd92fa09268b" ]
-            ("hot", 1), [ "1a179ff72bf65fde"; "bdb09c90e4bb8610"; "43fe617d446bf4ca"; "c274af3b727b0c7d" ]
-            ("hot", 2), [ "634be7d4781ce79d"; "2e4612460bad8ab6"; "e09408eb0a1812ab"; "8fec0e9eced65629" ]
-            ("all rules", 1), [ "a7dfd2b3d39d0c5c"; "704fa118c60c9d94"; "b88cce0943418f75"; "5e6e05223488425c" ]
-            ("all rules", 2), [ "587bcd6cb790917b"; "a360f2e65d2feec8"; "cd302bdcbfd0145c"; "b7f03e2cf82e1125" ]
-            ("copying", 1), [ "a7c6ff2eae63f7f4"; "9c525d3403942ad3"; "729ba3208c42eb17"; "b404136268009063" ]
-            ("copying", 2), [ "1ff9eca18af2d82a"; "c221658a85ba0bda"; "712999403e57158c"; "2f0f7893aa224dde" ]
-            ("standard physics", 1), [ "32249d55130befba"; "168ba3e7dab0a672"; "e84c97e5e4c2914b"; "4e09958ff2db6201" ]
-            ("standard physics", 2), [ "c9e85c1db7652e38"; "696b4530e9c1d06f"; "39204fa75ffe1685"; "4754fae6a33da5f2" ]
-            ("stacking", 1), [ "a7d79956c3e49538"; "f462bac3b9350b3d"; "472f912a46f85b54"; "cb8aff596006fd6f" ]
-            ("stacking", 2), [ "3699e163ec09dfcc"; "9742142691cf2eff"; "8a4fbe5b8398f6cd"; "d0fbdd4aa440b5d0" ]
+            ("cold", 1), [ "04424eb09c8e601b"; "1a3783c2d2b2fba9"; "67123c1c397bcfbd"; "a361a176bf9f1d8f" ]
+            ("cold", 2), [ "80a5c947706d8d87"; "64d9d095d21efa82"; "41185d73d1169367"; "9a00cc541413280a" ]
+            ("hot", 1), [ "f169a4939732205b"; "a9b9e26757509582"; "83f1aa6ee659033f"; "48cea468904b1f8b" ]
+            ("hot", 2), [ "bfcb7db8454da030"; "a4494bcc55851057"; "2e8d7a8a293c2e46"; "eb53175bd0b14093" ]
+            ("all rules", 1), [ "42872f9026807768"; "f9622cb689364348"; "cdb83957dfca6f88"; "3b6412e09c9fce77" ]
+            ("all rules", 2), [ "d708b53f7fdf0522"; "c72537d23529bdb4"; "65a7e364e65d1f14"; "af6f5c0f08cb7c50" ]
+            ("copying", 1), [ "1351b95f75299a28"; "713396239b5694e2"; "5bb45f0cec31f3ad"; "24d663bf9106a6f9" ]
+            ("copying", 2), [ "70abc22c5402f708"; "74886ca1edd4ae7a"; "7010108f0dce90f5"; "2ac0facb51fb7618" ]
+            ("standard physics", 1), [ "7df5c465c1537a52"; "1b811df6df9aa126"; "c0347cedf893fd22"; "472c4a0267037c82" ]
+            ("standard physics", 2), [ "b641acb178112202"; "075d3d16a7cee4b4"; "beac085f168abfba"; "a8c6b4a0ca6cc0c5" ]
+            ("stacking", 1), [ "1d33eb3b55e8ba17"; "67852f20b4a13787"; "0e89c8945e574334"; "a7ff5a14709dda05" ]
+            ("stacking", 2), [ "4c23cd4681d31c32"; "bbaece89731e9625"; "10efc6e134cce480"; "899c967961540d89" ]
         ]
 
     /// Prints the fingerprints of every case, in the form used above.

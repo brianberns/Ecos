@@ -216,6 +216,17 @@ module Bonds =
     let weakBonds world =
         toPairs (weakBondMap world)
 
+    /// Strong bonds, as (predecessor, successor) pairs: each runs from
+    /// one atom of its strand to the next.
+    let directedStrongBonds (world : World) =
+        world.BondTypeMap.StrongBondDirectionMap
+            |> Map.toSeq
+            |> set
+
+    /// The given atom's successor in its strand, if any.
+    let successor (world : World) id =
+        Map.tryFind id world.BondTypeMap.StrongBondDirectionMap
+
     /// Cosine of the angle at the given center between the directions
     /// to locations a and b.
     let private cosine (center : Point) (a : Point) (b : Point) =
@@ -224,32 +235,30 @@ module Bonds =
         let length (d : Point) = sqrt (float (d.X * d.X + d.Y * d.Y))
         float (da.X * db.X + da.Y * db.Y) / (length da * length db)
 
-    /// Oracle: are locations a and b on roughly opposite sides of the
-    /// given center? An atom's two weak partners must be: the dot
-    /// product of the two vectors from the center must be at most -3.
-    /// That keeps them about 125 degrees or more apart, which is also
-    /// too far apart for them to be strongly bonded to each other.
-    let areOpposite (center : Point) (a : Point) (b : Point) =
-        let da = a - center
-        let db = b - center
-        da.X * db.X + da.Y * db.Y <= -3
-
-    /// Oracle: is the angle between an atom's two bonds within the
-    /// given bend limit, when the atom is at the given center and its
-    /// partners are at locations a and b? The cosine of the angle
+    /// Oracle: is the angle between an atom's two strong bonds within
+    /// the given bend limit, when the atom is at the given center and
+    /// its partners are at locations a and b? The cosine of the angle
     /// between the two vectors from the center must be at most the
-    /// limit, whatever their lengths.
+    /// limit, whatever their lengths. (An atom has at most one weak
+    /// partner, so weak bonds make no angles.)
     let isBendAllowed (limit : Rational) center a b =
         cosine center a b <= float limit.Numerator / float limit.Denominator + 1e-9   // some angles are exactly at the limit
 
-    /// Oracle: is the angle between an atom's two bonds of the given
-    /// type allowed, with the given bend limit for that type, when the
-    /// atom is at the given center and its partners are at locations a
-    /// and b? The bend must be within the limit, and an atom's two weak
-    /// partners must also be on opposite sides of it.
-    let isAngleAllowed bondType limit center a b =
-        isBendAllowed limit center a b
-            && (bondType = Strong || areOpposite center a b)
+    /// Oracle: direction of a strand at an atom at the given location,
+    /// from its predecessor to its successor. At an end of the strand,
+    /// the atom itself stands in for the missing neighbor, so the
+    /// direction is that of its one bond.
+    let strandDirection (predOpt : Point option) (loc : Point) (succOpt : Point option) =
+        Option.defaultValue loc succOpt - Option.defaultValue loc predOpt
+
+    /// Oracle: is a partner at the given displacement from an atom in
+    /// a strand on the atom's face, when the strand runs in the given
+    /// direction there? An atom pairs only on one side of its strand:
+    /// to the left of the strand's direction, which is where the cross
+    /// product of the direction and the displacement is positive. (So a
+    /// strand running toward +x has its face toward +y.)
+    let isOnFace (direction : Point) (d : Point) =
+        direction.X * d.Y - direction.Y * d.X > 0
 
     /// Oracle: energy of the bend at an atom at the given center, whose
     /// partners are at locations a and b: kappa * (1 + cos phi), where
@@ -470,9 +479,9 @@ module Chain =
             (rebuilt, world.Atoms)
                 ||> Array.fold (fun rebuilt atom ->
                     World.addAtom types[atom.Id] atom.Location rebuilt)
-        (rebuilt, Bonds.strongBonds world)
-            ||> Seq.fold (fun rebuilt (idA, idB) ->
-                World.addStrongBond TestParameters.standard idA idB rebuilt)
+        (rebuilt, Bonds.directedStrongBonds world)
+            ||> Seq.fold (fun rebuilt (idPred, idSucc) ->
+                World.addStrongBond TestParameters.standard idPred idSucc rebuilt)
 
     /// Tries to append atoms at the given locations to the end of the
     /// chain in the given world, bonding each to its predecessor. Fails
@@ -517,7 +526,8 @@ module Chain =
     /// Adds a capped template strand to the given world, which must have
     /// no atoms yet: P, then six coding atoms, each a random W or Y, then
     /// Q, in a row along the x axis from -8 to 6, strongly bonded in
-    /// order (atoms 0 to 7).
+    /// order (atoms 0 to 7). So it runs toward +x, and its face is
+    /// toward +y.
     let addTemplate (rng : Random) (world : World) =
         assert(world.Atoms.Length = 0)
         let types =

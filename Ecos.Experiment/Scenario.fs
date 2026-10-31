@@ -273,19 +273,33 @@ module Build =
 
     /// Adds a horizontal strand of the given atom types, joined in
     /// order with the given parameters, with its first atom at the
-    /// given location, if there is room for it.
-    let tryAddStrand parms x y (atomTypes : _[]) world =
+    /// given location and each next atom the given step along the x
+    /// axis, if there is room for it.
+    let private tryAddStrandWith parms x y dx (atomTypes : _[]) world =
         (Some world, Array.indexed atomTypes)
             ||> Array.fold (fun worldOpt (i, atomType) ->
                 worldOpt
                     |> Option.bind (fun world ->
-                        let loc = center world + Point.create (x + 2 * i, y)
+                        let loc = center world + Point.create (x + dx * i, y)
                         World.tryAddAtom atomType loc world)
                     |> Option.map (fun (world, atom) ->
                         if i > 0 then
                             World.addStrongBond parms
                                 (atom.Id - 1) atom.Id world
                         else world))
+
+    /// Adds a horizontal strand of the given atom types, joined in
+    /// order with the given parameters, with its first atom at the
+    /// given location, if there is room for it. The strand runs from
+    /// its first atom toward +x, so its face (see Face) is toward +y.
+    let tryAddStrand parms x y atomTypes world =
+        tryAddStrandWith parms x y 2 atomTypes world
+
+    /// As tryAddStrand, but the strand runs toward -x, so its face is
+    /// toward -y. Laid out above a strand added by tryAddStrand, the
+    /// two face each other.
+    let tryAddStrandLeftward parms x y atomTypes world =
+        tryAddStrandWith parms x y -2 atomTypes world
 
     /// Range of x coordinates (in steps of 2, exclusive at the top)
     /// at which a strand of the given length can start, so that every

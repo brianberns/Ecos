@@ -411,10 +411,12 @@ module Experiment3 =
                         // take it out again to see the strands as they
                         // were just before
                     let before =
-                        let strong =
-                            bonds[Strong]
-                                |> BondMap.removeBond idA idB
-                        BondTypeMap.setBondMap Strong strong bonds
+                        { bonds with
+                            StrongBondMap =
+                                bonds[Strong]
+                                    |> BondMap.removeBond idA idB
+                            StrongBondDirectionMap =
+                                Map.remove idA bonds.StrongBondDirectionMap }   // a new strong bond runs from A to B
                     joins.Add(getJoin template before idA idB)
                 | BreakBond (Strong, _, _) -> nBreaks <- nBreaks + 1
                 | _ -> ()

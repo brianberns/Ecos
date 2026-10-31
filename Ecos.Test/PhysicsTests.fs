@@ -198,6 +198,15 @@ module ChainPhysicsTests =
     /// its angles is too sharp.) A state's energy is -strongBondEnergy
     /// per bond, plus the bend energy where two bonds meet.
     ///
+    /// Strong bonds also run one way. A toggle forms a bond running from
+    /// the atom it picked to the one it found, but breaks it from either
+    /// atom, so each way a set of bonds can run counts with half the
+    /// weight per bond. The ways they can run are those in which no
+    /// atom has two successors or two predecessors: a single bond can
+    /// run either way, so counts as if bonds had no direction, but a
+    /// strand of two can run only two of four ways, so counts half as
+    /// much.
+    ///
     /// States are grouped by the number of bonds and, for one bond, its
     /// squared length, or for two, the squared distance between the
     /// ends of the strand, which measures the bend.
@@ -228,6 +237,23 @@ module ChainPhysicsTests =
                     match ends with
                         | [ a; b ] -> 2, lengthSq (locs[b] - locs[a])
                         | _ -> failwith "Not a strand"
+
+            // number of ways the given bonds can run, with no atom having
+            // two successors or two predecessors
+        let countDirections (bonds : (int * int) list) =
+            let rec loop bonds directed =
+                match bonds with
+                    | [] ->
+                        let isValid =
+                            [ fst; snd ]
+                                |> List.forall (fun role ->
+                                    directed
+                                        |> List.countBy role
+                                        |> List.forall (fun (_, n) -> n = 1))
+                        if isValid then 1 else 0
+                    | (i, j) :: rest ->
+                        loop rest ((i, j) :: directed) + loop rest ((j, i) :: directed)
+            loop bonds []
 
             // exact Boltzmann weight of each state
         let exact = Collections.Generic.Dictionary<int * int, float>()
@@ -269,8 +295,10 @@ module ChainPhysicsTests =
                                             | _ -> 1.0)
                                     |> List.fold (*) 1.0
                             if bendWeight > 0.0 then
+                                let directionWeight =
+                                    float (countDirections bonds) * 0.5 ** float bonds.Length
                                 addWeight exact (getState locs bonds)
-                                    (bondWeight ** float bonds.Length * bendWeight)
+                                    (bondWeight ** float bonds.Length * bendWeight * directionWeight)
 
             // sample states
         let inBox (loc : Point) = abs loc.X <= size && abs loc.Y <= size
@@ -518,20 +546,22 @@ module BoxPhysicsTests =
     let ``Two atoms in a box use the default energy for pairs without one`` () =
         checkTwoAtomsInBox (AtomType.W, AtomType.X) pairEnergies
 
-    /// Pairing, opposite sides, and stacking: two dimers (W0-W1 and
-    /// X2-X3, each strongly bonded) are confined to a small box. Either
-    /// W can pair with either X, so there are four possible weak bonds:
-    /// 0-2, 0-3, 1-2, and 1-3.
+    /// Pairing, faces, and stacking: two dimers (W0->W1 and X3->X2,
+    /// each strongly bonded) are confined to a small box. Either W can
+    /// pair with either X, so there are four possible weak bonds: 0-2,
+    /// 0-3, 1-2, and 1-3.
     ///
     /// We enumerate every state exactly: each placement of the two
     /// dimers in the box, without overlaps and without their strong
     /// bonds crossing (which hops can't cause), with each set of weak
-    /// bonds that are in range and can exist together. Two weak bonds
-    /// that share an atom need that atom's partners to be on opposite
-    /// sides of it; two that don't share an atom must not cross. Those
-    /// always form a stack, since their ends are strongly bonded on
-    /// both sides. A state's energy is weakBondEnergy per weak bond
-    /// plus stackEnergy per stack.
+    /// bonds that are in range and can exist together. Each atom of a
+    /// weak bond must be on the other's face: to the left of its
+    /// dimer's direction (see Bonds.isOnFace). Two weak bonds can't
+    /// share an atom, since each atom has at most one partner, and
+    /// must not cross. Two that can exist together always form a stack,
+    /// since their ends are strongly bonded on both sides. A state's
+    /// energy is weakBondEnergy per weak bond plus stackEnergy per
+    /// stack.
     ///
     /// The simulation must match the exact distribution of both the
     /// set of weak bonds and the separation of atoms 0 and 2. Strong
@@ -578,23 +608,26 @@ module BoxPhysicsTests =
                     Geometry.segmentsIntersect locs[a] locs[b] locs[c] locs[d]
                 if clear && not (crosses (0, 1) (2, 3)) then
 
-                        // weak bonds that are in range. (Each shares an atom
-                        // with both strong bonds, so can't cross either.)
+                        // each atom's dimer's direction: W0 to W1, or X3
+                        // to X2
+                    let direction i =
+                        if i < 2 then locs[1] - locs[0]
+                        else locs[2] - locs[3]
+
+                        // weak bonds that are in range, with each atom on
+                        // the other's face. (Each shares an atom with both
+                        // strong bonds, so can't cross either.)
                     let feasible =
                         candidates
                             |> List.filter (fun (i, j) ->
-                                Array.contains (locs[j] - locs[i]) Chain.weakBondVectors)
+                                Array.contains (locs[j] - locs[i]) Chain.weakBondVectors
+                                    && Bonds.isOnFace (direction i) (locs[j] - locs[i])
+                                    && Bonds.isOnFace (direction j) (locs[i] - locs[j]))
 
                         // can the two given weak bonds exist together?
                     let compatible (a, b) (c, d) =
-                        if sharesAtom (a, b) (c, d) then
-                            let shared, other1, other2 =
-                                if a = c then a, b, d
-                                elif a = d then a, b, c
-                                elif b = c then b, a, d
-                                else b, a, c
-                            Bonds.areOpposite locs[shared] locs[other1] locs[other2]
-                        else not (crosses (a, b) (c, d))
+                        not (sharesAtom (a, b) (c, d))
+                            && not (crosses (a, b) (c, d))
 
                         // every set of feasible weak bonds in which each pair
                         // is compatible
@@ -628,7 +661,7 @@ module BoxPhysicsTests =
                 |> World.addAtom AtomType.X (Point.create(0, 2))     // 2
                 |> World.addAtom AtomType.X (Point.create(2, 2))     // 3
                 |> World.addStrongBond TestParameters.standard 0 1
-                |> World.addStrongBond TestParameters.standard 2 3
+                |> World.addStrongBond TestParameters.standard 3 2
                 |> Chain.addBox size
                 |> sample
                     (TestParameters.createFrozen kT) 8 2000 300 3000
@@ -640,52 +673,41 @@ module BoxPhysicsTests =
         checkFit "Weak bonds" (toMap bondSetWeights) (Array.map fst samples)
         checkFit "Separation" (toMap separationWeights) (Array.map snd samples)
 
-/// Weak bends: an atom with two weak partners, within a bend limit and
-/// at a cost for bending.
-module WeakBendPhysicsTests =
+/// Faces: a strand, and a free atom that pairs on its face.
+module FacePhysicsTests =
 
     open PhysicsHelpers
 
-    /// Weak bends: a dimer (X0-X1, strongly bonded) and two free atoms
-    /// (W2 and W3) are confined to a small box. Each W can pair with
-    /// either X, but with only one, since a second weak bond needs a
-    /// strong one. An X can pair with both Ws, if they are on opposite
-    /// sides of it, at a cost for the bend between its two weak bonds,
-    /// and only if the bend is within the weak bend limit.
+    /// Faces along a strand: a trimer (X0->X1->X2, strongly bonded) and
+    /// a free atom (W3) are confined to a small box. The trimer bends up
+    /// to right angles, at no cost, and its strong bonds are frozen. The
+    /// W can pair with one X, but only on that X's face: to the left of
+    /// the strand's direction there, which at X1 is from X0 to X2, and
+    /// at each end is that of its one bond (see Bonds.strandDirection).
     ///
-    /// We enumerate every state exactly: each placement of the dimer
-    /// and the two free atoms in the box, without overlaps, with each
-    /// set of weak bonds that are in range and can exist together. Two
-    /// weak bonds that don't share an atom must not cross. Nothing
-    /// stacks, since the Ws have no strong bonds. A state's energy is
-    /// weakBondEnergy per weak bond plus the bend energy at an X with
-    /// two weak partners.
+    /// We enumerate every state exactly: each placement of the trimer
+    /// and the W in the box, without overlaps and within the bend
+    /// limit, either unpaired or paired with each X that is in range,
+    /// on whose face the W is, and whose weak bond to it crosses no
+    /// strong bond. A state's energy is weakBondEnergy if the W is
+    /// paired.
     ///
-    /// States are grouped by their set of weak bonds and, if an X has
-    /// two weak partners, the squared distance between them, which
-    /// measures the bend.
-    let private checkWeakBend bendLimit kappa =
+    /// States are grouped by which X the W is paired with, if any, and
+    /// by the squared distance between the trimer's ends, which
+    /// measures its bend. The faces at the ends turn with their own
+    /// bonds, and the face at the middle with the whole strand, so a
+    /// mistake in either moves weight between groups.
+    [<Fact>]
+    let ``A trimer and a free atom in a box follow the Boltzmann distribution`` () =
         let size = 4   // atom locations have |x| <= size and |y| <= size
         let kT = 1.0
         let parms =
             TestParameters.createFrozen kT
-                |> TestParameters.withBend Weak bendLimit kappa
-                |> TestParameters.withWeak (fun p -> { p with Barrier = 3.0 })   // weak bonds toggle rarely, so that hops do most of the bending
-        let weak = parms.BondTypeParameterMap[Weak]
-        let candidates = [ 0, 2; 0, 3; 1, 2; 1, 3 ]   // (X, W)
+                |> TestParameters.withBend Strong TestParameters.rightAngleBend 0.0
+        let pairWeight = exp (-Chain.weakBondEnergy / kT)
         let lengthSq (d : Point) = d.X * d.X + d.Y * d.Y
 
-            // the state of the given locations and weak bonds
-        let getState (locs : Point[]) (bonds : list<int * int>) =
-            let bend =
-                [ 0; 1 ]
-                    |> List.tryPick (fun x ->
-                        match bonds |> List.filter (fun (i, _) -> i = x) with
-                            | [ (_, a); (_, b) ] -> Some (lengthSq (locs[b] - locs[a]))
-                            | _ -> None)
-            List.sort bonds, Option.defaultValue -1 bend
-
-            // every placement of the dimer in the box
+            // every placement of the trimer in the box
         let inBox (loc : Point) = abs loc.X <= size && abs loc.Y <= size
         let grid =
             [|
@@ -693,97 +715,70 @@ module WeakBendPhysicsTests =
                     for y in -size .. size do
                         Point.create (x, y)
             |]
-        let dimers =
+        let trimers =
             [|
                 for a in grid do
-                    for v in Chain.bondVectors do
-                        if inBox (a + v) then a, a + v
+                    for u in Chain.bondVectors do
+                        let b = a + u
+                        if inBox b then
+                            for v in Chain.bondVectors do
+                                let c = b + v
+                                if inBox c && not (overlaps a c)
+                                    && Bonds.isBendAllowed TestParameters.rightAngleBend b a c then
+                                    [| a; b; c |]
             |]
 
-            // exact Boltzmann weight of each state
-        let exact = Collections.Generic.Dictionary<list<int * int> * int, float>()
-        for loc0, loc1 in dimers do
-            for loc2 in grid do
-                if not (overlaps loc0 loc2 || overlaps loc1 loc2) then
-                    for loc3 in grid do
-                        if not (overlaps loc0 loc3 || overlaps loc1 loc3 || overlaps loc2 loc3) then
-                            let locs = [| loc0; loc1; loc2; loc3 |]
-                            let crosses (a, b) (c, d) =
-                                Geometry.segmentsIntersect locs[a] locs[b] locs[c] locs[d]
+            // exact Boltzmann weight of each (partner, bend) state, where
+            // the partner is -1 if the W is unpaired
+        let exact = Collections.Generic.Dictionary<int * int, float>()
+        for locs in trimers do
+            let directions =
+                [|
+                    Bonds.strandDirection None locs[0] (Some locs[1])
+                    Bonds.strandDirection (Some locs[0]) locs[1] (Some locs[2])
+                    Bonds.strandDirection (Some locs[1]) locs[2] None
+                |]
+            let bend = lengthSq (locs[2] - locs[0])
+            for w in grid do
+                if locs |> Array.forall (fun loc -> not (overlaps loc w)) then
+                    addWeight exact (-1, bend) 1.0
+                    for i in 0 .. 2 do
+                        let d = w - locs[i]
+                        let crossesStrong =
+                            [ 0, 1; 1, 2 ]
+                                |> List.exists (fun (j, k) ->
+                                    j <> i && k <> i
+                                        && Geometry.segmentsIntersect locs[i] w locs[j] locs[k])
+                        if Array.contains d Chain.weakBondVectors
+                            && Bonds.isOnFace directions[i] d
+                            && not crossesStrong then
+                            addWeight exact (i, bend) pairWeight
 
-                                // weak bonds that are in range
-                            let feasible =
-                                candidates
-                                    |> List.filter (fun (i, j) ->
-                                        Array.contains (locs[j] - locs[i]) Chain.weakBondVectors)
+            // make sure every partner is part of the test
+        for partner in [ -1; 0; 1; 2 ] do
+            Assert.True(
+                exact.Keys |> Seq.exists (fun (p, _) -> p = partner),
+                $"No states enumerated with partner {partner}")
 
-                                // can the two given weak bonds exist together? A W
-                                // has only one; an X's two partners must be on
-                                // opposite sides of it, within the bend limit
-                            let compatible (x1, w1) (x2, w2) =
-                                if w1 = w2 then false
-                                elif x1 = x2 then
-                                    Bonds.areOpposite locs[x1] locs[w1] locs[w2]
-                                        && Bonds.isBendAllowed weak.BendLimit locs[x1] locs[w1] locs[w2]
-                                else not (crosses (x1, w1) (x2, w2))
-
-                            let bondSets =
-                                (feasible, [ [] ])
-                                    ||> List.foldBack (fun bond sets ->
-                                        sets @ (sets |> List.map (fun set -> bond :: set)))
-                                    |> List.where (fun bonds ->
-                                        List.allPairs bonds bonds
-                                            |> List.forall (fun (bondA, bondB) ->
-                                                bondA >= bondB || compatible bondA bondB))
-
-                            for bonds in bondSets do
-                                let bendEnergy =
-                                    [ 0; 1 ]
-                                        |> List.sumBy (fun x ->
-                                            match bonds |> List.filter (fun (i, _) -> i = x) with
-                                                | [ (_, a); (_, b) ] ->
-                                                    Bonds.bendEnergy weak.BendStiffness locs[x] locs[a] locs[b]
-                                                | _ -> 0.0)
-                                let energy =
-                                    Chain.weakBondEnergy * float bonds.Length + bendEnergy
-                                addWeight exact (getState locs bonds) (exp (-energy / kT))
-
-            // make sure bent states are actually part of the test
-        Assert.True(
-            exact.Keys |> Seq.exists (fun (_, bend) -> bend >= 0),
-            "No bent states enumerated")
-
-            // sample states, starting with the atoms apart
+            // sample states, starting with the W away from the trimer
         let samples =
             TestWorld.empty
-                |> World.addAtom AtomType.X (Point.create (-size, -size))       // 0
-                |> World.addAtom AtomType.X (Point.create (2 - size, -size))    // 1
-                |> World.addAtom AtomType.W (Point.create (size, size))         // 2
-                |> World.addAtom AtomType.W (Point.create (-size, size))        // 3
-                |> World.addStrongBond TestParameters.standard 0 1
+                |> World.addAtom AtomType.X (Point.create (-2, -size))   // 0
+                |> World.addAtom AtomType.X (Point.create (0, -size))    // 1
+                |> World.addAtom AtomType.X (Point.create (2, -size))    // 2
+                |> World.addAtom AtomType.W (Point.create (0, size))     // 3
+                |> World.addStrongBond parms 0 1
+                |> World.addStrongBond parms 1 2
                 |> Chain.addBox size
                 |> sample
-                    parms 8 5000 1000 3000
+                    parms 8 5000 500 3000
                     (fun world ->
                         let centered (loc : Point) = Grid.getDisplacement Point.zero loc world.Cells
                         let locs = world.Atoms |> Array.map (fun atom -> centered atom.Location)
-                        let bonds =
-                            Bonds.weakBonds world
-                                |> Set.toList
-                                |> List.map (fun (i, j) -> min i j, max i j)   // (X, W): the Xs have the smaller IDs
-                        getState locs bonds)
+                        let partner =
+                            Bonds.weakPartners world 3
+                                |> Seq.tryHead
+                                |> Option.defaultValue -1
+                        partner, lengthSq (locs[2] - locs[0]))
 
-        checkFit "Weak bonds and bend" (toMap exact) samples
-
-    /// Weak bends with a limit stricter than the weak bond's own rule:
-    /// an X's two partners must be nearly in line.
-    [<Fact>]
-    let ``A dimer and two free atoms in a box follow the Boltzmann distribution with a weak bend limit`` () =
-        checkWeakBend TestParameters.straightBend 0.0
-
-    /// Weak bends with a cost. The weak bond's own rule keeps every bend
-    /// gentle (cos phi <= -0.6), so a large stiffness is needed to make
-    /// the differences between them count.
-    [<Fact>]
-    let ``A dimer and two free atoms in a box follow the Boltzmann distribution with weak bend stiffness`` () =
-        checkWeakBend TestParameters.anyBend 8.0
+        checkFit "Partner and bend" (toMap exact) samples

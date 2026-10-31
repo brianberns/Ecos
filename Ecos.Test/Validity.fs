@@ -55,33 +55,110 @@ module Validity =
         world.BondTypeMap[bondType]
             |> BondMap.getBonds id
 
-    /// Oracle: is the angle between the given atom's bonds of the given
-    /// type allowed, with that type's bend limit in the given
-    /// parameters, when the atoms are at the locations given by the
-    /// given function? (Only an atom with two such bonds can fail
-    /// this.) For strong bonds, this keeps strands from bending too
-    /// sharply; for weak bonds, it also keeps an atom's two partners on
-    /// opposite sides of it.
-    let anglesAreAllowed (parms : Parameters) bondType (world : World) (loc : AtomId -> Point) id =
-        let limit = parms.BondTypeParameterMap[bondType].BendLimit
-        let ids = Set.toList (partners bondType world id)
+    /// Oracle: is the angle between the given atom's strong bonds
+    /// allowed, with the bend limit in the given parameters, when the
+    /// atoms are at the locations given by the given function? (Only an
+    /// atom with two strong bonds can fail this.) This keeps strands
+    /// from bending too sharply.
+    let anglesAreAllowed (parms : Parameters) (world : World) (loc : AtomId -> Point) id =
+        let limit = parms.BondTypeParameterMap[Strong].BendLimit
+        let ids = Set.toList (partners Strong world id)
         List.allPairs ids ids
             |> List.forall (fun (idB, idC) ->
                 idB >= idC
-                    || Bonds.isAngleAllowed bondType limit Point.zero
+                    || Bonds.isBendAllowed limit Point.zero
                         (Grid.getDisplacement (loc id) (loc idB) world.Cells)   // loc may place the atom elsewhere
                         (Grid.getDisplacement (loc id) (loc idC) world.Cells))
 
-    /// Oracle: would the angle between the given atom's bonds of the
-    /// given type still be allowed, with the given parameters, if it
-    /// also had such a bond to the given new partner?
-    let hasRoomAtAngle (parms : Parameters) bondType (world : World) id idNew =
-        let limit = parms.BondTypeParameterMap[bondType].BendLimit
-        partners bondType world id
+    /// Oracle: would the angle between the given atom's strong bonds
+    /// still be allowed, with the given parameters, if it also had a
+    /// strong bond to the given new partner?
+    let hasRoomAtAngle (parms : Parameters) (world : World) id idNew =
+        let limit = parms.BondTypeParameterMap[Strong].BendLimit
+        partners Strong world id
             |> Set.forall (fun idB ->
-                Bonds.isAngleAllowed bondType limit Point.zero
+                Bonds.isBendAllowed limit Point.zero
                     (delta id idB world)
                     (delta id idNew world))
+
+    /// A view of a world's strands, for the face oracles below: each
+    /// atom's strong partners, its successor (if any), and its location.
+    /// To decide whether an event is allowed, the oracles are given a
+    /// view of the world as the event would leave it.
+    type Strands =
+        {
+            /// Strong partners of each atom.
+            Partners : AtomId -> Set<AtomId>
+
+            /// Successor of each atom, if any.
+            Successor : AtomId -> AtomId option
+
+            /// Location of each atom.
+            Location : AtomId -> Point
+        }
+
+    /// The strands of the given world, as they are.
+    let strandsOf (world : World) =
+        {
+            Partners = partners Strong world
+            Successor = Bonds.successor world
+            Location = fun id -> world.Atoms[id].Location
+        }
+
+    /// The given strands, with the given atom at the given location.
+    let withLocation id loc (strands : Strands) =
+        { strands with
+            Location = fun idC -> if idC = id then loc else strands.Location idC }
+
+    /// The given strands, with a strong bond from atom A to atom B.
+    let withBond idA idB (strands : Strands) =
+        { strands with
+            Partners = fun id ->
+                let ids = strands.Partners id
+                if id = idA then ids.Add idB
+                elif id = idB then ids.Add idA
+                else ids
+            Successor = fun id ->
+                if id = idA then Some idB
+                else strands.Successor id }
+
+    /// The given strands, without the strong bond between atoms A and
+    /// B, whichever way it runs.
+    let withoutBond idA idB (strands : Strands) =
+        { strands with
+            Partners = fun id ->
+                let ids = strands.Partners id
+                if id = idA then ids.Remove idB
+                elif id = idB then ids.Remove idA
+                else ids
+            Successor = fun id ->
+                match strands.Successor id with
+                    | Some idS when set [ id; idS ] = set [ idA; idB ] -> None
+                    | succOpt -> succOpt }
+
+    /// Oracle: is atom B on atom A's face, in the given world with the
+    /// given strands? A's face is to the left of its strand's direction
+    /// (see Bonds.isOnFace). An atom that isn't in a strand has no
+    /// face, and pairs on any side.
+    let isOnFace (world : World) (strands : Strands) idA idB =
+        let ids = strands.Partners idA
+        if ids.IsEmpty then true
+        else
+            let succOpt = strands.Successor idA
+            let predOpt = ids |> Seq.tryFind (fun id -> Some id <> succOpt)
+            let rel id =   // relative to A, around the torus
+                Grid.getDisplacement (strands.Location idA) (strands.Location id) world.Cells
+            let direction =
+                Bonds.strandDirection (Option.map rel predOpt) Point.zero (Option.map rel succOpt)
+            Bonds.isOnFace direction (rel idB)
+
+    /// Oracle: is each atom of every weak bond in the given world on
+    /// the other's face, with the given strands?
+    let facesAreValid (world : World) strands =
+        weakBonds world
+            |> Set.forall (fun (idA, idB) ->
+                isOnFace world strands idA idB
+                    && isOnFace world strands idB idA)
 
     /// Checks all of a world's invariants, with the bend limits in the
     /// given parameters.
@@ -113,7 +190,7 @@ module Validity =
             (Bonds.strongBondMap world)
                 |> Map.forall (fun idA ids ->
                     ids.Count <= Chain.strongValence world.Atoms[idA].Type
-                        && anglesAreAllowed parms Strong world loc idA
+                        && anglesAreAllowed parms world loc idA
                         && ids
                             |> Set.forall (fun idB ->
                                 isBondVector (delta idA idB world)
@@ -144,19 +221,27 @@ module Validity =
                                 && Chain.canPair world.Atoms[idA].Type world.Atoms[idB].Type
                                 && not (isStronglyBonded world idA idB)))
 
-            // no atom has more than two weak partners, and only an atom
-            // in a strand (one with a strong bond) has two; two partners are
-            // on opposite sides of the atom, and (as a consequence) are
-            // never strongly bonded to each other
+            // every strong bond runs one way: one of its atoms is the
+            // other's predecessor, and not the other way round; every
+            // direction is that of a strong bond; and no atom has two
+            // predecessors (nor two successors, which the map can't hold)
+        let directionsValid =
+            let directed = Bonds.directedStrongBonds world
+            strongBonds world
+                |> Set.forall (fun (idA, idB) ->
+                    directed.Contains (idA, idB) <> directed.Contains (idB, idA))
+                && directed
+                    |> Set.forall (fun (idA, idB) -> isStronglyBonded world idA idB)
+                && directed
+                    |> Seq.countBy snd
+                    |> Seq.forall (fun (_, n) -> n = 1)
+
+            // no atom has more than one weak partner, and each atom of a
+            // weak bond is on the other's face
         let weakPartnersValid =
             (Bonds.weakBondMap world)
-                |> Map.forall (fun idA ids ->
-                    ids.Count <= 2
-                        && (ids.Count < 2 || not (partners Strong world idA).IsEmpty)
-                        && anglesAreAllowed parms Weak world loc idA
-                        && List.allPairs (Set.toList ids) (Set.toList ids)
-                            |> List.forall (fun (idB, idC) ->
-                                not (isStronglyBonded world idB idC)))
+                |> Map.forall (fun _ ids -> ids.Count <= 1)
+                && facesAreValid world (strandsOf world)
 
             // every atom is stored under its own ID, and the world's cells
             // say exactly where the atoms and walls are: each atom's and
@@ -187,5 +272,6 @@ module Validity =
                     |> Array.forall (fun loc -> world[loc] = Cell.Wall)
                 && (locations.Length = 0 || regionConsistent ())
 
-        noOverlaps && strongBondsValid && bondSetsValid && noCrossings
-            && weakBondsValid && weakPartnersValid && occupancyConsistent
+        noOverlaps && strongBondsValid && directionsValid && bondSetsValid
+            && noCrossings && weakBondsValid && weakPartnersValid
+            && occupancyConsistent

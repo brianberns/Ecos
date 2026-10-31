@@ -217,7 +217,7 @@ module Experiment19 =
     /// Adds a duplex of the given strand and its copy at a random empty
     /// place: the strand along a row, and the copy in the row above,
     /// each atom paired with the one below it. Answers the world and the
-    /// atom IDs of the two strands.
+    /// atom IDs of the two strands, each in order along it.
     let private addDuplex parms (rng : Random) (strand : AtomType[]) (world : World) =
         let n = strand.Length
         let rec loop () =
@@ -227,15 +227,16 @@ module Experiment19 =
             let worldOpt =
                 Build.tryAddStrand parms x y strand world
                     |> Option.bind (
-                            // the copy, laid out the other way, so that each
-                            // atom faces its complement
-                        Build.tryAddStrand parms x (y + 2) (Array.map complement strand))
+                            // the copy, running the other way, so that the
+                            // strands face each other and each atom is
+                            // above its complement
+                        Build.tryAddStrandLeftward parms (x + 2 * (n - 1)) (y + 2) (copyOf strand))
             match worldOpt with
                 | Some world ->
                     let idsA = [| first .. first + n - 1 |]
                     let idsB = [| first + n .. first + 2 * n - 1 |]
                     let world =
-                        (world, Array.zip idsA idsB)
+                        (world, Array.zip idsA (Array.rev idsB))
                             ||> Array.fold (fun world (idA, idB) ->
                                 World.addWeakBond parms idA idB world)
                     world, idsA, idsB
@@ -315,7 +316,7 @@ module Experiment19 =
                     let world, idsA, idsB = addDuplex hot rng strand world
                     world,
                         { IsHairpinFormer = isHairpinFormer; AtomIds = idsA }
-                            :: { IsHairpinFormer = isHairpinFormer; AtomIds = Array.rev idsB }   // in order along the copy
+                            :: { IsHairpinFormer = isHairpinFormer; AtomIds = idsB }
                             :: seeds)
         World.sweep hot rng settings.HotSweeps world, List.toArray seeds
 
