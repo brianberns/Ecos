@@ -486,9 +486,9 @@ module World =
                 |> Seq.forall (fun bondType ->
                     let behavior = BehaviorMap.standard[bondType]
                     behavior.TestValence atomA bondTypeMap
-                        && behavior.TestValence atomB bondTypeMap
-                        && Face.test world.AtomGrid bondTypeMap atomA
-                        && Face.test world.AtomGrid bondTypeMap atomB)
+                        && behavior.TestValence atomB bondTypeMap)
+                && Face.test world.AtomGrid bondTypeMap atomA
+                && Face.test world.AtomGrid bondTypeMap atomB
 
             // update world
         if isValid then
