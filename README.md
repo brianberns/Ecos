@@ -34,7 +34,7 @@ Strands also die: now and then a strong bond breaks of its own accord (hydrolysi
 **One-sided pairing.** Pairing was once two-sided: a strand could pair along both of its faces at once. It is now one-sided (see the model, below), and the experiments behind the milestones were rerun with it, side by side with the last two-sided version. Every milestone still holds, though some by less:
 
 - Half as much of a template is paired at any temperature: 26% at kT 0.3, against 42%.
-- Templated joining is about six times slower, but still almost always templated. In experiment 2, a template speeds joining 58-fold at kT 0.25, against 196-fold.
+- Free atoms start joining on a template 4 to 10 times more slowly (experiment 2). A join needs two neighbouring template atoms paired at once, and each is paired less than half as often. Joining is still almost always templated: a template speeds it 58-fold at kT 0.25, against 196-fold. Once a copy has started, stacking speeds the rest, so copies per cycle fall by only about half, mostly because a strand carries one copy at a time instead of two.
 - Copying needs longer phases. Scenario C's cycle is now 200,000 cold and 100,000 hot.
 - Chance replicators need a lower barrier: 16 now does what 20 used to (below).
 - Selection is stronger (below).
