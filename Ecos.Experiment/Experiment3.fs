@@ -202,6 +202,20 @@ module Experiment3 =
         strand.AtomIds.Length = sequence.Length
             && hasPieceOf sequence world strand
 
+    /// The given chain's atom IDs, in order from its head (the atom
+    /// with no predecessor) to its tail.
+    let private fromHead (world : World) (atomIds : AtomId[]) =
+        let successor id =
+            Map.tryFind id world.BondTypeMap.StrongBondDirectionMap
+        if atomIds.Length >= 2 && successor atomIds[0] <> Some atomIds[1] then
+            Array.rev atomIds
+        else atomIds
+
+    /// The given chain's sequence of atom types, read from its head.
+    let private readFromHead (world : World) atomIds =
+        fromHead world atomIds
+            |> Array.map (fun id -> world.Atoms[id].Type)
+
     /// Counts the atoms of the given strand that are paired with an
     /// atom of a different strand.
     let private countPaired (strandMap : Map<AtomId, int>) (world : World) iStrand strand =
@@ -231,6 +245,13 @@ module Experiment3 =
             /// Chains whose sequence is the same as the template's,
             /// including the template itself.
             Same : int
+
+            /// Copies and chains with the template's sequence that
+            /// run the way copying predicts: each copy is antiparallel
+            /// to its template, so a copy read from its head is the
+            /// template read from its head, reversed and complemented,
+            /// and a copy of a copy reads as the template does.
+            Oriented : int
 
             /// Atoms in the longest strand.
             Longest : int
@@ -277,6 +298,17 @@ module Experiment3 =
         let copies =
             strands
                 |> Array.where (hasSequence complementSequence world)
+        let same =
+            strands
+                |> Array.where (hasSequence sequence world)
+        let oriented =
+            let templateFromHead = readFromHead world template
+            let copyFromHead = templateFromHead |> Array.rev |> Array.map complement
+            let count (chains : Strand[]) expected =
+                chains
+                    |> Array.where (fun strand -> readFromHead world strand.AtomIds = expected)
+                    |> Array.length
+            count copies copyFromHead + count same templateFromHead
         let nPaired =
             strands
                 |> Array.indexed
@@ -291,10 +323,8 @@ module Experiment3 =
                     |> Array.where (hasPieceOf complementSequence world)
                     |> Array.map _.AtomIds.Length
                     |> Array.fold max 0
-            Same =
-                strands
-                    |> Array.where (hasSequence sequence world)
-                    |> Array.length
+            Same = same.Length
+            Oriented = oriented
             FreeAtoms =
                 world.Atoms
                     |> Seq.where (fun atom -> not (strandMap.ContainsKey atom.Id))
@@ -496,7 +526,8 @@ module Experiment3 =
                 + "strands_intact_fraction,copies_intact_fraction,template_intact_fraction,capped,"
                 + "joins_atom_atom,joins_atom_strand,joins_strand_strand,joins_untemplated,"
                 + "template_joins,template_joins_atom,template_joins_strand,template_joins_strand_size,"
-                + "template_splint_none,template_splint_short,template_splint_medium,template_splint_full")
+                + "template_splint_none,template_splint_short,template_splint_medium,template_splint_full,"
+                + "oriented_fraction")
 
         /// Joins per run that satisfy the given test.
         let joinsPerRun (results : PhaseResult[]) test =
@@ -591,6 +622,13 @@ module Experiment3 =
                             if r.After.TemplateIntact then 1.0 else 0.0)
                         average (fun r -> float r.After.Capped)
                     |]
+
+                    // fraction of copies and same-sequence chains that run
+                    // the way copying predicts
+                let orientedFraction =
+                    let nOriented = results |> Array.sumBy (fun r -> r.After.Oriented)
+                    let nChains = results |> Array.sumBy (fun r -> r.After.Copies + r.After.Same)
+                    if nChains = 0 then nan else float nOriented / float nChains
                 printfn
                     "%5d  %4.2f  %7d     %7.2f  %6.2f  %6.2f  %5.2f  %5.2f  %7.2f  %6.2f       %6.2f  %6.2f   %7.2f  %6.2f  %8.2f"
                     (iCycle + 1) v[1] phase.NumSweeps
@@ -600,7 +638,7 @@ module Experiment3 =
                 writer.WriteLine(
                     String.Join(
                         ",",
-                        Array.append v (getJoinValues results)
+                        Array.concat [ v; getJoinValues results; [| orientedFraction |] ]
                             |> Seq.map (fun (x : float) ->
                                 x.ToString(Globalization.CultureInfo.InvariantCulture))))
 
@@ -756,4 +794,7 @@ module Experiment3 =
                 |> float)
         summarize "copies" (fun r -> float r.After.Copies)
         summarize "capped" (fun r -> float r.After.Capped)
+        let nOriented = final |> Array.sumBy (fun r -> r.After.Oriented)
+        let nChains = final |> Array.sumBy (fun r -> r.After.Copies + r.After.Same)
+        printfn "%-24s %d of %d copies and same-sequence chains (should be all)" "oriented as predicted" nOriented nChains
         printfn "Results written to %s" (Path.GetFullPath csvPath)
