@@ -65,43 +65,42 @@ module BondTypeMap =
     /// atom B without branching a strand: A must not already have a
     /// successor, and B must not already have a predecessor.
     let private testStrongBondDirection
-        atomA atomB (bondTypeMap : BondTypeMap) =
+        idA idB (bondTypeMap : BondTypeMap) =
 
             // get strong-bond maps
         let strongBondMap = bondTypeMap[Strong]
         let dirMap = bondTypeMap.StrongBondDirectionMap
 
         /// Does the given atom have a successor?
-        let hasSuccessor atom =
-            dirMap.ContainsKey(atom.Id)
+        let hasSuccessor id =
+            dirMap.ContainsKey(id)
 
         /// Does the given atom have a predecessor?
-        let hasPredecessor atom =
+        let hasPredecessor id =
             let nBonds =
-                (BondMap.getBonds atom.Id strongBondMap).Count
-            nBonds > (if hasSuccessor atom then 1 else 0)   // extra strong bond must come from predecessor
+                (BondMap.getBonds id strongBondMap).Count
+            nBonds > (if hasSuccessor id then 1 else 0)   // extra strong bond must come from predecessor
 
-        not (hasSuccessor atomA) && not (hasPredecessor atomB)
+        not (hasSuccessor idA) && not (hasPredecessor idB)
 
-    /// Adds a bond of the given type between the given atoms
-    /// to the given bond-type map, if it is valid.
+    /// Adds a bond of the given type between the atoms with the
+    /// given IDs to the given bond-type map, if it is valid.
     let tryAddBond
-        (bondType : BondType) atomA atomB (bondTypeMap : BondTypeMap) =
+        (bondType : BondType) idA idB (bondTypeMap : BondTypeMap) =
 
             // can't bond atoms that are already bonded
         let areBonded =
             bondTypeMap.BondMaps
-                |> Seq.exists (BondMap.areBonded atomA.Id atomB.Id)
+                |> Seq.exists (BondMap.areBonded idA idB)
         if areBonded then None
         else
                 // update direction map?
             let dirMapOpt =
                 if bondType.IsStrong then
                     let isValid =
-                        testStrongBondDirection atomA atomB bondTypeMap
+                        testStrongBondDirection idA idB bondTypeMap
                     if isValid then
-                        Map.add
-                            atomA.Id atomB.Id
+                        Map.add idA idB
                             bondTypeMap.StrongBondDirectionMap
                             |> Some
                     else None
@@ -113,7 +112,7 @@ module BondTypeMap =
                 |> Option.map (fun dirMap ->
                     let bondMap =
                         BondMap.createBond
-                            atomA.Id atomB.Id bondTypeMap[bondType]
+                            idA idB bondTypeMap[bondType]
                     { setBondMap bondType bondMap bondTypeMap with
                         StrongBondDirectionMap = dirMap })
 

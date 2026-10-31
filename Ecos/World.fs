@@ -201,7 +201,7 @@ module World =
 
             // create bond provisionally, if possible
         world.BondTypeMap
-            |> BondTypeMap.tryAddBond bondType atomA atomB
+            |> BondTypeMap.tryAddBond bondType atomA.Id atomB.Id
             |> Option.bind (fun bondTypeMap ->
 
                     // new bond is valid?
