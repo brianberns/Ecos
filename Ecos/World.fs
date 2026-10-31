@@ -116,7 +116,7 @@ module World =
             let world =
                 { world with
                     AtomGrid =
-                        AtomGrid.addAtom atom world.AtomGrid }  // MUTATION
+                        AtomGrid.addAtom atom world.AtomGrid }   // MUTATION
             Some (world, atom)
         else None
 
