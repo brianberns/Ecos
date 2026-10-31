@@ -148,12 +148,6 @@ module World =
         world.BondTypeMap.BondMaps
             |> Seq.collect (BondMap.getBonds id)
 
-    /// Indicates whether the atoms with the given IDs are already
-    /// bonded in the given world.
-    let private areBonded idA idB (world : World) =
-        world.BondTypeMap.BondMaps
-            |> Seq.exists (BondMap.areBonded idA idB)
-
     /// The shortest vector from atom A to atom B in the given
     /// world, accounting for possible edge wrapping.
     let getDisplacement atomA atomB (world : World) =
@@ -216,7 +210,6 @@ module World =
                     let delta = getDisplacement atomA atomB world
                     let bendLimit = bondTypeParms.BendLimit
                     behavior.AreCompatible atomA.Type atomB.Type
-                        && not (areBonded atomA.Id atomB.Id world)
                         && Neighborhood.testBond delta behavior.Neighborhood
                         && behavior.TestValence atomA bondTypeMap
                         && behavior.TestValence atomB bondTypeMap

@@ -67,13 +67,8 @@ module BondTypeMap =
     let private testStrongBondDirection
         atomA atomB (bondTypeMap : BondTypeMap) =
 
-            // get strong-bond map
+            // get strong-bond maps
         let strongBondMap = bondTypeMap[Strong]
-        assert(
-            BondMap.areBonded atomA.Id atomB.Id strongBondMap
-                |> not)
-
-            // get strong-bond direction map
         let dirMap = bondTypeMap.StrongBondDirectionMap
 
         /// Does the given atom have a successor?
@@ -90,30 +85,37 @@ module BondTypeMap =
 
     /// Adds a bond of the given type between the given atoms
     /// to the given bond-type map, if it is valid.
-    let tryAddBond (bondType : BondType) atomA atomB bondTypeMap =
+    let tryAddBond
+        (bondType : BondType) atomA atomB (bondTypeMap : BondTypeMap) =
 
-            // update direction map?
-        let dirMapOpt =
-            if bondType.IsStrong then
-                let isValid =
-                    testStrongBondDirection atomA atomB bondTypeMap
-                if isValid then
-                    Map.add
-                        atomA.Id atomB.Id
-                        bondTypeMap.StrongBondDirectionMap
-                        |> Some
-                else None
-            else
-                Some bondTypeMap.StrongBondDirectionMap
+            // can't bond atoms that are already bonded
+        let areBonded =
+            bondTypeMap.BondMaps
+                |> Seq.exists (BondMap.areBonded atomA.Id atomB.Id)
+        if areBonded then None
+        else
+                // update direction map?
+            let dirMapOpt =
+                if bondType.IsStrong then
+                    let isValid =
+                        testStrongBondDirection atomA atomB bondTypeMap
+                    if isValid then
+                        Map.add
+                            atomA.Id atomB.Id
+                            bondTypeMap.StrongBondDirectionMap
+                            |> Some
+                    else None
+                else
+                    Some bondTypeMap.StrongBondDirectionMap
 
-            // update bond map?
-        dirMapOpt
-            |> Option.map (fun dirMap ->
-                let bondMap =
-                    BondMap.createBond
-                        atomA.Id atomB.Id bondTypeMap[bondType]
-                { setBondMap bondType bondMap bondTypeMap with
-                    StrongBondDirectionMap = dirMap })
+                // update bond map?
+            dirMapOpt
+                |> Option.map (fun dirMap ->
+                    let bondMap =
+                        BondMap.createBond
+                            atomA.Id atomB.Id bondTypeMap[bondType]
+                    { setBondMap bondType bondMap bondTypeMap with
+                        StrongBondDirectionMap = dirMap })
 
     /// Removes the bidirectional bond of the given type between
     /// the given atoms from the given bond-type map, without
