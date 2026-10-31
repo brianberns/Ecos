@@ -221,7 +221,7 @@ module World =
                         && Bend.testMany
                             behavior bendLimit world.AtomGrid atomB atomA idsB
 
-                    // update world
+                    // update world?
                 if isValid then
                     Some { world with _BondTypeMap = bondTypeMap }
                 else None)
