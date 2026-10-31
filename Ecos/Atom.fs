@@ -14,11 +14,11 @@ type AtomId = int
 /// An indivisible atom.
 type Atom =
     {
-        /// Atom type.
-        Type : AtomType
-
         /// Unique identifier of the atom in the world.
         Id : AtomId
+
+        /// Atom type.
+        Type : AtomType
 
         /// Location of the atom in the world.
         Location : Point
