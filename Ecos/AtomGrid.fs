@@ -39,9 +39,9 @@ module private AtomGrid =
                 Cells = Grid.copy grid.Cells
         }
 
-    /// Adds the given atom to the given grid at the given location.
-    let addAtom atom location grid =
-        Grid.setAtom location atom.Id grid.Cells   // MUTATION
+    /// Adds the given atom to the given grid.
+    let addAtom atom grid =
+        Grid.setAtom atom.Location atom.Id grid.Cells   // MUTATION
         { grid with
             Atoms = [| yield! grid.Atoms; yield atom |] }
 
