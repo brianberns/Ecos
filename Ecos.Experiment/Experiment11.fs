@@ -73,8 +73,9 @@ module Experiment11 =
             GetTemperature = Parameters.getUniformTemperature kT }
 
     /// A small world holding a template of the given coding type, capped P...Q,
-    /// with its complement paired along one side. Answers the world and
-    /// the atom IDs of the two strands.
+    /// with its copy paired along its face, running the other way, so
+    /// that each atom is above its complement. Answers the world and the
+    /// atom IDs of the two strands, each in order along it.
     let private createDuplex parms codingType =
         let templateTypes =
             [|
@@ -82,24 +83,18 @@ module Experiment11 =
                 yield! Array.replicate nCoding codingType
                 AtomType.Q
             |]
-        let addRow y (types : AtomType[]) world =
-            (world, Array.indexed types)
-                ||> Array.fold (fun world (i, atomType) ->
-                    let loc = Build.center world + Point.create (2 * i - nCoding - 2, y)
-                    let world, atom =
-                        World.tryAddAtom atomType loc world |> Option.get
-                    if i > 0 then
-                        World.addStrongBond parms (atom.Id - 1) atom.Id world
-                    else world)
+        let n = templateTypes.Length
+        let copyTypes = templateTypes |> Array.rev |> Array.map complement
+        let x = -nCoding - 2
         let world =
             World.createSquare 60
-                |> addRow 0 templateTypes
-                |> addRow 2 (Array.map complement templateTypes)
-        let n = templateTypes.Length
+                |> Build.tryAddStrand parms x 0 templateTypes
+                |> Option.bind (Build.tryAddStrandLeftward parms (x + 2 * (n - 1)) 2 copyTypes)
+                |> Option.get
         let world =
             (world, [ 0 .. n - 1 ])
                 ||> Seq.fold (fun world i ->
-                    World.addWeakBond parms i (i + n) world)
+                    World.addWeakBond parms i (2 * n - 1 - i) world)
         world, [| 0 .. n - 1 |], [| n .. 2 * n - 1 |]
 
     /// Whether the given strands have come apart: no weak bonds between
