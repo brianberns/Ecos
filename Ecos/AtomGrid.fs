@@ -63,3 +63,17 @@ module private AtomGrid =
         grid.Cells[location] <- Cell.Wall   // MUTATION
         { grid with
             Walls = [| yield! grid.Walls; yield location |] }
+
+    /// Moves the given atom's location in the given grid.
+    let moveAtom atomBefore atomAfter grid =
+        assert(atomBefore.Id = atomAfter.Id)
+        assert(grid.Atoms[atomBefore.Id] = atomBefore)
+        assert(
+            grid.Cells[atomBefore.Location] = Cell.Atom atomBefore.Id)
+        assert(grid.Cells[atomAfter.Location] = Cell.Empty)
+
+            // MUTATION
+        let id = atomBefore.Id
+        grid.Atoms[id] <- atomAfter   // replaces `atomBefore`
+        grid.Cells[atomBefore.Location] <- Cell.Empty
+        grid.Cells[atomAfter.Location] <- Cell.Atom id

@@ -365,19 +365,6 @@ module World =
         let x = entropy - energyDelta / kT
         x >= 0 || rng.NextDouble() < exp x
 
-    /// Updates the given atom's location in the given world.
-    /// (Claude calls this a "hop".)
-    let private moveAtom atomBefore atomAfter (world : World) =
-        assert(atomBefore.Id = atomAfter.Id)
-        assert(world.Atoms[atomBefore.Id] = atomBefore)
-        assert(world[atomBefore.Location] = Cell.Atom atomBefore.Id)
-
-            // MUTATION
-        let id = atomBefore.Id
-        world.AtomGrid.Atoms[id] <- atomAfter   // replaces `atomBefore`
-        world.AtomGrid.Cells[atomBefore.Location] <- Cell.Empty
-        world.AtomGrid.Cells[atomAfter.Location] <- Cell.Atom id
-
     /// When moving an atom, A, we need to check the atom's face
     /// and its strong-bond partners' faces.
     let private testMoveFaces atom (world : World) =
@@ -412,7 +399,8 @@ module World =
                 Parameters.getAvgTemperature atomBefore atomAfter parms
             testMetropolis rng temp 0.0 energyDelta
 
-    /// Attempts to move an atom in the given world.
+    /// Attempts to move an atom in the given world. (Claude
+    /// calls this a "hop".)
     let private tryUpdateAtom parms (rng : Random) (world : World) =
 
             // pick atom to move
@@ -429,7 +417,7 @@ module World =
 
             // move the atom permanently?
         if canMove atom' delta world then
-            moveAtom atom atom' world       // MUTATION: update world provisionally
+            AtomGrid.moveAtom atom atom' world.AtomGrid       // MUTATION: update world provisionally
             let isValid =
                 testBonds parms atom' world
                     && testMoveFaces atom' world
@@ -437,7 +425,7 @@ module World =
             if isValid then
                 Some (world, MoveAtom id)
             else
-                moveAtom atom' atom world   // MUTATION: undo move
+                AtomGrid.moveAtom atom' atom world.AtomGrid   // MUTATION: undo move
                 None
         else None
 
