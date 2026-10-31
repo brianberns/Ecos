@@ -242,13 +242,9 @@ module private WeakBond =
                         bPrimes.Contains(idB')))
             |> Seq.length
 
-    /// Ensures an atom’s two weak partners are on opposite
-    /// sides of it, and too far apart to be strongly bonded
-    /// to each other, and that they bend no more sharply than
-    /// the given limit.
-    let testBend bendLimit u v =
-        u .* v <= -3
-            && BondBehavior.testBendLimit bendLimit u v
+    /// Weak bonds can't bend, because they can't form a chain.
+    let testBend bendLimit (_ : Point) (_ : Point) =
+        true
 
     /// Weak bonds never peel.
     let testPeel _atomA _atomB _bondMap =
