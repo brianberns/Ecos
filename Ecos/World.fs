@@ -211,8 +211,8 @@ module World =
                     let bendLimit = bondTypeParms.BendLimit
                     behavior.AreCompatible atomA.Type atomB.Type
                         && Neighborhood.testBond delta behavior.Neighborhood
-                        && behavior.TestValence atomA bondTypeMap
-                        && behavior.TestValence atomB bondTypeMap
+                        && behavior.TestValence bondTypeMap atomA
+                        && behavior.TestValence bondTypeMap atomB
                         && not (isCrossBond behavior atomA atomB world)
                         && Face.test world.AtomGrid bondTypeMap atomA
                         && Face.test world.AtomGrid bondTypeMap atomB
@@ -473,8 +473,8 @@ module World =
             BondType.all
                 |> Seq.forall (fun bondType ->
                     let behavior = BehaviorMap.standard[bondType]
-                    behavior.TestValence atomA bondTypeMap
-                        && behavior.TestValence atomB bondTypeMap)
+                    behavior.TestValence bondTypeMap atomA
+                        && behavior.TestValence bondTypeMap atomB)
                 && Face.test world.AtomGrid bondTypeMap atomA
                 && Face.test world.AtomGrid bondTypeMap atomB
 
@@ -491,7 +491,7 @@ module World =
             // count adjacent stacks
         let behavior = BehaviorMap.standard[bondType]
         let nStacks =
-            behavior.CountStacks atomA atomB world.BondTypeMap
+            behavior.CountStacks world.BondTypeMap atomA atomB
 
             // compute bond energy
         let bondTypeParms = parms.BondTypeParameterMap[bondType]
@@ -526,10 +526,10 @@ module World =
         if BondMap.areBonded atomA.Id atomB.Id bondMap then
             if testBond bondTypeParms.Entropy bondEnergy
                 || testPeel
-                    rng parms temp behavior atomA atomB bondMap
+                    rng parms temp behavior bondMap atomA atomB
                 || testHydrolysis
                     rng bondTypeParms behavior
-                    atomA atomB world.BondTypeMap
+                    world.BondTypeMap atomA atomB
                 then
                 tryBreakBond bondType atomA atomB world
                     |> Option.map (fun world ->

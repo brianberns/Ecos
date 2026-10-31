@@ -36,11 +36,11 @@ type private BondBehavior =
         /// Determines whether the given atom obeys this type's
         /// valence rule (which may involve other bond types as
         /// well, via the given map).
-        TestValence : Atom -> BondTypeMap -> bool
+        TestValence : BondTypeMap -> Atom -> bool
 
         /// Counts stacks adjacent to a bond (existing or 
         /// proposed) between the given atoms.
-        CountStacks : Atom -> Atom -> BondTypeMap -> int
+        CountStacks : BondTypeMap -> Atom -> Atom -> int
 
         /// Determines whether the angle between the given vectors,
         /// which start at the same atom, is valid for a bond of
@@ -49,11 +49,11 @@ type private BondBehavior =
 
         /// Determines whether the given bond of this type can
         /// peel.
-        TestPeel : Atom -> Atom -> BondMap -> bool
+        TestPeel : BondMap -> Atom -> Atom -> bool
 
         /// Determines whether the given bond of this type is
         /// protected from normal hydrolysis.
-        TestHydrolysisProtection : Atom -> Atom -> BondTypeMap -> bool
+        TestHydrolysisProtection : BondTypeMap -> Atom -> Atom -> bool
     }
 
 module private BondBehavior =
@@ -141,7 +141,7 @@ module private StrongBond =
         not (isCap atomTypeA && isCap atomTypeB)   // caps don't join to each other
 
     /// Strong bond valence test.
-    let testValence atom (bondTypeMap : BondTypeMap) =
+    let testValence (bondTypeMap : BondTypeMap) atom =
         let valence =
             if isCap atom.Type then 1 else 2       // caps can have at most one strong bond
         let bonds = BondMap.getBonds atom.Id bondTypeMap[Strong]
@@ -154,7 +154,7 @@ module private StrongBond =
     ///    A  ═?═ B
     ///    ┆      ┆
     ///    A' ═══ B'
-    let countStacks atomA atomB (bondTypeMap : BondTypeMap) =
+    let countStacks (bondTypeMap : BondTypeMap) atomA atomB =
         let strongBondMap = bondTypeMap[Strong]
         let weakBondMap = bondTypeMap[Weak]
         let bPrimes = BondMap.getBonds atomB.Id weakBondMap
@@ -166,7 +166,7 @@ module private StrongBond =
             |> Seq.length
 
     /// Strands can peel at their ends.
-    let testPeel atomA atomB bondMap =
+    let testPeel bondMap atomA atomB =
         assert(BondMap.areBonded atomA.Id atomB.Id bondMap)
 
         let isExposed atom =
@@ -180,8 +180,8 @@ module private StrongBond =
 
     /// A strong bond is protected from hydrolysis when it is 
     /// part of a stack.
-    let testHydrolysisProtection atomA atomB bondTypeMap =
-        countStacks atomA atomB bondTypeMap > 0
+    let testHydrolysisProtection bondTypeMap atomA atomB =
+        countStacks bondTypeMap atomA atomB > 0
 
     /// Behavior of strong bonds.
     let behavior =
@@ -229,7 +229,7 @@ module private WeakBond =
             | _ -> false
 
     /// Weak bond valence test.
-    let testValence atom (bondTypeMap : BondTypeMap) =
+    let testValence (bondTypeMap : BondTypeMap) atom =
         let bonds = BondMap.getBonds atom.Id bondTypeMap[Weak]
         bonds.Count <= 1
 
@@ -240,7 +240,7 @@ module private WeakBond =
     ///    ┆     ?    ┆
     ///    ┆     ┆    ┆
     ///    B' ══ B ══ B'
-    let countStacks atomA atomB (bondTypeMap : BondTypeMap) =
+    let countStacks (bondTypeMap : BondTypeMap) atomA atomB =
         let strongBondMap = bondTypeMap[Strong]
         let weakBondMap = bondTypeMap[Weak]
         let bPrimes = BondMap.getBonds atomB.Id strongBondMap
@@ -256,11 +256,11 @@ module private WeakBond =
         true
 
     /// Weak bonds never peel.
-    let testPeel _atomA _atomB _bondMap =
+    let testPeel _bondMap _atomA _atomB =
         false
 
     /// Weak bonds need no hydrolysis protection.
-    let testHydrolysisProtection _atomA _atomB _bondTypeMap =
+    let testHydrolysisProtection _bondTypeMap _atomA _atomB =
         false
 
     /// Behavior of weak bonds.
