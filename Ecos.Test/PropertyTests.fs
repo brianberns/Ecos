@@ -618,6 +618,29 @@ module ConstructionTests =
         Assert.True((World.tryAddWeakBond TestParameters.standard 0 2 world).IsNone, "Free atom got a second weak bond")
         Assert.True((World.tryAddWeakBond TestParameters.standard 2 0 world).IsNone, "Free atom got a second weak bond")
 
+            // exclusivity where nothing else decides it: at a U-turn,
+            // Y0->W1->X2->Y3, neighbors W1 and X2 are each on the other's
+            // face, so only their strong bond keeps them from pairing too
+        let bendable = TestParameters.standard |> TestParameters.withBend Strong TestParameters.rightAngleBend 0.0
+        let uTurn =
+            TestWorld.empty
+                |> World.addAtom AtomType.Y (Point.create (0, 2))   // 0
+                |> World.addAtom AtomType.W (Point.create (0, 0))   // 1
+                |> World.addAtom AtomType.X (Point.create (2, 0))   // 2
+                |> World.addAtom AtomType.Y (Point.create (2, 2))   // 3
+                |> World.addStrongBond bendable 0 1
+                |> World.addStrongBond bendable 2 3
+        let joined = World.addStrongBond bendable 1 2 uTurn
+        Assert.True(isOnFace joined (strandsOf joined) 1 2 && isOnFace joined (strandsOf joined) 2 1, "U-turn neighbors don't face each other")
+        Assert.True((World.tryAddWeakBond bendable 1 2 joined).IsNone, "Weak bond accepted between strongly bonded atoms at a U-turn")
+        Assert.True((World.tryAddWeakBond bendable 2 1 joined).IsNone, "Weak bond accepted between strongly bonded atoms at a U-turn")
+
+            // and the other way round: the tail of Y0->W1 and the head of
+            // X2->Y3 are weakly paired, and joining them would make the
+            // same U-turn, so only their weak bond keeps them from joining
+        let paired = World.addWeakBond bendable 1 2 uTurn
+        Assert.True((World.tryAddStrongBond bendable 1 2 paired).IsNone, "Strong bond accepted between weakly bonded atoms at a U-turn")
+
     /// Caps, exhaustively: atoms A, B and C lie in a row, close enough
     /// for A-B and B-C to be strongly bonded. For every combination of
     /// types:
