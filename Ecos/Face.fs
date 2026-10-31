@@ -1,6 +1,6 @@
 namespace Ecos
 
-module Face =
+module private Face =
 
     /// Gets a strong-bond strand's tangent direction at the given
     /// atom, if it exists.
