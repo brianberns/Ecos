@@ -98,7 +98,7 @@ module World =
                     | Cell.Empty -> true)
 
     /// Creates a copy of the given world with its own mutable
-    /// data structures. Public-facign functions call this to
+    /// data structures. Public-facing functions call this to
     /// protect against mutating shared data unexpectedly.
     let private copy world =
         { world with
