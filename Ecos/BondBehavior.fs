@@ -62,6 +62,15 @@ module private BondBehavior =
     /// points (a-b-c):
     /// * Positive: left turn
     /// * Negative: right turn
+    ///
+    /// A positive cross product indicates that `b` is counter-
+    /// clockwise from `a` (on the left, looking along `a`), a
+    /// negative value indicates that `b` is counter-clockwise
+    /// from `a`, and zero indicates that the two vectors are
+    /// parallel or anti-parallel. (The scalar value is actually
+    /// the z-coordinate of a vector perpendicular to the 2D
+    /// plane of the two vectors, but we don't use it for that
+    /// purpose.)
     let private orient (a : Point) (b : Point) (c : Point) =
         sign ((b - a) *^ (c - a))
 
