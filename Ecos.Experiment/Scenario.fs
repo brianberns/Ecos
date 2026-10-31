@@ -260,16 +260,38 @@ module Build =
                         addAtom atomType (offset.X + 2 * (i - n / 2))   // even, and centered as nearly as possible
                             (offset.Y + iRow * dist) world))
 
-    /// Adds rows of free atoms around the center, as addFreeAtomsAt does.
-    let addFreeAtomsWith nPerRow nCapsPerRow dist world =
-        addFreeAtomsAt Point.zero nPerRow nCapsPerRow dist world
+    /// Adds the given number of free atoms of each type, each at a
+    /// random empty place chosen by the given function.
+    let private addFreeAtomsWith (pickLocation : unit -> Point) nEach world =
+        let types =
+            [| AtomType.W; AtomType.X; AtomType.Y; AtomType.Z; AtomType.P; AtomType.Q |]
+        (world, types)
+            ||> Array.fold (fun world atomType ->
+                (world, [ 1 .. nEach ])
+                    ||> Seq.fold (fun world _ ->
+                        let rec loop () =
+                            match World.tryAddAtom atomType (pickLocation ()) world with
+                                | Some (world, _) -> world
+                                | None -> loop ()
+                        loop ()))
 
-    /// Adds rows of free atoms, each row the given number of atoms
-    /// long, the given distance apart, in strips by type above and
-    /// below the center: weak partners of the template nearest to it,
-    /// then strong partners, then caps.
-    let addFreeAtoms nPerRow dist world =
-        addFreeAtomsWith nPerRow nPerRow dist world
+    /// Adds the given number of free atoms of each type at random empty
+    /// places (with even coordinates) within the given distance of the
+    /// center along each axis.
+    let addFreeAtomsNear (rng : Random) maxDist nEach (world : World) =
+        let pick () =
+            let x = 2 * rng.Next(-maxDist / 2, maxDist / 2 + 1)
+            let y = 2 * rng.Next(-maxDist / 2, maxDist / 2 + 1)
+            center world + Point.create (x, y)
+        addFreeAtomsWith pick nEach world
+
+    /// Adds the given number of free atoms of each type at random empty
+    /// places (with even coordinates) anywhere in the world, so that
+    /// where they start says nothing about where a template is.
+    let addFreeAtomsAnywhere (rng : Random) nEach (world : World) =
+        let pick () =
+            Point.create (2 * rng.Next(world.Size.X / 2), 2 * rng.Next(world.Size.Y / 2))
+        addFreeAtomsWith pick nEach world
 
     /// Adds a horizontal strand of the given atom types, joined in
     /// order with the given parameters, with its first atom at the
@@ -343,15 +365,15 @@ module Scenario =
     /// Number of coding atoms in a template.
     let private nCoding = 10
 
-    /// Builds the standard world: a 160x160 torus of free atoms, with or
-    /// without a template.
+    /// Builds the standard world: a 160x160 torus of free atoms,
+    /// scattered at random, with or without a template.
     let private build withTemplate parms (rng : Random) =
         let world = World.createSquare 160
         let world, template =
             if withTemplate then
                 Build.addTemplate parms rng nCoding world
             else world, Array.empty
-        let world = Build.addFreeAtoms (6 * nCoding) 6 world
+        let world = Build.addFreeAtomsAnywhere rng (12 * nCoding) world
         world, template
 
     /// Scenario A: a fixed temperature, with soft strong bonds.

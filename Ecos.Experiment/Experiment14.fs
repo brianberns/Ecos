@@ -72,23 +72,6 @@ module Experiment14 =
         | End gap -> $"end, gap {gap}"
         | Corner gap -> $"corner, gap {gap}"
 
-    /// Adds the given number of free atoms of each type at random empty
-    /// places in the box.
-    let private addFreeAtomsAtRandom (rng : Random) nEach world =
-        let types =
-            [| AtomType.W; AtomType.X; AtomType.Y; AtomType.Z; AtomType.P; AtomType.Q |]
-        (world, types)
-            ||> Array.fold (fun world atomType ->
-                (world, [ 1 .. nEach ])
-                    ||> Seq.fold (fun world _ ->
-                        let rec loop () =
-                            let x = 2 * rng.Next(-(wall - 2) / 2, (wall - 2) / 2 + 1)
-                            let y = 2 * rng.Next(-(wall - 2) / 2, (wall - 2) / 2 + 1)
-                            match World.tryAddAtom atomType (Build.center world + Point.create (x, y)) world with
-                                | Some (world, _) -> world
-                                | None -> loop ()
-                        loop ()))
-
     /// Scenario C, with its template at the given placement and its free
     /// atoms scattered at random.
     let getScenario placement =
@@ -109,7 +92,7 @@ module Experiment14 =
                     |> Build.tryAddStrand parms x y types
                     |> Option.get
             let template = Array.map _.Id world.Atoms
-            let world = addFreeAtomsAtRandom rng (12 * nCoding) world
+            let world = Build.addFreeAtomsNear rng (wall - 2) (12 * nCoding) world
             world, template
         { scenario with
             Name = $"Wall test, {getName placement}"
@@ -284,7 +267,7 @@ module Experiment14 =
                             |]
                         Build.tryAddStrand parms x y types world |> Option.get)
             let templates = Array.map _.Id world.Atoms
-            let world = addFreeAtomsAtRandom rng (12 * nCoding) world
+            let world = Build.addFreeAtomsNear rng (wall - 2) (12 * nCoding) world
             world, templates
         { scenario with
             Name = $"Wall competition, gap {gap}"
