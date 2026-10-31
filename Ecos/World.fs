@@ -529,8 +529,7 @@ module World =
                     rng parms temp behavior bondMap atomA atomB
                 || testHydrolysis
                     rng bondTypeParms behavior
-                    world.BondTypeMap atomA atomB
-                then
+                    world.BondTypeMap atomA atomB then
                 tryBreakBond bondType atomA atomB world
                     |> Option.map (fun world ->
                         let event =
