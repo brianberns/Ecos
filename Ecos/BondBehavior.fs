@@ -243,7 +243,7 @@ module private WeakBond =
             |> Seq.length
 
     /// Weak bonds can't bend, because they can't form a chain.
-    let testBend bendLimit (_ : Point) (_ : Point) =
+    let testBend (_ : Rational) (_ : Point) (_ : Point) =
         true
 
     /// Weak bonds never peel.
