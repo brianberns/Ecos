@@ -32,20 +32,21 @@ type Grid<'t> =
             norm size.X location.X,
             norm size.Y location.Y)
 
-    /// Gets the cell at the given location.
-    member this.Item(location) =
-        let loc = this.NormalizeLocation(location)
-        this.Cells[loc.X, loc.Y]
+    /// Gets or sets the cell at the given location.
+    member this.Item
+        with get(location) =
+            let loc = this.NormalizeLocation(location)
+            this.Cells[loc.X, loc.Y]
+        and set location value =
+            let loc = this.NormalizeLocation(location)
+            this.Cells[loc.X, loc.Y] <- value   // MUTATION
 
-    /// Gets the cell at the given location.
-    member this.Item(x, y) =
-        this[Point.create(x, y)]
-
-    /// Sets the cell at the given location. This mutates the
-    /// grid.
-    member internal this.SetValue(location, cell) =
-        let loc = this.NormalizeLocation(location)
-        this.Cells[loc.X, loc.Y] <- cell
+    /// Gets or sets the cell at the given location.
+    member this.Item
+        with get (x, y) =
+            this[Point.create(x, y)]
+        and set (x, y) value =
+            this[Point.create(x, y) ] <- value   // MUTATION
 
     /// Normalizes the given vector onto this grid, taking care
     /// not to change its direction.

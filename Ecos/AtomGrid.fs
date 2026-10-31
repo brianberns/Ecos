@@ -54,12 +54,12 @@ module private AtomGrid =
 
     /// Adds the given atom to the given grid.
     let addAtom atom grid =
-        grid.Cells.SetValue(atom.Location, Cell.Atom atom.Id)   // MUTATION
+        grid.Cells[atom.Location] <- Cell.Atom atom.Id   // MUTATION
         { grid with
             Atoms = [| yield! grid.Atoms; yield atom |] }
 
     /// Adds a wall to the given grid at the given location.
     let addWall location grid =
-        grid.Cells.SetValue(location, Cell.Wall)   // MUTATION
+        grid.Cells[location] <- Cell.Wall   // MUTATION
         { grid with
             Walls = [| yield! grid.Walls; yield location |] }
