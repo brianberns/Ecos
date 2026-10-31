@@ -1,24 +1,11 @@
 namespace Ecos
 
-/// Types of cells in a grid.
-[<Struct; RequireQualifiedAccess>]
-type Cell =
-
-    /// Atom with the given unique ID.
-    | Atom of AtomId
-
-    /// Immovable wall.
-    | Wall
-
-    /// Empty space.
-    | Empty
-
 /// A 2D grid of mutable cells. The grid is a torus (i.e. edges
 /// wrap around), so coordinates are normalized to the range
 /// (0,0) to (size.X - 1, size.Y - 1), inclusive.
-type Grid =
+type Grid<'t> =
     private {
-        Cells : Cell[(*x*), (*y*)]
+        Cells : 't[(*x*), (*y*)]
     }
 
     /// Size of this grid.
@@ -84,31 +71,18 @@ type Grid =
 
 module Grid =
 
-    /// An empty grid of the given size.
-    let create size =
+    /// Creates a grid of the given size with all cells
+    /// initialized to the given value.
+    let create size value =
         {
-            Cells = Array2D.create size.X size.Y Cell.Empty
+            Cells = Array2D.create size.X size.Y value
         }
 
     /// The shortest vector from location A to location B in the
     /// given grid. Since the grid has no boundary, this vector
     /// might wrap around the edges.
-    let getDisplacement locA locB (grid : Grid) =
+    let getDisplacement locA locB (grid : Grid<_>) =
         grid.NormalizeVector(locB - locA)
-
-    /// Sets the given location to contain an atom with the given
-    /// ID. This mutates the grid.
-    let setAtom location id (grid : Grid) =
-        grid.SetValue(location, Cell.Atom id)
-
-    /// Sets the given location to contain a wall. This mutates the grid.
-    let setWall location (grid : Grid) =
-        grid.SetValue(location, Cell.Wall)
-
-    /// Sets the given location to be an empty space. This mutates the
-    /// grid.
-    let setEmpty location (grid : Grid) =
-        grid.SetValue(location, Cell.Empty)
 
     /// Copies the given grid.
     let copy grid =

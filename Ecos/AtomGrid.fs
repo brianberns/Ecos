@@ -1,5 +1,18 @@
 namespace Ecos
 
+/// Types of cells in a grid.
+[<Struct; RequireQualifiedAccess>]
+type Cell =
+
+    /// Atom with the given unique ID.
+    | Atom of AtomId
+
+    /// Immovable wall.
+    | Wall
+
+    /// Empty space.
+    | Empty
+
 /// Grid of cells, with tracked atoms and walls.
 type private AtomGrid =
     {
@@ -10,7 +23,7 @@ type private AtomGrid =
         Walls : Point[]
 
         /// Occupant of each cell in the grid.
-        Cells : Grid
+        Cells : Grid<Cell>
     }
 
 module private AtomGrid =
@@ -20,7 +33,7 @@ module private AtomGrid =
         {
             Atoms = Array.empty
             Walls = Array.empty
-            Cells = Grid.create size
+            Cells = Grid.create size Cell.Empty
         }
 
     /// The shortest vector from atom A to atom B in the given
@@ -41,12 +54,12 @@ module private AtomGrid =
 
     /// Adds the given atom to the given grid.
     let addAtom atom grid =
-        Grid.setAtom atom.Location atom.Id grid.Cells   // MUTATION
+        grid.Cells.SetValue(atom.Location, Cell.Atom atom.Id)   // MUTATION
         { grid with
             Atoms = [| yield! grid.Atoms; yield atom |] }
 
     /// Adds a wall to the given grid at the given location.
     let addWall location grid =
-        Grid.setWall location grid.Cells   // MUTATION
+        grid.Cells.SetValue(location, Cell.Wall)   // MUTATION
         { grid with
             Walls = [| yield! grid.Walls; yield location |] }

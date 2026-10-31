@@ -375,8 +375,8 @@ module World =
             // MUTATION
         let id = atomBefore.Id
         world.AtomGrid.Atoms[id] <- atomAfter   // replaces `atomBefore`
-        Grid.setEmpty atomBefore.Location world.AtomGrid.Cells
-        Grid.setAtom atomAfter.Location id world.AtomGrid.Cells
+        world.AtomGrid.Cells.SetValue(atomBefore.Location, Cell.Empty)
+        world.AtomGrid.Cells.SetValue(atomAfter.Location, Cell.Atom id)
 
     /// When moving an atom, A, we need to check the atom's face
     /// and its strong-bond partners' faces.
