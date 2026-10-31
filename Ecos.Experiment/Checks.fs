@@ -49,12 +49,13 @@ module Checks =
             |> Array.map _.AtomIds
 
     /// Faithful copying: in scenario C, one twelve-atom template is
-    /// copied, and its copies are copied, without loss. (Experiment 3c:
-    /// about 3.3, 6.4 and 10.1 full-length capped strands per run after
-    /// three cycles.)
+    /// copied, and its copies are copied, without loss. (Experiment 3c,
+    /// with one-sided pairing: about 2.0, 3.8 and 7.1 full-length capped
+    /// strands per run after each of three cycles. A strand carries only
+    /// one copy at a time, so at most they double each cycle.)
     let private checkCopying () =
         let nCycles = 3
-        let threshold = 7.0
+        let threshold = 5.0
         let worlds = runCycles (Scenario.createScenarioC true) nCycles [| 0 .. 11 |]
         let nFull =
             worlds

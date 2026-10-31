@@ -526,7 +526,7 @@ module Scenario =
             Name = if withTemplate then "C" else "C, no template"
             Schedule =
                 Cycle [|
-                    { Temperature = 0.3; NumSweeps = 100_000 }   // cold
+                    { Temperature = 0.3; NumSweeps = 200_000 }   // cold: long enough for nearly every strand to be copied (one-sided pairing)
                     { Temperature = 3.0; NumSweeps = 100_000 }   // hot
                 |] }
             |> withStrongBarrier 40
