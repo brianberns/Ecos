@@ -124,7 +124,7 @@ module Checks =
     /// (Experiment 8.)
     let private checkSelection () =
         let nCycles = 15
-        let threshold = 0.58   // experiment 8: about 0.66 at cycle 15, and 0.5 without selection
+        let threshold = 0.65   // experiment 8: about 0.80 at cycle 15, and 0.5 without selection
         let seeds = [| 0 .. 11 |]
         let worlds = runCycles (Experiment8.getScenario 8 3.0) nCycles seeds
         let shares =

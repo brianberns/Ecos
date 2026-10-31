@@ -432,8 +432,8 @@ module Scenario =
                                 |> BondTypeParameterMap.add Strong {
                                     Energy = 34
                                     PairEnergyMap = Map.empty
-                                    Barrier = 20
-                                    BarrierStackReduction = 20
+                                    Barrier = 16   // low enough that replicators arise by chance (experiment 5)
+                                    BarrierStackReduction = 16
                                     StartBarrier = 1
                                     Entropy = 0
                                     HydrolysisRate = 1e-4   // about 5% of strong bonds break per cycle
