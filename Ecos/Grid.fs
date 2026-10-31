@@ -37,7 +37,7 @@ type Grid<'t> =
         with get(location) =
             let loc = this.NormalizeLocation(location)
             this.Cells[loc.X, loc.Y]
-        and set location value =
+        and internal set location value =
             let loc = this.NormalizeLocation(location)
             this.Cells[loc.X, loc.Y] <- value   // MUTATION
 
@@ -45,7 +45,7 @@ type Grid<'t> =
     member this.Item
         with get (x, y) =
             this[Point.create(x, y)]
-        and set (x, y) value =
+        and internal set (x, y) value =
             this[Point.create(x, y) ] <- value   // MUTATION
 
     /// Normalizes the given vector onto this grid, taking care
