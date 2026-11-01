@@ -480,7 +480,7 @@ module Scenario =
         }
 
     /// Renames the given scenario.
-    let withName name scenario =
+    let withName name (scenario : Scenario) =
         { scenario with Name = name }
 
     /// Changes the given scenario's parameters.

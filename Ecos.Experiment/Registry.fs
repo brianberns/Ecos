@@ -99,4 +99,8 @@ module Registry =
                         (Experiment22.getScenarios Experiment22.defaultSettings)
                         (Experiment22.getFoldingScenarios ())
             }
+            {
+                Name = "Experiment 23"
+                Scenarios = Experiment23.getScenarios Experiment23.defaultSettings
+            }
         |]

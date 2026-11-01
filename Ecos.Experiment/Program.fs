@@ -52,6 +52,8 @@ module Program =
                 Experiment21.run Experiment21.defaultSettings
             "experiment22", "Feast and stress: does folding through stress pay for the copies it costs in the feast?",
                 Experiment22.run Experiment22.defaultSettings
+            "experiment23", "Folding in a famine: in a closed world short of food, does cold stress favor strands that fold when they starve?",
+                Experiment23.run Experiment23.defaultSettings
         ]
 
     /// Prints usage.
