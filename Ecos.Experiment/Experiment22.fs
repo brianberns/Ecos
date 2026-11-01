@@ -184,10 +184,10 @@ module Experiment22 =
         let scenario = Scenario.createScenarioC false
         let build parms (_ : Random) =
             let world =
-                (World.createSquare 80, Array.indexed foldingStems)
+                (World.createSquare 160, Array.indexed foldingStems)
                     ||> Array.fold (fun world (i, stem) ->
                         let strand = getHairpinFormer stem
-                        let y = 16 * (i - foldingStems.Length / 2)
+                        let y = 32 * (i - foldingStems.Length / 2)
                         world
                             |> Build.tryAddStrand parms -strand.Length y strand
                             |> Option.get)
