@@ -93,6 +93,21 @@ module ControlPanel =
             ]
         ]
 
+    let private renderPhaseName run =
+
+        let name =
+            Run.tryGetPhaseName run
+                |> Option.defaultValue "-"
+
+        StackPanel.create [
+            StackPanel.dock Dock.Top
+            StackPanel.orientation Orientation.Horizontal
+            StackPanel.children [
+                renderLabel "Phase:" labelColumnWidth
+                renderLabel $"{name}" valueColumnWidth
+            ]
+        ]
+
     let private renderFrameRate (frameRate : float) =
         StackPanel.create [
             StackPanel.dock Dock.Top
@@ -250,6 +265,7 @@ module ControlPanel =
             DockPanel.children [
                 renderScenario model dispatch
                 renderSweepCount model.Run.NumSweeps
+                renderPhaseName model.Run
                 renderFrameRate model.FrameRate
                 renderIsRecording model.IsRecording dispatch
                 renderTemperature model dispatch
