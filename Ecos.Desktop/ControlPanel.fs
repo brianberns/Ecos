@@ -141,11 +141,11 @@ module ControlPanel =
     let minTemperature = 0.0m
     let maxTemperature = 5.0m
 
-    let private renderTemperature (model : Model) dispatch =
+    let private renderTemperature run dispatch =
         StackPanel.create [
             StackPanel.dock Dock.Top
             StackPanel.orientation Orientation.Horizontal
-            match model.Run.Schedule with
+            match run.Schedule with
                 | Constant kT ->
                     StackPanel.children [
                         renderLabel "Temperature:" labelColumnWidth
@@ -166,6 +166,19 @@ module ControlPanel =
                         ]
                     ]
                 | _ -> ()
+        ]
+
+    let minHydrolysisRate = 0.0
+    let maxHydrolysisRate = 1e-4
+
+    let private renderHydrolysisRate run =
+        StackPanel.create [
+            StackPanel.dock Dock.Top
+            StackPanel.orientation Orientation.Horizontal
+            StackPanel.children [
+                renderLabel "Hydrolysis rate:" labelColumnWidth
+                renderLabel $"{Run.getHydrolysisRate run}" valueColumnWidth
+            ]
         ]
 
     let private renderSpeed (speed : int) dispatch =
@@ -268,7 +281,8 @@ module ControlPanel =
                 renderPhaseName model.Run
                 renderFrameRate model.FrameRate
                 renderIsRecording model.IsRecording dispatch
-                renderTemperature model dispatch
+                renderTemperature model.Run dispatch
+                renderHydrolysisRate model.Run
                 renderSpeed model.Speed dispatch
                 renderSeed model.Seed dispatch
                 renderButtons model dispatch
