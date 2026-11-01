@@ -4,7 +4,7 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <ServerGarbageCollector>true</ServerGarbageCollector>
+    <ServerGarbageCollection>true</ServerGarbageCollection>
   </PropertyGroup>
 
   <ItemGroup>
@@ -21,6 +21,7 @@
     <Compile Include="Experiment17.fs" />
     <Compile Include="Experiment19.fs" />
     <Compile Include="Experiment20.fs" />
+    <Compile Include="Experiment21.fs" />
     <Compile Include="Checks.fs" />
     <Compile Include="Registry.fs" />
     <Compile Include="Program.fs" />

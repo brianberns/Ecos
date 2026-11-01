@@ -88,4 +88,8 @@ module Registry =
                             (Experiment19.getScenarios Experiment19.windowSettings))
                         (Experiment19.getScenarios Experiment19.starvedSettings)
             }
+            {
+                Name = "Experiment 21"
+                Scenarios = Experiment21.getScenarios Experiment21.defaultSettings
+            }
         |]

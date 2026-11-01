@@ -48,6 +48,8 @@ module Program =
                 Experiment19.run Experiment19.windowSettings
             "experiment20", "Is there a temperature at which hairpins stay folded but single strands can't be copied?",
                 Experiment20.run Experiment20.defaultSettings
+            "experiment21", "Hairpin-forming and non-forming strands head to head in a vent world, by distance from the vent",
+                Experiment21.run Experiment21.defaultSettings
         ]
 
     /// Prints usage.
@@ -65,6 +67,11 @@ module Program =
 
     [<EntryPoint>]
     let main argv =
+
+            // experiments take hours, so leave room to use the machine
+        System.Diagnostics.Process.GetCurrentProcess().PriorityClass <-
+            System.Diagnostics.ProcessPriorityClass.BelowNormal
+
         let tryRun name csvPath =
             experiments
                 |> List.tryFind (fun (name', _, _) -> name' = name)
