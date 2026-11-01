@@ -168,9 +168,6 @@ module ControlPanel =
                 | _ -> ()
         ]
 
-    let minHydrolysisRate = 0.0
-    let maxHydrolysisRate = 1e-4
-
     let private renderHydrolysisRate run =
         StackPanel.create [
             StackPanel.dock Dock.Top

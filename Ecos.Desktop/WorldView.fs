@@ -1,5 +1,7 @@
 namespace Ecos
 
+open System
+
 open Avalonia
 open Avalonia.Controls
 open Avalonia.Controls.Primitives
@@ -46,28 +48,51 @@ module WorldView =
             Rectangle.useLayoutRounding false   // don't snap to pixels before scaling
         ] :> IView
 
-    let private getGradientColor colorA colorB (distance : float) =
-        let toUnicolour (color : Color) =
-            Unicolour(
-                ColourSpace.Rgb255,
-                float color.R,
-                float color.G,
-                float color.B)
-        let ucolorA = toUnicolour colorA
-        let ucolorB = toUnicolour colorB
-        let ucolorMix = ucolorA.Mix(ucolorB, ColourSpace.Oklab, distance)
-        let rgb = ucolorMix.Rgb.Byte255
+    let private toUnicolour (color : Color) =
+        Unicolour(
+            ColourSpace.Rgb255,
+            float color.R,
+            float color.G,
+            float color.B)
+
+    let private toColor (ucolor : Unicolour) =
+        let rgb = ucolor.Rgb.Byte255
         Color.FromRgb(byte rgb.R, byte rgb.G, byte rgb.B)
 
-    let private getColor temp =
+    let private coldColor = toUnicolour Colors.LightBlue
+    let private hotColor = toUnicolour Colors.Red
+    let private hydrolysisColor = toUnicolour Colors.Yellow
+
+    /// Hydrolysis rates shown, on a log scale: at or below the lowest,
+    /// a positive rate gets the faintest tint; at or above the highest,
+    /// the strongest.
+    let private minHydRate, maxHydRate = 1e-6, 1e-3
+
+    /// Faintest and strongest yellow tints, so that any hydrolysis
+    /// shows, but the temperature still shows through.
+    let private minHydTint, maxHydTint = 0.15, 0.6
+
+    /// Amount of yellow to mix in for the given hydrolysis rate.
+    let private getHydrolysisTint hydRate =
+        if hydRate <= 0.0 then 0.0
+        else
+            let x =
+                (log10 hydRate - log10 minHydRate)
+                    / (log10 maxHydRate - log10 minHydRate)
+            minHydTint + (maxHydTint - minHydTint) * Math.Clamp(x, 0.0, 1.0)
+
+    let private getColor temp hydRate =
         let distance =
             (temp - float ControlPanel.minTemperature)
                 / float (
                     ControlPanel.maxTemperature
                         - ControlPanel.minTemperature)
-        getGradientColor Colors.LightBlue Colors.Red distance
+        coldColor
+            .Mix(hotColor, ColourSpace.Oklab, distance)
+            .Mix(hydrolysisColor, ColourSpace.Oklab, getHydrolysisTint hydRate)
+            |> toColor
 
-    let private renderTemperature model =
+    let private renderEnvironment model =
         let spacing = 8
         let size = model.Run.World.Size
         [
@@ -80,9 +105,9 @@ module WorldView =
                     let corner = Point.create (x, y)
                     let center = Point.create (x + width / 2, y + height / 2)
 
-                    center
-                        |> Run.getTemperature model.Run
-                        |> getColor
+                    let temp = Run.getTemperature model.Run center
+                    let hydRate = Run.getHydrolysisRate model.Run
+                    getColor temp hydRate
                         |> renderRectangle corner size
         ]
 
@@ -160,7 +185,7 @@ module WorldView =
                     Canvas.height (float world.Size.Y)
                     Canvas.clipToBounds true   // anything drawn past an edge is cut off there
                     Canvas.children [
-                        yield! renderTemperature model
+                        yield! renderEnvironment model
                         yield! renderWalls world
                         yield! renderAtoms model
                         yield! renderStrongBonds world
