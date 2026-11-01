@@ -6,6 +6,10 @@ open Ecos
 /// A stretch of time at one temperature.
 type Phase =
     {
+        /// Name of the phase, if it has one, e.g. "famine", to show in
+        /// the desktop app.
+        Name : string option
+
         /// Temperature scaled by Boltzmann's constant (kT).
         Temperature : float
 
@@ -114,6 +118,14 @@ module Schedule =
                 else
                     Vent.getHotTemperature vent,
                     Some (vent.ColdSweeps + vent.HotSweeps - t)
+
+    /// Answers the name of the given schedule's phase after the given
+    /// number of sweeps, if it has one.
+    let tryGetPhaseName numSweeps schedule =
+        assert(numSweeps >= 0)
+        match schedule with
+            | Cycle phases -> (getPhase numSweeps phases |> fst).Name
+            | Constant _ | Vent _ -> None
 
     /// Answers the rate at which unprotected strong bonds hydrolyze
     /// after the given number of sweeps, if the schedule sets one.
@@ -462,8 +474,8 @@ module Scenario =
                                 } }
                 Schedule =
                     Cycle [|
-                        { Temperature = 0.3; NumSweeps = 90_000; HydrolysisRate = None }   // cold
-                        { Temperature = 3.0; NumSweeps = 10_000; HydrolysisRate = None }   // hot
+                        { Name = Some "cold"; Temperature = 0.3; NumSweeps = 90_000; HydrolysisRate = None }
+                        { Name = Some "hot"; Temperature = 3.0; NumSweeps = 10_000; HydrolysisRate = None }
                     |]
         }
 
@@ -545,8 +557,8 @@ module Scenario =
             Name = if withTemplate then "C" else "C, no template"
             Schedule =
                 Cycle [|
-                    { Temperature = 0.3; NumSweeps = 200_000; HydrolysisRate = None }   // cold: long enough for nearly every strand to be copied (one-sided pairing)
-                    { Temperature = 3.0; NumSweeps = 100_000; HydrolysisRate = None }   // hot
+                    { Name = Some "cold"; Temperature = 0.3; NumSweeps = 200_000; HydrolysisRate = None }   // long enough for nearly every strand to be copied (one-sided pairing)
+                    { Name = Some "hot"; Temperature = 3.0; NumSweeps = 100_000; HydrolysisRate = None }
                 |] }
             |> withStrongBarrier 40
             |> withHydrolysisRate 0.0
@@ -746,6 +758,16 @@ module Run =
     /// and its schedule's hydrolysis rate.
     let getParameters run =
         getParametersWith (getTemperature run) run
+
+    /// Current rate at which the given run's unprotected strong bonds
+    /// hydrolyze: its schedule's, if the current phase sets one,
+    /// otherwise its scenario's.
+    let getHydrolysisRate run =
+        (getParameters run).BondTypeParameterMap[Strong].HydrolysisRate
+
+    /// Name of the given run's current phase, if it has one.
+    let tryGetPhaseName run =
+        Schedule.tryGetPhaseName run.NumSweeps run.Schedule
 
     /// Runs the given number of sweeps, changing temperature (and
     /// hydrolysis rate) as the schedule says, and calling the given
