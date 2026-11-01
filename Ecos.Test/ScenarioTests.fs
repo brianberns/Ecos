@@ -184,18 +184,18 @@ module ScenarioTests =
         let run = { run with Schedule = Constant 1.25 }
         Assert.Equal(1.25, Run.getTemperature (Run.advance 10 run) Point.zero)
 
-    /// A cycle with a famine: a phase whose unprotected strong bonds
+    /// A cycle with stress: a phase whose unprotected strong bonds
     /// hydrolyze at the given rate, between phases that use the
     /// scenario's own rate.
-    let private famineCycle rate =
+    let private stressCycle rate =
         Cycle [|
             { Name = Some "feast"; Temperature = 0.3; NumSweeps = 10; HydrolysisRate = None }
-            { Name = Some "famine"; Temperature = 0.5; NumSweeps = 5; HydrolysisRate = Some rate }
+            { Name = Some "stress"; Temperature = 0.5; NumSweeps = 5; HydrolysisRate = Some rate }
         |]
 
     [<Fact>]
     let ``A schedule gives each phase's hydrolysis rate, if it sets one`` () =
-        let schedule = famineCycle 1e-4
+        let schedule = stressCycle 1e-4
         Assert.Equal(None, Schedule.tryGetHydrolysisRate 0 schedule)
         Assert.Equal(None, Schedule.tryGetHydrolysisRate 9 schedule)
         Assert.Equal(Some 1e-4, Schedule.tryGetHydrolysisRate 10 schedule)
@@ -204,40 +204,40 @@ module ScenarioTests =
         Assert.Equal(None, Schedule.tryGetHydrolysisRate 0 (Constant 1.0))
 
     [<Fact>]
-    let ``A run's famine sets only the hydrolysis rate of unprotected strong bonds`` () =
+    let ``A run's stress phase sets only the hydrolysis rate of unprotected strong bonds`` () =
         let scenario =
-            { shortCycle with Schedule = famineCycle 1e-4 }
+            { shortCycle with Schedule = stressCycle 1e-4 }
                 |> Scenario.withHydrolysisRate 1e-6
                 |> Scenario.withProtectedHydrolysisRate 1e-7
         let run = Run.create 0 scenario
         let strong (parms : Parameters) = parms.BondTypeParameterMap[Strong]
         let weak (parms : Parameters) = parms.BondTypeParameterMap[Weak]
 
-            // before the famine, the scenario's own rates
+            // before the stress phase, the scenario's own rates
         let parms = Run.getParameters run
         Assert.Equal(1e-6, (strong parms).HydrolysisRate)
 
-            // in the famine
+            // in the stress phase
         let parms = Run.getParameters (Run.advance 10 run)
         Assert.Equal(1e-4, (strong parms).HydrolysisRate)
         Assert.Equal(1e-7, (strong parms).ProtectedHydrolysisRate)
         Assert.Equal(weak scenario.Parameters, weak parms)
         Assert.Equal(0.5, parms.GetTemperature Point.zero)
 
-            // a replaced schedule ends the famine
+            // a replaced schedule ends the stress phase
         let run = { Run.advance 10 run with Schedule = Constant 0.5 }
         Assert.Equal(1e-6, (strong (Run.getParameters run)).HydrolysisRate)
 
     [<Fact>]
     let ``A run reports its phase's name and hydrolysis rate`` () =
         let scenario =
-            { shortCycle with Schedule = famineCycle 1e-4 }
+            { shortCycle with Schedule = stressCycle 1e-4 }
                 |> Scenario.withHydrolysisRate 1e-6
         let run = Run.create 0 scenario
         Assert.Equal(Some "feast", Run.tryGetPhaseName run)
         Assert.Equal(1e-6, Run.getHydrolysisRate run)   // the scenario's
         let run = Run.advance 10 run
-        Assert.Equal(Some "famine", Run.tryGetPhaseName run)
+        Assert.Equal(Some "stress", Run.tryGetPhaseName run)
         Assert.Equal(1e-4, Run.getHydrolysisRate run)
         let run = Run.advance 5 run
         Assert.Equal(Some "feast", Run.tryGetPhaseName run)   // the cycle starts again
@@ -251,7 +251,7 @@ module ScenarioTests =
         Assert.Equal(1e-6, Run.getHydrolysisRate run)
 
     [<Fact>]
-    let ``Strands hydrolyze only in a famine`` () =
+    let ``Strands hydrolyze only under stress`` () =
         let strand = Array.replicate 10 AtomType.W
         let scenario =
             { shortCycle with
@@ -260,7 +260,7 @@ module ScenarioTests =
                         |> Build.tryAddStrand parms -10 0 strand
                         |> Option.get,
                     Array.empty
-                Schedule =   // a famine long enough for many attempts to break each bond
+                Schedule =   // a stress phase long enough for many attempts to break each bond
                     Cycle [|
                         { Name = None; Temperature = 0.3; NumSweeps = 10; HydrolysisRate = None }
                         { Name = None; Temperature = 0.5; NumSweeps = 1000; HydrolysisRate = Some 1.0 }
@@ -274,7 +274,7 @@ module ScenarioTests =
         let run = Run.create 0 scenario
         Assert.Equal(9, nStrongBonds run)
         let run = Run.advance 10 run
-        Assert.Equal(9, nStrongBonds run)   // no hydrolysis before the famine
+        Assert.Equal(9, nStrongBonds run)   // no hydrolysis before the stress phase
         let run = Run.advance 1000 run
         Assert.True(nStrongBonds run < 9)
 
