@@ -153,6 +153,15 @@ module World =
     let getDisplacement atomA atomB (world : World) =
         AtomGrid.getDisplacement atomA atomB world.AtomGrid
 
+    /// Determines whether the given bond of this type is
+    /// protected from normal hydrolysis.
+    let isProtected atomA atomB (world : World) =
+        assert(
+            BondMap.areBonded
+                atomA.Id atomB.Id world.BondTypeMap[Strong])
+        BehaviorMap.standard[Strong]
+            .TestHydrolysisProtection world.BondTypeMap atomA atomB
+
     /// Determines whether bonds between the given atoms cross.
     /// Since the atoms live on a torus, we need to view them
     /// from a common reference point.
