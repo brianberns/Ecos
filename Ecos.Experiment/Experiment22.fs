@@ -112,10 +112,10 @@ module Experiment22 =
             MinStem = 6
             MinFoldedStem = 4
             BendStiffness = 0.5
-            Feast = { Temperature = 0.3; NumSweeps = 200_000 }
-            Melt = { Temperature = 3.0; NumSweeps = 100_000 }
-            Famine = { Temperature = 0.5; NumSweeps = 50_000 }
-            Unfold = { Temperature = 3.0; NumSweeps = 10_000 }
+            Feast = { Temperature = 0.3; NumSweeps = 200_000; HydrolysisRate = None }
+            Melt = { Temperature = 3.0; NumSweeps = 100_000; HydrolysisRate = None }
+            Famine = { Temperature = 0.5; NumSweeps = 50_000; HydrolysisRate = None }
+            Unfold = { Temperature = 3.0; NumSweeps = 10_000; HydrolysisRate = None }
             Variants =
                 [|
                     { FamineHydrolysisRate = 0.0 }   // control
@@ -130,11 +130,12 @@ module Experiment22 =
     /// chance), at the settings' stiffness, seeded with the settings'
     /// number of strands of each kind at random places, and then the
     /// standard world's free atoms around them. Its schedule is the
-    /// cycle's temperatures; hydrolysis, which the schedule can't
-    /// change, is left out, so in the desktop app the famine is only a
-    /// warm spell.
+    /// cycle, with the variant's hydrolysis in the famine; protected
+    /// bonds never hydrolyze.
     let getScenario settings variant =
-        let scenario = Scenario.createScenarioC false
+        let scenario =
+            Scenario.createScenarioC false
+                |> Scenario.withProtectedHydrolysisRate 0.0
         let build parms rng =
             let world =
                 (World.createSquare 160, [ 1 .. settings.NumSeeds ])
@@ -153,9 +154,15 @@ module Experiment22 =
             assert(nSeeded = 2 * settings.NumSeeds * settings.HairpinFormer.Length)
             world, hairpinFormers
         { scenario with
-            Name = $"Feast and famine, famine hydrolysis {variant.FamineHydrolysisRate} (not shown)"
+            Name = $"Feast and famine, famine hydrolysis {variant.FamineHydrolysisRate}"
             Build = build
-            Schedule = Cycle [| settings.Feast; settings.Melt; settings.Famine; settings.Unfold |] }
+            Schedule =
+                Cycle [|
+                    settings.Feast
+                    settings.Melt
+                    { settings.Famine with HydrolysisRate = Some variant.FamineHydrolysisRate }
+                    settings.Unfold
+                |] }
             |> Scenario.withBend Strong Bend.rightAngle settings.BendStiffness
 
     /// The experiment's scenarios: one for each variant.
@@ -198,8 +205,8 @@ module Experiment22 =
             Build = build
             Schedule =
                 Cycle [|
-                    { Temperature = 3.0; NumSweeps = 10_000 }
-                    { Temperature = 0.4; NumSweeps = 100_000 }
+                    { Temperature = 3.0; NumSweeps = 10_000; HydrolysisRate = None }
+                    { Temperature = 0.4; NumSweeps = 100_000; HydrolysisRate = None }
                 |] }
             |> Scenario.withBend Strong Bend.rightAngle bendStiffness
 
@@ -278,29 +285,16 @@ module Experiment22 =
     /// with each cycle's number when it ends. Answers a result for each
     /// cycle, starting with the world as seeded.
     let private runOne settings variant seed onCycle =
-        let scenario = getScenario settings variant
-        let rng = Random(seed)
-        let parmsOf (phase : Phase) rate =
-            let parms =
-                (scenario
-                    |> Scenario.withHydrolysisRate rate
-                    |> Scenario.withProtectedHydrolysisRate 0.0).Parameters
-            { parms with GetTemperature = Parameters.getUniformTemperature phase.Temperature }
-        let feast = parmsOf settings.Feast 0.0
-        let melt = parmsOf settings.Melt 0.0
-        let famine = parmsOf settings.Famine variant.FamineHydrolysisRate
-        let unfold = parmsOf settings.Unfold 0.0
-        let mutable world = scenario.Build feast rng |> fst
-        let initial = getCount settings world
+        let mutable run = Run.create seed (getScenario settings variant)
+        let initial = getCount settings run.World
         [|
             { Fed = initial; Starved = initial }
             for iCycle in 1 .. settings.NumCycles do
-                world <- World.sweep feast rng settings.Feast.NumSweeps world
-                let fed = getCount settings world
-                world <- World.sweep melt rng settings.Melt.NumSweeps world
-                world <- World.sweep famine rng settings.Famine.NumSweeps world
-                let starved = getCount settings world
-                world <- World.sweep unfold rng settings.Unfold.NumSweeps world
+                run <- Run.advance settings.Feast.NumSweeps run
+                let fed = getCount settings run.World
+                run <- Run.advance (settings.Melt.NumSweeps + settings.Famine.NumSweeps) run
+                let starved = getCount settings run.World
+                run <- Run.advance settings.Unfold.NumSweeps run
                 onCycle iCycle
                 { Fed = fed; Starved = starved }
         |]

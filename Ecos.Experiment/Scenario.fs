@@ -11,6 +11,10 @@ type Phase =
 
         /// Number of sweeps to run at this temperature.
         NumSweeps : int
+
+        /// Rate at which unprotected strong bonds hydrolyze during this
+        /// phase, if it differs from the scenario's, e.g. in a famine.
+        HydrolysisRate : float option
     }
 
 /// A vent: a vertical line of hot rock that pulses. Between pulses,
@@ -73,6 +77,22 @@ type Schedule =
 
 module Schedule =
 
+    /// Answers the phase of the given cycle after the given number of
+    /// sweeps, and the number of sweeps until it ends.
+    let private getPhase numSweeps (phases : Phase[]) =
+        assert(phases.Length > 0)
+        assert(Array.forall (fun phase ->
+            phase.NumSweeps > 0) phases)
+
+        let rec loop t iPhase =
+            let phase = phases[iPhase]
+            if t < phase.NumSweeps then
+                phase, phase.NumSweeps - t
+            else loop (t - phase.NumSweeps) (iPhase + 1)
+
+        let period = Array.sumBy _.NumSweeps phases
+        loop (numSweeps % period) 0
+
     /// Answers the temperature after the given number of sweeps, and
     /// the number of sweeps until it next changes, if it ever does.
     let getTemperature numSweeps schedule =
@@ -81,19 +101,9 @@ module Schedule =
             | Constant kT ->
                 Parameters.getUniformTemperature kT, None
             | Cycle phases ->
-                assert(phases.Length > 0)
-                assert(Array.forall (fun phase ->
-                    phase.NumSweeps > 0) phases)
-
-                let rec loop t iPhase =
-                    let phase = phases[iPhase]
-                    if t < phase.NumSweeps then
-                        phase.Temperature, Some (phase.NumSweeps - t)
-                    else loop (t - phase.NumSweeps) (iPhase + 1)
-
-                let period = Array.sumBy _.NumSweeps phases
-                let kT, nSweepsOpt = loop (numSweeps % period) 0
-                Parameters.getUniformTemperature kT, nSweepsOpt
+                let phase, nSweeps = getPhase numSweeps phases
+                Parameters.getUniformTemperature phase.Temperature,
+                Some nSweeps
             | Vent vent ->
                 assert(vent.ColdSweeps > 0 && vent.HotSweeps > 0)
                 assert(vent.Width > 0)
@@ -104,6 +114,15 @@ module Schedule =
                 else
                     Vent.getHotTemperature vent,
                     Some (vent.ColdSweeps + vent.HotSweeps - t)
+
+    /// Answers the rate at which unprotected strong bonds hydrolyze
+    /// after the given number of sweeps, if the schedule sets one.
+    /// (It can change only when the temperature does.)
+    let tryGetHydrolysisRate numSweeps schedule =
+        assert(numSweeps >= 0)
+        match schedule with
+            | Cycle phases -> (getPhase numSweeps phases |> fst).HydrolysisRate
+            | Constant _ | Vent _ -> None
 
     /// Number of sweeps after which the given schedule repeats, if it
     /// changes at all.
@@ -443,8 +462,8 @@ module Scenario =
                                 } }
                 Schedule =
                     Cycle [|
-                        { Temperature = 0.3; NumSweeps = 90_000 }   // cold
-                        { Temperature = 3.0; NumSweeps = 10_000 }   // hot
+                        { Temperature = 0.3; NumSweeps = 90_000; HydrolysisRate = None }   // cold
+                        { Temperature = 3.0; NumSweeps = 10_000; HydrolysisRate = None }   // hot
                     |]
         }
 
@@ -526,8 +545,8 @@ module Scenario =
             Name = if withTemplate then "C" else "C, no template"
             Schedule =
                 Cycle [|
-                    { Temperature = 0.3; NumSweeps = 200_000 }   // cold: long enough for nearly every strand to be copied (one-sided pairing)
-                    { Temperature = 3.0; NumSweeps = 100_000 }   // hot
+                    { Temperature = 0.3; NumSweeps = 200_000; HydrolysisRate = None }   // cold: long enough for nearly every strand to be copied (one-sided pairing)
+                    { Temperature = 3.0; NumSweeps = 100_000; HydrolysisRate = None }   // hot
                 |] }
             |> withStrongBarrier 40
             |> withHydrolysisRate 0.0
@@ -708,13 +727,29 @@ module Run =
     let getTemperature run =
         Schedule.getTemperature run.NumSweeps run.Schedule |> fst
 
-    /// Current parameters of the given run, including its temperature.
-    let getParameters run =
-        { run.Scenario.Parameters with
-            GetTemperature = getTemperature run }
+    /// The given run's parameters with the given temperature, and with
+    /// the hydrolysis rate its schedule sets now, if any.
+    let private getParametersWith getTemp run =
+        let parms =
+            { run.Scenario.Parameters with GetTemperature = getTemp }
+        match Schedule.tryGetHydrolysisRate run.NumSweeps run.Schedule with
+            | Some rate ->
+                let strongParms =
+                    { parms.BondTypeParameterMap[Strong] with
+                        HydrolysisRate = rate }
+                { parms with
+                    BondTypeParameterMap =
+                        BondTypeParameterMap.add Strong strongParms parms.BondTypeParameterMap }
+            | None -> parms
 
-    /// Runs the given number of sweeps, changing temperature as the
-    /// schedule says, and calling the given function after each event.
+    /// Current parameters of the given run, including its temperature
+    /// and its schedule's hydrolysis rate.
+    let getParameters run =
+        getParametersWith (getTemperature run) run
+
+    /// Runs the given number of sweeps, changing temperature (and
+    /// hydrolysis rate) as the schedule says, and calling the given
+    /// function after each event.
     /// (See World.sweepWith.)
     let advanceWith onEvent numSweeps run =
         assert(numSweeps >= 0)
@@ -727,8 +762,7 @@ module Run =
                     match untilChangeOpt with
                         | Some untilChange -> min numSweeps untilChange
                         | None -> numSweeps
-                let parms =
-                    { run.Scenario.Parameters with GetTemperature = getTemp }
+                let parms = getParametersWith getTemp run
                 let run =
                     { run with
                         World = World.sweepWith parms run.Random n onEvent run.World
@@ -736,8 +770,8 @@ module Run =
                 loop (numSweeps - n) run
         loop numSweeps run
 
-    /// Runs the given number of sweeps, changing temperature as the
-    /// schedule says.
+    /// Runs the given number of sweeps, changing temperature (and
+    /// hydrolysis rate) as the schedule says.
     let advance numSweeps run =
         let onEvent _ _ = ()
         advanceWith onEvent numSweeps run
