@@ -58,6 +58,10 @@ module Experiment19 =
             /// Length of the hot phase, in sweeps.
             HotSweeps : int
 
+            /// Rate of hydrolysis of all strong bonds during the hot
+            /// phase, or none for the living world's own rate.
+            HotHydrolysisRate : float option
+
             /// Temperature of the adverse phase.
             AdverseTemperature : float
 
@@ -96,6 +100,7 @@ module Experiment19 =
             NumDuplexes = 8
             HotTemperature = 3.0
             HotSweeps = 10_000
+            HotHydrolysisRate = None
             AdverseTemperature = 0.4
             AdverseHydrolysisRate = 0.05
             SampleTimes = [| 0; 100; 250; 500; 1000; 2000 |]
@@ -302,14 +307,14 @@ module Experiment19 =
         let baseRate =
             (Experiment4.getScenario Experiment4.livingWorldSettings 15.0)
                 .Parameters.BondTypeParameterMap[Strong].HydrolysisRate
-        let hot = getParameters variant settings.HotTemperature baseRate baseRate
-        let world =
-            if settings.HasFreeAtoms then
-                (Experiment4.getScenario Experiment4.livingWorldSettings 15.0).Build hot rng |> fst
-            else
-                World.createSquare 160
+        let hotRate = settings.HotHydrolysisRate |> Option.defaultValue baseRate
+        let hot = getParameters variant settings.HotTemperature hotRate hotRate
+            // the duplexes first, then the free atoms around them: a
+            // duplex of long strands rarely finds a place clear of free
+            // atoms already scattered, and each one placed makes the
+            // next one's search longer
         let world, seeds =
-            ((world, []), [ for _ in 1 .. settings.NumDuplexes do yield true; yield false ])
+            ((World.createSquare 160, []), [ for _ in 1 .. settings.NumDuplexes do yield true; yield false ])
                 ||> List.fold (fun (world, seeds) isHairpinFormer ->
                     let strand =
                         if isHairpinFormer then settings.HairpinFormer else settings.NonFormer
@@ -318,6 +323,10 @@ module Experiment19 =
                         { IsHairpinFormer = isHairpinFormer; AtomIds = idsA }
                             :: { IsHairpinFormer = isHairpinFormer; AtomIds = idsB }
                             :: seeds)
+        let world =
+            if settings.HasFreeAtoms then
+                Build.addFreeAtomsAnywhere rng 120 world   // as many as in the living world
+            else world
         World.sweep hot rng settings.HotSweeps world, List.toArray seeds
 
     /// The adverse phase of the given variant, for the desktop app: its
@@ -426,8 +435,12 @@ module Experiment19 =
         printfn "Experiment 19: folding through an adverse phase"
         printfn "Hairpin-former: %s; non-former: %s; %d duplexes of each (strand and copy) per run"
             (toText settings.HairpinFormer) (toText settings.NonFormer) settings.NumDuplexes
-        printfn "Living world, strong barrier 15; hot phase kT %g for %d sweeps; then adverse phase kT %g, unprotected hydrolysis %g"
-            settings.HotTemperature settings.HotSweeps settings.AdverseTemperature settings.AdverseHydrolysisRate
+        printfn "Living world, strong barrier 15; hot phase kT %g for %d sweeps%s; then adverse phase kT %g, unprotected hydrolysis %g"
+            settings.HotTemperature settings.HotSweeps
+            (match settings.HotHydrolysisRate with
+                | Some rate -> sprintf " (hydrolysis %g)" rate
+                | None -> "")
+            settings.AdverseTemperature settings.AdverseHydrolysisRate
         printfn "%d runs of each variant (seeds %d to %d)%s" settings.NumRuns
             settings.FirstSeed (settings.FirstSeed + settings.NumRuns - 1)
             (if settings.HasFreeAtoms then "" else "; no free atoms")

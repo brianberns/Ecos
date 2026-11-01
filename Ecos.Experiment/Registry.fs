@@ -92,4 +92,11 @@ module Registry =
                 Name = "Experiment 21"
                 Scenarios = Experiment21.getScenarios Experiment21.defaultSettings
             }
+            {
+                Name = "Experiment 22"
+                Scenarios =
+                    Array.append
+                        (Experiment22.getScenarios Experiment22.defaultSettings)
+                        (Experiment22.getFoldingScenarios ())
+            }
         |]
