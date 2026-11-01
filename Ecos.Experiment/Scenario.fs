@@ -6,7 +6,7 @@ open Ecos
 /// A stretch of time at one temperature.
 type Phase =
     {
-        /// Name of the phase, if it has one, e.g. "famine", to show in
+        /// Name of the phase, if it has one, e.g. "stress", to show in
         /// the desktop app.
         Name : string option
 
@@ -17,7 +17,7 @@ type Phase =
         NumSweeps : int
 
         /// Rate at which unprotected strong bonds hydrolyze during this
-        /// phase, if it differs from the scenario's, e.g. in a famine.
+        /// phase, if it differs from the scenario's, e.g. under stress.
         HydrolysisRate : float option
     }
 

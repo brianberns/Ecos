@@ -50,7 +50,7 @@ module Program =
                 Experiment20.run Experiment20.defaultSettings
             "experiment21", "Hairpin-forming and non-forming strands head to head in a vent world, by distance from the vent",
                 Experiment21.run Experiment21.defaultSettings
-            "experiment22", "Feast and famine: does folding through a famine pay for the copies it costs in the feast?",
+            "experiment22", "Feast and stress: does folding through stress pay for the copies it costs in the feast?",
                 Experiment22.run Experiment22.defaultSettings
         ]
 

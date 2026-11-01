@@ -7,8 +7,8 @@ open System.Threading
 open Ecos
 open Ecos.Experiment.Experiment3
 
-/// Experiment 22: feast and famine. Under one-sided pairing, a folded
-/// hairpin can't be copied (experiment 21), but in a famine, when
+/// Experiment 22: feast and stress. Under one-sided pairing, a folded
+/// hairpin can't be copied (experiment 21), but under stress, when
 /// nothing can be copied and a single strand is exposed to hydrolysis,
 /// folding protects it: after a long melt has scattered each strand's
 /// copy, hairpin-formers survived a harsh adverse phase better than
@@ -22,14 +22,16 @@ open Ecos.Experiment.Experiment3
 /// - a feast: cold, for copying;
 /// - a long melt: hot, so that duplexes come apart and each strand's
 ///   copy drifts away;
-/// - a famine: at kT 0.5, at which free atoms can hardly copy a single
+/// - stress: at kT 0.5, at which free atoms can hardly copy a single
 ///   strand (experiment 20) but a folded hairpin holds, while unprotected
 ///   strong bonds hydrolyze quickly and protected ones not at all;
 /// - a short melt, so that hairpins come apart before the next feast.
 ///
-/// Nothing hydrolyzes outside the famine. A control has no hydrolysis
-/// in the famine either, so that it shows what folding costs in copies
-/// alone.
+/// Nothing hydrolyzes outside the stress phase. A control has no
+/// hydrolysis in the stress phase either, so that it shows what folding
+/// costs in copies alone.
+///
+/// (Stress is not a famine: here, a famine is a lack of food.)
 ///
 /// Copies slip, so chains are counted by whether they can fold, as in
 /// experiment 21, rather than by family.
@@ -39,8 +41,8 @@ module Experiment22 =
     type Variant =
         {
             /// Rate of hydrolysis of unprotected strong bonds during the
-            /// famine.
-            FamineHydrolysisRate : float
+            /// stress phase.
+            StressHydrolysisRate : float
         }
 
     /// Settings for the experiment.
@@ -79,10 +81,10 @@ module Experiment22 =
             /// The long melt after the feast.
             Melt : Phase
 
-            /// The famine.
-            Famine : Phase
+            /// The stress phase.
+            Stress : Phase
 
-            /// The short melt after the famine.
+            /// The short melt after the stress.
             Unfold : Phase
 
             /// Variants to run.
@@ -97,7 +99,7 @@ module Experiment22 =
 
     /// Default settings: experiment 19's hairpin-formers and non-formers,
     /// at the softer stiffness, at which they fold soonest; scenario C's
-    /// feast; the melt and famine of the best condition of experiment
+    /// feast; the melt and adverse phase of the best condition of experiment
     /// 19's rerun (a 100,000-sweep melt, then 50,000 sweeps at kT 0.5),
     /// but with milder hydrolysis than its 2.5e-4, which cut two strands
     /// in three each cycle, faster than feasts could replace them; and
@@ -114,13 +116,13 @@ module Experiment22 =
             BendStiffness = 0.5
             Feast = { Name = Some "feast"; Temperature = 0.3; NumSweeps = 200_000; HydrolysisRate = None }
             Melt = { Name = Some "melt"; Temperature = 3.0; NumSweeps = 100_000; HydrolysisRate = None }
-            Famine = { Name = Some "famine"; Temperature = 0.5; NumSweeps = 50_000; HydrolysisRate = None }
+            Stress = { Name = Some "stress"; Temperature = 0.5; NumSweeps = 50_000; HydrolysisRate = None }
             Unfold = { Name = Some "unfold"; Temperature = 3.0; NumSweeps = 10_000; HydrolysisRate = None }
             Variants =
                 [|
-                    { FamineHydrolysisRate = 0.0 }   // control
-                    { FamineHydrolysisRate = 5e-5 }
-                    { FamineHydrolysisRate = 1e-4 }   // 2.5e-4 killed both kinds within 10 cycles
+                    { StressHydrolysisRate = 0.0 }   // control
+                    { StressHydrolysisRate = 5e-5 }
+                    { StressHydrolysisRate = 1e-4 }   // 2.5e-4 killed both kinds within 10 cycles
                 |]
             NumRuns = 16
             NumCycles = 10   // about 90 minutes on 24 cores
@@ -130,7 +132,7 @@ module Experiment22 =
     /// chance), at the settings' stiffness, seeded with the settings'
     /// number of strands of each kind at random places, and then the
     /// standard world's free atoms around them. Its schedule is the
-    /// cycle, with the variant's hydrolysis in the famine; protected
+    /// cycle, with the variant's hydrolysis in the stress phase; protected
     /// bonds never hydrolyze.
     let getScenario settings variant =
         let scenario =
@@ -154,13 +156,13 @@ module Experiment22 =
             assert(nSeeded = 2 * settings.NumSeeds * settings.HairpinFormer.Length)
             world, hairpinFormers
         { scenario with
-            Name = $"Feast and famine, famine hydrolysis {variant.FamineHydrolysisRate}"
+            Name = $"Feast and stress, stress hydrolysis {variant.StressHydrolysisRate}"
             Build = build
             Schedule =
                 Cycle [|
                     settings.Feast
                     settings.Melt
-                    { settings.Famine with HydrolysisRate = Some variant.FamineHydrolysisRate }
+                    { settings.Stress with HydrolysisRate = Some variant.StressHydrolysisRate }
                     settings.Unfold
                 |] }
             |> Scenario.withBend Strong Bend.rightAngle settings.BendStiffness
@@ -276,9 +278,9 @@ module Experiment22 =
             /// At the end of the feast.
             Fed : Count
 
-            /// At the end of the famine (and so of the cycle, since the
+            /// At the end of the stress phase (and so of the cycle, since the
             /// short melt that follows breaks nothing).
-            Starved : Count
+            Stressed : Count
         }
 
     /// Runs one world through the cycles, calling the given function
@@ -288,15 +290,15 @@ module Experiment22 =
         let mutable run = Run.create seed (getScenario settings variant)
         let initial = getCount settings run.World
         [|
-            { Fed = initial; Starved = initial }
+            { Fed = initial; Stressed = initial }
             for iCycle in 1 .. settings.NumCycles do
                 run <- Run.advance settings.Feast.NumSweeps run
                 let fed = getCount settings run.World
-                run <- Run.advance (settings.Melt.NumSweeps + settings.Famine.NumSweeps) run
-                let starved = getCount settings run.World
+                run <- Run.advance (settings.Melt.NumSweeps + settings.Stress.NumSweeps) run
+                let stressed = getCount settings run.World
                 run <- Run.advance settings.Unfold.NumSweeps run
                 onCycle iCycle
-                { Fed = fed; Starved = starved }
+                { Fed = fed; Stressed = stressed }
         |]
 
     /// Runs the experiment, prints tables of results, and writes them
@@ -312,16 +314,16 @@ module Experiment22 =
 
         let toText = Array.map string >> String.concat " "
         let phaseText (phase : Phase) = sprintf "kT %g for %d sweeps" phase.Temperature phase.NumSweeps
-        printfn "Experiment 22: feast and famine"
+        printfn "Experiment 22: feast and stress"
         printfn "Hairpin-former: %s (longest stem %d)" (toText settings.HairpinFormer) (Experiment16.getMaxStem settings.HairpinFormer)
         printfn "Non-former:     %s (longest stem %d)" (toText settings.NonFormer) (Experiment16.getMaxStem settings.NonFormer)
         printfn "%d runs of %d cycles of each variant; %d strands of each kind to start, at random places"
             settings.NumRuns settings.NumCycles settings.NumSeeds
         printfn "Capped chains of %d atoms or more count as hairpin-formers if they could fold with a stem of %d pairs or more, otherwise as non-formers"
             settings.MinLength settings.MinStem
-        printfn "Each cycle: feast %s; melt %s; famine %s; unfold %s"
-            (phaseText settings.Feast) (phaseText settings.Melt) (phaseText settings.Famine) (phaseText settings.Unfold)
-        printfn "Hydrolysis only in the famine, of unprotected strong bonds; protected ones never hydrolyze"
+        printfn "Each cycle: feast %s; melt %s; stress %s; unfold %s"
+            (phaseText settings.Feast) (phaseText settings.Melt) (phaseText settings.Stress) (phaseText settings.Unfold)
+        printfn "Hydrolysis only in the stress phase, of unprotected strong bonds; protected ones never hydrolyze"
         printParameters (getScenario settings settings.Variants[0]).Parameters
         printfn ""
 
@@ -342,7 +344,7 @@ module Experiment22 =
                 |> Map
 
         use writer = new StreamWriter(csvPath)
-        writer.WriteLine("famine_hydrolysis,cycle,fed_hairpins,fed_non_formers,fed_folded,starved_hairpins,starved_non_formers,others,hairpin_share")
+        writer.WriteLine("stress_hydrolysis,cycle,fed_hairpins,fed_non_formers,fed_folded,stressed_hairpins,stressed_non_formers,others,hairpin_share")
         let invariant (x : float) = x.ToString(Globalization.CultureInfo.InvariantCulture)
         let share (hairpins : float) nonFormers =
             let n = hairpins + nonFormers
@@ -350,8 +352,8 @@ module Experiment22 =
         for variant in settings.Variants do
             let runs = results[variant]
             printfn ""
-            printfn "Famine hydrolysis %g" variant.FamineHydrolysisRate
-            printfn "        |-- after the feast --|   |- after the famine -|"
+            printfn "Stress hydrolysis %g" variant.StressHydrolysisRate
+            printfn "        |-- after the feast --|   |- after the stress -|"
             printfn "cycle   hairpin / non   folded   hairpin / non   share   other"
             for iCycle in 0 .. settings.NumCycles do
                 let cycle = runs |> Array.map (fun cycles -> cycles[iCycle])
@@ -359,19 +361,19 @@ module Experiment22 =
                 let fh = average _.Fed.Hairpins
                 let fn = average _.Fed.NonFormers
                 let ff = average _.Fed.Folded
-                let sh = average _.Starved.Hairpins
-                let sn = average _.Starved.NonFormers
-                let o = average _.Starved.Others
+                let sh = average _.Stressed.Hairpins
+                let sn = average _.Stressed.NonFormers
+                let o = average _.Stressed.Others
                 writer.WriteLine(
                     String.Join(",",
-                        [ invariant variant.FamineHydrolysisRate; string iCycle
+                        [ invariant variant.StressHydrolysisRate; string iCycle
                           invariant fh; invariant fn; invariant ff
                           invariant sh; invariant sn; invariant o; invariant (share sh sn) ]))
                 printfn "%5d   %6.2f / %5.2f   %5.2f   %6.2f / %5.2f   %5.2f  %6.1f"
                     iCycle fh fn ff sh sn (share sh sn) o
 
                 // at the end, per run
-            let final = runs |> Array.map (fun cycles -> cycles[settings.NumCycles].Starved)
+            let final = runs |> Array.map (fun cycles -> cycles[settings.NumCycles].Stressed)
             let shares =
                 final
                     |> Array.choose (fun c ->
@@ -394,6 +396,6 @@ module Experiment22 =
         printfn "hairpin, non: capped chains that could fold, and that couldn't, per run. folded: those that"
         printfn "   could fold and were folded (a run of at least %d atoms paired within the chain), after the feast."
             (2 * settings.MinFoldedStem)
-        printfn "share: hairpins / (hairpins + non-formers) after the famine, from the averages."
-        printfn "other: shorter capped chains, after the famine."
+        printfn "share: hairpins / (hairpins + non-formers) after the stress, from the averages."
+        printfn "other: shorter capped chains, after the stress."
         printfn "Results written to %s" (Path.GetFullPath csvPath)
