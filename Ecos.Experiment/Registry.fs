@@ -101,6 +101,9 @@ module Registry =
             }
             {
                 Name = "Experiment 23"
-                Scenarios = Experiment23.getScenarios Experiment23.defaultSettings
+                Scenarios =
+                    Array.append
+                        (Experiment23.getScenarios Experiment23.defaultSettings)
+                        (Experiment23.getScenarios Experiment23.runnerSettings)
             }
         |]

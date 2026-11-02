@@ -54,6 +54,8 @@ module Program =
                 Experiment22.run Experiment22.defaultSettings
             "experiment23", "Folding in a famine: in a closed world short of food, does cold stress favor strands that fold when they starve?",
                 Experiment23.run Experiment23.defaultSettings
+            "experiment23r", "The same at stiffness 0, against a non-former made of runs that copies as fast but can't fold",
+                Experiment23.run Experiment23.runnerSettings
         ]
 
     /// Prints usage.

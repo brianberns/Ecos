@@ -33,7 +33,8 @@ open Ecos.Experiment.Experiment3
 /// seed, so they are the same until the first bond hydrolyzes.
 ///
 /// Chains are counted by family: a chain is in the hairpin family if it
-/// is caps around one run each of W, Y or Z, and X, in either order (Z
+/// is caps around a run of W, a run of Y or Z (perhaps empty), and a run
+/// of X, in either order (Z
 /// is Y's complement, so copies have Z Z), and otherwise in the
 /// non-former family.
 module Experiment23 =
@@ -136,6 +137,26 @@ module Experiment23 =
             NumCommonSequences = 8
         }
 
+    /// A non-former made of runs, like the hairpin-former, so that it
+    /// should copy about as fast: P, ten W, Y Y, ten W, Q. W pairs only
+    /// with X, so its halves can't pair with each other.
+    let runner =
+        [|
+            AtomType.P
+            yield! Array.replicate 10 AtomType.W
+            AtomType.Y; AtomType.Y
+            yield! Array.replicate 10 AtomType.W
+            AtomType.Q
+        |]
+
+    /// Settings that pit the hairpin-former against the runner, at
+    /// stiffness 0: does the hairpin-former still gain under stress
+    /// when the non-former copies as fast?
+    let runnerSettings =
+        { defaultSettings with
+            NonFormer = runner
+            BendStiffness = 0.0 }
+
     /// The given variant's world: scenario C's bonds (nothing arises by
     /// chance), at the settings' stiffness, seeded with the settings'
     /// number of strands of each kind at random places, and then the
@@ -165,7 +186,9 @@ module Experiment23 =
             assert(nSeeded = 2 * settings.NumSeeds * settings.HairpinFormer.Length)
             world, hairpinFormers
         { scenario with
-            Name = $"Folding in a famine, stress hydrolysis {variant.StressHydrolysisRate}"
+            Name =
+                let nonFormer = settings.NonFormer |> Array.map string |> String.concat ""
+                $"Folding in a famine against {nonFormer}, stiffness {settings.BendStiffness}, stress hydrolysis {variant.StressHydrolysisRate}"
             Build = build
             Schedule =
                 Cycle [|
@@ -185,7 +208,7 @@ module Experiment23 =
         | NonFormerFamily
 
     /// Chains of the hairpin family, as text.
-    let private hairpinPattern = Regex("^[PQ](W*[YZ]*X*|X*[YZ]*W*)[PQ]$")
+    let private hairpinPattern = Regex("^[PQ](W+[YZ]*X+|X+[YZ]*W+)[PQ]$")
 
     /// Family of the chain with the given sequence, as text.
     let private getFamily (text : string) =
