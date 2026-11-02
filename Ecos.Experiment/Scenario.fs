@@ -196,7 +196,9 @@ module Build =
     let center (world : World) =
         Point.create (world.Size.X / 2, world.Size.Y / 2)
 
-    let private addVerticalWall x yStart yEnd world =
+    /// Adds a vertical line of walls, every 2 from the start to the end,
+    /// inclusive, at the given x.
+    let addVerticalWall x yStart yEnd world =
         assert(x % 2 = 0)
         assert(yStart % 2 = 0)
         assert(yEnd % 2 = 0)
@@ -204,7 +206,9 @@ module Build =
             ||> Seq.fold (fun world y ->
                 World.addWall (center world + Point.create (x, y)) world)
 
-    let private addHorizontalWall xStart xEnd y world =
+    /// Adds a horizontal line of walls, every 2 from the start to the end,
+    /// inclusive, at the given y.
+    let addHorizontalWall xStart xEnd y world =
         assert(xStart % 2 = 0)
         assert(xEnd % 2 = 0)
         assert(y % 2 = 0)

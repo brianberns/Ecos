@@ -56,6 +56,8 @@ module Program =
                 Experiment23.run Experiment23.defaultSettings
             "experiment23r", "The same at stiffness 0, against a non-former made of runs that copies as fast but can't fold",
                 Experiment23.run Experiment23.runnerSettings
+            "experiment24", "Chambers of plenty and want: does a hairpin-former copy while food lasts, and fold once it runs out?",
+                Experiment24.run Experiment24.defaultSettings
         ]
 
     /// Prints usage.

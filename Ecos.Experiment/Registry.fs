@@ -106,4 +106,8 @@ module Registry =
                         (Experiment23.getScenarios Experiment23.defaultSettings)
                         (Experiment23.getScenarios Experiment23.runnerSettings)
             }
+            {
+                Name = "Experiment 24"
+                Scenarios = Experiment24.getScenarios Experiment24.defaultSettings
+            }
         |]

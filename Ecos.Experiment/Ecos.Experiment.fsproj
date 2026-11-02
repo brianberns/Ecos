@@ -24,6 +24,7 @@
     <Compile Include="Experiment21.fs" />
     <Compile Include="Experiment22.fs" />
     <Compile Include="Experiment23.fs" />
+    <Compile Include="Experiment24.fs" />
     <Compile Include="Checks.fs" />
     <Compile Include="Registry.fs" />
     <Compile Include="Program.fs" />
