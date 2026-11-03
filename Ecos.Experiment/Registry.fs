@@ -108,6 +108,9 @@ module Registry =
             }
             {
                 Name = "Experiment 24"
-                Scenarios = Experiment24.getScenarios Experiment24.defaultSettings
+                Scenarios =
+                    Array.append
+                        (Experiment24.getScenarios Experiment24.defaultSettings)
+                        (Experiment24.getScenarios Experiment24.mixedSettings)
             }
         |]
