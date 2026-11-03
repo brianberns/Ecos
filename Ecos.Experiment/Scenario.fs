@@ -433,6 +433,7 @@ module Scenario =
                                 ProtectedHydrolysisRate = 0
                                 BendLimit = Bend.rightAngle   // so that strands can fold
                                 BendStiffness = 1.5   // but prefer to be straight (experiment 15)
+                                BendStiffnessMap = Map.empty
                             }
                             Weak, {
                                 Energy = 2
@@ -445,6 +446,7 @@ module Scenario =
                                 ProtectedHydrolysisRate = 0
                                 BendLimit = Bend.any
                                 BendStiffness = 0
+                                BendStiffnessMap = Map.empty
                             }
                         ] |> BondTypeParameterMap.ofMap
                     PeelBarrier = 6
@@ -475,6 +477,7 @@ module Scenario =
                                     ProtectedHydrolysisRate = 1e-4
                                     BendLimit = Bend.rightAngle   // so that strands can fold
                                     BendStiffness = 1.5   // but prefer to be straight (experiment 15)
+                                    BendStiffnessMap = Map.empty
                                 } }
                 Schedule =
                     Cycle [|

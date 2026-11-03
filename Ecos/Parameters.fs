@@ -58,6 +58,10 @@ type BondTypeParameters =
         /// phi costs kappa * (1 + cos phi), which is zero when
         /// they are in line.
         BendStiffness : float
+
+        /// Atom-type-specific bend stiffnesses, which override the
+        /// default.
+        BendStiffnessMap : Map<AtomType, float>
     }
 
 module BondTypeParameters =
@@ -80,6 +84,12 @@ module BondTypeParameters =
                         |> Map.add (atomTypeA, atomTypeB) energy
                         |> Map.add (atomTypeB, atomTypeA) energy
         }
+
+    /// Gets the bend stiffness for the given atom type.
+    let getBendStiffness atomType parms =
+        parms.BendStiffnessMap
+            |> Map.tryFind atomType
+            |> Option.defaultValue parms.BendStiffness
 
 /// Each bond type's parameters, optimized for speed.
 type BondTypeParameterMap =

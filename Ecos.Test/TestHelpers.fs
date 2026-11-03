@@ -45,6 +45,7 @@ module TestParameters =
                 ProtectedHydrolysisRate = 0
                 BendLimit = bendLimit
                 BendStiffness = 0
+                BendStiffnessMap = Map.empty
             }
         {
             GetTemperature = Parameters.getUniformTemperature kT

@@ -69,6 +69,7 @@ module Experiment2 =
                             ProtectedHydrolysisRate = 0
                             BendLimit = Bend.straight
                             BendStiffness = 0
+                            BendStiffnessMap = Map.empty
                         }
                     Weak,
                         {
@@ -82,6 +83,7 @@ module Experiment2 =
                             ProtectedHydrolysisRate = 0
                             BendLimit = Bend.any
                             BendStiffness = 0
+                            BendStiffnessMap = Map.empty
                         }
                 ] |> BondTypeParameterMap.ofMap
             NumRuns = 16
