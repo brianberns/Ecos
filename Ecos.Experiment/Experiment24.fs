@@ -37,6 +37,10 @@ module Experiment24 =
             /// Shortest capped chain counted.
             MinLength : int
 
+            /// Pattern that a capped chain's sequence, as text, must match
+            /// to be counted.
+            ChainPattern : string
+
             /// Shortest stem, in pairs, of a chain counted as folded: the
             /// longest run of its atoms that are each paired within it
             /// must be at least twice this.
@@ -69,6 +73,7 @@ module Experiment24 =
             NumSeeds = 2
             NumFoodEach = [| 120; 60; 30; 0 |]   // the standard world has 120 of each type
             MinLength = 10
+            ChainPattern = "^[PQ](W+[YZ]*X+|X+[YZ]*W+)[PQ]$"   // the hairpin family: caps around runs of W, of Y or Z, and of X
             MinFoldedStem = 4
             BendStiffnesses = [| 0.0; 0.5 |]
             Cold = { Name = Some "cold"; Temperature = 0.3; NumSweeps = 200_000; HydrolysisRate = None }
@@ -77,6 +82,35 @@ module Experiment24 =
             NumRuns = 12
             NumCycles = 16
         }
+
+    /// A hairpin-former whose stems mix all four coding types, so that
+    /// it pairs strongly only in register: P, a stem, Y Y, the stem's
+    /// reverse complement, Q. Chosen by search: it folds with 11 pairs
+    /// (caps included), but its longest misaligned fold is 2 pairs, and
+    /// its longest pairing with another copy of itself or with its
+    /// complement, out of register, is 3 (against 9 or 10 for a stem of
+    /// ten W). W-X pairs close its loop.
+    let mixedHairpinFormer =
+        let stem =
+            [| AtomType.W; AtomType.W; AtomType.X; AtomType.W; AtomType.Y
+               AtomType.X; AtomType.Z; AtomType.X; AtomType.W; AtomType.W |]
+        [|
+            AtomType.P
+            yield! stem
+            AtomType.Y; AtomType.Y
+            yield! stem |> Array.rev |> Array.map complement
+            AtomType.Q
+        |]
+
+    /// Settings for the mixed-sequence hairpin-former, at stiffer
+    /// settings, since long strands are floppy. Only hairpin-formers
+    /// are seeded, so every capped chain is counted.
+    let mixedSettings =
+        { defaultSettings with
+            HairpinFormer = mixedHairpinFormer
+            ChainPattern = ".*"
+            BendStiffnesses = [| 0.5; 1.0; 1.5 |]
+            NumRuns = 8 }
 
     /// Width of the world.
     let private worldSize = 320
@@ -159,7 +193,9 @@ module Experiment24 =
             world, template
         let food = settings.NumFoodEach |> Array.map string |> String.concat "/"
         { scenario with
-            Name = $"Chambers of plenty and want, food {food}, stiffness {bendStiffness}"
+            Name =
+                let strand = settings.HairpinFormer |> Array.map string |> String.concat ""
+                $"Chambers of plenty and want, {strand}, food {food}, stiffness {bendStiffness}"
             Build = build
             Schedule = Cycle [| settings.Cold; settings.Hot |] }
             |> Scenario.withBend Strong Bend.rightAngle bendStiffness
@@ -168,17 +204,22 @@ module Experiment24 =
     let getScenarios settings =
         settings.BendStiffnesses |> Array.map (getScenario settings)
 
-    /// Chains of the hairpin family, as text: caps around a run of W, a
-    /// run of Y or Z (perhaps empty), and a run of X, in either order.
-    let private hairpinPattern = Regex("^[PQ](W+[YZ]*X+|X+[YZ]*W+)[PQ]$")
-
     /// Census of one chamber.
     type private Census =
         {
-            /// Number of hairpin-family chains, by state.
+            /// Number of counted chains, by state.
             NumCopied : int
             NumFolded : int
             NumSingle : int
+
+            /// Number of uncopied chains with at least 2 * MinFoldedStem
+            /// atoms paired in register: each with the atom at the mirror
+            /// position of the chain, as in its designed fold.
+            NumInRegister : int
+
+            /// Sum, over uncopied chains, of the fraction of each chain's
+            /// atoms that are paired within it, however aligned.
+            InnerPaired : float
 
             /// Number of free W and X atoms (with no strong bonds).
             NumFreeW : int
@@ -187,13 +228,32 @@ module Experiment24 =
 
     module private Census =
 
-        /// Total number of hairpin-family chains.
+        /// Total number of counted chains.
         let getNumChains census =
             census.NumCopied + census.NumFolded + census.NumSingle
+
+        /// Number of uncopied chains.
+        let getNumUncopied census =
+            census.NumFolded + census.NumSingle
 
         /// Number of free W and X atoms, per type.
         let getFood census =
             float (census.NumFreeW + census.NumFreeX) / 2.0
+
+    /// A counted chain's chamber and census.
+    type private ChainCensus =
+        {
+            Chamber : int
+
+            /// 0 if copied, 1 if folded, 2 if single.
+            State : int
+
+            /// Number of its atoms paired in register.
+            NumInRegister : int
+
+            /// Fraction of its atoms paired within it.
+            InnerPaired : float
+        }
 
     /// Takes a census of each chamber of the given world. A chain is
     /// copied if half or more of its atoms are paired with another
@@ -202,6 +262,7 @@ module Experiment24 =
     let private getCensuses settings (world : World) =
         let strong = world.BondTypeMap[Strong]
         let weak = world.BondTypeMap[Weak]
+        let pattern = Regex(settings.ChainPattern)
         let chains =
             getStrands world
                 |> Array.where (fun strand ->
@@ -210,7 +271,7 @@ module Experiment24 =
                         && strand.AtomIds
                             |> Array.map (fun id -> string world.Atoms[id].Type)
                             |> String.concat ""
-                            |> hairpinPattern.IsMatch)
+                            |> pattern.IsMatch)
                 |> Array.map (fun strand ->
                     let ids = strand.AtomIds
                     let atoms = set ids
@@ -232,11 +293,24 @@ module Experiment24 =
                                     | Some p when atoms.Contains p -> max longest (run + 1), run + 1
                                     | _ -> longest, 0)
                             |> fst
-                    let state =
-                        if 2 * nCopied >= ids.Length then 0
-                        elif longestInnerRun >= 2 * settings.MinFoldedStem then 1
-                        else 2
-                    getChamber world.Atoms[ids[0]].Location, state)
+                    let nInner =
+                        partners
+                            |> Array.where (function Some p -> atoms.Contains p | None -> false)
+                            |> Array.length
+                    let nInRegister =
+                        partners
+                            |> Array.indexed
+                            |> Array.where (fun (i, p) -> p = Some ids[ids.Length - 1 - i])
+                            |> Array.length
+                    {
+                        Chamber = getChamber world.Atoms[ids[0]].Location
+                        State =
+                            if 2 * nCopied >= ids.Length then 0
+                            elif longestInnerRun >= 2 * settings.MinFoldedStem then 1
+                            else 2
+                        NumInRegister = nInRegister
+                        InnerPaired = float nInner / float ids.Length
+                    })
         let free =
             world.Atoms
                 |> Array.where (fun atom ->
@@ -245,14 +319,21 @@ module Experiment24 =
                 |> Array.map (fun atom -> getChamber atom.Location, atom.Type)
         [|
             for iChamber in 0 .. 3 do
+                let inChamber = chains |> Array.where (fun c -> c.Chamber = iChamber)
+                let uncopied = inChamber |> Array.where (fun c -> c.State <> 0)
                 let inState state =
-                    chains |> Array.where (fun c -> c = (iChamber, state)) |> Array.length
+                    inChamber |> Array.where (fun c -> c.State = state) |> Array.length
                 let numFree atomType =
                     free |> Array.where (fun f -> f = (iChamber, atomType)) |> Array.length
                 {
                     NumCopied = inState 0
                     NumFolded = inState 1
                     NumSingle = inState 2
+                    NumInRegister =
+                        uncopied
+                            |> Array.where (fun c -> c.NumInRegister >= 2 * settings.MinFoldedStem)
+                            |> Array.length
+                    InnerPaired = uncopied |> Array.sumBy _.InnerPaired
                     NumFreeW = numFree AtomType.W
                     NumFreeX = numFree AtomType.X
                 }
@@ -303,8 +384,8 @@ module Experiment24 =
         printfn "%d runs of %d cycles at each stiffness (%s); each cycle: cold %s; hot %s; no hydrolysis"
             settings.NumRuns settings.NumCycles (settings.BendStiffnesses |> Array.map string |> String.concat ", ")
             (phaseText settings.Cold) (phaseText settings.Hot)
-        printfn "Hairpin-family chains (caps around a run of W, of Y or Z, and of X) of %d atoms or more are counted at %s sweeps into each cold phase"
-            settings.MinLength (settings.SampleTimes |> Array.map string |> String.concat ", ")
+        printfn "Capped chains of %d atoms or more that match %s are counted at %s sweeps into each cold phase"
+            settings.MinLength settings.ChainPattern (settings.SampleTimes |> Array.map string |> String.concat ", ")
         printParameters (getScenario settings settings.BendStiffnesses[0]).Parameters
         printfn ""
 
@@ -323,7 +404,7 @@ module Experiment24 =
                 |> Map
 
         use writer = new StreamWriter(csvPath)
-        writer.WriteLine("stiffness,seed,cycle,sweeps_into_cold,chamber,food_each,free_w,free_x,copied,folded,single")
+        writer.WriteLine("stiffness,seed,cycle,sweeps_into_cold,chamber,food_each,free_w,free_x,copied,folded,single,in_register,inner_paired")
         for (stiffness, seed), cycles in Map.toSeq results do
             for iCycle in 0 .. settings.NumCycles - 1 do
                 for iSample in 0 .. settings.SampleTimes.Length - 1 do
@@ -335,7 +416,8 @@ module Experiment24 =
                                   string settings.SampleTimes[iSample]; string (iChamber + 1)
                                   string settings.NumFoodEach[iChamber]
                                   string c.NumFreeW; string c.NumFreeX
-                                  string c.NumCopied; string c.NumFolded; string c.NumSingle ]))
+                                  string c.NumCopied; string c.NumFolded; string c.NumSingle
+                                  string c.NumInRegister; c.InnerPaired.ToString(Globalization.CultureInfo.InvariantCulture) ]))
 
         let iEnd = settings.SampleTimes.Length - 1
         for stiffness in settings.BendStiffnesses do
@@ -346,7 +428,7 @@ module Experiment24 =
                 printfn ""
                 printfn "Chamber %d (%d free atoms of each type to start), at the end of each cold phase, and folded chains over it:"
                     (iChamber + 1) settings.NumFoodEach[iChamber]
-                printfn "cycle   chains   food   copied folded single   fold%%   folded at %s"
+                printfn "cycle   chains   food   copied folded single   fold%%  in-reg  inner   folded at %s"
                     (settings.SampleTimes |> Array.map (fun t -> sprintf "%5dk" (t / 1000)) |> String.concat "")
                 for iCycle in 0 .. settings.NumCycles - 1 do
                     let average iSample f =
@@ -355,17 +437,22 @@ module Experiment24 =
                     let folded = average iEnd (_.NumFolded >> float)
                     let single = average iEnd (_.NumSingle >> float)
                     let foldPct = if folded + single > 0.0 then 100.0 * folded / (folded + single) else nan
+                    let inRegister = average iEnd (_.NumInRegister >> float)
+                    let inner =
+                        let n = runs |> Array.sumBy (fun r -> Census.getNumUncopied r.[iCycle].[iEnd].[iChamber])
+                        if n > 0 then (runs |> Array.sumBy (fun r -> r.[iCycle].[iEnd].[iChamber].InnerPaired)) / float n
+                        else nan
                     let overTime =
                         [| for iSample in 0 .. iEnd -> sprintf "%6.2f" (average iSample (_.NumFolded >> float)) |]
                             |> String.concat ""
-                    printfn "%5d   %6.2f  %5.1f    %5.2f  %5.2f  %5.2f   %4.0f%%   %s"
+                    printfn "%5d   %6.2f  %5.1f    %5.2f  %5.2f  %5.2f   %4.0f%%   %5.2f  %5.2f   %s"
                         (iCycle + 1) (average iEnd (Census.getNumChains >> float)) (average iEnd Census.getFood)
-                        copied folded single foldPct overTime
+                        copied folded single foldPct inRegister inner overTime
 
                 // pooled over chambers, cycles and sample times, by food
             printfn ""
             printfn "By free atoms of each type in the chamber (W and X averaged), pooled over chambers, cycles and sample times:"
-            printfn "   food      samples   chains   copied   folded   single   folded of uncopied"
+            printfn "   food      samples   chains   copied   folded   single   in register of uncopied   inner   folded of uncopied"
             let censuses =
                 runs |> Array.collect (fun r ->
                     r |> Array.collect (fun samples -> samples |> Array.collect id))
@@ -381,15 +468,20 @@ module Experiment24 =
                 let frac n = if nChains > 0 then float n / float nChains else nan
                 let nFolded = sum _.NumFolded
                 let nUncopied = nFolded + sum _.NumSingle
-                printfn "   %-8s  %7d   %6d    %5.2f    %5.2f    %5.2f    %s"
+                let ofUncopied x = if nUncopied > 0 then x / float nUncopied else nan
+                printfn "   %-8s  %7d   %6d    %5.2f    %5.2f    %5.2f    %22.2f   %5.2f   %s"
                     (if Double.IsInfinity hi then sprintf "%g+" lo else sprintf "%g-%g" lo (hi - 1.0))
                     inBin.Length nChains
                     (frac (sum _.NumCopied)) (frac nFolded) (frac (sum _.NumSingle))
+                    (ofUncopied (float (sum _.NumInRegister))) (ofUncopied (inBin |> Array.sumBy _.InnerPaired))
                     (if nUncopied > 0 then sprintf "%.2f (%d/%d)" (float nFolded / float nUncopied) nFolded nUncopied else "-")
 
         printfn ""
-        printfn "chains: hairpin-family chains in the chamber, per run. food: free W and X atoms (no strong bonds), per type."
+        printfn "chains: counted chains in the chamber, per run. food: free W and X atoms (no strong bonds), per type."
         printfn "copied: half or more of a chain's atoms paired with another chain; folded: not copied, but a run of"
         printfn "   at least %d atoms paired within it; single: neither. fold%%: folded / (folded + single)."
             (2 * settings.MinFoldedStem)
+        printfn "in-reg: uncopied chains with at least %d atoms paired in register (each with the atom at its mirror position)."
+            (2 * settings.MinFoldedStem)
+        printfn "inner: mean fraction of an uncopied chain's atoms paired within it, however aligned."
         printfn "Results written to %s" (Path.GetFullPath csvPath)

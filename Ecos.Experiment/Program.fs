@@ -58,6 +58,8 @@ module Program =
                 Experiment23.run Experiment23.runnerSettings
             "experiment24", "Chambers of plenty and want: does a hairpin-former copy while food lasts, and fold once it runs out?",
                 Experiment24.run Experiment24.defaultSettings
+            "experiment24m", "The same with a mixed-sequence hairpin-former, which pairs strongly only in register, at stiffer settings",
+                Experiment24.run Experiment24.mixedSettings
         ]
 
     /// Prints usage.
