@@ -33,12 +33,17 @@ module private Bend =
         kappa * (1.0 + dot / sqrt (float (u .* u) * float (v .* v)))
 
     /// Bend energy of a bond between atoms A and B.
-    let getBondEnergy kappa grid bondMap atomA atomB =
+    let getBondEnergy bondTypeParms grid bondMap atomA atomB =
 
         let at atomA atomB =
 
             let ids = BondMap.getBonds atomA.Id bondMap
             assert(ids.Count <= 2)
+
+                // get bend stiffness
+            let kappa =
+                BondTypeParameters.getBendStiffness
+                    atomA.Type bondTypeParms
 
                 // find other bonded atom, assuming there's not more than one
             let atomCOpt =
@@ -60,7 +65,7 @@ module private Bend =
     /// Change in the bend energy of bonds from moving an atom:
     /// at the atom itself, and at each of its partners.
     let getEnergyDelta
-        kappa grid bondMap atomBefore atomAfter =
+        bondTypeParms grid bondMap atomBefore atomAfter =
 
         /// Computes bend at a partner, B, between the moved atom
         /// and B's other partner, if any.
@@ -83,6 +88,9 @@ module private Bend =
 
                     // compute the before/after energy delta
                 let atomB = grid.Atoms[idB]
+                let kappa =
+                    BondTypeParameters.getBendStiffness
+                        atomB.Type bondTypeParms
                 let deltaBC =
                     AtomGrid.getDisplacement atomB grid.Atoms[idC] grid
                 let getEnergy atomA =
@@ -96,6 +104,11 @@ module private Bend =
 
         if idsA.IsEmpty then 0.0   // no bend
         else
+                // get bend stiffness
+            let kappa =
+                BondTypeParameters.getBendStiffness
+                    atomBefore.Type bondTypeParms
+
                 // assume atom has no more than two partners
             let idB = idsA.MinimumElement
             if idsA.Count = 1 then
