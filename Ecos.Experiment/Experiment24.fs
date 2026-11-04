@@ -53,8 +53,8 @@ module Experiment24 =
             /// bend limit (right angles).
             BendStiffnesses : float[]
 
-            /// Bend stiffness of the hinge atoms, U and V, if they
-            /// differ from the others.
+            /// Bend stiffness of the hinge atoms (H), if it differs
+            /// from the others'.
             HingeStiffness : float option
 
             /// The cold phase, for copying.
@@ -121,25 +121,25 @@ module Experiment24 =
             BendStiffnesses = [| 0.5; 1.0; 1.5 |]
             NumRuns = 8 }
 
-    /// The mixed-sequence hairpin-former with a hinge for a loop: U U,
-    /// whose copy's loop is V V. In a loop of two, the two right-angle
+    /// The mixed-sequence hairpin-former with a hinge for a loop: H H.
+    /// Since H pairs with itself, the strand is its own copy. In a loop of two, the two right-angle
     /// bends of the fold fall on the loop's atoms, and the stems run
     /// straight into it.
     let hingedHairpinFormer =
         mixedHairpinFormer
             |> Array.mapi (fun i atomType ->
                 let n = mixedHairpinFormer.Length
-                if i = n / 2 - 1 || i = n / 2 then AtomType.U
+                if i = n / 2 - 1 || i = n / 2 then AtomType.H
                 else atomType)
 
     /// Settings for the hinged hairpin-former: stiff everywhere but at
     /// the hinge, which bends freely, so that a strand can fold at its
-    /// loop but nowhere else. Free U and V atoms are added, so that the
-    /// hinge can be copied.
+    /// loop but nowhere else. Free H atoms are added, so that the hinge
+    /// can be copied.
     let hingedSettings =
         { mixedSettings with
             HairpinFormer = hingedHairpinFormer
-            FoodTypes = Array.append defaultSettings.FoodTypes [| AtomType.U; AtomType.V |]
+            FoodTypes = Array.append defaultSettings.FoodTypes [| AtomType.H |]
             BendStiffnesses = [| 1.0; 2.0; 3.0 |]
             HingeStiffness = Some 0.0 }
 
@@ -244,8 +244,7 @@ module Experiment24 =
                 match settings.HingeStiffness with
                     | Some kappa ->
                         scenario
-                            |> Scenario.withBendStiffness Strong AtomType.U kappa
-                            |> Scenario.withBendStiffness Strong AtomType.V kappa
+                            |> Scenario.withBendStiffness Strong AtomType.H kappa
                     | None -> scenario
 
     /// The experiment's scenarios: one for each stiffness.
@@ -439,7 +438,7 @@ module Experiment24 =
             worldSize worldSize settings.NumSeeds (settings.NumFoodEach |> Array.map string |> String.concat ", ")
         printfn "Free atom types: %s" (toText settings.FoodTypes)
         settings.HingeStiffness
-            |> Option.iter (printfn "Hinge atoms (U, V) bend with stiffness %g; all others with the stiffness of the run")
+            |> Option.iter (printfn "Hinge atoms (H) bend with stiffness %g; all others with the stiffness of the run")
         printfn "%d runs of %d cycles at each stiffness (%s); each cycle: cold %s; hot %s; no hydrolysis"
             settings.NumRuns settings.NumCycles (settings.BendStiffnesses |> Array.map string |> String.concat ", ")
             (phaseText settings.Cold) (phaseText settings.Hot)

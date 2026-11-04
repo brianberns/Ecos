@@ -197,24 +197,24 @@ module ChainPhysicsTests =
     let ``Pentamer with bend stiffness follows the Boltzmann distribution`` () =
         checkChainWith (bendable 1.0 1.0) 5
 
-    /// Parameters for stiff chains with free hinges: atoms of type U
+    /// Parameters for stiff chains with free hinges: atoms of type H
     /// bend at no cost, and all others at a high one.
     let private hinged =
         bendable 2.0 1.0
-            |> TestParameters.withBendStiffnesses Strong [ AtomType.U, 0.0 ]
+            |> TestParameters.withBendStiffnesses Strong [ AtomType.H, 0.0 ]
 
     /// A five-atom chain with a hinge inside it: the stiffness of each
     /// bend is that of the atom at its corner, whichever atom moves.
     [<Fact>]
     let ``Pentamer with a hinge follows the Boltzmann distribution`` () =
-        checkChainOf hinged [| AtomType.W; AtomType.U; AtomType.W; AtomType.W; AtomType.W |]
+        checkChainOf hinged [| AtomType.W; AtomType.H; AtomType.W; AtomType.W; AtomType.W |]
 
     /// A five-atom chain with hinges at its ends, where there are no
     /// bends: every bend is stiff, though the atoms that move to make
     /// some of them are hinges.
     [<Fact>]
     let ``Pentamer with hinges at its ends follows the Boltzmann distribution`` () =
-        checkChainOf hinged [| AtomType.U; AtomType.W; AtomType.W; AtomType.W; AtomType.U |]
+        checkChainOf hinged [| AtomType.H; AtomType.W; AtomType.W; AtomType.W; AtomType.H |]
 
     /// Bends from forming and breaking bonds: three atoms of the given
     /// types, none of which pair with each other, are confined to a small box, at a temperature at which strong bonds
@@ -360,8 +360,8 @@ module ChainPhysicsTests =
     let ``Three atoms in a box with a hinge follow the Boltzmann distribution`` () =
         let parms =
             boxParameters
-                |> TestParameters.withBendStiffnesses Strong [ AtomType.U, 0.0 ]
-        checkThreeInBox parms [| AtomType.U; AtomType.W; AtomType.W |]
+                |> TestParameters.withBendStiffnesses Strong [ AtomType.H, 0.0 ]
+        checkThreeInBox parms [| AtomType.H; AtomType.W; AtomType.W |]
 
     /// Chain lengths for the diffusion tests.
     let private lengths = [ 8; 16; 32; 64 ]

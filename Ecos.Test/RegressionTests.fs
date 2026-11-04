@@ -172,15 +172,16 @@ module RegressionTests =
     /// paired only on their strands' faces (commit 46dbe18), which
     /// changed every world. The fingerprints now include the way each
     /// strong bond runs. Worlds with random atom types were recorded
-    /// again once the hinge types U and V joined them.
+    /// again once the hinge types U and V joined them, and again once
+    /// they were merged into H, which pairs with itself.
     let private expected =
         Map [
-            ("cold", 1), [ "b1b09321d89e7c88"; "942f986ef2610c40"; "e6503a23230f5bc4"; "11951db352d7ff12" ]
-            ("cold", 2), [ "6d8eeca605c18986"; "0e3c9a00b8e9a2e4"; "819affc4bf2ada6f"; "b71d42183556a240" ]
-            ("hot", 1), [ "8018d7779d13594b"; "85bee459fa093ed3"; "c5f4b9ed67c06f4e"; "449bbac295067451" ]
-            ("hot", 2), [ "381b2e2908abb12a"; "d4e4ef8d4e49246a"; "7edb6106163d5f02"; "6e79221b4a82902c" ]
-            ("all rules", 1), [ "a542ee104e254d8d"; "da729172af4c32ed"; "a87ae839ee5f949f"; "cd6f50287019937a" ]
-            ("all rules", 2), [ "c4feef499204114b"; "3fbf606a1729486c"; "4454fc1b9c25401a"; "27273b85f9668cdd" ]
+            ("cold", 1), [ "6d8c941206517655"; "3b44f98988a0a942"; "0dd471a0f33c1f37"; "8d2b93327c7f5bf6" ]
+            ("cold", 2), [ "55a647e05b89c0aa"; "11826ac981917b8c"; "23c774a3fae6c82f"; "262cb5fd80149884" ]
+            ("hot", 1), [ "2578b2683c0bf739"; "bd345052abbf47f6"; "7191763a74959ac9"; "bb00d03a4c24b797" ]
+            ("hot", 2), [ "d8694b2d11d3e3f7"; "457e59d01caed1d7"; "6b444ffe2e0ac82e"; "8829291fb600a636" ]
+            ("all rules", 1), [ "67491f1d8b49820d"; "c481805fb74c3ff3"; "b6601af91037ea1c"; "d1edbb72abd50bb8" ]
+            ("all rules", 2), [ "95e2e58b16fe3685"; "e0e6e1cbc052ab8e"; "ddd796147b7bf47c"; "c50998758f9b1ee2" ]
             ("copying", 1), [ "1351b95f75299a28"; "713396239b5694e2"; "5bb45f0cec31f3ad"; "24d663bf9106a6f9" ]
             ("copying", 2), [ "70abc22c5402f708"; "74886ca1edd4ae7a"; "7010108f0dce90f5"; "2ac0facb51fb7618" ]
             ("standard physics", 1), [ "7df5c465c1537a52"; "1b811df6df9aa126"; "c0347cedf893fd22"; "472c4a0267037c82" ]

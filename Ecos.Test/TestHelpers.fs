@@ -330,12 +330,13 @@ module Chain =
             |> Array.filter (fun v -> v.X * v.X + v.Y * v.Y <= 8)
 
     /// Oracle: can atoms of the given types form a weak bond? Each
-    /// type pairs with exactly one other.
+    /// type pairs with exactly one type: the hinge (H) with itself, and
+    /// each other with a different one.
     let canPair typeA typeB =
         match typeA, typeB with
             | AtomType.W, AtomType.X | AtomType.X, AtomType.W
             | AtomType.Y, AtomType.Z | AtomType.Z, AtomType.Y
-            | AtomType.U, AtomType.V | AtomType.V, AtomType.U
+            | AtomType.H, AtomType.H
             | AtomType.P, AtomType.Q | AtomType.Q, AtomType.P -> true
             | _ -> false
 
@@ -356,11 +357,11 @@ module Chain =
 
     /// All atom types.
     let allTypes =
-        [| AtomType.W; AtomType.X; AtomType.Y; AtomType.Z; AtomType.U; AtomType.V; AtomType.P; AtomType.Q |]
+        [| AtomType.W; AtomType.X; AtomType.Y; AtomType.Z; AtomType.H; AtomType.P; AtomType.Q |]
 
     /// Atom types that aren't caps.
     let codingTypes =
-        [| AtomType.W; AtomType.X; AtomType.Y; AtomType.Z; AtomType.U; AtomType.V |]
+        [| AtomType.W; AtomType.X; AtomType.Y; AtomType.Z; AtomType.H |]
 
     /// Oracle: temperature (kT) of a bond between the given atoms: the
     /// average of the temperatures at their two locations, so that

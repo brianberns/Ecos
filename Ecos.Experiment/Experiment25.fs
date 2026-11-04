@@ -261,7 +261,7 @@ module Experiment25 =
             let b = variant.Base
             printfn "Variant %s: %s, stiffness %g%s; %d free atoms of each type (%s); stress at the end of cold phase %d; %d runs"
                 variant.Name (toText b.HairpinFormer) variant.BendStiffness
-                (b.HingeStiffness |> Option.map (sprintf ", hinges (U, V) %g") |> Option.defaultValue "")
+                (b.HingeStiffness |> Option.map (sprintf ", hinges (H) %g") |> Option.defaultValue "")
                 variant.NumFoodEach (toText b.FoodTypes) variant.StressCycle variant.NumRuns
         let b = settings.Variants[0].Base
         printfn "Cycles of cold (kT %g, %d sweeps) and hot (kT %g, %d sweeps) with no hydrolysis"

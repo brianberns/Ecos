@@ -559,16 +559,15 @@ module Scenario =
     /// enough to keep stems straight, but not so stiff that copying slows.
     let defaultBendStiffness = 2.0
 
-    /// Default bend stiffness at hinge atoms (U and V): free.
+    /// Default bend stiffness at hinge atoms (H): free.
     let defaultHingeStiffness = 0.0
 
     /// Gives strong bonds the default bend: right angles at most, stiff
-    /// everywhere but at U and V, which serve as hinges.
+    /// everywhere but at H, which serves as a hinge.
     let withHingedBend scenario =
         scenario
             |> withBend Strong Bend.rightAngle defaultBendStiffness
-            |> withBendStiffness Strong AtomType.U defaultHingeStiffness
-            |> withBendStiffness Strong AtomType.V defaultHingeStiffness
+            |> withBendStiffness Strong AtomType.H defaultHingeStiffness
 
     /// Sets the energy of the given type of bond between the given
     /// atom types in the given scenario.
