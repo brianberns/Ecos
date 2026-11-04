@@ -395,11 +395,13 @@ module World =
         let energyDelta =
             BondType.all
                 |> Array.sumBy (fun bondType ->
-                    let bondParms =
+                    let bondTypeParms =
                         parms.BondTypeParameterMap[bondType]
-                    let bondMap = world.BondTypeMap[bondType]
-                    Bend.getEnergyDelta
-                        bondParms world.AtomGrid bondMap atomBefore atomAfter)
+                    if BondTypeParameters.hasBendStiffness bondTypeParms then
+                        let bondMap = world.BondTypeMap[bondType]
+                        Bend.getEnergyDelta
+                            bondTypeParms world.AtomGrid bondMap atomBefore atomAfter
+                    else 0.0)
         if energyDelta <= 0.0 then true   // downhill moves are always accepted
         else
             let temp =
@@ -505,8 +507,10 @@ module World =
         let bondMap = world.BondTypeMap[bondType]
         let bondEnergy =
             let bendEnergy =
-                Bend.getBondEnergy
-                    bondTypeParms world.AtomGrid bondMap atomA atomB
+                if BondTypeParameters.hasBendStiffness bondTypeParms then
+                    Bend.getBondEnergy
+                        bondTypeParms world.AtomGrid bondMap atomA atomB
+                else 0.0
             BondTypeParameters.getEnergy
                 atomA.Type atomB.Type bondTypeParms
                 + stackEnergy * float nStacks

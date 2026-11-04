@@ -91,6 +91,12 @@ module BondTypeParameters =
             |> Map.tryFind atomType
             |> Option.defaultValue parms.BendStiffness
 
+    /// Determines whether the given bond type has any bend
+    /// stiffness.
+    let hasBendStiffness parms =
+        parms.BendStiffness <> 0
+            || not parms.BendStiffnessMap.IsEmpty
+
 /// Each bond type's parameters, optimized for speed.
 type BondTypeParameterMap =
     {
