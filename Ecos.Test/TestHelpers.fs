@@ -135,6 +135,13 @@ module TestParameters =
             |> withBondType bondType (fun p ->
                 { p with BendLimit = bendLimit; BendStiffness = kappa })
 
+    /// The given parameters, with bend stiffnesses for particular
+    /// atom types of the given bond type, overriding its default.
+    let withBendStiffnesses bondType (stiffnesses : (AtomType * float) list) parms =
+        parms
+            |> withBondType bondType (fun p ->
+                { p with BendStiffnessMap = Map stiffnesses })
+
     /// The given parameters, with energies for particular pairs of atom
     /// types.
     let withPairEnergies bondType (pairs : ((AtomType * AtomType) * float) list) parms =
@@ -267,6 +274,13 @@ module Bonds =
     let bendEnergy kappa center a b =
         kappa * (1.0 + cosine center a b)
 
+    /// Oracle: stiffness of a bend at an atom of the given type: the
+    /// stiffness listed for that type, or else the bond type's default.
+    let bendStiffness (bondTypeParms : BondTypeParameters) typ =
+        match Map.tryFind typ bondTypeParms.BendStiffnessMap with
+            | Some kappa -> kappa
+            | None -> bondTypeParms.BendStiffness
+
 /// Geometry helpers.
 module Geometry =
 
@@ -321,6 +335,7 @@ module Chain =
         match typeA, typeB with
             | AtomType.W, AtomType.X | AtomType.X, AtomType.W
             | AtomType.Y, AtomType.Z | AtomType.Z, AtomType.Y
+            | AtomType.U, AtomType.V | AtomType.V, AtomType.U
             | AtomType.P, AtomType.Q | AtomType.Q, AtomType.P -> true
             | _ -> false
 
@@ -341,11 +356,11 @@ module Chain =
 
     /// All atom types.
     let allTypes =
-        [| AtomType.W; AtomType.X; AtomType.Y; AtomType.Z; AtomType.P; AtomType.Q |]
+        [| AtomType.W; AtomType.X; AtomType.Y; AtomType.Z; AtomType.U; AtomType.V; AtomType.P; AtomType.Q |]
 
     /// Atom types that aren't caps.
     let codingTypes =
-        [| AtomType.W; AtomType.X; AtomType.Y; AtomType.Z |]
+        [| AtomType.W; AtomType.X; AtomType.Y; AtomType.Z; AtomType.U; AtomType.V |]
 
     /// Oracle: temperature (kT) of a bond between the given atoms: the
     /// average of the temperatures at their two locations, so that

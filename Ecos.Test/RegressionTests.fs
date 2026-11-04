@@ -171,15 +171,16 @@ module RegressionTests =
     /// Fingerprints recorded once strong bonds ran one way and atoms
     /// paired only on their strands' faces (commit 46dbe18), which
     /// changed every world. The fingerprints now include the way each
-    /// strong bond runs.
+    /// strong bond runs. Worlds with random atom types were recorded
+    /// again once the hinge types U and V joined them.
     let private expected =
         Map [
-            ("cold", 1), [ "04424eb09c8e601b"; "1a3783c2d2b2fba9"; "67123c1c397bcfbd"; "a361a176bf9f1d8f" ]
-            ("cold", 2), [ "80a5c947706d8d87"; "64d9d095d21efa82"; "41185d73d1169367"; "9a00cc541413280a" ]
-            ("hot", 1), [ "f169a4939732205b"; "a9b9e26757509582"; "83f1aa6ee659033f"; "48cea468904b1f8b" ]
-            ("hot", 2), [ "bfcb7db8454da030"; "a4494bcc55851057"; "2e8d7a8a293c2e46"; "eb53175bd0b14093" ]
-            ("all rules", 1), [ "42872f9026807768"; "f9622cb689364348"; "cdb83957dfca6f88"; "3b6412e09c9fce77" ]
-            ("all rules", 2), [ "d708b53f7fdf0522"; "c72537d23529bdb4"; "65a7e364e65d1f14"; "af6f5c0f08cb7c50" ]
+            ("cold", 1), [ "b1b09321d89e7c88"; "942f986ef2610c40"; "e6503a23230f5bc4"; "11951db352d7ff12" ]
+            ("cold", 2), [ "6d8eeca605c18986"; "0e3c9a00b8e9a2e4"; "819affc4bf2ada6f"; "b71d42183556a240" ]
+            ("hot", 1), [ "8018d7779d13594b"; "85bee459fa093ed3"; "c5f4b9ed67c06f4e"; "449bbac295067451" ]
+            ("hot", 2), [ "381b2e2908abb12a"; "d4e4ef8d4e49246a"; "7edb6106163d5f02"; "6e79221b4a82902c" ]
+            ("all rules", 1), [ "a542ee104e254d8d"; "da729172af4c32ed"; "a87ae839ee5f949f"; "cd6f50287019937a" ]
+            ("all rules", 2), [ "c4feef499204114b"; "3fbf606a1729486c"; "4454fc1b9c25401a"; "27273b85f9668cdd" ]
             ("copying", 1), [ "1351b95f75299a28"; "713396239b5694e2"; "5bb45f0cec31f3ad"; "24d663bf9106a6f9" ]
             ("copying", 2), [ "70abc22c5402f708"; "74886ca1edd4ae7a"; "7010108f0dce90f5"; "2ac0facb51fb7618" ]
             ("standard physics", 1), [ "7df5c465c1537a52"; "1b811df6df9aa126"; "c0347cedf893fd22"; "472c4a0267037c82" ]

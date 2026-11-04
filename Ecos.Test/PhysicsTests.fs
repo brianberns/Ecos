@@ -93,13 +93,16 @@ module ChainPhysicsTests =
     /// distribution of the end-to-end vector against simulations started
     /// far from equilibrium (a straight rod).
     ///
-    /// All atoms are type W, so no weak bonds can form, and strong
-    /// bonds are frozen, so the chain can't break or close into a ring.
+    /// Atoms are of the given types, none of which pair with each
+    /// other, so no weak bonds can form, and strong bonds are frozen,
+    /// so the chain can't break or close into a ring.
     ///
     /// With a bend stiffness, conformations are no longer equally
     /// likely: each counts with its Boltzmann weight, the product of
-    /// exp(-E/kT) over the bends at its interior atoms.
-    let private checkChainWith (parms : Parameters) n =
+    /// exp(-E/kT) over the bends at its interior atoms, each with the
+    /// stiffness of that atom's type.
+    let private checkChainOf (parms : Parameters) (types : AtomType[]) =
+        let n = types.Length
         let kT = parms.GetTemperature Point.zero   // uniform
         let strong = parms.BondTypeParameterMap[Strong]
 
@@ -119,7 +122,8 @@ module ChainPhysicsTests =
                 if not anyCrossing then
                     let weight =
                         Seq.init (n - 2) (fun i ->
-                            exp (-Bonds.bendEnergy strong.BendStiffness locs[i + 1] locs[i] locs[i + 2] / kT))
+                            let kappa = Bonds.bendStiffness strong types[i + 1]
+                            exp (-Bonds.bendEnergy kappa locs[i + 1] locs[i] locs[i + 2] / kT))
                             |> Seq.fold (*) 1.0
                     addWeight counts (locs[n - 1] - locs[0]) weight
             else
@@ -141,7 +145,7 @@ module ChainPhysicsTests =
             (TestWorld.empty, [ 0 .. n - 1 ])
                 ||> List.fold (fun world i ->
                     let world =
-                        World.addAtomW (Point.create (2 * i, 0)) world
+                        World.addAtom types[i] (Point.create (2 * i, 0)) world
                     if i > 0 then World.addStrongBond TestParameters.standard (i - 1) i world
                     else world)
         let samples =
@@ -151,7 +155,11 @@ module ChainPhysicsTests =
                     8 (200 * n) (20 * n) 5000
                     (fun world -> World.getDisplacement world.Atoms[0] world.Atoms[n - 1] world)
 
-        checkFit $"End-to-end vector, N = {n}" (toMap counts) samples
+        checkFit $"End-to-end vector, {types}" (toMap counts) samples
+
+    /// Checks a chain of the given length, all of type W.
+    let private checkChainWith parms n =
+        checkChainOf parms (Array.replicate n AtomType.W)
 
     /// Checks a chain of the given length with the standard parameters,
     /// whose strands are nearly straight and cost nothing to bend.
@@ -189,8 +197,27 @@ module ChainPhysicsTests =
     let ``Pentamer with bend stiffness follows the Boltzmann distribution`` () =
         checkChainWith (bendable 1.0 1.0) 5
 
-    /// Bends from forming and breaking bonds: three atoms of type W are
-    /// confined to a small box, at a temperature at which strong bonds
+    /// Parameters for stiff chains with free hinges: atoms of type U
+    /// bend at no cost, and all others at a high one.
+    let private hinged =
+        bendable 2.0 1.0
+            |> TestParameters.withBendStiffnesses Strong [ AtomType.U, 0.0 ]
+
+    /// A five-atom chain with a hinge inside it: the stiffness of each
+    /// bend is that of the atom at its corner, whichever atom moves.
+    [<Fact>]
+    let ``Pentamer with a hinge follows the Boltzmann distribution`` () =
+        checkChainOf hinged [| AtomType.W; AtomType.U; AtomType.W; AtomType.W; AtomType.W |]
+
+    /// A five-atom chain with hinges at its ends, where there are no
+    /// bends: every bend is stiff, though the atoms that move to make
+    /// some of them are hinges.
+    [<Fact>]
+    let ``Pentamer with hinges at its ends follows the Boltzmann distribution`` () =
+        checkChainOf hinged [| AtomType.U; AtomType.W; AtomType.W; AtomType.W; AtomType.U |]
+
+    /// Bends from forming and breaking bonds: three atoms of the given
+    /// types, none of which pair with each other, are confined to a small box, at a temperature at which strong bonds
     /// form and break often, and strands bend up to right angles at a
     /// cost. We enumerate every state exactly: each placement of the
     /// three atoms without overlap, with each set of strong bonds that
@@ -210,16 +237,12 @@ module ChainPhysicsTests =
     /// States are grouped by the number of bonds and, for one bond, its
     /// squared length, or for two, the squared distance between the
     /// ends of the strand, which measures the bend.
-    [<Fact>]
-    let ``Three atoms in a box follow the Boltzmann distribution with bend stiffness`` () =
+    let private checkThreeInBox (parms : Parameters) (types : AtomType[]) =
         let size = 4   // atom locations have |x| <= size and |y| <= size
-        let kT = 4.0
-        let parms =
-            TestParameters.create kT
-                |> TestParameters.withBend Strong (Rational.create 0 1) 4.0
+        let kT = parms.GetTemperature Point.zero   // uniform
         let strong = parms.BondTypeParameterMap[Strong]
-        let bondWeight =
-            exp (-Chain.bondEnergy parms Strong AtomType.W AtomType.W / kT)
+        let bondWeight (i, j) =
+            exp (-Chain.bondEnergy parms Strong types[i] types[j] / kT)
         let lengthSq (d : Point) = d.X * d.X + d.Y * d.Y
 
             // the state of the given atom locations and set of bonds
@@ -290,7 +313,8 @@ module ChainPhysicsTests =
                                         match partners with
                                             | [ p; q ] ->
                                                 if Bonds.isBendAllowed strong.BendLimit locs[m] locs[p] locs[q] then
-                                                    exp (-Bonds.bendEnergy strong.BendStiffness locs[m] locs[p] locs[q] / kT)
+                                                    let kappa = Bonds.bendStiffness strong types[m]
+                                                    exp (-Bonds.bendEnergy kappa locs[m] locs[p] locs[q] / kT)
                                                 else 0.0
                                             | _ -> 1.0)
                                     |> List.fold (*) 1.0
@@ -298,15 +322,16 @@ module ChainPhysicsTests =
                                 let directionWeight =
                                     float (countDirections bonds) * 0.5 ** float bonds.Length
                                 addWeight exact (getState locs bonds)
-                                    (bondWeight ** float bonds.Length * bendWeight * directionWeight)
+                                    (List.fold (fun w bond -> w * bondWeight bond) 1.0 bonds
+                                        * bendWeight * directionWeight)
 
             // sample states
         let inBox (loc : Point) = abs loc.X <= size && abs loc.Y <= size
         let samples =
             TestWorld.empty
-                |> World.addAtomW (Point.create (-size, -size))
-                |> World.addAtomW (Point.create (size, size))
-                |> World.addAtomW (Point.create (-size, size))
+                |> World.addAtom types[0] (Point.create (-size, -size))
+                |> World.addAtom types[1] (Point.create (size, size))
+                |> World.addAtom types[2] (Point.create (-size, size))
                 |> Chain.addBox size
                 |> sample
                     parms 8 2000 500 3000
@@ -316,7 +341,27 @@ module ChainPhysicsTests =
                         Assert.True(Array.forall inBox locs, $"Atom escaped the box: {locs}")
                         getState locs (Bonds.strongBonds world |> Set.toList))
 
-        checkFit "Bonds and bend" (toMap exact) samples
+        checkFit $"Bonds and bend, {types}" (toMap exact) samples
+
+    /// Parameters for three atoms in a box: strong bonds form and break
+    /// often, and bends up to right angles cost a lot.
+    let private boxParameters =
+        TestParameters.create 4.0
+            |> TestParameters.withBend Strong (Rational.create 0 1) 4.0
+
+    [<Fact>]
+    let ``Three atoms in a box follow the Boltzmann distribution with bend stiffness`` () =
+        checkThreeInBox boxParameters (Array.replicate 3 AtomType.W)
+
+    /// The same, with one atom a free hinge: forming or breaking a bond
+    /// adds or removes a bend at whichever atom is at its corner, with
+    /// that atom's stiffness.
+    [<Fact>]
+    let ``Three atoms in a box with a hinge follow the Boltzmann distribution`` () =
+        let parms =
+            boxParameters
+                |> TestParameters.withBendStiffnesses Strong [ AtomType.U, 0.0 ]
+        checkThreeInBox parms [| AtomType.U; AtomType.W; AtomType.W |]
 
     /// Chain lengths for the diffusion tests.
     let private lengths = [ 8; 16; 32; 64 ]
