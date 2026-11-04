@@ -60,6 +60,8 @@ module Program =
                 Experiment24.run Experiment24.defaultSettings
             "experiment24m", "The same with a mixed-sequence hairpin-former, which pairs strongly only in register, at stiffer settings",
                 Experiment24.run Experiment24.mixedSettings
+            "experiment24h", "The same with a hinge for a loop: stiff stems that bend freely only at U U",
+                Experiment24.run Experiment24.hingedSettings
         ]
 
     /// Prints usage.

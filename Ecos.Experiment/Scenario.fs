@@ -546,6 +546,15 @@ module Scenario =
                     BendLimit = bendLimit
                     BendStiffness = kappa })
 
+    /// Sets the bend stiffness of the given type of bond at atoms of
+    /// the given type in the given scenario, overriding its default.
+    let withBendStiffness bondType atomType kappa scenario =
+        scenario
+            |> mapBondTypeParameters bondType (fun bondTypeParms ->
+                { bondTypeParms with
+                    BendStiffnessMap =
+                        Map.add atomType kappa bondTypeParms.BendStiffnessMap })
+
     /// Sets the energy of the given type of bond between the given
     /// atom types in the given scenario.
     let withPairEnergy bondType atomTypeA atomTypeB energy scenario =

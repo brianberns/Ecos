@@ -34,6 +34,9 @@ module Experiment24 =
             /// Number of free atoms of each type in each chamber.
             NumFoodEach : int[]
 
+            /// Types of free atoms.
+            FoodTypes : AtomType[]
+
             /// Shortest capped chain counted.
             MinLength : int
 
@@ -49,6 +52,10 @@ module Experiment24 =
             /// Strong-bond bend stiffnesses to run, with the standard
             /// bend limit (right angles).
             BendStiffnesses : float[]
+
+            /// Bend stiffness of the hinge atoms, U and V, if they
+            /// differ from the others.
+            HingeStiffness : float option
 
             /// The cold phase, for copying.
             Cold : Phase
@@ -72,10 +79,12 @@ module Experiment24 =
             HairpinFormer = Experiment22.getHairpinFormer 10
             NumSeeds = 2
             NumFoodEach = [| 120; 60; 30; 0 |]   // the standard world has 120 of each type
+            FoodTypes = [| AtomType.W; AtomType.X; AtomType.Y; AtomType.Z; AtomType.P; AtomType.Q |]
             MinLength = 10
             ChainPattern = "^[PQ](W+[YZ]*X+|X+[YZ]*W+)[PQ]$"   // the hairpin family: caps around runs of W, of Y or Z, and of X
             MinFoldedStem = 4
             BendStiffnesses = [| 0.0; 0.5 |]
+            HingeStiffness = None
             Cold = { Name = Some "cold"; Temperature = 0.3; NumSweeps = 200_000; HydrolysisRate = None }
             Hot = { Name = Some "hot"; Temperature = 3.0; NumSweeps = 100_000; HydrolysisRate = None }
             SampleTimes = [| 10_000; 25_000; 50_000; 100_000; 200_000 |]
@@ -111,6 +120,28 @@ module Experiment24 =
             ChainPattern = ".*"
             BendStiffnesses = [| 0.5; 1.0; 1.5 |]
             NumRuns = 8 }
+
+    /// The mixed-sequence hairpin-former with a hinge for a loop: U U,
+    /// whose copy's loop is V V. In a loop of two, the two right-angle
+    /// bends of the fold fall on the loop's atoms, and the stems run
+    /// straight into it.
+    let hingedHairpinFormer =
+        mixedHairpinFormer
+            |> Array.mapi (fun i atomType ->
+                let n = mixedHairpinFormer.Length
+                if i = n / 2 - 1 || i = n / 2 then AtomType.U
+                else atomType)
+
+    /// Settings for the hinged hairpin-former: stiff everywhere but at
+    /// the hinge, which bends freely, so that a strand can fold at its
+    /// loop but nowhere else. Free U and V atoms are added, so that the
+    /// hinge can be copied.
+    let hingedSettings =
+        { mixedSettings with
+            HairpinFormer = hingedHairpinFormer
+            FoodTypes = Array.append defaultSettings.FoodTypes [| AtomType.U; AtomType.V |]
+            BendStiffnesses = [| 1.0; 2.0; 3.0 |]
+            HingeStiffness = Some 0.0 }
 
     /// Width of the world.
     let private worldSize = 320
@@ -173,8 +204,7 @@ module Experiment24 =
             let template = Array.map _.Id world.Atoms
 
                 // free atoms
-            let types =
-                [| AtomType.W; AtomType.X; AtomType.Y; AtomType.Z; AtomType.P; AtomType.Q |]
+            let types = settings.FoodTypes
             let world =
                 (world, Array.indexed settings.NumFoodEach)
                     ||> Array.fold (fun world (iChamber, nEach) ->
@@ -195,10 +225,21 @@ module Experiment24 =
         { scenario with
             Name =
                 let strand = settings.HairpinFormer |> Array.map string |> String.concat ""
-                $"Chambers of plenty and want, {strand}, food {food}, stiffness {bendStiffness}"
+                let hinge =
+                    settings.HingeStiffness
+                        |> Option.map (fun kappa -> $", hinge {kappa}")
+                        |> Option.defaultValue ""
+                $"Chambers of plenty and want, {strand}, food {food}, stiffness {bendStiffness}{hinge}"
             Build = build
             Schedule = Cycle [| settings.Cold; settings.Hot |] }
             |> Scenario.withBend Strong Bend.rightAngle bendStiffness
+            |> fun scenario ->
+                match settings.HingeStiffness with
+                    | Some kappa ->
+                        scenario
+                            |> Scenario.withBendStiffness Strong AtomType.U kappa
+                            |> Scenario.withBendStiffness Strong AtomType.V kappa
+                    | None -> scenario
 
     /// The experiment's scenarios: one for each stiffness.
     let getScenarios settings =
@@ -381,6 +422,9 @@ module Experiment24 =
         printfn "Hairpin-former: %s (longest stem %d)" (toText settings.HairpinFormer) (Experiment16.getMaxStem settings.HairpinFormer)
         printfn "A %dx%d world in four walled chambers, each with %d hairpin-formers at random places; free atoms of each type per chamber: %s"
             worldSize worldSize settings.NumSeeds (settings.NumFoodEach |> Array.map string |> String.concat ", ")
+        printfn "Free atom types: %s" (toText settings.FoodTypes)
+        settings.HingeStiffness
+            |> Option.iter (printfn "Hinge atoms (U, V) bend with stiffness %g; all others with the stiffness of the run")
         printfn "%d runs of %d cycles at each stiffness (%s); each cycle: cold %s; hot %s; no hydrolysis"
             settings.NumRuns settings.NumCycles (settings.BendStiffnesses |> Array.map string |> String.concat ", ")
             (phaseText settings.Cold) (phaseText settings.Hot)
