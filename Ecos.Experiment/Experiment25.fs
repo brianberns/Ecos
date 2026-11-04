@@ -14,8 +14,9 @@ open Ecos.Experiment.Experiment3
 /// seeded with two hairpin-formers and either the standard world's
 /// density of free atoms (a feast, which the strands copy until it runs
 /// out) or none (a famine from the start). A feast supplies each type in
-/// proportion to its share of the strand, so that the strand's most
-/// common types have the standard density and none is left over idle. It runs through experiment
+/// proportion to copying's demand for it, so that the most demanded
+/// types have the standard density and fewer atoms sit idle, but no type
+/// is so scarce that it holds copying back. It runs through experiment
 /// 24's cold/hot cycles, with no hydrolysis, until the end of a cold
 /// phase. Then, at the same cold temperature, comes a stress:
 /// unprotected strong bonds hydrolyze, while protected ones (one side of
@@ -45,9 +46,9 @@ module Experiment25 =
             /// Whether protected bonds are spared during the stress.
             IsProtected : bool
 
-            /// Number of free atoms to start with of each of the
-            /// strand's most common types. Other types start in
-            /// proportion to their share of the strand.
+            /// Number of free atoms to start with of each of the most
+            /// demanded types. Other types start with fewer: see
+            /// getNumFood.
             NumFoodMax : int
 
             /// Number of the cycle at the end of whose cold phase the
@@ -123,22 +124,55 @@ module Experiment25 =
     /// Width of the world.
     let private worldSize = 160
 
+    /// Least share of the variant's maximum that any food type starts
+    /// with. A copy grows only as fast as the atom it needs next arrives,
+    /// so a scarce type slows every copy that needs it.
+    let private minFoodShare = 0.5
+
+    /// Number of free atoms of each of the given food types to start
+    /// with, for copying the given strands. Copying a strand uses its
+    /// complement's atoms, and copying the copy uses the strand's, so a
+    /// type's demand is the most, over the strands, of its count in a
+    /// strand and its complement's. Each type starts in proportion to its
+    /// demand (rounded up), so that the most demanded types get the given
+    /// maximum, but with at least the minimum share of it.
+    let getFoodSupply (strands : AtomType[][]) (foodTypes : AtomType[]) numMax =
+        let getDemand atomType =
+            strands
+                |> Array.map (fun strand ->
+                    let count t = strand |> Array.where ((=) t) |> Array.length
+                    max (count atomType) (count (complement atomType)))
+                |> Array.max
+        let maxDemand = foodTypes |> Array.map getDemand |> Array.max
+        let minNum = int (ceil (minFoodShare * float numMax))
+        foodTypes
+            |> Array.map (fun atomType ->
+                let num = (numMax * getDemand atomType + maxDemand - 1) / maxDemand
+                atomType, max num minNum)
+
+    /// Number of free atoms of each of the given variant's food types to
+    /// start with: see getFoodSupply.
+    let getNumFood variant =
+        let settings = variant.Base
+        getFoodSupply [| settings.HairpinFormer |] settings.FoodTypes variant.NumFoodMax
+
+    /// Adds the given number of free atoms of each type at random empty
+    /// places (with even coordinates) anywhere in the given world.
+    let addFood (rng : Random) (supply : (AtomType * int)[]) (world : World) =
+        (world, supply)
+            ||> Array.fold (fun world (atomType, numFood) ->
+                (world, [ 1 .. numFood ])
+                    ||> Seq.fold (fun world _ ->
+                        let rec loop () =
+                            let loc = Point.create (2 * rng.Next(world.Size.X / 2), 2 * rng.Next(world.Size.Y / 2))
+                            match World.tryAddAtom atomType loc world with
+                                | Some (world, _) -> world
+                                | None -> loop ()
+                        loop ()))
+
     /// The scenario of the given variant: experiment 24's (scenario C's
     /// bonds, with the variant's bends and cycles), in a single chamber
     /// with no walls.
-    /// Number of free atoms of each of the given variant's food types to
-    /// start with, in proportion to the type's share of the strand
-    /// (rounded up), so that the strand's most common types get the
-    /// variant's maximum.
-    let getNumFood variant =
-        let settings = variant.Base
-        let counts = settings.HairpinFormer |> Array.countBy id |> Map
-        let maxCount = Seq.max counts.Values
-        settings.FoodTypes
-            |> Array.map (fun atomType ->
-                let count = counts |> Map.tryFind atomType |> Option.defaultValue 0
-                atomType, (variant.NumFoodMax * count + maxCount - 1) / maxCount)
-
     let getScenario variant =
         let settings = variant.Base
         let build parms (rng : Random) =
@@ -154,17 +188,7 @@ module Experiment25 =
                                 |> Option.defaultWith loop
                         loop ())
             let template = Array.map _.Id world.Atoms
-            let world =
-                (world, getNumFood variant)
-                    ||> Array.fold (fun world (atomType, numFood) ->
-                        (world, [ 1 .. numFood ])
-                            ||> Seq.fold (fun world _ ->
-                                let rec loop () =
-                                    let loc = Point.create (2 * rng.Next(worldSize / 2), 2 * rng.Next(worldSize / 2))
-                                    match World.tryAddAtom atomType loc world with
-                                        | Some (world, _) -> world
-                                        | None -> loop ()
-                                loop ()))
+            let world = addFood rng (getNumFood variant) world
             world, template
         let scenario = Experiment24.getScenario settings variant.BendStiffness
         { scenario with

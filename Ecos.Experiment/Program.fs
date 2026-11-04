@@ -60,10 +60,12 @@ module Program =
                 Experiment24.run Experiment24.defaultSettings
             "experiment24m", "The same with a mixed-sequence hairpin-former, which pairs strongly only in register, at stiffer settings",
                 Experiment24.run Experiment24.mixedSettings
-            "experiment24h", "The same with a hinge for a loop: stiff stems that bend freely only at U U",
+            "experiment24h", "The same with a hinge for a loop: stiff stems that bend freely only at H H",
                 Experiment24.run Experiment24.hingedSettings
             "experiment25", "Stress after plenty and want: does folding in a famine protect a strand through a stress?",
                 Experiment25.run Experiment25.defaultSettings
+            "experiment26", "Folding in a famine, with a hinge: does stress now favor the hinged hairpin-former over a non-former?",
+                Experiment26.run Experiment26.defaultSettings
         ]
 
     /// Prints usage.
