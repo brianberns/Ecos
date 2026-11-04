@@ -143,6 +143,13 @@ module Experiment24 =
             BendStiffnesses = [| 1.0; 2.0; 3.0 |]
             HingeStiffness = Some 0.0 }
 
+    /// The hinged hairpin-former at the default stiffness only. This is
+    /// the baseline for later experiments.
+    let standardSettings =
+        { hingedSettings with
+            BendStiffnesses = [| Scenario.defaultBendStiffness |]
+            HingeStiffness = Some Scenario.defaultHingeStiffness }
+
     /// Width of the world.
     let private worldSize = 320
 

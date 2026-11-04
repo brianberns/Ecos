@@ -555,6 +555,21 @@ module Scenario =
                     BendStiffnessMap =
                         Map.add atomType kappa bondTypeParms.BendStiffnessMap })
 
+    /// Default bend stiffness of strong bonds, from experiment 24h: stiff
+    /// enough to keep stems straight, but not so stiff that copying slows.
+    let defaultBendStiffness = 2.0
+
+    /// Default bend stiffness at hinge atoms (U and V): free.
+    let defaultHingeStiffness = 0.0
+
+    /// Gives strong bonds the default bend: right angles at most, stiff
+    /// everywhere but at U and V, which serve as hinges.
+    let withHingedBend scenario =
+        scenario
+            |> withBend Strong Bend.rightAngle defaultBendStiffness
+            |> withBendStiffness Strong AtomType.U defaultHingeStiffness
+            |> withBendStiffness Strong AtomType.V defaultHingeStiffness
+
     /// Sets the energy of the given type of bond between the given
     /// atom types in the given scenario.
     let withPairEnergy bondType atomTypeA atomTypeB energy scenario =
