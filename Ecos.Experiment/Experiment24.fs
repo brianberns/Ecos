@@ -288,9 +288,12 @@ module Experiment24 =
         let getFood census =
             float (census.NumFreeW + census.NumFreeX) / 2.0
 
-    /// A counted chain's chamber and census.
-    type private ChainCensus =
+    /// A counted chain's atoms, chamber and census.
+    type ChainCensus =
         {
+            /// Its atoms, in order.
+            AtomIds : int[]
+
             Chamber : int
 
             /// 0 if copied, 1 if folded, 2 if single.
@@ -303,62 +306,67 @@ module Experiment24 =
             InnerPaired : float
         }
 
-    /// Takes a census of each chamber of the given world. A chain is
-    /// copied if half or more of its atoms are paired with another
-    /// chain; folded if not, but a long enough run of its atoms are
-    /// paired within it (see MinFoldedStem); and single otherwise.
-    let private getCensuses settings (world : World) =
+    /// Finds and classifies the counted chains of the given world. A
+    /// chain is copied if half or more of its atoms are paired with
+    /// another chain; folded if not, but a long enough run of its atoms
+    /// are paired within it (see MinFoldedStem); and single otherwise.
+    let getChains settings (world : World) =
         let strong = world.BondTypeMap[Strong]
         let weak = world.BondTypeMap[Weak]
         let pattern = Regex(settings.ChainPattern)
-        let chains =
-            getStrands world
-                |> Array.where (fun strand ->
-                    strand.AtomIds.Length >= settings.MinLength
-                        && isCapped world strand
-                        && strand.AtomIds
-                            |> Array.map (fun id -> string world.Atoms[id].Type)
-                            |> String.concat ""
-                            |> pattern.IsMatch)
-                |> Array.map (fun strand ->
-                    let ids = strand.AtomIds
-                    let atoms = set ids
-                    let partners =
-                        ids |> Array.map (fun id ->
-                            BondMap.getBonds id weak |> Seq.tryHead)
-                    let nCopied =
-                        partners
-                            |> Array.where (function
-                                | Some p ->
-                                    not (atoms.Contains p)
-                                        && not (Set.isEmpty (BondMap.getBonds p strong))
-                                | None -> false)
-                            |> Array.length
-                    let longestInnerRun =
-                        ((0, 0), partners)
-                            ||> Array.fold (fun (longest, run) p ->
-                                match p with
-                                    | Some p when atoms.Contains p -> max longest (run + 1), run + 1
-                                    | _ -> longest, 0)
-                            |> fst
-                    let nInner =
-                        partners
-                            |> Array.where (function Some p -> atoms.Contains p | None -> false)
-                            |> Array.length
-                    let nInRegister =
-                        partners
-                            |> Array.indexed
-                            |> Array.where (fun (i, p) -> p = Some ids[ids.Length - 1 - i])
-                            |> Array.length
-                    {
-                        Chamber = getChamber world.Atoms[ids[0]].Location
-                        State =
-                            if 2 * nCopied >= ids.Length then 0
-                            elif longestInnerRun >= 2 * settings.MinFoldedStem then 1
-                            else 2
-                        NumInRegister = nInRegister
-                        InnerPaired = float nInner / float ids.Length
-                    })
+        getStrands world
+            |> Array.where (fun strand ->
+                strand.AtomIds.Length >= settings.MinLength
+                    && isCapped world strand
+                    && strand.AtomIds
+                        |> Array.map (fun id -> string world.Atoms[id].Type)
+                        |> String.concat ""
+                        |> pattern.IsMatch)
+            |> Array.map (fun strand ->
+                let ids = strand.AtomIds
+                let atoms = set ids
+                let partners =
+                    ids |> Array.map (fun id ->
+                        BondMap.getBonds id weak |> Seq.tryHead)
+                let nCopied =
+                    partners
+                        |> Array.where (function
+                            | Some p ->
+                                not (atoms.Contains p)
+                                    && not (Set.isEmpty (BondMap.getBonds p strong))
+                            | None -> false)
+                        |> Array.length
+                let longestInnerRun =
+                    ((0, 0), partners)
+                        ||> Array.fold (fun (longest, run) p ->
+                            match p with
+                                | Some p when atoms.Contains p -> max longest (run + 1), run + 1
+                                | _ -> longest, 0)
+                        |> fst
+                let nInner =
+                    partners
+                        |> Array.where (function Some p -> atoms.Contains p | None -> false)
+                        |> Array.length
+                let nInRegister =
+                    partners
+                        |> Array.indexed
+                        |> Array.where (fun (i, p) -> p = Some ids[ids.Length - 1 - i])
+                        |> Array.length
+                {
+                    AtomIds = ids
+                    Chamber = getChamber world.Atoms[ids[0]].Location
+                    State =
+                        if 2 * nCopied >= ids.Length then 0
+                        elif longestInnerRun >= 2 * settings.MinFoldedStem then 1
+                        else 2
+                    NumInRegister = nInRegister
+                    InnerPaired = float nInner / float ids.Length
+                })
+
+    /// Takes a census of each chamber of the given world (see getChains).
+    let private getCensuses settings (world : World) =
+        let strong = world.BondTypeMap[Strong]
+        let chains = getChains settings world
         let free =
             world.Atoms
                 |> Array.where (fun atom ->

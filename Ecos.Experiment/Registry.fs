@@ -115,4 +115,8 @@ module Registry =
                         Experiment24.getScenarios Experiment24.hingedSettings
                     ]
             }
+            {
+                Name = "Experiment 25"
+                Scenarios = Experiment25.getScenarios Experiment25.defaultSettings
+            }
         |]

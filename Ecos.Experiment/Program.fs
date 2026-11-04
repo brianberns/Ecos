@@ -62,6 +62,8 @@ module Program =
                 Experiment24.run Experiment24.mixedSettings
             "experiment24h", "The same with a hinge for a loop: stiff stems that bend freely only at U U",
                 Experiment24.run Experiment24.hingedSettings
+            "experiment25", "Stress after plenty and want: does folding in a famine protect a strand through a stress?",
+                Experiment25.run Experiment25.defaultSettings
         ]
 
     /// Prints usage.
