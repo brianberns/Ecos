@@ -81,7 +81,7 @@ module Experiment25 =
     /// too few folded strands to compare the formers.
     let private defaultVariants =
         [|
-            for numFood, stressCycle, numRuns, foodName in [ 120, 12, 8, "after a feast"; 0, 3, 96, "famine" ] do
+            for numFood, stressCycle, numRuns, foodName in [ 120, 12, 8, "feast"; 0, 3, 96, "famine" ] do
                 for isProtected in [ true; false ] do
                     let suffix = if isProtected then "" else ", unprotected"
                     {
