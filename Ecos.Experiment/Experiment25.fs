@@ -154,11 +154,16 @@ module Experiment25 =
             Name = $"Stress after plenty and want, {variant.Name}"
             Build = build }
 
-    /// The scenarios of the given settings' variants, before the stress.
+    /// The scenarios of the given settings' variants, before the stress:
+    /// hot and cold cycles without hydrolysis, which repeat for as long
+    /// as they run. The stress itself happens only in this experiment's
+    /// own runs, so the names say so.
     let getScenarios settings =
         settings.Variants
             |> Array.where _.IsProtected   // protection matters only during the stress
-            |> Array.map getScenario
+            |> Array.map (fun variant ->
+                { getScenario variant with
+                    Name = $"Run-up to stress, {variant.Name}" })
 
     /// The given variant's scenario during the stress.
     let private getStressScenario settings variant =
