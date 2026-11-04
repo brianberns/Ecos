@@ -20,6 +20,8 @@ module WorldView =
 
     let private brushMap =
         [
+            AtomType.U, "#FFFFFF"
+            AtomType.V, "#8F8F8F"
             AtomType.W, "#1F4E9E"   // blue
             AtomType.X, "#2E7D32"   // green
             AtomType.Y, "#B0006B"   // red
