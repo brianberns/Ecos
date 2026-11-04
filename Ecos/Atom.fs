@@ -6,7 +6,7 @@ open System
 [<RequireQualifiedAccess>]
 type AtomType =
     | W | X | Y | Z   // coding atoms within a strand
-    | U | V           // "hinge" atoms for folding
+    | H               // "hinge" atoms for folding
     | P | Q           // non-coding "cap" atoms at each end of complete strand
 
 /// Unique ID of an atom in a world.
