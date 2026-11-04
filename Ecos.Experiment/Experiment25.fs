@@ -13,7 +13,9 @@ open Ecos.Experiment.Experiment3
 /// A single 160x160 world, like one of experiment 24's chambers, is
 /// seeded with two hairpin-formers and either the standard world's
 /// density of free atoms (a feast, which the strands copy until it runs
-/// out) or none (a famine from the start). It runs through experiment
+/// out) or none (a famine from the start). A feast supplies each type in
+/// proportion to its share of the strand, so that the strand's most
+/// common types have the standard density and none is left over idle. It runs through experiment
 /// 24's cold/hot cycles, with no hydrolysis, until the end of a cold
 /// phase. Then, at the same cold temperature, comes a stress:
 /// unprotected strong bonds hydrolyze, while protected ones (one side of
@@ -43,8 +45,10 @@ module Experiment25 =
             /// Whether protected bonds are spared during the stress.
             IsProtected : bool
 
-            /// Number of free atoms of each type to start with.
-            NumFoodEach : int
+            /// Number of free atoms to start with of each of the
+            /// strand's most common types. Other types start in
+            /// proportion to their share of the strand.
+            NumFoodMax : int
 
             /// Number of the cycle at the end of whose cold phase the
             /// stress begins. Earlier cycles run in full.
@@ -89,7 +93,7 @@ module Experiment25 =
                         Base = Experiment24.standardSettings
                         BendStiffness = Scenario.defaultBendStiffness
                         IsProtected = isProtected
-                        NumFoodEach = numFood
+                        NumFoodMax = numFood
                         StressCycle = stressCycle
                         NumRuns = numRuns
                     }
@@ -98,7 +102,7 @@ module Experiment25 =
                         Base = Experiment24.mixedSettings
                         BendStiffness = 0.5
                         IsProtected = isProtected
-                        NumFoodEach = numFood
+                        NumFoodMax = numFood
                         StressCycle = stressCycle
                         NumRuns = numRuns
                     }
@@ -122,6 +126,19 @@ module Experiment25 =
     /// The scenario of the given variant: experiment 24's (scenario C's
     /// bonds, with the variant's bends and cycles), in a single chamber
     /// with no walls.
+    /// Number of free atoms of each of the given variant's food types to
+    /// start with, in proportion to the type's share of the strand
+    /// (rounded up), so that the strand's most common types get the
+    /// variant's maximum.
+    let getNumFood variant =
+        let settings = variant.Base
+        let counts = settings.HairpinFormer |> Array.countBy id |> Map
+        let maxCount = Seq.max counts.Values
+        settings.FoodTypes
+            |> Array.map (fun atomType ->
+                let count = counts |> Map.tryFind atomType |> Option.defaultValue 0
+                atomType, (variant.NumFoodMax * count + maxCount - 1) / maxCount)
+
     let getScenario variant =
         let settings = variant.Base
         let build parms (rng : Random) =
@@ -138,9 +155,9 @@ module Experiment25 =
                         loop ())
             let template = Array.map _.Id world.Atoms
             let world =
-                (world, settings.FoodTypes)
-                    ||> Array.fold (fun world atomType ->
-                        (world, [ 1 .. variant.NumFoodEach ])
+                (world, getNumFood variant)
+                    ||> Array.fold (fun world (atomType, numFood) ->
+                        (world, [ 1 .. numFood ])
                             ||> Seq.fold (fun world _ ->
                                 let rec loop () =
                                     let loc = Point.create (2 * rng.Next(worldSize / 2), 2 * rng.Next(worldSize / 2))
@@ -264,10 +281,14 @@ module Experiment25 =
         printfn "A %dx%d world with two hairpin-formers at random places" worldSize worldSize
         for variant in settings.Variants do
             let b = variant.Base
-            printfn "Variant %s: %s, stiffness %g%s; %d free atoms of each type (%s); stress at the end of cold phase %d; %d runs"
+            let food =
+                getNumFood variant
+                    |> Array.map (fun (atomType, n) -> $"{n} {atomType}")
+                    |> String.concat ", "
+            printfn "Variant %s: %s, stiffness %g%s; free atoms %s; stress at the end of cold phase %d; %d runs"
                 variant.Name (toText b.HairpinFormer) variant.BendStiffness
                 (b.HingeStiffness |> Option.map (sprintf ", hinges (H) %g") |> Option.defaultValue "")
-                variant.NumFoodEach (toText b.FoodTypes) variant.StressCycle variant.NumRuns
+                food variant.StressCycle variant.NumRuns
         let b = settings.Variants[0].Base
         printfn "Cycles of cold (kT %g, %d sweeps) and hot (kT %g, %d sweeps) with no hydrolysis"
             b.Cold.Temperature b.Cold.NumSweeps b.Hot.Temperature b.Hot.NumSweeps
