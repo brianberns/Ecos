@@ -340,18 +340,25 @@ module ScenarioTests =
             let run = Run.create 0 group.Scenarios[group.Scenarios.Length - 1]
             Assert.NotEmpty(run.World.Atoms)
 
-                // every atom is inside the walls
+                // every atom is inside the walls, along each axis on
+                // which they make a box around the center; walls on the
+                // seam of the torus divide it into chambers instead, so
+                // every location along that axis is inside one
             let walls = run.World.Walls
             if walls.Length > 0 then
-                let minX = walls |> Array.map _.X |> Array.min
-                let maxX = walls |> Array.map _.X |> Array.max
-                let minY = walls |> Array.map _.Y |> Array.min
-                let maxY = walls |> Array.map _.Y |> Array.max
+                let center = Build.center run.World
+                let isInside (coord : Point -> int) =
+                    let coords = walls |> Array.map (fun wall -> coord (wall - center))
+                    let lo, hi = Array.min coords, Array.max coords
+                    if lo <= -(coord run.World.Size) / 2 then fun _ -> true
+                    else fun c -> c > lo && c < hi
+                let isInsideX = isInside _.X
+                let isInsideY = isInside _.Y
                 for atom in run.World.Atoms do
-                    let loc = atom.Location
+                    let loc = atom.Location - center
                     Assert.True(
-                        loc.X > minX && loc.X < maxX && loc.Y > minY && loc.Y < maxY,
-                        $"{group.Name}, {group.Scenarios[group.Scenarios.Length - 1].Name}: atom {atom.Id} at {loc} is outside the walls")
+                        isInsideX loc.X && isInsideY loc.Y,
+                        $"{group.Name}, {group.Scenarios[group.Scenarios.Length - 1].Name}: atom {atom.Id} at {atom.Location} is outside the walls")
             for id in run.Template do
                 Assert.InRange(id, 0, run.World.Atoms.Length - 1)
 
