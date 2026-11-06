@@ -62,62 +62,8 @@ module Registry =
                 Scenarios = Experiment8.getScenarios Experiment8.defaultSettings
             }
             {
-                Name = "Experiment 14"
-                Scenarios =
-                    Array.append
-                        (Experiment14.getScenarios Experiment14.defaultSettings)
-                        [| Experiment14.getCompetitionScenario Experiment14.defaultCompetitionSettings.Gap |]
-            }
-            {
                 Name = "Experiment 15"
                 Scenarios = Experiment15.getScenarios Experiment15.defaultSettings
-            }
-            {
-                Name = "Experiment 17"
-                Scenarios =
-                    Array.append
-                        (Experiment17.getScenarios Experiment17.defaultSettings)
-                        (Experiment17.getScenarios Experiment17.shortSettings)
-            }
-            {
-                Name = "Experiment 19"
-                Scenarios =
-                    Array.append
-                        (Array.append
-                            (Experiment19.getScenarios Experiment19.slowSettings)
-                            (Experiment19.getScenarios Experiment19.windowSettings))
-                        (Experiment19.getScenarios Experiment19.starvedSettings)
-            }
-            {
-                Name = "Experiment 21"
-                Scenarios = Experiment21.getScenarios Experiment21.defaultSettings
-            }
-            {
-                Name = "Experiment 22"
-                Scenarios =
-                    Array.append
-                        (Experiment22.getScenarios Experiment22.defaultSettings)
-                        (Experiment22.getFoldingScenarios ())
-            }
-            {
-                Name = "Experiment 23"
-                Scenarios =
-                    Array.append
-                        (Experiment23.getScenarios Experiment23.defaultSettings)
-                        (Experiment23.getScenarios Experiment23.runnerSettings)
-            }
-            {
-                Name = "Experiment 24"
-                Scenarios =
-                    Array.concat [
-                        Experiment24.getScenarios Experiment24.defaultSettings
-                        Experiment24.getScenarios Experiment24.mixedSettings
-                        Experiment24.getScenarios Experiment24.hingedSettings
-                    ]
-            }
-            {
-                Name = "Experiment 25"
-                Scenarios = Experiment25.getScenarios Experiment25.defaultSettings
             }
             {
                 Name = "Experiment 26"

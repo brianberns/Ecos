@@ -415,57 +415,21 @@ module ScenarioTests =
                 "PWWYYZXQ", 2   // P-Q and W-X, then W-Z doesn't pair
             ]
         for text, stem in expected do
-            Assert.True((Experiment16.getMaxStem (parse text) = stem), $"{text}: expected {stem}, got {Experiment16.getMaxStem (parse text)}")
+            Assert.True((Experiment26.getMaxStem (parse text) = stem), $"{text}: expected {stem}, got {Experiment26.getMaxStem (parse text)}")
 
-            // experiment 17's strands
-        Assert.Equal(3, Experiment16.getMaxStem Experiment17.shortHairpinFormer)
-        Assert.Equal(1, Experiment16.getMaxStem Experiment17.shortNonFormer)
-        Assert.Equal(4, Experiment16.getMaxStem Experiment17.longHairpinFormer)
-        Assert.Equal(1, Experiment16.getMaxStem Experiment17.longNonFormer)
-        Assert.Equal(1, Experiment17.getMaxCrossPairing Experiment17.shortHairpinFormer Experiment17.shortNonFormer)
-        Assert.Equal(2, Experiment17.getMaxCrossPairing Experiment17.longHairpinFormer Experiment17.longNonFormer)
-        Assert.Equal(8, Experiment16.getMaxStem Experiment19.windowHairpinFormer)
-        Assert.Equal(2, Experiment16.getMaxStem Experiment19.windowNonFormer)
-        Assert.Equal(2, Experiment17.getMaxCrossPairing Experiment19.windowHairpinFormer Experiment19.windowNonFormer)
-        for former, nonFormer in
-            [
-                Experiment17.shortHairpinFormer, Experiment17.shortNonFormer
-                Experiment17.longHairpinFormer, Experiment17.longNonFormer
-                Experiment19.windowHairpinFormer, Experiment19.windowNonFormer
-            ] do
-            Assert.Equal<AtomType[]>(Array.sort former, Array.sort nonFormer)   // the same atoms
-
-    [<Fact>]
-    let ``The longest pairing between two strands runs in opposite directions`` () =
-        let parse (text : string) =
-            text
-                |> Seq.map (function
-                    | 'W' -> AtomType.W | 'X' -> AtomType.X
-                    | 'Y' -> AtomType.Y | 'Z' -> AtomType.Z
-                    | 'P' -> AtomType.P | 'Q' -> AtomType.Q
-                    | c -> failwith $"Unknown atom type: {c}")
-                |> Seq.toArray
-        let expected =
-            [
-                "PWWQ", "PXXQ", 4   // a strand and its copy pair all along
-                "PWYQ", "PZXQ", 4
-                "PWYQ", "PXZQ", 1   // complementary atoms, but in the wrong order: single pairs only
-                "WWW", "XX", 2      // a run of three W against two X
-                "WYW", "XZX", 3     // palindromes, so antiparallel pairing matches all three
-                "WY", "XZ", 1       // complementary letters, but in the wrong order
-                "WWW", "WWW", 0
-            ]
-        for a, b, run in expected do
-            Assert.True(
-                (Experiment17.getMaxPairing (parse a) (parse b) = run),
-                $"{a} with {b}: expected {run}, got {Experiment17.getMaxPairing (parse a) (parse b)}")
+            // experiment 26's strands
+        Assert.Equal(11, Experiment26.getMaxStem Experiment26.hairpinFormer)
+        Assert.Equal(2, Experiment26.getMaxStem Experiment26.nonFormer)
+        Assert.Equal<AtomType[]>(   // the same atoms
+            Array.sort Experiment26.hairpinFormer,
+            Array.sort Experiment26.nonFormer)
 
     [<Fact>]
     let ``The sign test gives the binomial tail`` () =
-        Assert.Equal(0.75, Experiment17.getSignTestP 1 1, 10)   // at least one of two
-        Assert.Equal(1.0, Experiment17.getSignTestP 0 3, 10)
-        Assert.Equal(1.0 / 8.0, Experiment17.getSignTestP 3 0, 10)
-        Assert.Equal(37.0 / 256.0, Experiment17.getSignTestP 6 2, 10)   // (28 + 8 + 1) / 2^8
+        Assert.Equal(0.75, Experiment26.getSignTestP 1 1, 10)   // at least one of two
+        Assert.Equal(1.0, Experiment26.getSignTestP 0 3, 10)
+        Assert.Equal(1.0 / 8.0, Experiment26.getSignTestP 3 0, 10)
+        Assert.Equal(37.0 / 256.0, Experiment26.getSignTestP 6 2, 10)   // (28 + 8 + 1) / 2^8
 
     [<Fact>]
     let ``A scenario without a labeler labels no strands`` () =

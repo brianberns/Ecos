@@ -20,50 +20,8 @@ module Program =
                 Experiment4.run Experiment4.livingWorldSettings
             "experiment8", "Head to head between W/X and Y/Z strands, by Y-Z bond energy",
                 Experiment8.run Experiment8.defaultSettings
-            "experiment11", "Melting of ten-letter duplexes, by temperature",
-                Experiment11.run Experiment11.defaultSettings
-            "experiment14", "Copying near walls and in corners",
-                Experiment14.run Experiment14.defaultSettings
-            "experiment14b", "Templates competing from the center, a side, an end, and a corner",
-                Experiment14.runCompetition Experiment14.defaultCompetitionSettings
             "experiment15", "Hairpins of a self-complementary strand, by bend limit and stiffness",
                 Experiment15.run Experiment15.defaultSettings
-            "experiment16", "Hairpins, duplexes and sheets in a living world, by cycle",
-                Experiment16.run Experiment16.defaultSettings
-            "experiment17", "Head to head between ten-atom hairpin-forming and non-forming strands, with and without protection",
-                Experiment17.run Experiment17.defaultSettings
-            "experiment17s", "The same, with eight-atom strands",
-                Experiment17.run Experiment17.shortSettings
-            "experiment19", "Does folding protect a strand through an adverse phase after the heat?",
-                Experiment19.run Experiment19.defaultSettings
-            "experiment19g", "The same, with a gentler and longer adverse phase",
-                Experiment19.run Experiment19.gentleSettings
-            "experiment19s", "The same, with a slow adverse phase that need only cut each strand once",
-                Experiment19.run Experiment19.slowSettings
-            "experiment19n", "The same, with no free atoms, so that nothing can copy a single strand",
-                Experiment19.run Experiment19.starvedSettings
-            "experiment19c", "The same, on more runs with other seeds, to confirm it",
-                Experiment19.run Experiment19.confirmationSettings
-            "experiment19w", "The same in the living world, in the window of experiment 20 (kT 0.5), with 8-pair hairpins",
-                Experiment19.run Experiment19.windowSettings
-            "experiment20", "Is there a temperature at which hairpins stay folded but single strands can't be copied?",
-                Experiment20.run Experiment20.defaultSettings
-            "experiment21", "Hairpin-forming and non-forming strands head to head in a vent world, by distance from the vent",
-                Experiment21.run Experiment21.defaultSettings
-            "experiment22", "Feast and stress: does folding through stress pay for the copies it costs in the feast?",
-                Experiment22.run Experiment22.defaultSettings
-            "experiment23", "Folding in a famine: in a closed world short of food, does cold stress favor strands that fold when they starve?",
-                Experiment23.run Experiment23.defaultSettings
-            "experiment23r", "The same at stiffness 0, against a non-former made of runs that copies as fast but can't fold",
-                Experiment23.run Experiment23.runnerSettings
-            "experiment24", "Chambers of plenty and want: does a hairpin-former copy while food lasts, and fold once it runs out?",
-                Experiment24.run Experiment24.defaultSettings
-            "experiment24m", "The same with a mixed-sequence hairpin-former, which pairs strongly only in register, at stiffer settings",
-                Experiment24.run Experiment24.mixedSettings
-            "experiment24h", "The same with a hinge for a loop: stiff stems that bend freely only at H H",
-                Experiment24.run Experiment24.hingedSettings
-            "experiment25", "Stress after plenty and want: does folding in a famine protect a strand through a stress?",
-                Experiment25.run Experiment25.defaultSettings
             "experiment26", "Folding in a famine, with a hinge: does stress now favor the hinged hairpin-former over a non-former?",
                 Experiment26.run Experiment26.defaultSettings
         ]
@@ -77,7 +35,7 @@ module Program =
         for name, description, _ in experiments do
             printfn "   %-13s %s" name description
         printfn ""
-        printfn "Experiments 6, 7, 9, 10, 12, 13 and 18 are archived: see the git history."
+        printfn "Experiments 6, 7, 9 to 14 and 16 to 25 are archived: see the git history."
         printfn ""
         printfn "checks: confirms, in several minutes, that the model's key accomplishments still hold."
 

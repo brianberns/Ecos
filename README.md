@@ -6,15 +6,13 @@ Replication is not scripted. The rules describe only local physics and chemistry
 
 ![A world after five temperature cycles](images/ecosystem.png)
 
-*A world after five cold/hot cycles, during the sixth cold phase. It began with one 12-atom strand (the filled circles, centre) among free atoms. Every other strand is a descendant: a copy, or a copy of a copy. Black lines are strong bonds along a strand, pink lines are weak bonds between paired atoms, and the black and grey circles are the caps at each end of a strand.*
+*A world after five cold/hot cycles. It began with one 12-atom strand (the filled circles, centre) among free atoms. Every other strand is a descendant. Black lines are strong bonds along a strand, pink lines are weak bonds between paired atoms, and the black and grey circles are the caps at each end of a strand.*
 
 ## Where it stands
 
-A single strand placed among free atoms is copied, the copies separate when heated and are copied in turn, and the population grows until the world is full. Pairing is one-sided: a strand pairs only along one face, so it carries at most one copy per cycle, and the population can at most double each cycle. One strand becomes 2, then about 4, then 7 or 8 over three cycles.
+Strands replicate. A template among free atoms is copied in the cold, the copy separates in the heat, and both are copied again: one strand becomes about 2, 4 and 8 over three cycles. Replicators also arise by chance from free atoms, strands die and are recycled, and selection works on a heritable trait (pairing strength).
 
-Replicators also arise without any template. In a soup of free atoms, short capped strands occasionally form by chance during the hot phase, and once one exists it is copied and its lineage multiplies. This is the model's version of abiogenesis.
-
-Strands also die: now and then a strong bond breaks of its own accord (hydrolysis), and the pieces of the cut strand fall apart into free atoms. With births and deaths, a full world keeps turning over, and lineages compete. Natural selection now works on a heritable trait: when one letter pair binds more strongly than the other, strands made of it take over the population.
+What's missing is a phenotype: a trait that does something, with costs and benefits, beyond being copied. The current work is on folding (below).
 
 | Milestone | Status |
 |---|---|
@@ -24,165 +22,97 @@ Strands also die: now and then a strong bond breaks of its own accord (hydrolysi
 | Copy separates cleanly from the template when heated | Done |
 | Finished strands survive repeated cycles unchanged | Done |
 | Population multiplies from cycle to cycle | Done, until the world fills up |
-| Sustained exponential growth in a large world | Partly: growth continues, but slows as the colony spreads |
-| Replicators arise from free atoms with no template | Done, though only very short ones |
+| Sustained exponential growth in a large world | Partly: growth slows as the colony spreads, since strands drift slowly |
+| Replicators arise from free atoms with no template | Done, though only very short ones (three atoms) |
 | Turnover, so that a full world keeps changing | Done |
-| Sequences that differ in fitness, and selection between them | Done, for pairing strength |
-| Adaptation to a varied environment | Tried: a world heated by a vent, which first needs material to recycle everywhere |
-| A phenotype that does something beyond being copied | Started: strands can fold into hairpins, which don't yet do anything |
+| Sequences that differ in fitness, and selection between them | Done, for pairing strength: a stronger pair's share rises from 0.5 to about 0.9 over 30 cycles |
+| A phenotype that does something beyond being copied | In progress: folding into a hairpin to survive hard times |
+| Adaptation to a varied environment | Not yet |
 
-**One-sided pairing.** Pairing was once two-sided: a strand could pair along both of its faces at once. It is now one-sided (see the model, below), and the experiments behind the milestones were rerun with it, side by side with the last two-sided version. Every milestone still holds, though some by less:
+## Current direction: folding to survive
 
-- Half as much of a template is paired at any temperature: 26% at kT 0.3, against 42%.
-- Free atoms start joining on a template 4 to 10 times more slowly (experiment 2). A join needs two neighbouring template atoms paired at once, and each is paired less than half as often. Joining is still almost always templated: a template speeds it 58-fold at kT 0.25, against 196-fold. Once a copy has started, stacking speeds the rest, so copies per cycle fall by only about half, mostly because a strand carries one copy at a time instead of two.
-- Copying needs longer phases. Scenario C's cycle is now 200,000 cold and 100,000 hot.
-- Chance replicators need a lower barrier: 16 now does what 20 used to (below).
-- Selection is stronger (below).
-- Melting is unchanged.
+**Hypothesis.** When food runs out, a strand that can fold back on itself into a hairpin protects itself, and one that can't is left exposed. Over cycles of plenty and want in a closed world, folders should outlast non-folders.
 
-Results below were measured with one-sided pairing unless they say otherwise.
+**Setup (experiment 26).** A closed 160×160 world, seeded with two *hairpin-formers* and two *non-formers*, among a fixed supply of free atoms. Nothing is added or removed. The hairpin-former is `P WWXWYXZXWW HH XXWYWZXWXX Q`: two complementary arms around a hinge (H H) that bends freely, so it folds there into an 11-pair stem. The non-former has the same atoms and hinge in an order that can't fold. Each cycle is:
 
-**Growth in a large world.** (Measured with two-sided pairing.) In a world four times the area, with four times the atoms, one strand became about 4, 8, 15, 24 and 37 capped strands over five cycles. The world was far from full, with five atoms in six still free, yet the growth factor fell steadily from 2.1 to 1.5. The counts fit a square law, which is what a colony spreading outward from one spot would give: strands separate cleanly but drift slowly, so the population stays crowded near where it started. Exponential growth would need the strands to disperse.
+1. a *feast*, cold (kT 0.3, 200,000 sweeps), for copying;
+2. a *stress*, just as cold (50,000 sweeps), in which a cap peels off unless a stack protects it, as one does in a duplex or a folded hairpin;
+3. a *melt*, hot (kT 3, 100,000 sweeps), which separates duplexes and hairpins and unravels strands that lost a cap.
 
-**Emergence from the soup.** With no template, whether replicators arise depends on the strong-bond barrier, which sets how often two atoms join without a template.
+**What we know.**
 
-In the living world (30 cycles, 8 runs), these are the runs in which a copied family had arisen:
+- *Stress favors folders, but weakly.* With a cap peel barrier of 2.0, the hairpin family's share rose from 0.5 to about 0.7 over 24 cycles, against 0.49 in an unstressed control: higher than its control in 12 of 14 runs (p = 0.006). But both families shrank; the folders won by dying more slowly.
+- *Folding protects, but rarely happens.* Folded hairpins survive the stress about 95% of the time, single strands 10 to 75% (depending on the barrier). But at the end of a feast, typically one strand or fewer per world is folded. Most are paired with copies, and a duplex protects both families equally.
+- *Folding and copying get in each other's way.* At kT 0.3, a free atom paired alone with a strand is stable, so free atoms stick all along a strand's arms. A half-copied strand can't fold, and a half-folded one can't be copied, so a hairpin-former often does neither.
+- *A warmer stress doesn't help.* Above about kT 0.5, free atoms no longer stick, but hairpin-formers no longer fold either: the first pair of a fold has no stack to hold it.
+- *The non-former can fold loosely.* With bulges, its arms can make about 6 pairs across the hinge, though never more than 2 in a row. This is a possible confounder.
 
-| Barrier | By cycle 10 | By cycle 30 |
-|---|---|---|
-| 20 | 0 | 1 |
-| 18 | 2 | 3 |
-| 17 | 2 | 7 |
-| 16 | 4 | 8 |
-| 15 | 7 | 8 |
+**Next: a switch between folding and copying.** The idea, by analogy with RNA riboswitches, is that a strand should commit to one or the other, at a single site:
 
-With two-sided pairing, 20 had been enough, with families in 6 of 8 runs by cycle 10. One-sided pairing moved the threshold down by about four, so scenario B's barrier is now 16.
-
-Once a replicator arises, its family grows until the world is full of them. Almost all are three atoms long (a cap, one coding atom, a cap), and none is longer than five.
-
-**Copying fidelity.** Copying is not perfectly faithful. Most errors are deletions, leaving a strand one to three atoms short. These mutants are capped and copied like any other strand, so they are heritable variation. In scenario C about 8% of capped strands are short after three cycles. In the large world (with two-sided pairing) their share rose from 9% to 24% of all capped strands over five cycles. Nothing restores a deleted atom, so their share can only grow even if they have no advantage.
-
-**Length and copying speed.** (Measured with two-sided pairing.) Without the barrier to starting a strand, a four-atom template is copied about three times as fast as a twelve-atom one, since a short strand needs fewer joins. With the barrier, the two are copied at about the same rate: every copy needs one start, a short template has few places for one, and that becomes its bottleneck. The barrier therefore removes most of the speed advantage of short strands, though not the fact that chance produces them far more often.
-
-**Faithful copying.** Scenario C is designed for copying alone:
-
-- A high barrier, so nothing joins without a template.
-- A long cold phase, so nearly every strand is copied: 200,000 sweeps.
-- A long hot phase, so copies drift away from their templates: 100,000 sweeps.
-- Caps that never come off.
-
-In it, one 12-atom template becomes 2.0, 3.9 and 7.8 capped strands per run over three cycles, 7.1 of them full length. That is close to doubling every cycle, the most one-sided pairing allows.
-
-The template survives intact in every run. Every copy runs the way copying predicts, read from its head: a copy is the template reversed and complemented, and a copy of a copy is the template again.
-
-A hot phase of 10,000 or 30,000 sweeps copies less. The likely reason is that strands haven't yet drifted apart, so they re-pair with the partners they just melted away from instead of meeting free atoms.
-
-**Turnover and competition.** In a living world (scenario B), where strands die and chance strands can arise, a 12-atom template competes with whatever the soup produces. Three-atom replicators appear in every run within a few cycles and win every time: after 40 cycles there were about 76 short chains per run against fewer than one of the template's family, which had died out in most runs. A short strand is cheap to make by chance and needs fewer free atoms to copy, and nothing yet rewards length. (This was measured when strands died by losing caps in the heat; the experiment is archived.)
-
-**Selection on pairing strength.** The weak bond's energy can differ by letter pair. When Y–Z is made stronger than W–X, a free atom stays on its template longer in the cold, which gives it more time to be joined into the copy. Head to head, starting from equal numbers of P-W-Q and P-Y-Q strands, the stronger pair's share rose from 0.50 to about 0.9 over 30 cycles. It was ahead in all 12 runs, while a control with equal energies stayed near 0.55.
-
-With two-sided pairing, the share had reached only about 0.75. Selection is likely stronger now because templated joining is slower, so the time a free atom stays paired counts for more.
-
-The advantage was already full-sized at a Y–Z energy of 3, against 2 for W–X. Stronger bonds bought nothing more and cost nothing either: 0.88 at an energy of 6, and nothing more up to 18 in an earlier two-sided run. In a uniformly heated world, stronger pairing is a one-way ratchet with no optimum.
-
-**A vent.** A world heated from one side was meant to give pairing strength a trade-off: during each pulse the vent heats nearby strands more than distant ones, so each place has its own cycle, and a Y/Z copy needs a hotter pulse to separate from its template than a W/X copy. Five experiments (9 to 13, now archived) looked for Y/Z strands winning near the vent and W/X strands farther out. None showed it convincingly, but together they taught more about the model than about selection. These experiments used two-sided pairing. Of their findings, only melting has been rerun, and it is unchanged:
-
-- *Long duplexes melt sharply, near energy divided by entropy for their pairs.* A ten-letter W/X duplex goes from never separating to always separating between kT 0.5 and 0.75, and a Y/Z one (with Y–Z stronger) between 0.75 and 1.0. Duplexes unzip from their ends, where stacking helps least, so stacking hardly raises the melting point.
-- *Short strands aren't gated by temperature.* A three-atom duplex comes apart even in the cold phase, given tens of thousands of chances, so heat barely matters to how fast it is copied.
-- *Competition needs a shared limiting resource.* W/X and Y/Z strands are built from different atoms, so when caps are plentiful each kind just fills up with its own atoms and the two never compete. Earlier selection results worked because caps ran out first. With caps scarce, the stronger Y–Z pair lost overall in a vent whose pulses mostly fell below its melting point, as the trade-off predicts, but on very few strands.
-- *Where nothing melts, material is trapped for good.* On the cool side, a template is copied, its copy's free face templates another copy, and the stack grows into a sheet that never separates. Caps come off only in the heat, so nothing there dies either. These sheets soak up atoms and caps and never return them, until almost no free atoms are left anywhere. With one-sided pairing, such sheets can't form: a copy's only face is the one paired with its template, so a duplex has no free face to template another copy.
-- *Lineages don't travel.* A strand drifts about 20 sites per cycle, so where a kind lives is mostly set by where its founders started.
-- *Without walls, the two kinds take different strategies.* In a torus four times the usual area, with a vent whose pulses span the two melting points and scarce caps, Y/Z templates pile up in the cool zone as sheets: copies their pulses can't melt, each templating the next. W/X copies, which melt there, separate and spread thinly but evenly. One kind builds structures that hold atoms, the other disperses, from a single physical difference. (Observed in the desktop app's "Vent window, 2x" scenario; not yet measured. The sheets look like accumulation more than replication, since their copies are never released. With one-sided pairing, the sheets can't form.)
-
-**Walls.** With one-sided pairing, walls hardly matter. Alone in a box, after three cycles, a lineage that starts within 4 to 32 sites of a wall, or in a corner, reaches 80 to 98% of the size of one at the center: 5.6 to 6.8 full-length strands against 7.0. Most of those differences are within the noise.
-
-Even a template lying along a wall with its only face toward it was copied in every run in the first cycle. It probably drifts off the wall early in the cold phase. (Competition between lineages from different positions, experiment 14b, hasn't been rerun.)
-
-With two-sided pairing, where a template started mattered more. Alone in a box, a lineage that starts within 16 sites of a wall grows 15 to 25% less over three cycles than one at the center, and one tucked into a corner 40% less; the effect fades by 32 sites. Competing with three others for the same atoms, the disadvantage roughly doubles: a corner lineage reaches 58% of the center's size, and the center lineage ends largest in 13 of 24 runs. The cause looks like access. A template is copied along both faces, so one lying along a wall, with a face toward it, is copied 38% less from the first cycle, while one pointing its end at the wall hardly suffers; a corner adds less room for the copies to spread into. Position isn't inherited through sequence, but anything heritable that changed a strand's orientation or reach would be selected. Because walls affect lineages this strongly, and would confound other experiments, the standard world now has none: it is a torus (see the model, below), and walls appear only where an experiment adds them on purpose. Earlier results on this page were measured in a box of walls; the accomplishment checks confirm the key ones without them.
-
-**Folding.** (Measured with two-sided pairing and not yet rerun. With one-sided pairing, a hairpin can fold only toward its strand's face.) Strands can now bend up to a right angle at each atom, where before they were limited to about 37°, and each bend costs energy in proportion to how sharp it is. Alone in a small world, a self-complementary strand, P W₆ Y Y X₆ Q, folds back on itself through its Y Y loop and zips its two arms together into a hairpin: at the standard stiffness it is folded about half the time when cold. A hairpin is stable once formed, but starting one is slow, since the loop's two bends cost energy before any pair forms to pay for them; stiffness sets how often folds start rather than whether they last. Bendable strands copy as faithfully as straight ones did (over 48 runs of scenario C, full-length copies and exact copies were statistically unchanged), though they make more capped strands, most of the extra ones short or mutated. All three accomplishment checks pass with folding on. In the living world, though, the strands that arise by chance average just over three atoms, too short to fold: a hairpin needs about six. Seeded head to head with strands of the same atoms that can't fold (and that pair with them as little as possible), hairpin-formers neither win nor lose over 20 cycles, but only because they hardly ever fold: about 1 in 25 when cold for an eight-atom strand with a three-pair stem (P W W Y Y X X Q), and still under 1 in 10 for a ten-atom one with a four-pair stem (P W W W Y Y X X X Q), against about half the time for a lone strand. A strand in a crowded world spends the cold phase paired with other strands instead, and a hairpin-former's best partners are its own copies, which pair with it along its whole length. Protection from hydrolysis, a lower rate for a strong bond whose two atoms were both paired, didn't change the outcome: with full protection both seeded families ended about a quarter larger, but the hairpin share stayed at about 0.5, since both kinds are mostly paired with other strands and protection rewards pairing of any kind. Nor does heat favor hairpins. Alone, a four-pair hairpin melts at a lower temperature (about kT 0.45) than a duplex of five pairs (0.5) or ten (0.6): its loop's bends cost energy, and pairing within a strand earns no advantage over pairing between strands, since a weak bond's entropy cost is the same either way. (Measured by experiment 18, now archived.) Experiment 19 tested the idea that folding protects a strand through hard times: duplexes of each kind are melted, and then an adverse phase, at a temperature at which a hairpin stays folded, hydrolyzes exposed bonds faster. In the living world, both kinds survived equally. Hairpin-formers fold slowly (at a soft stiffness, a quarter or so within 10,000 sweeps; at the standard stiffness, hardly any), their loops stay exposed, and meanwhile free atoms copy the single non-formers, which leaves them double-stranded, and so protected, about as fast. With no free atoms, so that nothing could copy a single strand, hairpin-formers did better. On 32 runs (not those it was found on), after a long, slow adverse phase, 52% were intact against 40% of non-formers with protection: 0.12 ± 0.03 more per run, ahead in 20 runs and behind in 7. Protection raised hairpin-formers' survival from 43% to 52%, but non-formers' only from 37% to 40%, since about half the hairpin-formers fold during the phase, which stacks their stems, while the non-formers mostly stay single. A cut stem can also rejoin at once, its barrier taken away by the stack, but that repair adds little: without protection, 30% of hairpin-formers' broken bonds formed again against 24% of non-formers', and their survival differed by only 0.06 ± 0.03. Starvation, more than heat, is the adverse condition that folding answers. It need not mean a shortage of free atoms: a temperature at which free atoms can't hold on long enough to be joined would do. In experiment 20, single strands among free atoms were hardly copied at all at kT 0.5 (3% of their bonds stacked after 10,000 sweeps, against 11 to 15% at 0.3 to 0.4), while a folded hairpin with an 8-pair stem stayed folded there. Shorter stems melt below that, and even 8 pairs melt by 0.6, so the window is narrow, and an 8-pair hairpin is slow to fold from a straight start (folded a fifth of the time at 0.5). In that window, though, in the living world, folders and non-folders still survived equally: free atoms no longer copied the single strands, but each strand's own copy, the partner it had melted away from, found it again. A duplex of an 18-atom strand and its copy has 17 stacked pairs to a hairpin's 8, so it is stable wherever the hairpin is, and re-annealing outpaced folding: only a tenth of the folders were ever folded. A strand's best partner is its own copy, so folding pays only where partners are scarce, as they were in the starved world, which was really a sparse one. Folding is not a winner on its own.
-
-**Folding with one-sided pairing.** Under one-sided pairing, folding is selected against: a folded hairpin can't be copied, since each atom of its stem has its one partner within the strand. Experiment 21 seeded eight 18-atom strands that can fold (an 8-pair stem) and eight of the same atoms that can't, in pairs at the same distance from a vent, in a living world with full protection from hydrolysis and a barrier high enough (40) that nothing arises by chance. Copies slip, so the seeded families soon include deletion mutants; chains of ten atoms or more were counted by whether they could fold with a stem of six pairs or more. Over 12 cycles, the non-formers multiplied from 8 to about 13 per run, while the strands that can fold fell to 5 or 6. They lost in every zone, and most near the vent, where pulses melt duplexes: a strand freed by a pulse cools at once and, if it can, folds before free atoms can copy it. At a softer stiffness (0.5), about 40% of them were folded at the end of each cold phase, against about 5% at the standard one, and their share near the vent fell to 0.20, behind in all 12 runs. Shorter capped chains, mostly deletion mutants, rose from none to about 14 per run. (An earlier run at scenario B's barrier of 16, counting families exactly, lost both seeded kinds to these mutants and showed nothing.)
+1. *Only stacked pairs are stable.* A weaker weak bond does this. At kT 0.3, lowering its energy from 2 to 1.2 stops free atoms from sticking (copying of a bare strand falls from 15 paired atoms to 1), while existing folds and duplexes all hold, and lone hairpin-formers fold more than twice as often (40% within 200,000 sweeps, against 17%).
+2. *Folding and copying start at the same site, the hinge.* A rule in the core would let the first pair next to the hinge form without a stack. Whichever pair forms there first, a fold's or a copy's, excludes the other; the winner then zips outward. Food sets the odds: a copy needs a free atom to arrive, a fold doesn't.
 
 ## The model
 
 ### Atoms and the lattice
 
-- The world is a 2D square lattice that wraps around: a torus, whose opposite edges meet, so it has no boundary. Each atom occupies a 2×2 block of sites, and no two atoms may overlap.
+- The world is a 2D square lattice that wraps around (a torus). Each atom occupies a 2×2 block of sites, and no two atoms may overlap.
 - Atoms are never created or destroyed, so mass is conserved.
-- Walls are immovable blocks the size of an atom. The standard world has none; an experiment adds them where it wants edges.
-- There are six atom types. W, X, Y and Z are the coding atoms that make up a strand's sequence. P and Q are caps that end a strand.
+- Walls are immovable blocks the size of an atom. The standard world has none.
+- There are seven atom types. W, X, Y and Z are coding atoms. P and Q are caps that end a strand. H is a hinge: it pairs with itself, and strong bonds bend freely at it.
 
 ### Bonds
 
 | | Strong bonds | Weak bonds |
 |---|---|---|
-| Role | Join atoms along a strand | Pair atoms on different strands |
-| Which atoms | Any two, except two caps | Complementary types only: W–X, Y–Z, P–Q |
-| Range | Longer (up to about 3.6 sites) | Shorter (up to about 2.8 sites) |
+| Role | Join atoms along a strand | Pair atoms on different strands, or within one |
+| Which atoms | Any two, except two caps | Complementary types only: W–X, Y–Z, P–Q, H–H |
 | Limit per atom | Two (one in, one out), or one for a cap | One |
-| Angle rule | At most a right angle of bend at each atom, and each bend costs energy | The partner of an atom in a strand must be on the strand's face |
+| Direction | From an atom to the next, so a strand runs head to tail | A partner must lie on the strand's face |
+| Bending | Up to a right angle at each atom, at an energy cost (stiffness 2, or 0 at a hinge) | Free |
 | Energy and barrier | Large energy, large barrier | Small energy, no barrier |
-| Energy by pair | Can differ by the types of the two atoms | Can differ by letter pair, e.g. Y–Z stronger than W–X |
 | Entropy | None | Pairing costs entropy, so pairs melt when hot |
-| Hydrolysis | Rare one-way breaking, at a fixed rate, which can be lower in a double-stranded stretch | None |
 
 No bond of either type may cross another.
 
-**Direction and faces.** A strong bond has a direction: it runs from one atom to the next, so every strand runs from a head to a tail.
-
-- A new strong bond runs from the atom the toggle picked to the one it found. It can't form if the first already has a successor or the second already has a predecessor, so strands join only tail to head.
-- Each atom in a strand has a *face*: the side to its left, looking along the strand from its predecessor to its successor. (In the desktop app, whose y axis points down, the face appears on the right.)
-- A weak partner of an atom in a strand must lie on that atom's face. A free atom has no face and pairs from any side.
-- Two strands can pair only when each lies on the other's face, so paired strands run in opposite directions, and a strand pairs along one side only. This is *one-sided pairing*.
-- Because every partner must stay on a face, an atom can't hop, and a strong bond can't form or break, if that would leave a partner off its face.
-
-Each bond type has a *bend limit*, the sharpest angle allowed between two of its bonds at an atom, and a *stiffness* κ: a bend whose two bonds make an angle φ costs κ(1 + cos φ), nothing for a straight strand and κ at a right angle. The standard strong bond allows right angles with κ = 1.5, so strands stay mostly straight but can fold where pairing pays for it. Weak bonds have no extra limit and cost nothing to bend.
+**One-sided pairing.** Each atom in a strand has a *face*, the side to its left looking along the strand. An atom's weak partner must lie on its face, so a strand pairs along one side only, paired strands run in opposite directions, and a strand carries at most one copy at a time. A hairpin can fold only toward its face.
 
 ### Dynamics
 
 Time advances by single random events, accepted or rejected by the Metropolis rule at temperature kT:
 
-- **Hop:** an atom moves one site, if that leaves it clear of other atoms and keeps all its bonds legal. The only energy a hop can change is bending, at the atom and at its bonded partners; a hop that sharpens bends is accepted according to the extra bend energy, and any other hop always is.
-- **Toggle:** a bond between two atoms in range forms if absent or breaks if present. It must first cross the bond type's barrier and is then accepted according to its energy and entropy. A bond's energy is reduced by any bends it makes with the bonds beside it.
+- **Hop:** an atom moves one site, if that keeps all its bonds legal. A hop that sharpens bends costs their energy.
+- **Toggle:** a bond between two atoms in range forms if absent or breaks if present, after crossing its type's barrier, according to its energy and entropy.
 
-One *sweep* is one attempted event per atom.
-
-Temperature can vary from place to place. A bond uses the average of the temperatures at its two atoms, so forming and breaking it see the same temperature whichever atom the event starts from.
+One *sweep* is one attempted event per atom. Temperature can vary from place to place, and over time by a schedule of phases.
 
 ### What makes copying happen
 
-- **Stacks.** When two neighboring atoms of one strand are each paired with neighboring atoms of another, the two pairs form a stack. A stack adds binding energy.
-- **Templated joining.** A stack also removes the barrier to the strong bond beside it. Two free atoms sitting side by side on a template therefore join readily, while two free atoms meeting anywhere else almost never do. This is the only route by which strands grow. Since pairing is one-sided, a template carries at most one copy at a time, on its face, and the copy runs the other way.
-- **A barrier to starting.** Joining two free atoms, which starts a new strand, keeps a small barrier even on a template. Adding an atom to an existing strand does not. A copy therefore tends to grow from a few starts instead of many, which wastes fewer atoms on fragments and makes copies more faithful.
-- **Caps.** A cap can have only one strong bond, so a strand that ends in caps cannot be extended. A cap is copied like any other atom, by pairing with its complement, so strand length is inherited. Read from its head, a copy is the reverse complement of its template, and a copy of a copy reads as the template does.
-- **Peeling.** A strong bond at an uncapped end of a strand breaks at a rate that rises with temperature. Unfinished strands melt back into free atoms during the hot phase, and finished, capped strands are untouched.
-- **Bond entropy.** A weak bond has an entropy cost as well as an energy, so it has a melting point: stable when cold, and unlikely even between two atoms held in range when hot. Without this, paired strands stay stuck together at any temperature.
-- **Hydrolysis.** Any strong bond, a cap's included, occasionally breaks one way, at a fixed rate whatever its energy, position or temperature. A bond can be protected: if it lies in a double-stranded stretch, as one side of a stack, it can be given a lower rate. Atoms merely paired with free atoms don't count. (The standard scenarios don't use this.) A cut strand has uncapped ends, which peel away in the heat (and hydrolyze in the cold), returning its atoms to the soup. This is death, and it gives a full world turnover everywhere, cool regions included. The rate is a trade-off: in scenario C, a 12-atom template still multiplied about 1.7-fold per cycle at 10⁻⁵ per attempt, 1.4-fold at 3 × 10⁻⁵, and not at all at 10⁻⁴, since long strands have more bonds to lose. (That was measured with two-sided pairing and C's earlier, shorter cycle. The rate is per attempt, so a longer cycle breaks more bonds per cycle.) Scenario B, whose strands are short, uses 10⁻⁴, which breaks about 5% of strong bonds per cycle.
-- **Temperature cycling.** A cold phase lets free atoms pair with strands and join into copies. A hot phase melts the weak bonds so strands separate, and peels away the fragments.
+- **Stacks.** When two neighboring atoms of one strand are paired with two neighboring atoms of another, the pairs form a stack, which adds binding energy and removes the barrier to the strong bond beside it. So free atoms join readily on a template, and almost never elsewhere.
+- **A barrier to starting.** Joining two free atoms, which starts a new strand, keeps a small barrier even on a template, so copies grow from few starts.
+- **Caps.** A cap has only one strong bond, so a capped strand can't be extended. Caps are copied like other atoms, so length is inherited. A copy is its template reversed and complemented.
+- **Peeling.** A strong bond at an uncapped end breaks at a rate that rises with temperature (barrier 6), so unfinished strands melt back into free atoms in the heat. A cap whose bond isn't stacked can also peel, at its own barrier, which a phase can lower. This is how stress kills.
+- **Hydrolysis.** Optionally, strong bonds break one way at a fixed rate, lower where stacked. (Experiment 26 doesn't use it.)
+- **Temperature cycling.** The cold lets strands copy; the heat separates them.
 
-Every rule except peeling and hydrolysis obeys detailed balance, so at a fixed, uniform temperature the model would settle into thermal equilibrium. Peeling and hydrolysis are deliberately one-way. Together with the temperature cycle, it is what keeps the system out of equilibrium, with atoms flowing from the free pool into strands and back. A temperature that varies from place to place also prevents equilibrium, since a bonded pair can hop between temperatures for free.
-
-## What we learned getting here
-
-Each rule above was added to fix a specific failure that showed up in measurement:
-
-- **Flexible strands with two-sided pairing collapsed into globules.** Stiffness fixed this, and it had to be a limit on the angle itself; a limit on the raw dot product allowed sharp bends wherever bonds were stretched. To let strands fold, the limit was later relaxed to a right angle, with an energy cost for every bend so that strands still prefer to be straight; without the cost, strands that can bend that far are floppy.
-- **Free atoms kept switching roles between strand and partner.** Allowing a second weak partner only for an atom already in a strand fixed this. (One-sided pairing has since replaced that rule: every atom has at most one partner.)
-- **Random joining during the hot phase.** A high barrier that only a stack removes fixed this.
-- **Strands grew longer every cycle.** Measurement showed free atoms being added to strand ends, templated by a partner strand that had slid out of alignment. Caps fixed this.
-- **Fragments accumulated and used up the free atoms,** and many were completed into three-atom capped strands that then multiplied faster than full-length ones. Peeling removes the fragments each cycle.
-- **Strands stayed stuck together when hot.** A pair of atoms in range was bonded at least half the time at any temperature, because pairing had an energy but no entropy cost. Bond entropy fixed this.
-- **Growth stalled for want of free atoms,** most of which were tied up in fragments during each cold phase. More atoms helped; the barrier to starting a strand cut the fragments by two thirds and removed most of the short and truncated copies as well.
-
-Three ideas were tried and dropped because measurement did not support them: requiring two strong bonds for a second weak partner, four-letter templates, and (more than once) the guess that strands clumping into sheets was what limited growth.
+Every rule except peeling and hydrolysis obeys detailed balance. Those two, with the temperature cycle, keep the system out of equilibrium.
 
 ## Open problems
 
-- **The simplest replicator wins.** Strands that arise from the soup are three atoms long, and nothing favors anything longer: in a living world they displace a seeded 12-atom template every time. Lineages seeded with a long template also drift shorter through deletions. Something has to make length, or the order of a sequence, worth having.
-- **Material gets trapped, or recycles slowly.** Before hydrolysis, strands died only when a cap came off in the heat, so duplexes and sheets that never melted held their atoms forever, and a world with any cool region drained into it until it stopped. Hydrolysis now returns material everywhere, but at rates that long strands can survive, a frozen sheet takes tens of cycles to dissolve. Faster recycling favors shorter strands still further.
-- **Strands don't spread.** A lineage stays near where it started, so growth in a large world is limited by the colony's edge, not by the supply of atoms. This also means a strand can't follow a changing environment: nothing in its sequence affects where it goes.
-- **Phenotypes don't do anything yet.** Pairing strength is heritable and selected, but it depends only on which letters a strand contains, and in a uniform world stronger is simply better. The aim is a phenotype that is a physical action with costs and benefits: strands that fold into shapes, bind to things, or hold atoms, in an environment that poses a problem worth solving. Strands can now fold into hairpins, but in this physics folding has little to offer: a hairpin is less stable than a duplex, folds rarely in a crowd, and gains from protection from hydrolysis only where it has no partner to pair with instead. Protection does reward staying paired, though, which may make duplexes and sheets the more promising phenotype: a copy that stays with its template survives longer, but isn't free to be copied. Folding pays only where a strand's partners are scarce, since its own copy pairs with it better than it can with itself; it might still help in sparse places, such as the edge of a spreading colony, or combined with some other advantage. One-sided pairing raises the cost: a folded strand can't be copied at all, and in a vent world, strands that can fold lose to strands that can't (experiment 21).
+- **The simplest replicator wins.** Strands that arise by chance are three atoms long, and nothing yet favors anything longer. In a living world they displace a seeded 12-atom template every time.
+- **Strands don't spread.** A lineage stays near where it started, so growth in a large world is limited by the colony's edge.
+- **Phenotypes don't do much yet.** See the current direction, above.
+
+## Failed hypotheses
+
+Ideas that measurement did not support, so that they aren't tried again:
+
+- **Two-sided pairing**, in which a strand pairs along both faces at once. It let copies template further copies into sheets that never separated and trapped material. One-sided pairing replaced it.
+- **Heat favors hairpins.** A hairpin melts at a lower temperature than a duplex, since its loop costs bend energy.
+- **Hydrolysis as the stress.** Cutting unprotected bonds anywhere along a strand made fragments that multiplied on their own.
+- **Folding pays in a crowd.** A strand's best partner is its own copy, which pairs with it better than it can with itself, so in a crowded world folders rarely fold. In a vent world, strands that can fold lose outright, since a folded strand can't be copied.
+- **Selection for pairing strength in a vent.** A vent was meant to favor strong pairs near it and weak ones farther out. It didn't, convincingly.
+- **Walls matter.** With one-sided pairing, a lineage starting near a wall or in a corner grows almost as well as one at the center.
 
 ## Repository layout
 
@@ -202,13 +132,11 @@ The solution targets .NET 10. Clone with submodules:
 git clone --recurse-submodules https://github.com/brianberns/Ecos
 ```
 
-Run the desktop app:
+Run the desktop app, which offers every scenario. With the same scenario and seed, it replays exactly the world an experiment ran.
 
 ```bash
 dotnet run -c Release --project Ecos.Desktop
 ```
-
-The app offers every scenario: the standard ones, and each experiment's variants. With the same scenario and seed, it replays exactly the world that an experiment ran. (The exception is experiment 2, which first lets its worlds settle with strong bonds frozen.)
 
 Run the tests:
 
@@ -219,7 +147,7 @@ dotnet test -c Release
 Run an experiment, optionally naming a CSV file for the results:
 
 ```bash
-dotnet run -c Release --project Ecos.Experiment -- experiment3 results.csv
+dotnet run -c Release --project Ecos.Experiment -- experiment26 results.csv
 ```
 
 | Experiment | Question |
@@ -230,44 +158,31 @@ dotnet run -c Release --project Ecos.Experiment -- experiment3 results.csv
 | `experiment3c` | The same, in scenario C, which is designed for copying |
 | `experiment4` | With no template, do replicators arise from free atoms, and do they multiply? |
 | `experiment5` | The same in a living world, where strands also die |
-| `experiment8` | The same head to head, from equal numbers of each kind, over a range of strengths |
-| `experiment11` | At what temperature does each kind of ten-letter duplex melt? |
-| `experiment14` | Is a lone template copied less near a wall, or in a corner? |
-| `experiment14b` | When four templates compete, from the center, a side, an end and a corner, which lineage wins? |
-| `experiment15` | How often does a self-complementary strand fold into a hairpin, for each bend limit and stiffness? |
-| `experiment16` | In a living world, how many strands fold, could fold, or pair into duplexes and sheets? |
-| `experiment17` | Head to head, do ten-atom strands that can fold into hairpins multiply more or less than strands of the same atoms that can't, with and without protection from hydrolysis? |
-| `experiment17s` | The same with eight-atom strands, without protection |
-| `experiment19` | After the heat, does a strand that can fold survive an adverse phase better than one that can't? |
-| `experiment19g`, `19s`, `19n`, `19c`, `19w` | The same with a gentler adverse phase, a slow one, a slow one with no free atoms, that again on more runs, and one at kT 0.5 (the window of experiment 20) with longer hairpins |
-| `experiment20` | Is there a temperature at which hairpins stay folded but free atoms can't copy single strands? |
-| `experiment21` | In a vent world, with one-sided pairing, do strands that can fold into hairpins do better than strands of the same atoms that can't, by distance from the vent? |
+| `experiment8` | Head to head, does the stronger-pairing kind win, over a range of strengths? |
+| `experiment15` | How often does a self-complementary strand fold into a hairpin, by bend limit and stiffness? |
+| `experiment26` | In a closed world of feast, stress and melt, does a hairpin-former outlast a non-former? |
 
-Experiments 6, 7, 9, 10, 12, 13 and 18 are archived: their results are summarized above, and their code is in the git history.
-
-Experiments run their worlds in parallel and print their progress. They take from seconds (experiment 11) to an hour or so (experiment 8) on a 24-core machine. Each prints tables of results and writes them to the CSV file.
+Other experiments are archived; their code is in the git history. Experiments run their worlds in parallel, and take from seconds to a few hours on a 24-core machine.
 
 ### Scenarios
 
 | Scenario | World |
 |---|---|
 | A | A fixed temperature, with soft strong bonds |
-| B | The living world: a cold/hot cycle (90,000/10,000 sweeps), a strong barrier (16) low enough that strands arise by chance, and strong bonds that hydrolyze, so strands die |
-| C | Copying alone: a high strong barrier, a long cycle (200,000/100,000 sweeps), and no hydrolysis, so nothing dies |
-| Vent | Scenario B's world heated by a pulsing vent along its seam, seeded with W/X and Y/Z strands |
-| Vent window | Templates of each kind in a cooler vent whose pulses span their melting points, with scarce caps, for watching in the desktop app (also at twice the size, "Vent window, 2x") |
+| B | The living world: a cold/hot cycle, a strong barrier (16) low enough that strands arise by chance, and hydrolysis, so strands die |
+| C | Copying alone: a high strong barrier, a long cycle (200,000 cold, 100,000 hot), and nothing dies |
+| Vent | Scenario B's world heated by a pulsing vent |
 
-Every standard world is a 160×160 torus with no walls; scenarios lay their atoms out around its center, halfway around from the seam. Each comes with or without a template strand, and experiments build their variants from these. In all of them, strands can bend to a right angle at the standard stiffness. To watch a strand fold, see the desktop app's "Experiment 15" group, which puts one self-complementary strand alone in a small world, stiff, at the standard stiffness, and floppy. The "Experiment 19" group starts at the adverse phase after the heat, in the living world or a starved one, with and without protection, and shows the seeded hairpin-formers filled. The "Experiment 21" group shows hairpin-formers and non-formers seeded in a vent world.
+Every standard world is a 160×160 torus with no walls. In the desktop app, experiment 26's scenarios color each strand by family: green for hairpin-formers, red for non-formers.
 
 ## How the model is tested
 
-- **Exact enumeration.** For systems small enough to list every state, the simulation's statistics are compared with the exact Boltzmann distribution, with and without bond entropy, the start barrier, and bend limits and stiffness for each bond type.
-- **Independent oracles.** Each rule is restated separately in the tests, and the library is checked against that statement, exhaustively where the cases are few and by random worlds otherwise.
-- **Event rates.** In crowded random worlds, each kind of event must happen as often as the rules predict, including across a sharp step in temperature.
-- **Regression fingerprints.** Recorded worlds must be reproduced exactly, update for update, so that changes made for speed can be shown to change nothing else.
-- **Torus equivalence.** The dynamics depend only on where atoms are relative to each other, so a world shifted across the torus's seam must behave exactly, update for update, as the same world away from it.
-- **Mutation checks.** Each new test is run against deliberately broken copies of the library, to confirm that it fails when it should.
-- **Accomplishment checks.** The unit tests check each rule; a separate, slower command checks that the rules still add up to the model's key accomplishments: faithful copying in scenario C, chance replicators arising and turning over in a living world, and selection on pairing strength. Each is a reduced experiment with a pass threshold set well below its measured results. Run it after changing the core or the scenarios (it takes several minutes):
+- **Exact enumeration.** For systems small enough to list every state, the simulation's statistics are compared with the exact Boltzmann distribution.
+- **Independent oracles.** Each rule is restated separately in the tests, and the library is checked against it.
+- **Event rates.** In crowded random worlds, each kind of event must happen as often as the rules predict.
+- **Regression fingerprints.** Recorded worlds must be reproduced exactly, update for update.
+- **Torus equivalence.** A world shifted across the torus's seam must behave exactly as the same world away from it.
+- **Accomplishment checks.** A slower command checks that the rules still add up to the key milestones: faithful copying, chance replicators with turnover, and selection on pairing strength. Run it after changing the core or the scenarios (it takes several minutes):
 
   ```bash
   dotnet run -c Release --project Ecos.Experiment -- checks
@@ -275,6 +190,6 @@ Every standard world is a 160×160 torus with no walls; scenarios lay their atom
 
 ## Background
 
-The lattice model is the Bond Fluctuation Model of polymer physics, with Metropolis dynamics. The approach follows Tim Hutton's artificial chemistry work on self-replicating molecules, with the aim of more realistic physics and less built-in machinery. Growth by layering and fragmentation is related to the crystal-based replicators of Schulman, Yurke and Winfree. The advantage of short replicators echoes Spiegelman's experiments with RNA.
+The lattice model is the Bond Fluctuation Model of polymer physics, with Metropolis dynamics. The approach follows Tim Hutton's artificial chemistry work on self-replicating molecules, with the aim of more realistic physics and less built-in machinery.
 
 The core library is written by Brian Berns. The tests and experiments are written with Claude.

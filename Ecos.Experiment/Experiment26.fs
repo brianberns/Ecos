@@ -59,9 +59,8 @@ module Experiment26 =
     /// Settings for the experiment.
     type Settings =
         {
-            /// Experiment 24's settings for the hairpin-former, its free
-            /// atom types and its bends.
-            Base : Experiment24.Settings
+            /// The strand that can fold into a hairpin.
+            HairpinFormer : AtomType[]
 
             /// A strand with the same atoms that can't fold.
             NonFormer : AtomType[]
@@ -69,9 +68,19 @@ module Experiment26 =
             /// Number of strands of each kind to start with.
             NumSeeds : int
 
+            /// Types of free atoms.
+            FoodTypes : AtomType[]
+
             /// Number of free atoms to start with of each of the most
-            /// demanded types (see Experiment25.getFoodSupply).
+            /// demanded types (see getFoodSupply).
             NumFoodMax : int
+
+            /// Strong-bond bend stiffness, with the standard bend limit
+            /// (right angles).
+            BendStiffness : float
+
+            /// Bend stiffness of the hinge atoms (H).
+            HingeStiffness : float
 
             /// Shortest capped chain counted in either family. Shorter
             /// ones are counted as other.
@@ -80,7 +89,6 @@ module Experiment26 =
             /// Greatest edit distance at which a chain is counted in a
             /// family. Chains farther from both are counted as other.
             MaxEditDistance : int
-
 
             /// Shortest hairpin stem that makes a chain foldable.
             MinStem : int
@@ -113,6 +121,24 @@ module Experiment26 =
             NumCommonSequences : int
         }
 
+    /// The hairpin-former: P, a stem that mixes all four coding types,
+    /// a hinge (H H), the stem's reverse complement, Q. Its stem pairs
+    /// strongly only in register: it folds with 11 pairs (caps included),
+    /// but its longest misaligned fold is 2 pairs. H pairs with itself,
+    /// so the strand is its own copy, and the hinge, which bends freely,
+    /// is where it folds.
+    let hairpinFormer =
+        let stem =
+            [| AtomType.W; AtomType.W; AtomType.X; AtomType.W; AtomType.Y
+               AtomType.X; AtomType.Z; AtomType.X; AtomType.W; AtomType.W |]
+        [|
+            AtomType.P
+            yield! stem
+            AtomType.H; AtomType.H
+            yield! stem |> Array.rev |> Array.map complement
+            AtomType.Q
+        |]
+
     /// The non-former: the hinged hairpin-former's atoms, with its hinge
     /// and caps in place and its arms' atoms shuffled until its longest
     /// stem is 2, it and its copy pair with the hairpin-former at most 3
@@ -134,10 +160,15 @@ module Experiment26 =
     /// copies, and experiment 23's phases and stress rate.
     let defaultSettings =
         {
-            Base = Experiment24.standardSettings
+            HairpinFormer = hairpinFormer
             NonFormer = nonFormer
             NumSeeds = 2
+            FoodTypes =
+                [| AtomType.W; AtomType.X; AtomType.Y; AtomType.Z
+                   AtomType.P; AtomType.Q; AtomType.H |]
             NumFoodMax = 120
+            BendStiffness = Scenario.defaultBendStiffness
+            HingeStiffness = Scenario.defaultHingeStiffness
             MinLength = 10
             MaxEditDistance = 4
             MinStem = 6
@@ -160,14 +191,81 @@ module Experiment26 =
     let private worldSize = 160
 
     /// The hairpin-former.
-    let private getHairpinFormer settings = settings.Base.HairpinFormer
+    let private getHairpinFormer settings = settings.HairpinFormer
 
-    /// Free atoms of each type to start with.
+    /// Least share of the maximum that any food type starts with. A copy
+    /// grows only as fast as the atom it needs next arrives, so a scarce
+    /// type slows every copy that needs it.
+    let private minFoodShare = 0.5
+
+    /// Free atoms of each type to start with, for copying the seeded
+    /// strands. Copying a strand uses its complement's atoms, and copying
+    /// the copy uses the strand's, so a type's demand is the most, over
+    /// the strands, of its count in a strand and its complement's. Each
+    /// type starts in proportion to its demand (rounded up), so that the
+    /// most demanded types get the maximum, but with at least the minimum
+    /// share of it.
     let getFoodSupply settings =
-        Experiment25.getFoodSupply
-            [| getHairpinFormer settings; settings.NonFormer |]
-            settings.Base.FoodTypes
-            settings.NumFoodMax
+        let strands = [| getHairpinFormer settings; settings.NonFormer |]
+        let numMax = settings.NumFoodMax
+        let getDemand atomType =
+            strands
+                |> Array.map (fun strand ->
+                    let count t = strand |> Array.where ((=) t) |> Array.length
+                    max (count atomType) (count (complement atomType)))
+                |> Array.max
+        let maxDemand = settings.FoodTypes |> Array.map getDemand |> Array.max
+        let minNum = int (ceil (minFoodShare * float numMax))
+        settings.FoodTypes
+            |> Array.map (fun atomType ->
+                let num = (numMax * getDemand atomType + maxDemand - 1) / maxDemand
+                atomType, max num minNum)
+
+    /// Adds the given number of free atoms of each type at random empty
+    /// places (with even coordinates) anywhere in the given world.
+    let private addFood (rng : Random) (supply : (AtomType * int)[]) (world : World) =
+        (world, supply)
+            ||> Array.fold (fun world (atomType, numFood) ->
+                (world, [ 1 .. numFood ])
+                    ||> Seq.fold (fun world _ ->
+                        let rec loop () =
+                            let loc = Point.create (2 * rng.Next(world.Size.X / 2), 2 * rng.Next(world.Size.Y / 2))
+                            match World.tryAddAtom atomType loc world with
+                                | Some (world, _) -> world
+                                | None -> loop ()
+                        loop ()))
+
+    /// Fewest atoms between the two arms of a hairpin stem.
+    let private minLoop = 2
+
+    /// The longest hairpin stem the given sequence could form: the most
+    /// consecutive complementary pairs between two stretches of it read
+    /// in opposite directions, with at least minLoop atoms between them.
+    let getMaxStem (sequence : AtomType[]) =
+        let n = sequence.Length
+        let stemAt a b =   // stem closing on the pair (a, b), growing inward
+            let rec grow k =
+                let i = a + k
+                let j = b - k
+                if j - i - 1 >= minLoop && complement sequence[i] = sequence[j] then
+                    grow (k + 1)
+                else k
+            grow 0
+        seq {
+            for a in 0 .. n - 1 do
+                for b in a + 1 .. n - 1 do
+                    stemAt a b
+        } |> Seq.fold max 0
+
+    /// Chance of at least the given number of successes in the given
+    /// number of trials, each with probability one half: the one-sided p
+    /// value of a sign test.
+    let getSignTestP nAhead nBehind =
+        let n = nAhead + nBehind
+        let choose n k =
+            Seq.fold (fun acc i -> acc * float (n - k + i) / float i) 1.0 (seq { 1 .. k })
+        seq { nAhead .. n }
+            |> Seq.sumBy (fun k -> choose n k / 2.0 ** float n)
 
     /// Family of a chain.
     type private Family =
@@ -267,10 +365,12 @@ module Experiment26 =
                     for i in 0 .. 2 .. 2 * settings.NumSeeds - 1 do
                         yield! [| i * n .. i * n + n - 1 |]
                 |]
-            let world = Experiment25.addFood rng (getFoodSupply settings) world
+            let world = addFood rng (getFoodSupply settings) world
             world, hairpinFormers
         let scenario =
-            Experiment24.getScenario settings.Base settings.Base.BendStiffnesses[0]
+            Scenario.createScenarioC false
+                |> Scenario.withBend Strong Bend.rightAngle settings.BendStiffness
+                |> Scenario.withBendStiffness Strong AtomType.H settings.HingeStiffness
                 |> Scenario.withHydrolysisRate 0.0
         { scenario with
             Name = $"Folding in a famine, with a hinge, stress cap peel barrier {variant.StressCapPeelBarrier}"
@@ -389,7 +489,7 @@ module Experiment26 =
                             {
                                 AtomIds = ids
                                 Family = family
-                                IsFoldable = Experiment16.getMaxStem types >= settings.MinStem
+                                IsFoldable = getMaxStem types >= settings.MinStem
                                 State = state
                                 NumExposed = numExposed
                                 NumExposedCaps = numExposedCaps
@@ -483,13 +583,10 @@ module Experiment26 =
         let former = getHairpinFormer settings
         let toText = Array.map string >> String.concat " "
         let phaseText (phase : Phase) = sprintf "kT %g for %d sweeps" phase.Temperature phase.NumSweeps
-        let b = settings.Base
         printfn "Experiment 26: folding in a famine, with a hinge"
-        printfn "Hairpin-former: %s (longest stem %d)" (toText former) (Experiment16.getMaxStem former)
-        printfn "Non-former:     %s (longest stem %d)" (toText settings.NonFormer) (Experiment16.getMaxStem settings.NonFormer)
-        printfn "Bends: stiffness %g%s"
-            b.BendStiffnesses[0]
-            (b.HingeStiffness |> Option.map (sprintf ", hinges (H) %g") |> Option.defaultValue "")
+        printfn "Hairpin-former: %s (longest stem %d)" (toText former) (getMaxStem former)
+        printfn "Non-former:     %s (longest stem %d)" (toText settings.NonFormer) (getMaxStem settings.NonFormer)
+        printfn "Bends: stiffness %g, hinges (H) %g" settings.BendStiffness settings.HingeStiffness
         printfn "%d runs of %d cycles of each variant; %d strands of each kind to start, at random places, in a %dx%d world"
             settings.NumRuns settings.NumCycles settings.NumSeeds worldSize worldSize
         printfn "Free atoms: %s; nothing is added or removed"
@@ -600,8 +697,8 @@ module Experiment26 =
                     sprintf "%.3f +/- %.3f" mean (sd / sqrt (float shares.Length))
             printfn "At the end: hairpin share per run %s (%d runs with either kind); hairpins ahead in %d runs, behind in %d; sign test p = %.3g (ahead), %.3g (behind)"
                 meanText shares.Length nAhead nBehind
-                (Experiment17.getSignTestP nAhead nBehind)
-                (Experiment17.getSignTestP nBehind nAhead)
+                (getSignTestP nAhead nBehind)
+                (getSignTestP nBehind nAhead)
 
                 // against the control, run for run
             let control = settings.Variants[0]
@@ -617,8 +714,8 @@ module Experiment26 =
                 let nDown = pairs |> Array.where (fun d -> d < 0.0) |> Array.length
                 printfn "Against the control, run for run: hairpin share %+.3f on average; higher in %d runs, lower in %d; sign test p = %.3g (higher), %.3g (lower)"
                     (if pairs.Length > 0 then Array.average pairs else nan) nUp nDown
-                    (Experiment17.getSignTestP nUp nDown)
-                    (Experiment17.getSignTestP nDown nUp)
+                    (getSignTestP nUp nDown)
+                    (getSignTestP nDown nUp)
 
                 // commonest sequences at the end
             printfn "Commonest capped chains at the end (all runs):"
