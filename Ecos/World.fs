@@ -452,7 +452,7 @@ module World =
 
     /// Determines whether to peel the given bond.
     let private testPeel
-        (rng : Random) strandParms temp behavior bondTypeMap bondMap atomA atomB =
+        (rng : Random) parms temp behavior bondTypeMap bondMap atomA atomB =
 
         let impl capPeel barrier =
             let canPeel =
@@ -461,18 +461,18 @@ module World =
                 rng.NextDouble() <= exp (-barrier / temp)
             else false
 
-        impl false strandParms.PeelBarrier
-            || impl true strandParms.CapPeelBarrier
+        impl false parms.PeelBarrier
+            || impl true parms.CapPeelBarrier
 
     /// Determines whether to break a bond by hydrolysis.
     let private testHydrolysis
-        (rng : Random) strandParms behavior atomA atomB bondTypeMap =
+        (rng : Random) bondTypeParms behavior atomA atomB bondTypeMap =
         let rate =
             let isProtected =
                 behavior.TestHydrolysisProtection
                     atomA atomB bondTypeMap
-            if isProtected then strandParms.ProtectedHydrolysisRate
-            else strandParms.HydrolysisRate
+            if isProtected then bondTypeParms.ProtectedHydrolysisRate
+            else bondTypeParms.HydrolysisRate
         rng.NextDouble() < rate
 
     /// Attempts to break the bond of the given type between the
@@ -542,10 +542,9 @@ module World =
             let bondTypeMap = world.BondTypeMap
             if testBond bondTypeParms.Entropy bondEnergy
                 || testPeel
-                    rng parms.StrandParameters temp behavior bondTypeMap
-                    bondMap atomA atomB
+                    rng parms temp behavior bondTypeMap bondMap atomA atomB
                 || testHydrolysis
-                    rng parms.StrandParameters behavior
+                    rng bondTypeParms behavior
                     bondTypeMap atomA atomB then
                 tryBreakBond bondType atomA atomB world
                     |> Option.map (fun world ->

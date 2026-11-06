@@ -40,6 +40,14 @@ type BondTypeParameters =
         /// Implicit entropy in this bond type (s).
         Entropy : float
 
+        /// Rate at which unprotected bonds of this type break due
+        /// to hydrolysis.
+        HydrolysisRate : float
+
+        /// Rate at which protected bonds of this type break due
+        /// to hydrolysis.
+        ProtectedHydrolysisRate : float
+
         /// Sharpest bend allowed at an atom between two bonds of
         /// this type: the cosine of the angle between the bonds
         /// must be at most this value.
@@ -134,26 +142,6 @@ module BondTypeParameterMap =
                 { bondTypeParmMap with
                     WeakParameters = bondTypeParms }
 
-/// Parameters specific to strong-bond strands.
-type StrandParameters =
-    {
-        /// Determines how often non-cap peeling happens. +Infinity
-        /// prevents non-cap peeling altogether.
-        PeelBarrier : float
-
-        /// Determines how often cap peeling happens. +Infinity
-        /// prevents cap peeling altogether.
-        CapPeelBarrier : float
-
-        /// Rate at which unprotected bonds of this type break due
-        /// to hydrolysis.
-        HydrolysisRate : float
-
-        /// Rate at which protected bonds of this type break due
-        /// to hydrolysis.
-        ProtectedHydrolysisRate : float
-    }
-
 /// Configurable update parameters.
 type Parameters =
     {
@@ -164,8 +152,13 @@ type Parameters =
         /// Bond type-specific parameters.
         BondTypeParameterMap : BondTypeParameterMap
 
-        /// Strand parameters.
-        StrandParameters : StrandParameters
+        /// Determines how often non-cap peeling happens. +Infinity
+        /// prevents non-cap peeling altogether.
+        PeelBarrier : float
+
+        /// Determines how often cap peeling happens. +Infinity
+        /// prevents cap peeling altogether.
+        CapPeelBarrier : float
     }
 
 module Parameters =
