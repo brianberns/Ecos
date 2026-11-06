@@ -49,7 +49,7 @@ type private BondBehavior =
 
         /// Determines whether the given bond of this type can
         /// peel.
-        TestPeel : BondTypeMap -> BondMap -> Atom -> Atom -> bool
+        TestPeel : bool -> BondTypeMap -> BondMap -> Atom -> Atom -> bool
 
         /// Determines whether the given bond of this type is
         /// protected from normal hydrolysis.
@@ -129,8 +129,9 @@ module private StrongBond =
     /// Possible cross bond deltas, as determined by Claude.
     let crossBondDeltas = set deltas
 
-    /// Determines whether the given atom type acts as a
-    /// cap that prevents extension of a strand.
+    /// Determines whether the given atom type acts as a cap
+    /// that protects the end of a strand and prevents the strand's
+    /// extension.
     let private isCap = function
         | AtomType.P | AtomType.Q -> true
         | _ -> false
@@ -166,11 +167,19 @@ module private StrongBond =
             |> Seq.length
 
     /// Strands can peel at their ends.
-    let testPeel bondTypeMap bondMap atomA atomB =
+    let testPeel capPeel bondTypeMap bondMap atomA atomB =
         assert(BondMap.areBonded atomA.Id atomB.Id bondMap)
 
         let isExposed atom =
-            if isCap atom.Type then false   // cap protects strand
+
+                // cap can peel?
+            if isCap atom.Type then
+                countStacks bondTypeMap atomA atomB > 0   // stacked cap protects strand
+
+                // non-cap can't cap-peel
+            elif capPeel then false
+
+                // non-cap can peel?
             else
                 let bonds = BondMap.getBonds atom.Id bondMap
                 assert(bonds.Count >= 1)
@@ -257,7 +266,7 @@ module private WeakBond =
         true
 
     /// Weak bonds never peel.
-    let testPeel _bondTypeMap _bondMap _atomA _atomB =
+    let testPeel _capPeel _bondTypeMap _bondMap _atomA _atomB =
         false
 
     /// Weak bonds need no hydrolysis protection.
