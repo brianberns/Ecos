@@ -29,7 +29,7 @@ module WorldView =
             AtomType.Q, "#707070"   // gray
         ]
             |> Seq.map (fun (typ, hex) ->
-                typ, Media.Brush.Parse(hex))
+                typ, Brush.Parse(hex))
             |> Map
 
     let private (~~)(ecosPt : Ecos.Point) =
@@ -120,6 +120,8 @@ module WorldView =
                 renderRectangle corner size Colors.Gray
         ]
 
+    let private strokeThickness = 0.4
+
     let private renderAtoms model =
         let templateIds = set model.Run.Template
         [
@@ -134,10 +136,20 @@ module WorldView =
                         Ellipse.fill brushMap[atom.Type]
                     else
                         Ellipse.stroke brushMap[atom.Type]
-                        Ellipse.strokeThickness 0.4
+                        Ellipse.strokeThickness strokeThickness
                     Ellipse.useLayoutRounding false   // don't snap to pixels before scaling
                 ] :> IView
         ]
+
+    /// Strand backbone colors by family label.
+    let private strandBrushMap =
+        [
+            "former", "#00A000"       // green
+            "non-former", "#D00000"   // red
+        ]
+            |> Seq.map (fun (label, hex) ->
+                label, Brush.Parse(hex))
+            |> Map
 
     let private getBonds bondType (world : World) =
         world.BondTypeMap[bondType]
@@ -151,30 +163,41 @@ module WorldView =
                     else None)
                     ids)
 
-    let private renderBonds
-        bondType (brush : IImmutableBrush) thickness world =
+    let private renderBonds bondType getBrush world =
 
-        let drawLine start finish =
+        let drawLine (brush : IBrush) start finish =
             Line.create [
                 Line.startPoint ~~start
                 Line.endPoint ~~finish
                 Line.stroke brush
-                Line.strokeThickness thickness
+                Line.strokeThickness strokeThickness
             ] :> IView
 
         [
             for a, b in getBonds bondType world do
+                let brush = getBrush a b
                 let d = World.getDisplacement a b world
-                yield drawLine a.Location (a.Location + d)
-                if a.Location + d <> b.Location then             // bond crosses an edge?
-                    yield drawLine b.Location (b.Location - d)   // then draw its other half also
+                yield drawLine brush a.Location (a.Location + d)
+                if a.Location + d <> b.Location then                   // bond crosses an edge?
+                    yield drawLine brush b.Location (b.Location - d)   // then draw its other half also
         ]
 
-    let private renderStrongBonds world =
-        renderBonds Strong Brushes.Black 0.2 world
+    let private renderStrongBonds run =
+
+        let labels = Run.getStrandLabels run
+
+        let getBrush atomA _atomB =
+            labels
+                |> Map.tryFind atomA.Id   // assume both atoms are in the same strand
+                |> Option.bind (fun label ->
+                    Map.tryFind label strandBrushMap)
+                |> Option.defaultValue Brushes.Black
+
+        renderBonds Strong getBrush run.World
 
     let private renderWeakBonds world =
-        renderBonds Weak Brushes.HotPink 0.4 world
+        let getBrush _ _ = Brushes.HotPink
+        renderBonds Weak getBrush world
 
     let render (model : Model) =
         let world = model.Run.World
@@ -189,7 +212,7 @@ module WorldView =
                         yield! renderEnvironment model
                         yield! renderWalls world
                         yield! renderAtoms model
-                        yield! renderStrongBonds world
+                        yield! renderStrongBonds model.Run
                         yield! renderWeakBonds world
                     ]
                 ])
