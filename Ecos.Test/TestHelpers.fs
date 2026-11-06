@@ -54,6 +54,7 @@ module TestParameters =
                     Strong, bondTypeParms straightBend
                     Weak, bondTypeParms anyBend
                 ] |> BondTypeParameterMap.ofMap
+            StackEnergy = 1.0
             PeelBarrier = System.Double.PositiveInfinity
             CapPeelBarrier = System.Double.PositiveInfinity
         }
@@ -456,8 +457,9 @@ module Chain =
         bondEnergy (TestParameters.create 1.0) Strong AtomType.W AtomType.X
 
     /// Oracle: energy of one stack, i.e. two weak bonds A-B and A'-B'
-    /// where A and A' are strongly bonded, and so are B and B'.
-    let stackEnergy = -1.0
+    /// where A and A' are strongly bonded, and so are B and B', with the
+    /// given parameters.
+    let stackEnergy (parms : Parameters) = -parms.StackEnergy
 
     /// Gives every atom in the given world a random type. An atom
     /// with two strong bonds is never made a cap, and neither is an

@@ -469,6 +469,7 @@ module Scenario =
                                 BendStiffnessMap = Map.empty
                             }
                         ] |> BondTypeParameterMap.ofMap
+                    StackEnergy = 1.0
                     PeelBarrier = 6
                     CapPeelBarrier = Double.PositiveInfinity
                 }

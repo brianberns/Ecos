@@ -612,10 +612,10 @@ module BoxPhysicsTests =
     /// set of weak bonds and the separation of atoms 0 and 2. Strong
     /// bonds are frozen, so the dimers can't break or bond to each
     /// other.
-    [<Fact>]
-    let ``Two dimers in a box follow the Boltzmann distribution`` () =
+    let private twoDimersInABox stackEnergy =
         let size = 2   // atom locations have |x| <= size and |y| <= size
         let kT = 1.0
+        let parms = { TestParameters.createFrozen kT with StackEnergy = stackEnergy }
         let candidates = [ 0, 2; 0, 3; 1, 2; 1, 3 ]
         let isStrong (i, j) = (min i j, max i j) = (0, 1) || (min i j, max i j) = (2, 3)
         let sharesAtom (i, j) (k, l) = i = k || i = l || j = k || j = l
@@ -688,7 +688,7 @@ module BoxPhysicsTests =
                     for bonds in bondSets do
                         let energy =
                             Chain.weakBondEnergy * float bonds.Length
-                                + Chain.stackEnergy * float (countStacks bonds)
+                                + Chain.stackEnergy parms * float (countStacks bonds)
                         let weight = exp (-energy / kT)
                         addWeight bondSetWeights bonds weight
                         addWeight separationWeights (loc2 - loc0) weight
@@ -709,7 +709,7 @@ module BoxPhysicsTests =
                 |> World.addStrongBond TestParameters.standard 3 2
                 |> Chain.addBox size
                 |> sample
-                    (TestParameters.createFrozen kT) 8 2000 300 3000
+                    parms 8 2000 300 3000
                     (fun world ->
                         Set.toList (Bonds.weakBonds world),
                         World.getDisplacement
@@ -717,6 +717,17 @@ module BoxPhysicsTests =
 
         checkFit "Weak bonds" (toMap bondSetWeights) (Array.map fst samples)
         checkFit "Separation" (toMap separationWeights) (Array.map snd samples)
+
+    [<Fact>]
+    let ``Two dimers in a box follow the Boltzmann distribution`` () =
+        twoDimersInABox 1.0
+
+    /// The same with no stack energy, so that a stack is worth no more
+    /// than its two pairs: the stack energy is a parameter that the
+    /// simulation honors.
+    [<Fact>]
+    let ``Two dimers in a box follow the Boltzmann distribution with no stack energy`` () =
+        twoDimersInABox 0.0
 
 /// Faces: a strand, and a free atom that pairs on its face.
 module FacePhysicsTests =

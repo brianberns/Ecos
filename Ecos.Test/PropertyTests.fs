@@ -257,7 +257,7 @@ module PropertyOracles =
                         let nStacks = countStacks world idA idB
                         let energy =
                             Chain.bondEnergy parms Weak atomA.Type world.Atoms[idB].Type
-                                + Chain.stackEnergy * float nStacks
+                                + Chain.stackEnergy parms * float nStacks
                         if Bonds.areWeaklyBonded world idA idB then
                             let pBreak = acceptBreak kT Weak nStacks (isStart Weak idA idB) energy
                             let pHydrolysis = Chain.hydrolysisRate parms Weak world idA idB
@@ -273,7 +273,7 @@ module PropertyOracles =
                         let nStacks = countStacksStrong world idA idB
                         let energy =
                             Chain.bondEnergy parms Strong atomA.Type world.Atoms[idB].Type
-                                + Chain.stackEnergy * float nStacks
+                                + Chain.stackEnergy parms * float nStacks
                         if isStronglyBonded world idA idB then
 
                                 // the bond breaks if the usual test passes or,
