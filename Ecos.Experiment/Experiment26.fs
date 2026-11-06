@@ -149,6 +149,7 @@ module Experiment26 =
                 [|
                     { StressCapPeelBarrier = Double.PositiveInfinity }   // control
                     { StressCapPeelBarrier = 2.0 }
+                    { StressCapPeelBarrier = 1.5 }   // nearly every unprotected cap peels
                 |]
             NumRuns = 16
             NumCycles = 24
