@@ -173,19 +173,22 @@ module RegressionTests =
     /// changed every world. The fingerprints now include the way each
     /// strong bond runs. Worlds with random atom types were recorded
     /// again once the hinge types U and V joined them, and again once
-    /// they were merged into H, which pairs with itself.
+    /// they were merged into H, which pairs with itself. All were
+    /// recorded again once cap peeling returned, since its test draws
+    /// a random number for every unstacked cap, even when its barrier
+    /// is infinite.
     let private expected =
         Map [
-            ("cold", 1), [ "6d8c941206517655"; "3b44f98988a0a942"; "0dd471a0f33c1f37"; "8d2b93327c7f5bf6" ]
-            ("cold", 2), [ "55a647e05b89c0aa"; "11826ac981917b8c"; "23c774a3fae6c82f"; "262cb5fd80149884" ]
-            ("hot", 1), [ "2578b2683c0bf739"; "bd345052abbf47f6"; "7191763a74959ac9"; "bb00d03a4c24b797" ]
-            ("hot", 2), [ "d8694b2d11d3e3f7"; "457e59d01caed1d7"; "6b444ffe2e0ac82e"; "8829291fb600a636" ]
-            ("all rules", 1), [ "67491f1d8b49820d"; "c481805fb74c3ff3"; "b6601af91037ea1c"; "d1edbb72abd50bb8" ]
-            ("all rules", 2), [ "95e2e58b16fe3685"; "e0e6e1cbc052ab8e"; "ddd796147b7bf47c"; "c50998758f9b1ee2" ]
-            ("copying", 1), [ "1351b95f75299a28"; "713396239b5694e2"; "5bb45f0cec31f3ad"; "24d663bf9106a6f9" ]
-            ("copying", 2), [ "70abc22c5402f708"; "74886ca1edd4ae7a"; "7010108f0dce90f5"; "2ac0facb51fb7618" ]
-            ("standard physics", 1), [ "7df5c465c1537a52"; "1b811df6df9aa126"; "c0347cedf893fd22"; "472c4a0267037c82" ]
-            ("standard physics", 2), [ "b641acb178112202"; "075d3d16a7cee4b4"; "beac085f168abfba"; "a8c6b4a0ca6cc0c5" ]
+            ("cold", 1), [ "c96a8965ce3ff499"; "31f56bf540b5981b"; "00957a002f664298"; "fe20b959c0b4a240" ]
+            ("cold", 2), [ "7e9e3a8542dd65d8"; "8db911a5e2d4ebf2"; "cdaacaf8a3fc0c36"; "548b10c1dfcf6d31" ]
+            ("hot", 1), [ "cf3382434ae5fd5b"; "6ffe9e69a21c05e2"; "0effe410e877490e"; "b4d4a709e20652af" ]
+            ("hot", 2), [ "d8694b2d11d3e3f7"; "6463293784be126b"; "386c73cc261ddac0"; "977cd1399a7bb361" ]
+            ("all rules", 1), [ "67491f1d8b49820d"; "afa7281c78448de4"; "b6ab02d68c7d8210"; "b6774317b1090241" ]
+            ("all rules", 2), [ "7a933522242758fe"; "cac39bdb1d835956"; "1edf682953b37423"; "932d64e36f11436e" ]
+            ("copying", 1), [ "82ff4ac250470b63"; "32c39a70b9f7a984"; "6c296e8d8b90c8a5"; "cfada806997e2eea" ]
+            ("copying", 2), [ "0961f7d6e39288c9"; "32904f2a1245e6bd"; "c1d3b70db6cdb7fe"; "d5d75800fd493392" ]
+            ("standard physics", 1), [ "ef565529b9501a06"; "22824c396b12527e"; "a4db2b824470c8d6"; "7102aeef899fe29e" ]
+            ("standard physics", 2), [ "6138bb9844108402"; "eacb80aac2e8a734"; "456f74848e8c6478"; "712f9640d11ca543" ]
             ("stacking", 1), [ "1d33eb3b55e8ba17"; "67852f20b4a13787"; "0e89c8945e574334"; "a7ff5a14709dda05" ]
             ("stacking", 2), [ "4c23cd4681d31c32"; "bbaece89731e9625"; "10efc6e134cce480"; "899c967961540d89" ]
         ]
