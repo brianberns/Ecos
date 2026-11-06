@@ -467,3 +467,20 @@ module ScenarioTests =
         Assert.Equal(1.0 / 8.0, Experiment17.getSignTestP 3 0, 10)
         Assert.Equal(37.0 / 256.0, Experiment17.getSignTestP 6 2, 10)   // (28 + 8 + 1) / 2^8
 
+    [<Fact>]
+    let ``A scenario without a labeler labels no strands`` () =
+        let run = Run.create 0 shortCycle
+        Assert.Empty(Run.getStrandLabels run)
+
+    [<Fact>]
+    let ``Experiment 26 labels each strand by family`` () =
+        let settings = Experiment26.defaultSettings
+        let scenario = Experiment26.getScenario settings settings.Variants[0]
+        let run = Run.create 0 scenario
+        let labels = Run.getStrandLabels run
+        let n = settings.NonFormer.Length
+        Assert.Equal(2 * settings.NumSeeds * n, labels.Count)   // the seeds, but no free atoms
+        for i in 0 .. 2 * settings.NumSeeds - 1 do
+            let expected = if i % 2 = 0 then "former" else "non-former"   // seeded in alternation
+            for id in i * n .. i * n + n - 1 do
+                Assert.Equal(expected, labels[id])

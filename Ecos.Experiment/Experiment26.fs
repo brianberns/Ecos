@@ -169,46 +169,6 @@ module Experiment26 =
             settings.Base.FoodTypes
             settings.NumFoodMax
 
-    /// The given variant's world: experiment 24's bonds and bends, in a
-    /// single chamber with no walls, seeded with the settings' number of
-    /// strands of each kind at random places, and then free atoms
-    /// anywhere. Its schedule is the cycle, with the variant's
-    /// cap peeling in the stress phase. Nothing hydrolyzes.
-    let getScenario settings variant =
-        let former = getHairpinFormer settings
-        assert(settings.NonFormer.Length = former.Length)
-        let build parms rng =
-            let world =
-                (World.createSquare worldSize, [ 1 .. settings.NumSeeds ])
-                    ||> Seq.fold (fun world _ ->
-                        world
-                            |> Build.addStrandAtRandom parms rng 74 former
-                            |> Build.addStrandAtRandom parms rng 74 settings.NonFormer)
-            let hairpinFormers =   // seeded in alternation, so every other strand
-                let n = former.Length
-                [|
-                    for i in 0 .. 2 .. 2 * settings.NumSeeds - 1 do
-                        yield! [| i * n .. i * n + n - 1 |]
-                |]
-            let world = Experiment25.addFood rng (getFoodSupply settings) world
-            world, hairpinFormers
-        let scenario =
-            Experiment24.getScenario settings.Base settings.Base.BendStiffnesses[0]
-                |> Scenario.withHydrolysisRate 0.0
-        { scenario with
-            Name = $"Folding in a famine, with a hinge, stress cap peel barrier {variant.StressCapPeelBarrier}"
-            Build = build
-            Schedule =
-                Cycle [|
-                    settings.Feast
-                    { settings.Stress with CapPeelBarrier = Some variant.StressCapPeelBarrier }
-                    settings.Melt
-                |] }
-
-    /// The experiment's scenarios: one for each variant.
-    let getScenarios settings =
-        settings.Variants |> Array.map (getScenario settings)
-
     /// Family of a chain.
     type private Family =
         | HairpinFamily
@@ -264,6 +224,68 @@ module Experiment26 =
         atomIds
             |> Array.map (fun id -> world.Atoms[id].Type)
             |> toSequenceText
+
+    /// Labels the capped strands of the given world that are long
+    /// enough to count by family: "former" or "non-former". Answers each
+    /// labeled atom's label, by atom ID.
+    let labelStrands settings =
+        let familyTexts = getFamilyTexts settings
+        fun (world : World) ->
+            getStrands world
+                |> Seq.where (fun strand ->
+                    strand.AtomIds.Length >= settings.MinLength
+                        && isCapped world strand)
+                |> Seq.choose (fun strand ->
+                    tryGetFamily settings.MaxEditDistance familyTexts (getText world strand.AtomIds)
+                        |> Option.map (fun family ->
+                            let label =
+                                match family with
+                                    | HairpinFamily -> "former"
+                                    | NonFormerFamily -> "non-former"
+                            strand.AtomIds |> Seq.map (fun id -> id, label)))
+                |> Seq.concat
+                |> Map
+
+    /// The given variant's world: experiment 24's bonds and bends, in a
+    /// single chamber with no walls, seeded with the settings' number of
+    /// strands of each kind at random places, and then free atoms
+    /// anywhere. Its schedule is the cycle, with the variant's
+    /// cap peeling in the stress phase. Nothing hydrolyzes.
+    let getScenario settings variant =
+        let former = getHairpinFormer settings
+        assert(settings.NonFormer.Length = former.Length)
+        let build parms rng =
+            let world =
+                (World.createSquare worldSize, [ 1 .. settings.NumSeeds ])
+                    ||> Seq.fold (fun world _ ->
+                        world
+                            |> Build.addStrandAtRandom parms rng 74 former
+                            |> Build.addStrandAtRandom parms rng 74 settings.NonFormer)
+            let hairpinFormers =   // seeded in alternation, so every other strand
+                let n = former.Length
+                [|
+                    for i in 0 .. 2 .. 2 * settings.NumSeeds - 1 do
+                        yield! [| i * n .. i * n + n - 1 |]
+                |]
+            let world = Experiment25.addFood rng (getFoodSupply settings) world
+            world, hairpinFormers
+        let scenario =
+            Experiment24.getScenario settings.Base settings.Base.BendStiffnesses[0]
+                |> Scenario.withHydrolysisRate 0.0
+        { scenario with
+            Name = $"Folding in a famine, with a hinge, stress cap peel barrier {variant.StressCapPeelBarrier}"
+            Build = build
+            TryLabelStrands = Some (labelStrands settings)
+            Schedule =
+                Cycle [|
+                    settings.Feast
+                    { settings.Stress with CapPeelBarrier = Some variant.StressCapPeelBarrier }
+                    settings.Melt
+                |] }
+
+    /// The experiment's scenarios: one for each variant.
+    let getScenarios settings =
+        settings.Variants |> Array.map (getScenario settings)
 
     /// State of a chain.
     type private State =

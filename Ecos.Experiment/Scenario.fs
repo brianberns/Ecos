@@ -184,6 +184,11 @@ type Scenario =
 
         /// Temperature over time.
         Schedule : Schedule
+
+        /// Labels strands in the given world for display, if the
+        /// scenario does: e.g. by family. Answers each labeled atom's
+        /// label, by atom ID.
+        TryLabelStrands : (World -> Map<AtomId, string>) option
     }
 
 /// Bend limits for bond types: the sharpest angle allowed between two
@@ -430,6 +435,7 @@ module Scenario =
         {
             Name = if withTemplate then "A" else "A, no template"
             Build = build withTemplate
+            TryLabelStrands = None
             Parameters =
                 {
                     GetTemperature =
@@ -808,6 +814,14 @@ module Run =
     /// and its schedule's hydrolysis rate.
     let getParameters run =
         getParametersWith (getTemperature run) run
+
+    /// Labels of the given run's labeled strands, by atom ID: e.g.
+    /// "former" or "non-former" in experiment 26. Atoms in unlabeled
+    /// strands, or in scenarios that don't label strands, have none.
+    let getStrandLabels run =
+        match run.Scenario.TryLabelStrands with
+            | Some labelStrands -> labelStrands run.World
+            | None -> Map.empty
 
     /// Current rate at which the given run's unprotected strong bonds
     /// hydrolyze: its schedule's, if the current phase sets one,
