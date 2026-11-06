@@ -170,22 +170,22 @@ module private StrongBond =
     let testPeel capPeel bondTypeMap bondMap atomA atomB =
         assert(BondMap.areBonded atomA.Id atomB.Id bondMap)
 
-        let isExposed atom =
+        let isVulnerable atom =
+            match capPeel, isCap atom.Type with
 
-                // cap can peel?
-            if isCap atom.Type then
-                countStacks bondTypeMap atomA atomB > 0   // stacked cap protects strand
+                    // cap atom type is vulnerable if it is not stacked
+                | true, true ->
+                    countStacks bondTypeMap atomA atomB = 0
 
-                // non-cap can't cap-peel
-            elif capPeel then false
+                    // non-cap atom type is vulnerable if it is not in the interior of a strand
+                | false, false ->
+                    let bonds = BondMap.getBonds atom.Id bondMap
+                    assert(bonds.Count >= 1)
+                    bonds.Count <= 1
 
-                // non-cap can peel?
-            else
-                let bonds = BondMap.getBonds atom.Id bondMap
-                assert(bonds.Count >= 1)
-                bonds.Count <= 1
+                | _ -> false
 
-        isExposed atomA || isExposed atomB
+        isVulnerable atomA || isVulnerable atomB
 
     /// A strong bond is protected from hydrolysis when it is 
     /// part of a stack.

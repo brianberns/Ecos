@@ -455,9 +455,9 @@ module World =
         (rng : Random) parms temp behavior bondTypeMap bondMap atomA atomB =
 
         let impl capPeel barrier =
-            let isExposed =
+            let canPeel =
                 behavior.TestPeel capPeel bondTypeMap bondMap atomA atomB
-            if isExposed then
+            if canPeel then
                 rng.NextDouble() <= exp (-barrier / temp)
             else false
 

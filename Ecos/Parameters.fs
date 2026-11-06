@@ -153,11 +153,11 @@ type Parameters =
         BondTypeParameterMap : BondTypeParameterMap
 
         /// Determines how often non-cap peeling happens. +Infinity
-        /// prevents peeling altogether.
+        /// prevents non-cap peeling altogether.
         PeelBarrier : float
 
         /// Determines how often cap peeling happens. +Infinity
-        /// prevents peeling altogether.
+        /// prevents cap peeling altogether.
         CapPeelBarrier : float
     }
 
