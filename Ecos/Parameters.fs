@@ -152,6 +152,9 @@ type Parameters =
         /// Bond type-specific parameters.
         BondTypeParameterMap : BondTypeParameterMap
 
+        /// Additional energy from a stacked weak bond.
+        StackEnergy : float
+
         /// Determines how often non-cap peeling happens. +Infinity
         /// prevents non-cap peeling altogether.
         PeelBarrier : float

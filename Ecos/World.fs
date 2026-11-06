@@ -438,9 +438,6 @@ module World =
                 None
         else None
 
-    /// Additional energy from a stacked weak bond.
-    let private stackEnergy = 1.0
-
     /// Applies Metropolis tests to the given bond energy.
     let private testBondEnergy
         rng kT energyBarrier reduction startBarrier nStacks entropy energy =
@@ -520,7 +517,7 @@ module World =
                 else 0.0
             BondTypeParameters.getEnergy
                 atomA.Type atomB.Type bondTypeParms
-                + stackEnergy * float nStacks
+                + parms.StackEnergy * float nStacks
                 - bendEnergy
 
             // compute start barrier
