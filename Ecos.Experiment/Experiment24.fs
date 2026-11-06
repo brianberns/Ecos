@@ -85,8 +85,8 @@ module Experiment24 =
             MinFoldedStem = 4
             BendStiffnesses = [| 0.0; 0.5 |]
             HingeStiffness = None
-            Cold = { Name = Some "cold"; Temperature = 0.3; NumSweeps = 200_000; HydrolysisRate = None }
-            Hot = { Name = Some "hot"; Temperature = 3.0; NumSweeps = 100_000; HydrolysisRate = None }
+            Cold = { Name = Some "cold"; Temperature = 0.3; NumSweeps = 200_000; HydrolysisRate = None; CapPeelBarrier = None }
+            Hot = { Name = Some "hot"; Temperature = 3.0; NumSweeps = 100_000; HydrolysisRate = None; CapPeelBarrier = None }
             SampleTimes = [| 10_000; 25_000; 50_000; 100_000; 200_000 |]
             NumRuns = 12
             NumCycles = 16

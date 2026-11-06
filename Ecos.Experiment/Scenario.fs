@@ -19,6 +19,11 @@ type Phase =
         /// Rate at which unprotected strong bonds hydrolyze during this
         /// phase, if it differs from the scenario's, e.g. under stress.
         HydrolysisRate : float option
+
+        /// Barrier to peeling a cap that isn't protected by a stack
+        /// during this phase, if it differs from the scenario's, e.g.
+        /// under stress.
+        CapPeelBarrier : float option
     }
 
 /// A vent: a vertical line of hot rock that pulses. Between pulses,
@@ -134,6 +139,15 @@ module Schedule =
         assert(numSweeps >= 0)
         match schedule with
             | Cycle phases -> (getPhase numSweeps phases |> fst).HydrolysisRate
+            | Constant _ | Vent _ -> None
+
+    /// Answers the barrier to peeling unprotected caps after the given
+    /// number of sweeps, if the schedule sets one. (It can change only
+    /// when the temperature does.)
+    let tryGetCapPeelBarrier numSweeps schedule =
+        assert(numSweeps >= 0)
+        match schedule with
+            | Cycle phases -> (getPhase numSweeps phases |> fst).CapPeelBarrier
             | Constant _ | Vent _ -> None
 
     /// Number of sweeps after which the given schedule repeats, if it
@@ -482,8 +496,8 @@ module Scenario =
                                 } }
                 Schedule =
                     Cycle [|
-                        { Name = Some "cold"; Temperature = 0.3; NumSweeps = 90_000; HydrolysisRate = None }
-                        { Name = Some "hot"; Temperature = 3.0; NumSweeps = 10_000; HydrolysisRate = None }
+                        { Name = Some "cold"; Temperature = 0.3; NumSweeps = 90_000; HydrolysisRate = None; CapPeelBarrier = None }
+                        { Name = Some "hot"; Temperature = 3.0; NumSweeps = 10_000; HydrolysisRate = None; CapPeelBarrier = None }
                     |]
         }
 
@@ -588,8 +602,8 @@ module Scenario =
             Name = if withTemplate then "C" else "C, no template"
             Schedule =
                 Cycle [|
-                    { Name = Some "cold"; Temperature = 0.3; NumSweeps = 200_000; HydrolysisRate = None }   // long enough for nearly every strand to be copied (one-sided pairing)
-                    { Name = Some "hot"; Temperature = 3.0; NumSweeps = 100_000; HydrolysisRate = None }
+                    { Name = Some "cold"; Temperature = 0.3; NumSweeps = 200_000; HydrolysisRate = None; CapPeelBarrier = None }   // long enough for nearly every strand to be copied (one-sided pairing)
+                    { Name = Some "hot"; Temperature = 3.0; NumSweeps = 100_000; HydrolysisRate = None; CapPeelBarrier = None }
                 |] }
             |> withStrongBarrier 40
             |> withHydrolysisRate 0.0
@@ -771,18 +785,23 @@ module Run =
         Schedule.getTemperature run.NumSweeps run.Schedule |> fst
 
     /// The given run's parameters with the given temperature, and with
-    /// the hydrolysis rate its schedule sets now, if any.
+    /// the hydrolysis rate and cap peel barrier its schedule sets now,
+    /// if any.
     let private getParametersWith getTemp run =
         let parms =
             { run.Scenario.Parameters with GetTemperature = getTemp }
-        match Schedule.tryGetHydrolysisRate run.NumSweeps run.Schedule with
-            | Some rate ->
-                let strongParms =
-                    { parms.BondTypeParameterMap[Strong] with
-                        HydrolysisRate = rate }
-                { parms with
-                    BondTypeParameterMap =
-                        BondTypeParameterMap.add Strong strongParms parms.BondTypeParameterMap }
+        let parms =
+            match Schedule.tryGetHydrolysisRate run.NumSweeps run.Schedule with
+                | Some rate ->
+                    let strongParms =
+                        { parms.BondTypeParameterMap[Strong] with
+                            HydrolysisRate = rate }
+                    { parms with
+                        BondTypeParameterMap =
+                            BondTypeParameterMap.add Strong strongParms parms.BondTypeParameterMap }
+                | None -> parms
+        match Schedule.tryGetCapPeelBarrier run.NumSweeps run.Schedule with
+            | Some barrier -> { parms with CapPeelBarrier = barrier }
             | None -> parms
 
     /// Current parameters of the given run, including its temperature

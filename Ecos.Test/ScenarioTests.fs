@@ -25,8 +25,8 @@ module ScenarioTests =
         { Scenario.createScenarioB true with
             Schedule =
                 Cycle [|
-                    { Name = Some "cold"; Temperature = 0.3; NumSweeps = 70; HydrolysisRate = None }
-                    { Name = Some "hot"; Temperature = 3.0; NumSweeps = 30; HydrolysisRate = None }
+                    { Name = Some "cold"; Temperature = 0.3; NumSweeps = 70; HydrolysisRate = None; CapPeelBarrier = None }
+                    { Name = Some "hot"; Temperature = 3.0; NumSweeps = 30; HydrolysisRate = None; CapPeelBarrier = None }
                 |] }
 
     [<Fact>]
@@ -47,8 +47,8 @@ module ScenarioTests =
     let ``A schedule gives each phase's temperature and the time left in it`` () =
         let schedule =
             Cycle [|
-                { Name = None; Temperature = 1.0; NumSweeps = 3; HydrolysisRate = None }
-                { Name = None; Temperature = 2.0; NumSweeps = 2; HydrolysisRate = None }
+                { Name = None; Temperature = 1.0; NumSweeps = 3; HydrolysisRate = None; CapPeelBarrier = None }
+                { Name = None; Temperature = 2.0; NumSweeps = 2; HydrolysisRate = None; CapPeelBarrier = None }
             |]
         let expected =
             [
@@ -189,8 +189,8 @@ module ScenarioTests =
     /// scenario's own rate.
     let private stressCycle rate =
         Cycle [|
-            { Name = Some "feast"; Temperature = 0.3; NumSweeps = 10; HydrolysisRate = None }
-            { Name = Some "stress"; Temperature = 0.5; NumSweeps = 5; HydrolysisRate = Some rate }
+            { Name = Some "feast"; Temperature = 0.3; NumSweeps = 10; HydrolysisRate = None; CapPeelBarrier = None }
+            { Name = Some "stress"; Temperature = 0.5; NumSweeps = 5; HydrolysisRate = Some rate; CapPeelBarrier = None }
         |]
 
     [<Fact>]
@@ -228,6 +228,39 @@ module ScenarioTests =
         let run = { Run.advance 10 run with Schedule = Constant 0.5 }
         Assert.Equal(1e-6, (strong (Run.getParameters run)).HydrolysisRate)
 
+    /// A cycle whose stress phase peels unprotected caps with the given
+    /// barrier, between phases that use the scenario's own barrier.
+    let private capPeelCycle barrier =
+        Cycle [|
+            { Name = Some "feast"; Temperature = 0.3; NumSweeps = 10; HydrolysisRate = None; CapPeelBarrier = None }
+            { Name = Some "stress"; Temperature = 0.5; NumSweeps = 5; HydrolysisRate = None; CapPeelBarrier = Some barrier }
+        |]
+
+    [<Fact>]
+    let ``A schedule gives each phase's cap peel barrier, if it sets one`` () =
+        let schedule = capPeelCycle 2.0
+        Assert.Equal(None, Schedule.tryGetCapPeelBarrier 9 schedule)
+        Assert.Equal(Some 2.0, Schedule.tryGetCapPeelBarrier 10 schedule)
+        Assert.Equal(Some 2.0, Schedule.tryGetCapPeelBarrier 14 schedule)
+        Assert.Equal(None, Schedule.tryGetCapPeelBarrier 15 schedule)   // the cycle starts again
+        Assert.Equal(None, Schedule.tryGetCapPeelBarrier 0 (Constant 1.0))
+        Assert.Equal(None, Schedule.tryGetCapPeelBarrier 10 (stressCycle 1e-4))   // sets only hydrolysis
+
+    [<Fact>]
+    let ``A run's stress phase sets only the cap peel barrier`` () =
+        let scenario =
+            { shortCycle with Schedule = capPeelCycle 2.0 }
+                |> Scenario.withHydrolysisRate 1e-6
+        let run = Run.create 0 scenario
+        let before = Run.getParameters run
+        Assert.Equal(scenario.Parameters.CapPeelBarrier, before.CapPeelBarrier)
+        let during = Run.getParameters (Run.advance 10 run)
+        Assert.Equal(2.0, during.CapPeelBarrier)
+        Assert.Equal(scenario.Parameters.PeelBarrier, during.PeelBarrier)
+        Assert.Equal(scenario.Parameters.BondTypeParameterMap[Strong], during.BondTypeParameterMap[Strong])
+        let after = Run.getParameters (Run.advance 15 run)
+        Assert.Equal(scenario.Parameters.CapPeelBarrier, after.CapPeelBarrier)
+
     [<Fact>]
     let ``A run reports its phase's name and hydrolysis rate`` () =
         let scenario =
@@ -244,7 +277,7 @@ module ScenarioTests =
 
             // an unnamed phase, and a schedule without phases
         let unnamed =
-            Cycle [| { Name = None; Temperature = 1.0; NumSweeps = 1; HydrolysisRate = None } |]
+            Cycle [| { Name = None; Temperature = 1.0; NumSweeps = 1; HydrolysisRate = None; CapPeelBarrier = None } |]
         Assert.Equal(None, Schedule.tryGetPhaseName 0 unnamed)
         let run = { run with Schedule = Constant 0.5 }
         Assert.Equal(None, Run.tryGetPhaseName run)
@@ -262,8 +295,8 @@ module ScenarioTests =
                     Array.empty
                 Schedule =   // a stress phase long enough for many attempts to break each bond
                     Cycle [|
-                        { Name = None; Temperature = 0.3; NumSweeps = 10; HydrolysisRate = None }
-                        { Name = None; Temperature = 0.5; NumSweeps = 1000; HydrolysisRate = Some 1.0 }
+                        { Name = None; Temperature = 0.3; NumSweeps = 10; HydrolysisRate = None; CapPeelBarrier = None }
+                        { Name = None; Temperature = 0.5; NumSweeps = 1000; HydrolysisRate = Some 1.0; CapPeelBarrier = None }
                     |] }
                 |> Scenario.withHydrolysisRate 0.0
         let nStrongBonds (run : Run) =

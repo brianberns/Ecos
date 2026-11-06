@@ -19,13 +19,18 @@ open Ecos.Experiment.Experiment3
 /// equal numbers of the hinged hairpin-former and of a non-former made
 /// of the same atoms, with the same hinge in the same place, in an order
 /// that can't fold. Nothing is added or removed: food is what the world
-/// starts with, and what hydrolysis frees. The world goes through cycles
-/// of:
+/// starts with, and what the death of strands frees. The world goes
+/// through cycles of:
 ///
-/// - a feast: cold, for copying, with no hydrolysis;
-/// - stress: just as cold, with hydrolysis of unprotected strong bonds;
-///   protected ones never hydrolyze;
-/// - a melt: hot, so that duplexes and hairpins come apart.
+/// - a feast: cold, for copying;
+/// - stress: just as cold, but caps peel off unless a stack protects
+///   them, as it does in a duplex or a folded hairpin;
+/// - a melt: hot, so that duplexes and hairpins come apart, and strands
+///   that lost a cap peel away from their exposed ends.
+///
+/// Nothing hydrolyzes. (In an earlier version of this experiment, stress
+/// hydrolyzed unprotected bonds anywhere along a strand, which cut
+/// strands into fragments that then multiplied on their own.)
 ///
 /// The idea: early on, food is plentiful, and both kinds are copied, so
 /// both are paired, and protected, through the stress. Later, the
@@ -33,21 +38,22 @@ open Ecos.Experiment.Experiment3
 /// melt can't be copied. A non-former is then left single and exposed,
 /// while a hairpin-former can fold and protect itself.
 ///
-/// A control has no hydrolysis in the stress phase either. A run and its
-/// control use the same seed, so they are the same until the first bond
-/// hydrolyzes.
+/// A control has no cap peeling in the stress phase either. A run and
+/// its control use the same seed, so they are the same until the first
+/// cap peels.
 ///
 /// Copies slip, so chains are counted by family: each counted chain is
 /// in the family of the seed it is nearest to (by edit distance, read
-/// either way, against each kind and its copy).
+/// either way, against each kind and its copy), if it is near enough.
+/// Others are counted as other.
 module Experiment26 =
 
     /// A variant of the experiment.
     type Variant =
         {
-            /// Rate of hydrolysis of unprotected strong bonds during the
-            /// stress phase.
-            StressHydrolysisRate : float
+            /// Barrier to peeling caps that aren't protected by a stack
+            /// during the stress phase. Infinity means none peel.
+            StressCapPeelBarrier : float
         }
 
     /// Settings for the experiment.
@@ -70,6 +76,11 @@ module Experiment26 =
             /// Shortest capped chain counted in either family. Shorter
             /// ones are counted as other.
             MinLength : int
+
+            /// Greatest edit distance at which a chain is counted in a
+            /// family. Chains farther from both are counted as other.
+            MaxEditDistance : int
+
 
             /// Shortest hairpin stem that makes a chain foldable.
             MinStem : int
@@ -128,15 +139,16 @@ module Experiment26 =
             NumSeeds = 2
             NumFoodMax = 120
             MinLength = 10
+            MaxEditDistance = 4
             MinStem = 6
             MinFoldedStem = 4
-            Feast = { Name = Some "feast"; Temperature = 0.3; NumSweeps = 200_000; HydrolysisRate = None }
-            Stress = { Name = Some "stress"; Temperature = 0.3; NumSweeps = 50_000; HydrolysisRate = None }
-            Melt = { Name = Some "melt"; Temperature = 3.0; NumSweeps = 100_000; HydrolysisRate = None }
+            Feast = { Name = Some "feast"; Temperature = 0.3; NumSweeps = 200_000; HydrolysisRate = None; CapPeelBarrier = None }
+            Stress = { Name = Some "stress"; Temperature = 0.3; NumSweeps = 50_000; HydrolysisRate = None; CapPeelBarrier = None }
+            Melt = { Name = Some "melt"; Temperature = 3.0; NumSweeps = 100_000; HydrolysisRate = None; CapPeelBarrier = None }
             Variants =
                 [|
-                    { StressHydrolysisRate = 0.0 }   // control
-                    { StressHydrolysisRate = 1.4e-4 }   // experiment 23's: 2.8e-4 cut half of folded strands too
+                    { StressCapPeelBarrier = Double.PositiveInfinity }   // control
+                    { StressCapPeelBarrier = 2.0 }
                 |]
             NumRuns = 16
             NumCycles = 24
@@ -160,7 +172,7 @@ module Experiment26 =
     /// single chamber with no walls, seeded with the settings' number of
     /// strands of each kind at random places, and then free atoms
     /// anywhere. Its schedule is the cycle, with the variant's
-    /// hydrolysis in the stress phase; protected bonds never hydrolyze.
+    /// cap peeling in the stress phase. Nothing hydrolyzes.
     let getScenario settings variant =
         let former = getHairpinFormer settings
         assert(settings.NonFormer.Length = former.Length)
@@ -181,14 +193,14 @@ module Experiment26 =
             world, hairpinFormers
         let scenario =
             Experiment24.getScenario settings.Base settings.Base.BendStiffnesses[0]
-                |> Scenario.withProtectedHydrolysisRate 0.0
+                |> Scenario.withHydrolysisRate 0.0
         { scenario with
-            Name = $"Folding in a famine, with a hinge, stress hydrolysis {variant.StressHydrolysisRate}"
+            Name = $"Folding in a famine, with a hinge, stress cap peel barrier {variant.StressCapPeelBarrier}"
             Build = build
             Schedule =
                 Cycle [|
                     settings.Feast
-                    { settings.Stress with HydrolysisRate = Some variant.StressHydrolysisRate }
+                    { settings.Stress with CapPeelBarrier = Some variant.StressCapPeelBarrier }
                     settings.Melt
                 |] }
 
@@ -234,15 +246,16 @@ module Experiment26 =
         |]
 
     /// Family of the chain with the given sequence, as text: the one
-    /// with the nearest sequence, if just one is nearest.
-    let private tryGetFamily familyTexts (text : string) =
+    /// with the nearest sequence, if just one is nearest and it is
+    /// within the given edit distance.
+    let private tryGetFamily maxDistance familyTexts (text : string) =
         let distances =
             familyTexts
                 |> Array.map (fun (family, texts) ->
                     family, texts |> Array.map (getEditDistance text) |> Array.min)
         let best = distances |> Array.map snd |> Array.min
         match distances |> Array.where (snd >> (=) best) with
-            | [| family, _ |] -> Some family
+            | [| family, _ |] when best <= maxDistance -> Some family
             | _ -> None
 
     /// Sequence of the given chain, as text.
@@ -281,6 +294,10 @@ module Experiment26 =
             /// Number of its strong bonds that are not protected from
             /// hydrolysis.
             NumExposed : int
+
+            /// Number of its caps whose bonds are not protected by a
+            /// stack, so that they can peel under stress (0 to 2).
+            NumExposedCaps : int
         }
 
     /// Census of the capped chains of a world.
@@ -308,7 +325,7 @@ module Experiment26 =
                 |> Array.where (fun strand -> strand.AtomIds.Length >= settings.MinLength)
                 |> Array.choose (fun strand ->
                     let ids = strand.AtomIds
-                    tryGetFamily familyTexts (getText world ids)
+                    tryGetFamily settings.MaxEditDistance familyTexts (getText world ids)
                         |> Option.map (fun family ->
                             let atoms = set ids
                             let partners =
@@ -339,6 +356,12 @@ module Experiment26 =
                                     |> Seq.where (fun (a, b) ->
                                         not (World.isProtected world.Atoms[a] world.Atoms[b] world))
                                     |> Seq.length
+                            let numExposedCaps =
+                                let n = ids.Length
+                                [ ids[0], ids[1]; ids[n - 1], ids[n - 2] ]
+                                    |> List.where (fun (a, b) ->
+                                        not (World.isProtected world.Atoms[a] world.Atoms[b] world))
+                                    |> List.length
                             let types = ids |> Array.map (fun id -> world.Atoms[id].Type)
                             {
                                 AtomIds = ids
@@ -346,6 +369,7 @@ module Experiment26 =
                                 IsFoldable = Experiment16.getMaxStem types >= settings.MinStem
                                 State = state
                                 NumExposed = numExposed
+                                NumExposedCaps = numExposedCaps
                             }))
         let food =
             let isFree (atom : Atom) = Set.isEmpty (BondMap.getBonds atom.Id strong)
@@ -447,11 +471,11 @@ module Experiment26 =
             settings.NumRuns settings.NumCycles settings.NumSeeds worldSize worldSize
         printfn "Free atoms: %s; nothing is added or removed"
             (getFoodSupply settings |> Array.map (fun (t, n) -> $"{n} {t}") |> String.concat ", ")
-        printfn "Capped chains of %d atoms or more are counted by family: that of the nearest sequence (edit distance) among each kind and its copy, read either way"
-            settings.MinLength
+        printfn "Capped chains of %d atoms or more are counted by family: that of the nearest sequence (edit distance %d or less) among each kind and its copy, read either way"
+            settings.MinLength settings.MaxEditDistance
         printfn "Each cycle: feast %s; stress %s; melt %s"
             (phaseText settings.Feast) (phaseText settings.Stress) (phaseText settings.Melt)
-        printfn "Hydrolysis only under stress, of unprotected strong bonds; protected ones never hydrolyze"
+        printfn "No hydrolysis. Under stress, caps not protected by a stack peel; in the melt, exposed ends peel"
         printParameters (getScenario settings settings.Variants[0]).Parameters
         printfn ""
 
@@ -470,7 +494,7 @@ module Experiment26 =
                 |> Map
 
         use writer = new StreamWriter(csvPath)
-        writer.WriteLine("stress_hydrolysis,seed,cycle,food,fed_hairpins,fed_non_formers,fed_foldable_hairpins,hairpins_copied,hairpins_folded,hairpins_single,non_formers_copied,non_formers_folded,non_formers_single,stressed_hairpins,stressed_non_formers,others")
+        writer.WriteLine("stress_cap_peel_barrier,seed,cycle,food,fed_hairpins,fed_non_formers,fed_foldable_hairpins,hairpins_copied,hairpins_folded,hairpins_single,non_formers_copied,non_formers_folded,non_formers_single,stressed_hairpins,stressed_non_formers,others")
         let invariant (x : float) = x.ToString(Globalization.CultureInfo.InvariantCulture)
         let familyName = function HairpinFamily -> "hairpin" | NonFormerFamily -> "non-former"
         let stateName = function Copied -> "copied" | Folded -> "folded" | Single -> "single"
@@ -485,7 +509,7 @@ module Experiment26 =
                     let c = runs[seed].Cycles[iCycle]
                     writer.WriteLine(
                         String.Join(",",
-                            [ invariant variant.StressHydrolysisRate; string seed; string (iCycle + 1)
+                            [ invariant variant.StressCapPeelBarrier; string seed; string (iCycle + 1)
                               invariant c.Fed.Food
                               string (count HairpinFamily c.Fed); string (count NonFormerFamily c.Fed)
                               string (c.Fed.Chains |> Array.where (fun ch -> ch.Family = HairpinFamily && ch.IsFoldable) |> Array.length)
@@ -496,7 +520,7 @@ module Experiment26 =
                               string c.Stressed.Others ]))
 
             printfn ""
-            printfn "Stress hydrolysis %g" variant.StressHydrolysisRate
+            printfn "Stress cap peel barrier %g" variant.StressCapPeelBarrier
             printfn "        |------------------------- after the feast -------------------------|   |-- after the stress --|"
             printfn "cycle    food   hairpin / non   copied folded single   copied folded single   hairpin / non   share   other"
             printfn "                                |-- hairpin family --|   |-- non-formers ---|"
@@ -519,7 +543,7 @@ module Experiment26 =
                 // each half of the run (plenty, then want)
             let half = settings.NumCycles / 2
             for name, cycles in [ "first", [| 0 .. half - 1 |]; "second", [| half .. settings.NumCycles - 1 |] ] do
-                printfn "Survival through the stress, %s half (cycles %d-%d; unprotected strong bonds per chain at the end of the feast):"
+                printfn "Survival through the stress, %s half (cycles %d-%d; unprotected caps per chain at the end of the feast):"
                     name (cycles[0] + 1) (Array.last cycles + 1)
                 for family in families do
                     let cells =
@@ -534,10 +558,10 @@ module Experiment26 =
                             let nSurvived = pairs |> Array.where snd |> Array.length
                             if pairs.Length = 0 then sprintf "%s -" (stateName state)
                             else
-                                sprintf "%s %d/%d = %.2f (%.1f exposed)"
+                                sprintf "%s %d/%d = %.2f (%.2f exposed caps)"
                                     (stateName state) nSurvived pairs.Length
                                     (float nSurvived / float pairs.Length)
-                                    (pairs |> Array.averageBy (fun (ch, _) -> float ch.NumExposed)))
+                                    (pairs |> Array.averageBy (fun (ch, _) -> float ch.NumExposedCaps)))
                     printfn "   %-11s %s" (familyName family) (String.Join("; ", cells))
 
                 // at the end, per run
@@ -582,13 +606,24 @@ module Experiment26 =
                     sequences
                         |> Array.where (fun text ->
                             text.Length >= settings.MinLength
-                                && tryGetFamily familyTexts text = Some family)
+                                && tryGetFamily settings.MaxEditDistance familyTexts text = Some family)
                         |> Array.countBy id
                         |> Array.sortByDescending snd
                         |> Array.truncate settings.NumCommonSequences
                 printfn "   %s family:" (familyName family)
                 for text, n in common do
                     printfn "      %4d  %2d atoms  %s" n text.Length text
+            let others =
+                sequences
+                    |> Array.where (fun text ->
+                        text.Length < settings.MinLength
+                            || tryGetFamily settings.MaxEditDistance familyTexts text = None)
+                    |> Array.countBy id
+                    |> Array.sortByDescending snd
+                    |> Array.truncate settings.NumCommonSequences
+            printfn "   other:"
+            for text, n in others do
+                printfn "      %4d  %2d atoms  %s" n text.Length text
 
         printfn ""
         printfn "food: free W and X atoms (no strong bonds), per type, per run. hairpin, non: capped chains of"
@@ -596,5 +631,5 @@ module Experiment26 =
         printfn "   folded: not copied, but a run of at least %d atoms paired within it; single: neither."
             (2 * settings.MinFoldedStem)
         printfn "share: hairpins / (hairpins + non-formers) after the stress, from the averages."
-        printfn "other: other capped chains (shorter, or as near to either family), after the stress."
+        printfn "other: other capped chains (shorter, too far from both families, or as near to either), after the stress."
         printfn "Results written to %s" (Path.GetFullPath csvPath)

@@ -124,9 +124,9 @@ module Experiment23 =
             MinStem = 6
             MinFoldedStem = 4
             BendStiffness = 0.5
-            Feast = { Name = Some "feast"; Temperature = 0.3; NumSweeps = 200_000; HydrolysisRate = None }
-            Stress = { Name = Some "stress"; Temperature = 0.3; NumSweeps = 50_000; HydrolysisRate = None }
-            Melt = { Name = Some "melt"; Temperature = 3.0; NumSweeps = 100_000; HydrolysisRate = None }
+            Feast = { Name = Some "feast"; Temperature = 0.3; NumSweeps = 200_000; HydrolysisRate = None; CapPeelBarrier = None }
+            Stress = { Name = Some "stress"; Temperature = 0.3; NumSweeps = 50_000; HydrolysisRate = None; CapPeelBarrier = None }
+            Melt = { Name = Some "melt"; Temperature = 3.0; NumSweeps = 100_000; HydrolysisRate = None; CapPeelBarrier = None }
             Variants =
                 [|
                     { StressHydrolysisRate = 0.0 }   // control
