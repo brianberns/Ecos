@@ -450,6 +450,7 @@ module Scenario =
                             }
                         ] |> BondTypeParameterMap.ofMap
                     PeelBarrier = 6
+                    CapPeelBarrier = Double.PositiveInfinity
                 }
             Schedule = Constant 0.25
         }

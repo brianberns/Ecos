@@ -55,6 +55,7 @@ module TestParameters =
                     Weak, bondTypeParms anyBend
                 ] |> BondTypeParameterMap.ofMap
             PeelBarrier = System.Double.PositiveInfinity
+            CapPeelBarrier = System.Double.PositiveInfinity
         }
 
     /// The given parameters, with the given bond type's changed by the
