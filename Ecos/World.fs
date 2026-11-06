@@ -452,8 +452,8 @@ module World =
 
     /// Determines whether to peel the given bond.
     let private testPeel
-        (rng : Random) parms temp behavior atomA atomB bondMap =
-        if behavior.TestPeel atomA atomB bondMap then
+        (rng : Random) parms temp behavior bondTypeMap bondMap atomA atomB =
+        if behavior.TestPeel bondTypeMap bondMap atomA atomB then
             rng.NextDouble() <= exp (-parms.PeelBarrier / temp)
         else false
 
@@ -532,12 +532,13 @@ module World =
                 startBarrier
                 nStacks
         if BondMap.areBonded atomA.Id atomB.Id bondMap then
+            let bondTypeMap = world.BondTypeMap
             if testBond bondTypeParms.Entropy bondEnergy
                 || testPeel
-                    rng parms temp behavior bondMap atomA atomB
+                    rng parms temp behavior bondTypeMap bondMap atomA atomB
                 || testHydrolysis
                     rng bondTypeParms behavior
-                    world.BondTypeMap atomA atomB then
+                    bondTypeMap atomA atomB then
                 tryBreakBond bondType atomA atomB world
                     |> Option.map (fun world ->
                         let event =

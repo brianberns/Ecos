@@ -49,7 +49,7 @@ type private BondBehavior =
 
         /// Determines whether the given bond of this type can
         /// peel.
-        TestPeel : BondMap -> Atom -> Atom -> bool
+        TestPeel : BondTypeMap -> BondMap -> Atom -> Atom -> bool
 
         /// Determines whether the given bond of this type is
         /// protected from normal hydrolysis.
@@ -166,7 +166,7 @@ module private StrongBond =
             |> Seq.length
 
     /// Strands can peel at their ends.
-    let testPeel bondMap atomA atomB =
+    let testPeel bondTypeMap bondMap atomA atomB =
         assert(BondMap.areBonded atomA.Id atomB.Id bondMap)
 
         let isExposed atom =
@@ -257,7 +257,7 @@ module private WeakBond =
         true
 
     /// Weak bonds never peel.
-    let testPeel _bondMap _atomA _atomB =
+    let testPeel _bondTypeMap _bondMap _atomA _atomB =
         false
 
     /// Weak bonds need no hydrolysis protection.
