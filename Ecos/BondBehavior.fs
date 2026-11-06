@@ -256,21 +256,25 @@ module private WeakBond =
     ///          ┆    |
     ///       ══ B ══ B'
     let countStacks (bondTypeMap : BondTypeMap) atomA atomB =
+
         let strongBondMap = bondTypeMap[Strong]
         let weakBondMap = bondTypeMap[Weak]
         let bPrimes = BondMap.getBonds atomB.Id strongBondMap
+
+        /// Is there an X in the set of Ys?
+        let containsAny xs ys =
+            Seq.exists (fun x -> Set.contains x ys) xs
+
         BondMap.getBonds atomA.Id strongBondMap
             |> Seq.where (fun idA' ->
 
                     // ordinary weak-bond stack: A' is weak-bonded to B', which is strong-bonded to B
                 BondMap.getBonds idA' weakBondMap
-                    |> Seq.exists (fun idB' ->
-                        bPrimes.Contains(idB'))
+                    |> containsAny bPrimes
 
                     // tight strong-bond stack: A' is strong-bonded to B', which is strong-bonded to B
                     || BondMap.getBonds idA' strongBondMap
-                        |> Seq.exists (fun idB' ->
-                            bPrimes.Contains(idB')))
+                        |> containsAny bPrimes)
             |> Seq.length
 
     /// Weak bonds can't bend, because they can't form a chain.
