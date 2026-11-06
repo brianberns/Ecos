@@ -168,13 +168,13 @@ module ControlPanel =
                 | _ -> ()
         ]
 
-    let private renderHydrolysisRate run =
+    let private renderCapPeelBarrier run =
         StackPanel.create [
             StackPanel.dock Dock.Top
             StackPanel.orientation Orientation.Horizontal
             StackPanel.children [
-                renderLabel "Hydrolysis rate:" labelColumnWidth
-                renderLabel $"{Run.getHydrolysisRate run}" valueColumnWidth
+                renderLabel "Cap peel barrier:" labelColumnWidth
+                renderLabel $"{(Run.getParameters run).CapPeelBarrier}" valueColumnWidth
             ]
         ]
 
@@ -279,7 +279,7 @@ module ControlPanel =
                 renderFrameRate model.FrameRate
                 renderIsRecording model.IsRecording dispatch
                 renderTemperature model.Run dispatch
-                renderHydrolysisRate model.Run
+                renderCapPeelBarrier model.Run
                 renderSpeed model.Speed dispatch
                 renderSeed model.Seed dispatch
                 renderButtons model dispatch

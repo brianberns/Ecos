@@ -62,27 +62,27 @@ module WorldView =
 
     let private coldColor = toUnicolour Colors.LightBlue
     let private hotColor = toUnicolour Colors.Red
-    let private hydrolysisColor = toUnicolour Colors.Yellow
+    let private stressColor = toUnicolour Colors.Yellow
 
-    /// Hydrolysis rates shown, on a log scale: at or below the lowest,
-    /// a positive rate gets the faintest tint; at or above the highest,
-    /// the strongest.
-    let private minHydRate, maxHydRate = 1e-6, 1e-3
+    /// Cap peel barriers shown: at or above the highest, a finite
+    /// barrier gets the faintest tint; at or below the lowest, the
+    /// strongest. An infinite barrier (no cap peeling) gets none.
+    let private minCapPeelBarrier, maxCapPeelBarrier = 1.0, 4.0
 
-    /// Faintest and strongest yellow tints, so that any hydrolysis
+    /// Faintest and strongest yellow tints, so that any cap peeling
     /// shows, but the temperature still shows through.
-    let private minHydTint, maxHydTint = 0.15, 0.6
+    let private minStressTint, maxStressTint = 0.15, 0.6
 
-    /// Amount of yellow to mix in for the given hydrolysis rate.
-    let private getHydrolysisTint hydRate =
-        if hydRate <= 0.0 then 0.0
+    /// Amount of yellow to mix in for the given cap peel barrier.
+    let private getStressTint capPeelBarrier =
+        if Double.IsPositiveInfinity capPeelBarrier then 0.0
         else
             let x =
-                (log10 hydRate - log10 minHydRate)
-                    / (log10 maxHydRate - log10 minHydRate)
-            minHydTint + (maxHydTint - minHydTint) * Math.Clamp(x, 0.0, 1.0)
+                (maxCapPeelBarrier - capPeelBarrier)
+                    / (maxCapPeelBarrier - minCapPeelBarrier)
+            minStressTint + (maxStressTint - minStressTint) * Math.Clamp(x, 0.0, 1.0)
 
-    let private getColor temp hydRate =
+    let private getColor temp capPeelBarrier =
         let distance =
             (temp - float ControlPanel.minTemperature)
                 / float (
@@ -90,7 +90,7 @@ module WorldView =
                         - ControlPanel.minTemperature)
         coldColor
             .Mix(hotColor, ColourSpace.Oklab, distance)
-            .Mix(hydrolysisColor, ColourSpace.Oklab, getHydrolysisTint hydRate)
+            .Mix(stressColor, ColourSpace.Oklab, getStressTint capPeelBarrier)
             |> toColor
 
     let private renderEnvironment model =
@@ -107,8 +107,8 @@ module WorldView =
                     let center = Point.create (x + width / 2, y + height / 2)
 
                     let temp = Run.getTemperature model.Run center
-                    let hydRate = Run.getHydrolysisRate model.Run
-                    getColor temp hydRate
+                    let capPeelBarrier = (Run.getParameters model.Run).CapPeelBarrier
+                    getColor temp capPeelBarrier
                         |> renderRectangle corner size
         ]
 
