@@ -153,8 +153,6 @@ module private StrongBond =
     ///    A' ═══ B'   ══ strong bond
     ///    ┆      ┆    ┆  weak bond
     ///    A  ═?═ B
-    ///    ┆      ┆
-    ///    A' ═══ B'
     let countStacks (bondTypeMap : BondTypeMap) atomA atomB =
         let strongBondMap = bondTypeMap[Strong]
         let weakBondMap = bondTypeMap[Weak]
