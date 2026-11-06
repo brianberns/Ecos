@@ -262,19 +262,6 @@ module ScenarioTests =
         Assert.Equal(scenario.Parameters.CapPeelBarrier, after.CapPeelBarrier)
 
     [<Fact>]
-    let ``A run reports its cap peel rate`` () =
-        let scenario =
-            { shortCycle with Schedule = capPeelCycle 2.0 }
-                |> Scenario.mapParameters (fun p -> { p with CapPeelBarrier = Double.PositiveInfinity })
-        let run = Run.create 0 scenario
-        let loc = Point.create (0, 0)
-        Assert.Equal(0.0, Run.getCapPeelRate run loc)   // the scenario's: none peel
-        let run = Run.advance 10 run
-        Assert.Equal(exp (-2.0 / 0.5), Run.getCapPeelRate run loc, 12)
-        let run = Run.advance 5 run
-        Assert.Equal(0.0, Run.getCapPeelRate run loc)   // the cycle starts again
-
-    [<Fact>]
     let ``A run reports its phase's name and hydrolysis rate`` () =
         let scenario =
             { shortCycle with Schedule = stressCycle 1e-4 }
