@@ -815,14 +815,6 @@ module Run =
     let getHydrolysisRate run =
         (getParameters run).BondTypeParameterMap[Strong].HydrolysisRate
 
-    /// Current probability per sweep that a cap not protected by a stack
-    /// peels at the given location in the given run: exp(-barrier/kT),
-    /// using its schedule's cap peel barrier, if the current phase sets
-    /// one, otherwise its scenario's. (Zero if the barrier is infinite.)
-    let getCapPeelRate run location =
-        let barrier = (getParameters run).CapPeelBarrier
-        exp (-barrier / getTemperature run location)
-
     /// Name of the given run's current phase, if it has one.
     let tryGetPhaseName run =
         Schedule.tryGetPhaseName run.NumSweeps run.Schedule
