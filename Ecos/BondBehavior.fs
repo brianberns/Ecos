@@ -269,7 +269,8 @@ module private WeakBond =
 
                     // tight strong-bond stack: A' is strong-bonded to B', which is strong-bonded to B
                     || BondMap.getBonds idA' strongBondMap
-                        |> Seq.exists bPrimes.Contains)
+                        |> Seq.exists (fun idB' ->
+                            bPrimes.Contains(idB')))
             |> Seq.length
 
     /// Weak bonds can't bend, because they can't form a chain.
