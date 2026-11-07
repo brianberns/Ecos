@@ -160,13 +160,15 @@ module private StrongBond =
     ///    A' ═══ B'   ══ strong bond
     ///    ┆      ┆    ┆  weak bond
     ///    A  ═?═ B
+    ///    ┆      ┆
+    ///    A' ═══ B'
     ///
-    /// Strong-bond loop where this bond is on the side:
+    /// Strong-bond loop where this bond is on the side (counts as one stack):
     ///    A' ═══ B'   ══ strong bond
     ///    ┆      |    |  strong bond
     ///    A  ═?═ B    ┆  weak bond
     ///
-    /// Strong-bond loop where this bond is the hinge:
+    /// Strong-bond loop where this bond is the hinge (counts as one stack):
     ///    A' --- B'   ══ strong bond
     ///    |      |    |  strong bond
     ///    A  ═?═ B    -- weak bond
@@ -185,7 +187,7 @@ module private StrongBond =
                     getStrongBonds >> BondBehavior.containsAny bPrimes)
                 |> Seq.length
 
-            // A is weak-bonded to A', which is strong-bonded to B', which is strong-bonded to B
+            // strong-bond loop: A is weak-bonded to A', which is strong-bonded to B', which is strong-bonded to B
         let countSide idA idB =
             let bPrimes = getStrongBonds idB
             getWeakBonds idA
@@ -195,6 +197,7 @@ module private StrongBond =
                         |> BondBehavior.containsAny bPrimes)
                 |> Seq.length
 
+            // strong-bond loop: A is strong-bonded to A', which is weak-bonded to B', which is strong bonded to B
         let nTurns =
             let bPrimes = getStrongBonds atomB.Id
             getStrongBonds atomA.Id
