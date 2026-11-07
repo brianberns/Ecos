@@ -103,7 +103,7 @@ module View =
             | Some msg ->
                 TextBlock.create [
                     TextBlock.text $"Can't build this spec: {msg}. Showing the last one that could be built."
-                    TextBlock.foreground Brushes.DarkRed
+                    TextBlock.foreground warningBrush
                     TextBlock.textWrapping TextWrapping.Wrap
                     TextBlock.margin margin
                 ] :> IView
@@ -157,8 +157,8 @@ module View =
                 Border.create [
                     Border.dock Dock.Left
                     Border.width 520.0
-                    Border.background (SolidColorBrush(Color.Parse("#F3F3F3")))
-                    Border.borderBrush Brushes.LightGray
+                    Border.background panelBrush
+                    Border.borderBrush lineBrush
                     Border.borderThickness (Thickness(0.0, 0.0, 1.0, 0.0))
                     Border.child (
                         DockPanel.create [

@@ -28,8 +28,19 @@ module Fields =
     /// Space around controls.
     let margin = Avalonia.Thickness(4.0, 2.0)
 
+    // Colors that read well in both light and dark themes.
+
     /// Muted text, for notes.
-    let noteBrush = Brushes.DimGray
+    let noteBrush : IBrush = SolidColorBrush(Color.Parse("#8A8A8A"))
+
+    /// Text of a warning.
+    let warningBrush : IBrush = SolidColorBrush(Color.Parse("#D84040"))
+
+    /// Faint gray behind a panel, lighter or darker than the window.
+    let panelBrush : IBrush = SolidColorBrush(Color.Parse("#14808080"))
+
+    /// Lines around panels and cards.
+    let lineBrush : IBrush = SolidColorBrush(Color.Parse("#50808080"))
 
     /// Shows the given float, with infinities as "inf".
     let formatFloat (x : float) =
@@ -76,7 +87,7 @@ module Fields =
     let warning (text : string) =
         TextBlock.create [
             TextBlock.text text
-            TextBlock.foreground Brushes.DarkRed
+            TextBlock.foreground warningBrush
             TextBlock.textWrapping TextWrapping.Wrap
             TextBlock.verticalAlignment VerticalAlignment.Center
             TextBlock.margin margin

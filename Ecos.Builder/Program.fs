@@ -19,7 +19,6 @@ type MainWindow() as this =
         this.Title <- "Ecos Scenario Builder"
         this.Width <- 1600.0
         this.Height <- 1000.0
-        this.Background <- Brushes.White
         this.WindowStartupLocation <- WindowStartupLocation.CenterScreen
         let keys (_ : Model) : Sub<Message> =
             let subscribe dispatch =
@@ -44,7 +43,7 @@ type App() =
 
     override this.Initialize() =
         this.Styles.Add (FluentTheme())
-        this.RequestedThemeVariant <- Styling.ThemeVariant.Light
+        this.RequestedThemeVariant <- Styling.ThemeVariant.Default   // follow the system
 
     override this.OnFrameworkInitializationCompleted() =
         match this.ApplicationLifetime with

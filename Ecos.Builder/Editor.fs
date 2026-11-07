@@ -147,7 +147,7 @@ module Editor =
             dispatch (Edit (fun (s : ScenarioSpec) ->
                 { s with Strands = s.Strands |> Array.updateAt index (f s.Strands[index]) }))
         Border.create [
-            Border.borderBrush Brushes.LightGray
+            Border.borderBrush lineBrush
             Border.borderThickness 1.0
             Border.cornerRadius 4.0
             Border.margin (Avalonia.Thickness(4.0, 4.0))
