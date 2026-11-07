@@ -579,26 +579,23 @@ module World =
                 tryToggleBond parms rng bondType atomA atomB world
             | _ -> None
 
-    /// Fraction of updates that attempt to move an atom (aka "hop").
-    let moveAtomRate = 0.5
-
-    /// Fraction of updates that attempt to toggle a strong bond.
-    let toggleStrongBondRate = 0.1
-
-    /// Fraction of updates that attempt to toggle a weak bond.
-    let toggleWeakBondRate = 0.4
-
     /// Attempts to cause an event in the given world without
     /// cloning it.
     let private tryUpdateImpl parms (rng : Random) world =
-        assert(
-            moveAtomRate
-                + toggleStrongBondRate
-                + toggleWeakBondRate = 1.0)
+
+            // normalize event type rates
+        let freqSum =
+            parms.MoveAtomWeight
+                + parms.ToggleStrongBondWeight
+                + parms.ToggleWeakBondWeight
+
+            // choose an event type randomly and try it
         let x = rng.NextDouble()
-        if x <= moveAtomRate then
+        if x <= parms.MoveAtomWeight / freqSum then
             tryUpdateAtom parms rng world
-        elif x <= moveAtomRate + toggleStrongBondRate then
+        elif x <= (
+            parms.MoveAtomWeight
+                + parms.ToggleStrongBondWeight) / freqSum then
             tryUpdateBond parms rng Strong world
         else
             tryUpdateBond parms rng Weak world

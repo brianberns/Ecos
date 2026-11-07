@@ -145,6 +145,17 @@ module BondTypeParameterMap =
 /// Configurable update parameters.
 type Parameters =
     {
+        /// Unnormalized frequency of attempts to move an atom.
+        MoveAtomWeight : float
+
+        /// Unnormalized frequency of attempts to toggle a strong
+        /// bond.
+        ToggleStrongBondWeight : float
+
+        /// Unnormalized frequency of attempts to toggle a weak
+        /// bond.
+        ToggleWeakBondWeight : float
+
         /// Temperature at the given location, scaled by Boltzmann's
         /// constant (kT).
         GetTemperature : Point -> float
