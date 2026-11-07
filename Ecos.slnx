@@ -4,8 +4,6 @@
     <BuildType Name="Profiler" />
     <BuildType Name="Release" />
   </Configurations>
-  <Folder Name="/Avalonia.FuncUI/" />
-  <Folder Name="/Avalonia.FuncUI/src/" />
   <Folder Name="/Solution Items/">
     <File Path="Directory.Build.props" />
     <File Path="README.md" />
