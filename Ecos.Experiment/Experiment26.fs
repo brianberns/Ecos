@@ -82,6 +82,18 @@ module Experiment26 =
             /// Bend stiffness of the hinge atoms (H).
             HingeStiffness : float
 
+            /// Energy of a weak bond (a pair) between atoms with no pair
+            /// energy of their own.
+            PairEnergy : float
+
+            /// Energy of a stack, beyond its pairs' energies.
+            StackEnergy : float
+
+            /// Energy of a weak bond between hinge atoms (H-H), if it has
+            /// one of its own. A higher energy holds free H atoms on a
+            /// hinge long enough to join, so that copies start there.
+            HingePairEnergy : Option<float>
+
             /// Shortest capped chain counted in either family. Shorter
             /// ones are counted as other.
             MinLength : int
@@ -169,6 +181,9 @@ module Experiment26 =
             NumFoodMax = 120
             BendStiffness = Scenario.defaultBendStiffness
             HingeStiffness = Scenario.defaultHingeStiffness
+            PairEnergy = 2.0
+            StackEnergy = 1.0
+            HingePairEnergy = None
             MinLength = 10
             MaxEditDistance = 4
             MinStem = 6
@@ -372,6 +387,16 @@ module Experiment26 =
                 |> Scenario.withBend Strong Bend.rightAngle settings.BendStiffness
                 |> Scenario.withBendStiffness Strong AtomType.H settings.HingeStiffness
                 |> Scenario.withHydrolysisRate 0.0
+                |> Scenario.mapBondTypeParameters Weak (fun parms ->
+                    { parms with Energy = settings.PairEnergy })
+                |> Scenario.mapParameters (fun parms ->
+                    { parms with StackEnergy = settings.StackEnergy })
+        let scenario =
+            match settings.HingePairEnergy with
+                | Some energy ->
+                    scenario
+                        |> Scenario.withPairEnergy Weak AtomType.H AtomType.H energy
+                | None -> scenario
         { scenario with
             Name = $"Folding in a famine, with a hinge, stress cap peel barrier {variant.StressCapPeelBarrier}"
             Build = build
