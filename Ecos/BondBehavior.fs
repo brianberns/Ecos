@@ -58,6 +58,11 @@ type private BondBehavior =
 
 module private BondBehavior =
 
+    /// Is there an X in the set of Ys?
+    let containsAny idsX idsY =
+        Seq.exists (fun (x : AtomId) ->
+            Set.contains x idsY) idsX
+
     /// Determines orientation of the path connecting the given
     /// points (a-b-c):
     /// * Positive: left turn
@@ -148,21 +153,62 @@ module private StrongBond =
         let bonds = BondMap.getBonds atom.Id bondTypeMap[Strong]
         bonds.Count <= valence
 
-    /// Counts stacks affected by the given (existing or 
-    /// proposed) strong bond:
+    /// Counts stacks affected by the given (existing or proposed)
+    /// strong bond. Included scenarios:
+    /// 
+    /// Ordinary weak-bond stacks:
     ///    A' ═══ B'   ══ strong bond
     ///    ┆      ┆    ┆  weak bond
     ///    A  ═?═ B
+    ///
+    /// Strong-bond loop where this bond is on the side:
+    ///    A' ═══ B'   ══ strong bond
+    ///    ┆      |    |  strong bond
+    ///    A  ═?═ B    ┆  weak bond
+    ///
+    /// Strong-bond loop where this bond is the hinge:
+    ///    A' --- B'   ══ strong bond
+    ///    |      |    |  strong bond
+    ///    A  ═?═ B    -- weak bond
     let countStacks (bondTypeMap : BondTypeMap) atomA atomB =
+
         let strongBondMap = bondTypeMap[Strong]
         let weakBondMap = bondTypeMap[Weak]
-        let bPrimes = BondMap.getBonds atomB.Id weakBondMap
-        BondMap.getBonds atomA.Id weakBondMap
-            |> Seq.where (fun idA' ->
-                BondMap.getBonds idA' strongBondMap
-                    |> Seq.exists (fun idB' ->
-                        bPrimes.Contains(idB')))
-            |> Seq.length
+        let getStrongBonds id = BondMap.getBonds id strongBondMap
+        let getWeakBonds id = BondMap.getBonds id weakBondMap
+
+            // ordinary weak-bond stacks: A is weak-bonded to A', which is strong-bonded to B', which is weak-bonded to B
+        let nLadders =
+            let bPrimes = getWeakBonds atomB.Id
+            getWeakBonds atomA.Id
+                |> Seq.where (
+                    getStrongBonds >> BondBehavior.containsAny bPrimes)
+                |> Seq.length
+
+            // A is weak-bonded to A', which is strong-bonded to B', which is strong-bonded to B
+        let countSide idA idB =
+            let bPrimes = getStrongBonds idB
+            getWeakBonds idA
+                |> Seq.where (fun idA' ->
+                    getStrongBonds idA'
+                        |> Set.remove idA
+                        |> BondBehavior.containsAny bPrimes)
+                |> Seq.length
+
+        let nTurns =
+            let bPrimes = getStrongBonds atomB.Id
+            getStrongBonds atomA.Id
+                |> Set.remove atomB.Id
+                |> Seq.sumBy (fun idA' ->
+                    getWeakBonds idA'
+                        |> Set.remove atomA.Id
+                        |> Seq.where bPrimes.Contains
+                        |> Seq.length)
+
+        nLadders
+            + countSide atomA.Id atomB.Id
+            + countSide atomB.Id atomA.Id
+            + nTurns
 
     /// Strands can peel at their ends.
     let testPeel capPeel bondTypeMap bondMap atomA atomB =
@@ -261,20 +307,16 @@ module private WeakBond =
         let weakBondMap = bondTypeMap[Weak]
         let bPrimes = BondMap.getBonds atomB.Id strongBondMap
 
-        /// Is there an X in the set of Ys?
-        let containsAny xs ys =
-            Seq.exists (fun x -> Set.contains x ys) xs
-
         BondMap.getBonds atomA.Id strongBondMap
             |> Seq.where (fun idA' ->
 
                     // ordinary weak-bond stack: A' is weak-bonded to B', which is strong-bonded to B
                 BondMap.getBonds idA' weakBondMap
-                    |> containsAny bPrimes
+                    |> BondBehavior.containsAny bPrimes
 
                     // tight strong-bond stack: A' is strong-bonded to B', which is strong-bonded to B
                     || BondMap.getBonds idA' strongBondMap
-                        |> containsAny bPrimes)
+                        |> BondBehavior.containsAny bPrimes)
             |> Seq.length
 
     /// Weak bonds can't bend, because they can't form a chain.
