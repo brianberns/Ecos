@@ -382,16 +382,21 @@ module PropertyOracles =
         let getProbabilities world =
             let weakForm, weakBreak, strongForm, strongBreak, longForm, longBreak, stackedBreak =
                 toggleProbabilities parms world
+            let total =
+                parms.MoveAtomWeight + parms.ToggleStrongBondWeight + parms.ToggleWeakBondWeight
+            let moveRate = parms.MoveAtomWeight / total
+            let strongRate = parms.ToggleStrongBondWeight / total
+            let weakRate = parms.ToggleWeakBondWeight / total
             [|
-                World.moveAtomRate
+                moveRate
                     * float (validMoves parms world).Length / float (4 * world.Atoms.Length)
-                World.toggleWeakBondRate * weakForm
-                World.toggleWeakBondRate * weakBreak
-                World.toggleStrongBondRate * strongForm
-                World.toggleStrongBondRate * strongBreak
-                World.toggleStrongBondRate * longForm
-                World.toggleStrongBondRate * longBreak
-                World.toggleStrongBondRate * stackedBreak
+                weakRate * weakForm
+                weakRate * weakBreak
+                strongRate * strongForm
+                strongRate * strongBreak
+                strongRate * longForm
+                strongRate * longBreak
+                strongRate * stackedBreak
             |]
 
             // the probabilities depend only on the world, so they're
@@ -1382,8 +1387,12 @@ module StackingRateTests =
             TestParameters.basic 1.0
                 |> TestParameters.withStrong (fun p -> { p with Energy = 2; StartBarrier = 2 })
                 |> TestParameters.withWeak (fun p -> { p with Energy = 1 })
+            // the same, with strong bonds toggled more often than weak
+            // ones, and weights that don't sum to 1
+        let reweighted = growing |> TestParameters.withEventWeights 1.0 1.5 0.5
         inParallel [|
             fun () -> checkEventRates "Box, strands growing" growing 150000 (Random(9)) box
+            fun () -> checkEventRates "Box, strands growing, reweighted" reweighted 150000 (Random(10)) box
             fun () -> checkEventRates "Box, with start barriers" hot 150000 (Random(4)) box
             for i, (label, world) in List.indexed stackingWorlds do
                 fun () ->

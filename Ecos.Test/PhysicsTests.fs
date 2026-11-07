@@ -566,6 +566,16 @@ module BoxPhysicsTests =
             |> TestParameters.withStartBarrier 6.0 6.0
             |> checkTwoAtomsInBox (AtomType.W, AtomType.X)
 
+    /// Two atoms in a box, with strong bonds toggled more often than
+    /// weak ones. The weights of the kinds of event change how fast
+    /// things happen, so the distribution must be exactly as it is
+    /// with the standard weights.
+    [<Fact>]
+    let ``Two atoms in a box follow the Boltzmann distribution with other event weights`` () =
+        TestParameters.create 12.0
+            |> TestParameters.withEventWeights 1.0 1.5 0.5
+            |> checkTwoAtomsInBox (AtomType.W, AtomType.X)
+
     /// Parameters with energies for particular pairs: Y-Z weak bonds
     /// much deeper than the default, and strong bonds between Y and Z,
     /// and between W and X, at their own depths.

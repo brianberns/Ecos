@@ -438,6 +438,9 @@ module Scenario =
             TryLabelStrands = None
             Parameters =
                 {
+                    MoveAtomWeight = 0.5
+                    ToggleStrongBondWeight = 0.1
+                    ToggleWeakBondWeight = 0.4
                     GetTemperature =
                         Parameters.getUniformTemperature nan
                     BondTypeParameterMap =
@@ -534,6 +537,17 @@ module Scenario =
                 { bondTypeParms with
                     Barrier = barrier
                     BarrierStackReduction = barrier })
+
+    /// Sets the given scenario's (unnormalized) weights of attempts to
+    /// move an atom and to toggle each type of bond. They change how
+    /// fast things happen, not the equilibrium.
+    let withEventWeights moveAtom toggleStrong toggleWeak scenario =
+        scenario
+            |> mapParameters (fun parms ->
+                { parms with
+                    MoveAtomWeight = moveAtom
+                    ToggleStrongBondWeight = toggleStrong
+                    ToggleWeakBondWeight = toggleWeak })
 
     /// Sets the given scenario's barrier to peeling a strand's exposed
     /// ends.

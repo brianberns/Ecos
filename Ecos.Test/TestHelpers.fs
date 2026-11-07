@@ -48,6 +48,9 @@ module TestParameters =
                 BendStiffnessMap = Map.empty
             }
         {
+            MoveAtomWeight = 0.5
+            ToggleStrongBondWeight = 0.1
+            ToggleWeakBondWeight = 0.4
             GetTemperature = Parameters.getUniformTemperature kT
             BondTypeParameterMap =
                 Map [
@@ -109,6 +112,14 @@ module TestParameters =
         parms
             |> withStrong (fun p -> { p with StartBarrier = strongBarrier })
             |> withWeak (fun p -> { p with StartBarrier = weakBarrier })
+
+    /// The given parameters, with the given (unnormalized) weights of
+    /// attempts to move an atom and to toggle each type of bond.
+    let withEventWeights moveAtom toggleStrong toggleWeak (parms : Parameters) =
+        { parms with
+            MoveAtomWeight = moveAtom
+            ToggleStrongBondWeight = toggleStrong
+            ToggleWeakBondWeight = toggleWeak }
 
     /// The given parameters, with the given entropy for each bond type.
     let withEntropy strongEntropy weakEntropy parms =
