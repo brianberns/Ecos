@@ -129,6 +129,20 @@ module Editor =
                 Ok $"{length}, e.g. {sample}"
             | Error msg -> Error msg
 
+    /// Strong-bond colors offered for a strand's family, by name.
+    let strandColors =
+        [|
+            "Black", None
+            "Green", Some "#00A000"
+            "Red", Some "#D00000"
+            "Blue", Some "#1F5FD0"
+            "Orange", Some "#E07000"
+            "Purple", Some "#8000C0"
+            "Teal", Some "#008080"
+            "Brown", Some "#8B4513"
+            "Magenta", Some "#D000A0"
+        |]
+
     let private renderStrand index (strand : StrandSpec) dispatch =
         let key = $"strand.{index}"
         let edit f =
@@ -150,6 +164,12 @@ module Editor =
                             edit (fun st -> { st with Count = n }))
                         checkBox $"{key}.template" "Template" strand.IsTemplate (fun flag ->
                             edit (fun st -> { st with IsTemplate = flag }))
+                        let colorIndex =
+                            strandColors
+                                |> Array.tryFindIndex (fun (_, c) -> c = strand.Color)
+                                |> Option.defaultValue 0
+                        comboBox $"{key}.color" 100.0 (Array.map fst strandColors) colorIndex (fun i ->
+                            edit (fun st -> { st with Color = snd strandColors[i] }))
                         smallButton $"{key}.remove" "✕" "Remove this strand" (fun () ->
                             dispatch (Edit (fun s ->
                                 { s with
@@ -172,7 +192,7 @@ module Editor =
     let private renderStrands (spec : ScenarioSpec) dispatch =
         column [
             heading "Strands"
-            note "Each copy is drawn from its pattern and scattered at random, straight."
+            note "Each copy is drawn from its pattern and scattered at random, straight. A color shows the strong bonds of every chain in the strand's family: any chain the pattern could draw, or a complete copy of one."
             note "A pattern is terms separated by \"-\": atom letters (PHH), a set of which one is drawn ([WY]), Coding (one of WXYZ) or Cap (P or Q). A term can repeat a fixed number of times (8*[WY]) or a random number in a range ([1-2]*H). E.g. Cap-H-10*Coding-Cap."
             for i, strand in Array.indexed spec.Strands do
                 renderStrand i strand dispatch
@@ -182,7 +202,7 @@ module Editor =
                         { s with
                             Strands =
                                 Array.append s.Strands [|
-                                    { Pattern = "P-10*Coding-Q"; Placement = Scattered None; Count = 1; IsTemplate = true }
+                                    { Pattern = "P-10*Coding-Q"; Placement = Scattered None; Count = 1; IsTemplate = true; Color = None }
                                 |] })))
             ]
             if spec.WeakBonds.Length > 0 then

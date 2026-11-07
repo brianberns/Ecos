@@ -41,6 +41,11 @@ type StrandSpec =
 
         /// Whether its atoms are shown as the scenario's template.
         IsTemplate : bool
+
+        /// Color in which to show the strong bonds of every chain of its
+        /// family (see ScenarioSpec.matchesFamily), e.g. "#00A000", or
+        /// none for the usual black.
+        Color : string option
     }
 
 /// Parameters of a bond type, as data: those of BondTypeParameters, with
@@ -247,6 +252,30 @@ module ScenarioSpec =
                     if term.Alternatives.Length = 1 then yield! term.Alternatives[0]
                     else yield! term.Alternatives[rng.Next(term.Alternatives.Length)]
         |]
+
+    /// A regular expression that matches exactly the sequences (as
+    /// letters) that the given pattern terms can draw.
+    let toRegex (terms : PatternTerm[]) =
+        let body =
+            terms
+                |> Array.map (fun term ->
+                    let element =
+                        term.Alternatives
+                            |> Array.map (Array.map toLetter >> String.concat "")
+                            |> String.concat "|"
+                    $"(?:{element}){{{term.MinRepeat},{term.MaxRepeat}}}")
+                |> String.concat ""
+        Text.RegularExpressions.Regex($"^{body}$", Text.RegularExpressions.RegexOptions.Compiled)
+
+    /// Whether the given sequence is in the family of the pattern with
+    /// the given regular expression: it, or its complement, read from
+    /// either end, is a sequence the pattern can draw. (So a strand's
+    /// copies, and their copies, are in its family.)
+    let matchesFamily (regex : Text.RegularExpressions.Regex) (sequence : AtomType[]) =
+        let complemented = Array.map complement sequence
+        [ sequence; Array.rev sequence; complemented; Array.rev complemented ]
+            |> List.exists (fun types ->
+                regex.IsMatch(types |> Array.map toLetter |> String.concat ""))
 
     /// Parses a pattern; fails if it is invalid.
     let parsePattern pattern =
@@ -540,6 +569,7 @@ module ScenarioSpec =
                                 | _ -> Shape (locations, strand.IsRing)
                         Count = 1
                         IsTemplate = strand.AtomIds |> Array.exists templateIds.Contains
+                        Color = None
                     })
         let strandIndex =
             strands
@@ -600,9 +630,12 @@ module ScenarioSpec =
                 .WithUnionExternalTag()
                 .WithUnionNamedFields()
                 .WithUnionUnwrapFieldlessTags()
+                .WithSkippableOptionFields()
                 .ToJsonSerializerOptions()
         options.WriteIndented <- true
         options.NumberHandling <- JsonNumberHandling.AllowNamedFloatingPointLiterals
+        options.AllowTrailingCommas <- true   // forgiving of hand edits
+        options.ReadCommentHandling <- JsonCommentHandling.Skip
         options
 
     /// The given spec as JSON.

@@ -123,7 +123,7 @@ module View =
                 ]
                 Border.create [
                     Border.padding 8.0
-                    Border.child (WorldView.render model.Run)
+                    Border.child (WorldView.render model.Run model.FamilyColors)
                 ]
             ]
         ]

@@ -25,6 +25,10 @@ type Model =
         /// The spec, being run.
         Run : Run
 
+        /// Strong-bond color of each family in the run, as the regular
+        /// expression of a strand's pattern and a color.
+        FamilyColors : (Text.RegularExpressions.Regex * string)[]
+
         /// RNG seed.
         Seed : int
 
@@ -138,6 +142,15 @@ module Model =
         let name = String(name.Trim() |> Seq.map (fun c -> if Array.contains c invalid then '_' else c) |> Seq.toArray)
         if String.IsNullOrWhiteSpace name then "untitled" else name
 
+    /// Family colors of the given spec's strands, in order (so the first
+    /// strand's color wins where two families overlap).
+    let private getFamilyColors (spec : ScenarioSpec) =
+        spec.Strands
+            |> Array.choose (fun st ->
+                match st.Color, ScenarioSpec.tryParsePattern st.Pattern with
+                    | Some color, Ok terms -> Some (ScenarioSpec.toRegex terms, color)
+                    | _ -> None)
+
     /// Builds a run of the given spec, or says why it can't be built.
     let private tryCreateRun seed spec =
         try Ok (Run.create seed (ScenarioSpec.toScenario spec))
@@ -147,7 +160,7 @@ module Model =
     /// current run if the spec can't be built.
     let private rebuild spec model =
         match tryCreateRun model.Seed spec with
-            | Ok run -> { model with Spec = spec; Run = run; Error = None }
+            | Ok run -> { model with Spec = spec; Run = run; FamilyColors = getFamilyColors spec; Error = None }
             | Error msg -> { model with Spec = spec; Error = Some msg; IsRunning = false }
 
     /// Model with a newly loaded spec.
@@ -164,6 +177,7 @@ module Model =
                 Spec = spec
                 Error = None
                 Run = Run.create 0 (ScenarioSpec.toScenario spec)
+                FamilyColors = getFamilyColors spec
                 Seed = 0
                 Speed = 200
                 IsRunning = false

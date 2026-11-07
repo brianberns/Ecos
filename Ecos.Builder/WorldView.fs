@@ -117,12 +117,12 @@ module WorldView =
                 ] :> IView
         ]
 
-    let private renderBonds bondType (brush : IBrush) (world : World) =
-        let drawLine start finish =
+    let private renderBonds bondType (getBrush : AtomId -> IBrush) (world : World) =
+        let drawLine brush start finish =
             Line.create [
                 Line.startPoint ~~start
                 Line.endPoint ~~finish
-                Line.stroke brush
+                Line.stroke (brush : IBrush)
                 Line.strokeThickness strokeThickness
             ] :> IView
         [
@@ -130,15 +130,39 @@ module WorldView =
                 for idB in ids do
                     if idA < idB then
                         let a, b = world.Atoms[idA], world.Atoms[idB]
+                        let brush = getBrush idA
                         let d = World.getDisplacement a b world
-                        yield drawLine a.Location (a.Location + d)
+                        yield drawLine brush a.Location (a.Location + d)
                         if a.Location + d <> b.Location then   // crosses an edge: draw its other half too
-                            yield drawLine b.Location (b.Location - d)
+                            yield drawLine brush b.Location (b.Location - d)
         ]
 
-    /// Renders the given run's world, scaled to fit.
-    let render (run : Run) =
+    /// Brushes of the given colors, made once each.
+    let private brushes = System.Collections.Concurrent.ConcurrentDictionary<string, IBrush>()
+
+    /// Strong-bond brush of each atom in a chain of a colored family.
+    let private getFamilyBrushes (familyColors : (Text.RegularExpressions.Regex * string)[]) (world : World) =
+        if familyColors.Length = 0 then Map.empty
+        else
+            Experiment3.getStrands world
+                |> Seq.where (fun strand -> not strand.IsRing)
+                |> Seq.choose (fun strand ->
+                    let sequence = strand.AtomIds |> Array.map (fun id -> world.Atoms[id].Type)
+                    familyColors
+                        |> Array.tryFind (fun (regex, _) -> ScenarioSpec.matchesFamily regex sequence)
+                        |> Option.map (fun (_, color) ->
+                            let brush = brushes.GetOrAdd(color, fun c -> Brush.Parse(c))
+                            strand.AtomIds |> Seq.map (fun id -> id, brush)))
+                |> Seq.concat
+                |> Map
+
+    /// Renders the given run's world, scaled to fit, with the strong
+    /// bonds of each colored family in its color.
+    let render (run : Run) familyColors =
         let world = run.World
+        let familyBrushes = getFamilyBrushes familyColors world
+        let getStrongBrush id =
+            familyBrushes |> Map.tryFind id |> Option.defaultValue (Brushes.Black :> IBrush)
         Viewbox.create [
             Viewbox.stretch Stretch.Uniform
             Viewbox.child (
@@ -150,8 +174,8 @@ module WorldView =
                         yield! renderEnvironment run
                         yield! renderWalls world
                         yield! renderAtoms run
-                        yield! renderBonds Strong Brushes.Black world
-                        yield! renderBonds Weak Brushes.HotPink world
+                        yield! renderBonds Strong getStrongBrush world
+                        yield! renderBonds Weak (fun _ -> Brushes.HotPink) world
                     ]
                 ])
         ]

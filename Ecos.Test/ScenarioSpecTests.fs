@@ -98,9 +98,9 @@ module ScenarioSpecTests =
                 Walls = [| for x in -10 .. 2 .. 10 -> x, 16 |]
                 Strands =
                     [|
-                        { Pattern = "PHHWYQ"; Placement = At (-6, 0, true); Count = 1; IsTemplate = true }
-                        { Pattern = "QXZHHP"; Placement = At (4, 2, false); Count = 1; IsTemplate = false }
-                        { Pattern = "PWXQ"; Placement = Scattered (Some 40); Count = 3; IsTemplate = false }
+                        { Pattern = "PHHWYQ"; Placement = At (-6, 0, true); Count = 1; IsTemplate = true; Color = None }
+                        { Pattern = "QXZHHP"; Placement = At (4, 2, false); Count = 1; IsTemplate = false; Color = Some "#00A000" }
+                        { Pattern = "PWXQ"; Placement = Scattered (Some 40); Count = 3; IsTemplate = false; Color = None }
                     |]
                 WeakBonds = [| (0, 1), (1, 4) |]   // the H at x = -4 in each
                 Occupancy = Map [ "W", 100.0 * 5.0 / 256.0; "X", 100.0 * 5.0 / 256.0; "H", 100.0 * 2.0 / 256.0 ]   // of 16 x 16 sites
@@ -146,8 +146,8 @@ module ScenarioSpecTests =
             { handMade with
                 Strands =
                     [|
-                        { Pattern = "PWQ"; Placement = At (0, 0, true); Count = 1; IsTemplate = false }
-                        { Pattern = "PWQ"; Placement = At (2, 0, true); Count = 1; IsTemplate = false }
+                        { Pattern = "PWQ"; Placement = At (0, 0, true); Count = 1; IsTemplate = false; Color = None }
+                        { Pattern = "PWQ"; Placement = At (2, 0, true); Count = 1; IsTemplate = false; Color = None }
                     |]
                 WeakBonds = [||] }
         let scenario = ScenarioSpec.toScenario spec
@@ -192,7 +192,7 @@ module ScenarioSpecTests =
     let ``Each scattered copy is drawn separately`` () =
         let spec =
             { handMade with
-                Strands = [| { Pattern = "P-10*Coding-Q"; Placement = Scattered None; Count = 6; IsTemplate = true } |]
+                Strands = [| { Pattern = "P-10*Coding-Q"; Placement = Scattered None; Count = 6; IsTemplate = true; Color = None } |]
                 WeakBonds = [||] }
         let scenario = ScenarioSpec.toScenario spec
         let world, template = scenario.Build scenario.Parameters (Random(4))
@@ -229,3 +229,25 @@ module ScenarioSpecTests =
                 Assert.Equal(AtomType.Q, types[types.Length - 1])
                 types.Length)
         Assert.Equal<int[]>([| 3 .. 7 |], lengths |> Array.distinct |> Array.sort)
+
+    [<Fact>]
+    let ``A strand's family includes its copies, read either way`` () =
+        let regex = ScenarioSpec.toRegex (ScenarioSpec.parsePattern "P-HH-[1-2]*[WY]-Q")
+        let matches (text : string) = ScenarioSpec.matchesFamily regex (ScenarioSpec.parseSequence text)
+        Assert.True(matches "PHHWYQ")      // drawn
+        Assert.True(matches "PHHYQ")
+        Assert.True(matches "PZXHHQ")      // its copy (complement, reversed)
+        Assert.True(matches "QHHXZP")      // the copy read from its other end
+        Assert.True(matches "QYWHHP")      // drawn, read from the other end
+        Assert.False(matches "PHHWYWQ")    // too long
+        Assert.False(matches "PHWYQ")      // missing an H
+        Assert.False(matches "PHHXWQ")     // X W is neither drawn nor a copy of a draw read this way
+        Assert.False(matches "HHWY")       // uncapped
+
+    [<Fact>]
+    let ``A spec saved without strand colors loads with none`` () =
+        let json = ScenarioSpec.toJson handMade
+        let stripped = Text.RegularExpressions.Regex.Replace(json, "\\s*\"Color\":\\s*(null|\"[^\"]*\"),?", "")
+        Assert.DoesNotContain("Color", stripped)
+        let spec = ScenarioSpec.ofJson stripped
+        Assert.True(spec.Strands |> Array.forall (fun st -> st.Color.IsNone))
