@@ -12,7 +12,7 @@ open Avalonia.Themes.Fluent
 open Avalonia.FuncUI.Elmish
 open Avalonia.FuncUI.Hosts
 
-/// Main window: Ctrl+R restarts the run, and Ctrl+S saves the spec.
+/// Main window: Ctrl+R resets the run, and Ctrl+S saves the spec.
 type MainWindow() as this =
     inherit HostWindow()
     do
@@ -27,7 +27,7 @@ type MainWindow() as this =
                     System.EventHandler<KeyEventArgs>(fun _ args ->
                         if args.KeyModifiers = KeyModifiers.Control then
                             match args.Key with
-                                | Key.R -> dispatch Restart; args.Handled <- true
+                                | Key.R -> dispatch Reset; args.Handled <- true
                                 | Key.S -> dispatch Save; args.Handled <- true
                                 | _ -> ())
                 this.KeyDown.AddHandler(handler)

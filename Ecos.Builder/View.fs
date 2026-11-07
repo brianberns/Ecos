@@ -57,7 +57,7 @@ module View =
                     let btn = args.Source :?> ToggleButton
                     if btn.IsChecked.HasValue then dispatch (SetIsRunning btn.IsChecked.Value)), SubPatchOptions.Never)
             ]
-            button "run.restart" "Restart" (fun () -> dispatch Restart)
+            button "run.reset" "Reset" (fun () -> dispatch Reset)
             label "Seed" 35.0
             intSpinner "run.seed" 110.0 0 System.Int32.MaxValue 1 model.Seed (SetSeed >> dispatch)
             label "Sweeps per frame" 110.0

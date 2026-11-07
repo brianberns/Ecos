@@ -89,8 +89,8 @@ type Message =
     /// Sets the RNG seed, and restarts.
     | SetSeed of int
 
-    /// Restarts the run from the start.
-    | Restart
+    /// Resets the run to its start, without running it.
+    | Reset
 
     /// Changes the spec, and restarts once the edits pause.
     | Edit of (ScenarioSpec -> ScenarioSpec)
@@ -315,7 +315,7 @@ module Model =
             | SetSeed seed ->
                 if seed = model.Seed then model, Cmd.none
                 else rebuild model.Spec { model with Seed = seed }, Cmd.none
-            | Restart -> rebuild model.Spec model, Cmd.none
+            | Reset -> rebuild model.Spec model, Cmd.none
             | Edit f ->
                 let spec =
                     try Ok (f model.Spec)
