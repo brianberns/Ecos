@@ -94,6 +94,11 @@ module Experiment26 =
             /// hinge long enough to join, so that copies start there.
             HingePairEnergy : Option<float>
 
+            /// Weights of attempts to move an atom, toggle a strong
+            /// bond, and toggle a weak bond. They change how fast things
+            /// happen, not the equilibrium.
+            EventWeights : float * float * float
+
             /// Shortest capped chain counted in either family. Shorter
             /// ones are counted as other.
             MinLength : int
@@ -169,7 +174,13 @@ module Experiment26 =
 
     /// Default settings: the hinged hairpin-former at the standard bends,
     /// two of each kind in a single chamber, enough food for about 15
-    /// copies, and experiment 23's phases and stress rate.
+    /// copies, and experiment 23's phases. Pairs are weak (1.4) unless
+    /// stacked, so copies rarely start on their own, but H-H pairs are
+    /// strong (2.5), so they start at the hinge: food decides whether a
+    /// hairpin-former is copied or folds. Strong bonds are toggled twice
+    /// as often as the standard, so that templated joins keep pace with
+    /// weak pairs breaking; the stress cap peel barriers are raised by
+    /// kT ln 2 (about 0.2) to match.
     let defaultSettings =
         {
             HairpinFormer = hairpinFormer
@@ -181,9 +192,10 @@ module Experiment26 =
             NumFoodMax = 120
             BendStiffness = Scenario.defaultBendStiffness
             HingeStiffness = Scenario.defaultHingeStiffness
-            PairEnergy = 2.0
+            PairEnergy = 1.4
             StackEnergy = 1.0
-            HingePairEnergy = None
+            HingePairEnergy = Some 2.5
+            EventWeights = 0.5, 0.2, 0.3
             MinLength = 10
             MaxEditDistance = 4
             MinStem = 6
@@ -194,8 +206,8 @@ module Experiment26 =
             Variants =
                 [|
                     { StressCapPeelBarrier = Double.PositiveInfinity }   // control
-                    { StressCapPeelBarrier = 2.0 }
-                    { StressCapPeelBarrier = 1.5 }   // nearly every unprotected cap peels
+                    { StressCapPeelBarrier = 2.2 }
+                    { StressCapPeelBarrier = 1.7 }   // nearly every unprotected cap peels
                 |]
             NumRuns = 16
             NumCycles = 24
@@ -391,6 +403,9 @@ module Experiment26 =
                     { parms with Energy = settings.PairEnergy })
                 |> Scenario.mapParameters (fun parms ->
                     { parms with StackEnergy = settings.StackEnergy })
+                |> (fun scenario ->
+                    let moveAtom, toggleStrong, toggleWeak = settings.EventWeights
+                    Scenario.withEventWeights moveAtom toggleStrong toggleWeak scenario)
         let scenario =
             match settings.HingePairEnergy with
                 | Some energy ->

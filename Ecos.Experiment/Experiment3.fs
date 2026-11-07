@@ -76,8 +76,14 @@ module Experiment3 =
     /// Prints the given parameters, apart from temperature.
     let printParameters (parms : Parameters) =
         printfn
-            "Peel barrier %g"
+            "Peel barrier %g, stack energy %g"
             parms.PeelBarrier
+            parms.StackEnergy
+        printfn
+            "Event weights: move atom %g, toggle strong bond %g, toggle weak bond %g"
+            parms.MoveAtomWeight
+            parms.ToggleStrongBondWeight
+            parms.ToggleWeakBondWeight
         for bondType in BondType.all do
             let bondTypeParms = parms.BondTypeParameterMap[bondType]
             printfn
@@ -89,6 +95,8 @@ module Experiment3 =
                 bondTypeParms.BarrierStackReduction
                 bondTypeParms.StartBarrier
                 bondTypeParms.HydrolysisRate
+            for KeyValue((atomTypeA, atomTypeB), energy) in bondTypeParms.PairEnergyMap do
+                printfn "   %A-%A energy %g" atomTypeA atomTypeB energy
 
     /// A strand: two or more atoms connected by strong bonds.
     type Strand =
