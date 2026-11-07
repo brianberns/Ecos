@@ -140,7 +140,7 @@ type Message =
 module Model =
 
     /// A new spec: a 160 x 160 soup of W, X, Y, Z, P and Q, each 2% of
-    /// the sites, with no strands, the standard physics (scenario A's),
+    /// the sites, with no strands, scenario C's physics (strong bonds that survive the heat),
     /// and a cycle of cold (kT 0.25, 200,000 sweeps) and hot (kT 3,
     /// 100,000 sweeps).
     let defaultSpec : ScenarioSpec =
@@ -154,7 +154,7 @@ module Model =
             Occupancy =
                 Map [ "W", 2.0; "X", 2.0; "Y", 2.0; "Z", 2.0; "H", 0.0; "P", 2.0; "Q", 2.0 ]
             FoodWithin = None
-            Parameters = ScenarioSpec.ofParameters (Scenario.createScenarioA false).Parameters
+            Parameters = ScenarioSpec.ofParameters (Scenario.createScenarioC false).Parameters
             Schedule =
                 Cycle [|
                     { Name = Some "cold"; Temperature = 0.25; NumSweeps = 200_000; HydrolysisRate = None; CapPeelBarrier = None }
