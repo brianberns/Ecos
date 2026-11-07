@@ -593,8 +593,8 @@ module World =
         let x = rng.NextDouble()
         if x <= parms.MoveAtomWeight / freqSum then
             tryUpdateAtom parms rng world
-        elif x <= (
-            parms.MoveAtomWeight
+        elif x <=
+            (parms.MoveAtomWeight
                 + parms.ToggleStrongBondWeight) / freqSum then
             tryUpdateBond parms rng Strong world
         else
