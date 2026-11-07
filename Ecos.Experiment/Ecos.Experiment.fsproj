@@ -16,13 +16,19 @@
     <Compile Include="Experiment8.fs" />
     <Compile Include="Experiment15.fs" />
     <Compile Include="Experiment26.fs" />
+    <Compile Include="ProposedPhysics.fs" />
     <Compile Include="Checks.fs" />
     <Compile Include="Registry.fs" />
+    <Compile Include="ScenarioSpec.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Ecos\Ecos.fsproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FSharp.SystemTextJson" Version="1.4.36" />
   </ItemGroup>
 
 </Project>

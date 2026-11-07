@@ -1,5 +1,7 @@
 namespace Ecos.Experiment
 
+open Ecos
+
 /// Every scenario that can be run, in groups: the standard scenarios,
 /// then each experiment's, with its default settings. The desktop app
 /// offers them all, so that any world an experiment ran can be watched
@@ -32,6 +34,15 @@ module Registry =
                         Scenario.createVentScenario 8 3.0
                         Scenario.createVentWindowScenario 1 15 4 3.0
                         Scenario.createVentWindowScenario 2 15 4 3.0
+                    |]
+            }
+            {
+                Name = "Proposed physics"
+                Scenarios =
+                    [|
+                        ProposedPhysics.createScenarioC true 0.25
+                        ProposedPhysics.createScenarioC false 0.25
+                        ProposedPhysics.createLivingWorld 15.0
                     |]
             }
             {

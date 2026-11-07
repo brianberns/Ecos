@@ -12,6 +12,7 @@
     <Compile Include="PropertyTests.fs" />
     <Compile Include="RegressionTests.fs" />
     <Compile Include="ScenarioTests.fs" />
+    <Compile Include="ScenarioSpecTests.fs" />
     <Compile Include="TorusTests.fs" />
   </ItemGroup>
 

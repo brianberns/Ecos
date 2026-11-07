@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Fields.fs" />
+    <Compile Include="Model.fs" />
+    <Compile Include="Editor.fs" />
+    <Compile Include="WorldView.fs" />
+    <Compile Include="View.fs" />
+    <Compile Include="Program.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia.Desktop" Version="12.1.4" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.4" />
+    <PackageReference Include="Wacton.Unicolour" Version="8.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Avalonia.FuncUI\src\Avalonia.FuncUI\Avalonia.FuncUI.fsproj" />
+    <ProjectReference Include="..\Avalonia.FuncUI\src\Avalonia.FuncUI.Elmish\Avalonia.FuncUI.Elmish.fsproj" />
+    <ProjectReference Include="..\Ecos.Experiment\Ecos.Experiment.fsproj" />
+    <ProjectReference Include="..\Ecos\Ecos.fsproj" />
+  </ItemGroup>
+
+</Project>
