@@ -90,16 +90,43 @@ module PropertyOracles =
         (isStronglyBonded world idA idC && isStronglyBonded world idB idD)
             || (isStronglyBonded world idA idD && isStronglyBonded world idB idC)
 
+    /// Oracle: number of tight loops in the given world that contain
+    /// a bond between the given atoms (existing or proposed), of the
+    /// given type. A tight loop is a four-cycle of bonds, one weak and
+    /// three strong: a turn of two atoms in a strand, with the atoms on
+    /// either side of the turn paired. It counts as a stack. Found by
+    /// walking every four-cycle through the bond, rather than by
+    /// looking for a particular shape as World does.
+    let countTightLoops (world : World) bondType idA idB =
+        let neighbors id =
+            Set.union (partners Strong world id) (partners Weak world id)
+        let nWeak (idX, idY) =
+            if Bonds.areWeaklyBonded world idX idY then 1 else 0
+        List.sum [
+            for idC in neighbors idB do
+                for idD in neighbors idA do
+                    if idC <> idA && idD <> idB && idC <> idD
+                        && (Set.contains idD (neighbors idC)) then
+                        let nWeakOthers =
+                            nWeak (idB, idC) + nWeak (idC, idD) + nWeak (idD, idA)
+                        let nWeakTotal =
+                            nWeakOthers + (if bondType = Weak then 1 else 0)
+                        if nWeakTotal = 1 then 1
+        ]
+
     /// Oracle: number of stacks that a weak bond between the given
     /// atoms takes part in (or would, if formed): the other weak bonds
-    /// that it's stacked with. Found by scanning every weak bond in
-    /// the world, rather than by walking out from A as World does.
+    /// that it's stacked with, plus the tight loops it closes. Found by
+    /// scanning every weak bond in the world, rather than by walking
+    /// out from A as World does.
     let countStacks (world : World) idA idB =
-        weakBonds world
-            |> Seq.filter (fun (idC, idD) ->
-                set [ idC; idD ] <> set [ idA; idB ]
-                    && areStacked world (idA, idB) (idC, idD))
-            |> Seq.length
+        let nLadders =
+            weakBonds world
+                |> Seq.filter (fun (idC, idD) ->
+                    set [ idC; idD ] <> set [ idA; idB ]
+                        && areStacked world (idA, idB) (idC, idD))
+                |> Seq.length
+        nLadders + countTightLoops world Weak idA idB
 
     /// Number of strong bonds the given atom has.
     let strongBondCount (world : World) id =
@@ -143,9 +170,11 @@ module PropertyOracles =
     /// those sides, so it makes the difference when the two partners
     /// are strongly bonded to each other, unless the pair is already
     /// stacked the other way round. Each atom has at most one weak
-    /// partner, so at most one stack can depend on a strong bond.
+    /// partner, so at most one such stack can depend on a strong bond.
+    /// Tight loops that the bond is part of count too.
     let countStacksStrong (world : World) idA idB =
-        List.sum [
+        countTightLoops world Strong idA idB
+        + List.sum [
             for idPartnerA in Bonds.weakPartners world idA do
                 for idPartnerB in Bonds.weakPartners world idB do
                     let distinct =
@@ -433,6 +462,31 @@ module PropertyOracles =
             "Ladder", World.addStrongBond TestParameters.standard 3 2 atoms
             "Near miss", atoms
         ]
+
+    /// The given parameters, with the right-angle bends that a tight
+    /// loop needs.
+    let withTightLoopBends parms =
+        parms |> TestParameters.withBend Strong TestParameters.rightAngleBend 0.0
+
+    /// Parameters for building a tight loop.
+    let tightLoopBuildParameters =
+        withTightLoopBends TestParameters.standard
+
+    /// A world for testing tight loops: a strand W0->H1->H2->X3 bent
+    /// into a U, so that W0 and X3 can pair across the two-atom turn,
+    /// confined to a small box so that bonds form and break
+    /// constantly. When the pair exists, it's stacked on the H1-H2
+    /// bond.
+    let tightLoopWorld =
+        TestWorld.empty
+            |> World.addAtom AtomType.W (Point.create (-1, -1))   // 0
+            |> World.addAtom AtomType.H (Point.create (-1, 1))    // 1
+            |> World.addAtom AtomType.H (Point.create (1, 1))     // 2
+            |> World.addAtom AtomType.X (Point.create (1, -1))    // 3
+            |> World.addStrongBond tightLoopBuildParameters 3 2
+            |> World.addStrongBond tightLoopBuildParameters 2 1
+            |> World.addStrongBond tightLoopBuildParameters 1 0
+            |> Chain.addBox 2
 
     /// A world for testing faces: a strand W0->W1->W2, paired at its
     /// middle atom with a free X3 on its face, in a box so small that
@@ -1335,6 +1389,40 @@ module StackingRateTests =
                 fun () ->
                     checkEventRates
                         $"{label}, with start barriers" stacked 200000 (Random(5 + i)) world
+        |]
+
+    /// A tight loop is a stack, at the right rates: the pair across a
+    /// two-atom turn is stacked on the bond between the turn's atoms,
+    /// so it's harder to break, and so are the three strong bonds it
+    /// depends on. The oracle finds tight loops as four-cycles of
+    /// bonds, independently of World. Three cases, as for the ladder:
+    /// * The weak bond, with strong bonds fixed.
+    /// * The strong bonds, which have no energy or barrier of their
+    ///   own, with a strong pair.
+    /// * The same, with a barrier that only a stack removes.
+    [<Fact>]
+    let ``A tight loop is stacked at the expected rate`` () =
+
+            // the world is built as intended: the pair would close one loop
+        let paired = World.addWeakBond tightLoopBuildParameters 0 3 tightLoopWorld
+        Assert.Equal(1, countStacks paired 0 3)
+        for idA, idB in [ 0, 1; 1, 2; 2, 3 ] do
+            Assert.Equal(1, countStacksStrong paired idA idB)
+
+        let weak = TestParameters.create 0.7 |> withTightLoopBends
+        let strong =
+            TestParameters.basic 1.0
+                |> TestParameters.withWeak (fun p -> { p with Energy = 3 })
+                |> withTightLoopBends
+        let barrier =
+            TestParameters.basic 1.0
+                |> TestParameters.withStrong (fun p -> { p with Barrier = 3; BarrierStackReduction = 3 })
+                |> TestParameters.withWeak (fun p -> { p with Energy = 3 })
+                |> withTightLoopBends
+        inParallel [|
+            fun () -> checkEventRates "Tight loop, weak" weak 100000 (Random(0)) tightLoopWorld
+            fun () -> checkEventRates "Tight loop, strong" strong 200000 (Random(1)) tightLoopWorld
+            fun () -> checkEventRates "Tight loop, barrier" barrier 200000 (Random(2)) tightLoopWorld
         |]
 
 /// Event rates of strong bonds: forming and breaking, peeling, and

@@ -176,7 +176,8 @@ module RegressionTests =
     /// they were merged into H, which pairs with itself. All were
     /// recorded again once cap peeling returned, since its test draws
     /// a random number for every unstacked cap, even when its barrier
-    /// is infinite.
+    /// is infinite. Recorded again once a tight strong-bond loop
+    /// counted as a stack.
     let private expected =
         Map [
             ("cold", 1), [ "c96a8965ce3ff499"; "31f56bf540b5981b"; "00957a002f664298"; "fe20b959c0b4a240" ]
@@ -185,12 +186,12 @@ module RegressionTests =
             ("hot", 2), [ "d8694b2d11d3e3f7"; "6463293784be126b"; "386c73cc261ddac0"; "977cd1399a7bb361" ]
             ("all rules", 1), [ "67491f1d8b49820d"; "afa7281c78448de4"; "b6ab02d68c7d8210"; "b6774317b1090241" ]
             ("all rules", 2), [ "7a933522242758fe"; "cac39bdb1d835956"; "1edf682953b37423"; "932d64e36f11436e" ]
-            ("copying", 1), [ "82ff4ac250470b63"; "32c39a70b9f7a984"; "6c296e8d8b90c8a5"; "cfada806997e2eea" ]
-            ("copying", 2), [ "0961f7d6e39288c9"; "32904f2a1245e6bd"; "c1d3b70db6cdb7fe"; "d5d75800fd493392" ]
-            ("standard physics", 1), [ "ef565529b9501a06"; "22824c396b12527e"; "a4db2b824470c8d6"; "7102aeef899fe29e" ]
-            ("standard physics", 2), [ "6138bb9844108402"; "eacb80aac2e8a734"; "456f74848e8c6478"; "712f9640d11ca543" ]
-            ("stacking", 1), [ "1d33eb3b55e8ba17"; "67852f20b4a13787"; "0e89c8945e574334"; "a7ff5a14709dda05" ]
-            ("stacking", 2), [ "4c23cd4681d31c32"; "bbaece89731e9625"; "10efc6e134cce480"; "899c967961540d89" ]
+            ("copying", 1), [ "8a769c200594b8e4"; "f489e773a5bebd63"; "a749484540084187"; "0961ccadbffee672" ]
+            ("copying", 2), [ "0961f7d6e39288c9"; "c0814b730aebc9bb"; "d0abaa735c9bff34"; "7e9425208a2e9fa7" ]
+            ("standard physics", 1), [ "8cb156b92057dd55"; "28f1b16c28276182"; "ede52cef89015551"; "56869a8dbb771c7a" ]
+            ("standard physics", 2), [ "6cc1cdf0d88b9616"; "5e73df242b482689"; "b35dae485fad6bc5"; "7fe7288a33f3638d" ]
+            ("stacking", 1), [ "db2d6c7b37db3551"; "de9139a0e1811d13"; "606e7784601dad5b"; "b4cd3f6333e9fe69" ]
+            ("stacking", 2), [ "a0072d2df667e417"; "d01b7548e3acb7c6"; "39f192561b3076f2"; "e14e580b4bb97b6d" ]
         ]
 
     /// Prints the fingerprints of every case, in the form used above.

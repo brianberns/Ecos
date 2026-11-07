@@ -729,6 +729,126 @@ module BoxPhysicsTests =
     let ``Two dimers in a box follow the Boltzmann distribution with no stack energy`` () =
         twoDimersInABox 0.0
 
+    /// Tight loops: four atoms, W0 H1 H2 X3, at the corners of a square,
+    /// each held in place by a ring of walls, so only bonds change. Strong
+    /// bonds (in either direction) can form between any two of them,
+    /// with no bend stiffness, and weak bonds can form between 0 and 3
+    /// and between 1 and 2. We enumerate every set of bonds the model
+    /// considers valid. A state's energy is its bond energies plus
+    /// stackEnergy per stack, where a stack is any four-cycle of bonds
+    /// that includes a weak bond: a ladder (two weak bonds and two
+    /// strong) or a tight loop (one weak bond and three strong). Since
+    /// a directed strong bond can be proposed only from its first atom,
+    /// but broken from either, each one also halves a state's weight.
+    ///
+    /// Each bond type counts the stacks it's part of separately, so
+    /// this checks that both count tight loops: if either didn't, loops
+    /// would form and break at rates that don't balance.
+    let private tightLoopInABox stackEnergy =
+        let parms =
+            { TestParameters.basic 1.0 with StackEnergy = stackEnergy }
+                |> TestParameters.withStrong (fun p -> { p with Energy = 1 })
+                |> TestParameters.withWeak (fun p -> { p with Energy = 1 })
+                |> TestParameters.withBend Strong TestParameters.rightAngleBend 0.0
+
+            // four atoms that can't move
+        let atoms =
+            TestWorld.empty
+                |> World.addAtom AtomType.W (Point.create (0, 0))   // 0
+                |> World.addAtom AtomType.H (Point.create (0, 2))   // 1
+                |> World.addAtom AtomType.H (Point.create (2, 2))   // 2
+                |> World.addAtom AtomType.X (Point.create (2, 0))   // 3
+        let walls =
+            [
+                for x in -2 .. 2 .. 4 do
+                    x, -2
+                    x, 4
+                for y in 0 .. 2 .. 2 do
+                    -2, y
+                    4, y
+            ]
+        let walled =
+            (atoms, walls)
+                ||> List.fold (fun world (x, y) ->
+                    World.tryAddWall (Point.create (x, y)) world
+                        |> Option.get)
+
+            // every valid set of bonds
+        let rec strongSets pairs =
+            match pairs with
+                | [] -> [ [] ]
+                | (i, j) :: rest ->
+                    let tails = strongSets rest
+                    tails
+                        @ (tails |> List.map (fun tail -> (i, j) :: tail))
+                        @ (tails |> List.map (fun tail -> (j, i) :: tail))
+        let pairs = [ for i in 0 .. 3 do for j in i + 1 .. 3 do i, j ]
+        let weakSets = [ []; [ 0, 3 ]; [ 1, 2 ]; [ (0, 3); (1, 2) ] ]
+        let states =
+            [
+                for strong in strongSets pairs do
+                    for weak in weakSets do
+                        let world =
+                            (Some walled, strong)
+                                ||> List.fold (fun world (i, j) ->
+                                    world |> Option.bind (World.tryAddStrongBond parms i j))
+                        let world =
+                            (world, weak)
+                                ||> List.fold (fun world (i, j) ->
+                                    world |> Option.bind (World.tryAddWeakBond parms i j))
+                        match world with
+                            | Some world when Validity.isValid parms world -> world
+                            | _ -> ()
+            ]
+
+            // stacks: four-cycles of bonds with at least one weak bond
+        let countStacks (world : World) =
+            let strong = Bonds.strongBonds world
+            let weak = Bonds.weakBonds world
+            let isWeak (i, j) = weak.Contains (min i j, max i j)
+            let isBonded (i, j) = isWeak (i, j) || strong.Contains (min i j, max i j)
+            List.sum [
+                for cycle in [ [ 0; 1; 2; 3 ]; [ 0; 1; 3; 2 ]; [ 0; 2; 1; 3 ] ] do
+                    let edges = List.pairwise (cycle @ [ cycle.Head ])
+                    if List.forall isBonded edges && List.exists isWeak edges then 1
+            ]
+
+            // exact Boltzmann weights
+        let state world = Bonds.directedStrongBonds world, Bonds.weakBonds world
+        let exact =
+            states
+                |> List.map (fun world ->
+                    let bondEnergy bondType (i, j) =
+                        Chain.bondEnergy parms bondType
+                            world.Atoms[i].Type world.Atoms[j].Type
+                    let nStrong = (Bonds.strongBonds world).Count
+                    let energy =
+                        Seq.sumBy (bondEnergy Strong) (Bonds.strongBonds world)
+                            + Seq.sumBy (bondEnergy Weak) (Bonds.weakBonds world)
+                            + Chain.stackEnergy parms * float (countStacks world)
+                    state world, exp -energy * 0.5 ** float nStrong)
+                |> Map.ofList
+
+            // make sure tight loops are actually part of the test
+        Assert.True(
+            states |> List.exists (fun world ->
+                countStacks world > 0 && (Bonds.weakBonds world).Count = 1),
+            "No tight loops enumerated")
+
+            // sample states. Samples close together are correlated.
+        let samples = sample parms 16 2000 1000 2000 state walled
+        checkFit "Bonds" exact samples
+
+    [<Fact>]
+    let ``A tight loop in a box follows the Boltzmann distribution`` () =
+        tightLoopInABox 2.0
+
+    /// The same with no stack energy, so that bonds alone set the
+    /// distribution.
+    [<Fact>]
+    let ``A tight loop in a box follows the Boltzmann distribution with no stack energy`` () =
+        tightLoopInABox 0.0
+
 /// Faces: a strand, and a free atom that pairs on its face.
 module FacePhysicsTests =
 
