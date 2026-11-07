@@ -43,6 +43,19 @@ module View =
             ]
         ]
 
+    /// Name of the frame around the world view.
+    let private frameName = "worldFrame"
+
+    /// Copies the visible part of the world to the clipboard.
+    let private copyView (source : obj) =
+        TopLevel.GetTopLevel(source :?> Visual)
+            |> Avalonia.VisualTree.VisualExtensions.GetVisualDescendants
+            |> Seq.tryPick (fun v ->
+                match v with
+                    | :? Border as border when border.Name = frameName -> Some border
+                    | _ -> None)
+            |> Option.iter Snapshot.copy
+
     /// Run controls.
     let private renderRunBar (model : Model) dispatch =
         row [
@@ -58,6 +71,12 @@ module View =
                     if btn.IsChecked.HasValue then dispatch (SetIsRunning btn.IsChecked.Value)), SubPatchOptions.Never)
             ]
             button "run.reset" "Reset" (fun () -> dispatch Reset)
+            Button.create [
+                Button.content "Copy view"
+                Button.margin margin
+                Button.tip "Copy the visible part of the world to the clipboard as an image, at screen resolution"
+                Button.onClick ((fun args -> copyView args.Source), SubPatchOptions.Never)
+            ]
             label "Seed" 35.0
             intSpinner "run.seed" 110.0 0 System.Int32.MaxValue 1 model.Seed (SetSeed >> dispatch)
             label "Sweeps per frame" 110.0
@@ -89,9 +108,6 @@ module View =
                     TextBlock.margin margin
                 ] :> IView
             | None -> note model.Status
-
-    /// Name of the frame around the world view.
-    let private frameName = "worldFrame"
 
     /// The frame around the world view that holds the given element.
     let private findFrame (source : obj) =

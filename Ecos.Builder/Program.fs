@@ -54,7 +54,7 @@ type App() =
 
 module Program =
 
-    [<EntryPoint>]
+    [<EntryPoint; System.STAThread>]
     let main (args : string[]) =
         System.Diagnostics.Process.GetCurrentProcess().PriorityClass <- System.Diagnostics.ProcessPriorityClass.BelowNormal
         AppBuilder

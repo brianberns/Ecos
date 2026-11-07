@@ -352,11 +352,11 @@ module Editor =
             if String.IsNullOrWhiteSpace text then Some None
             else tryParseFloat text |> Option.map Some
         row [
-            textBox $"{key}.name" 80.0 (phase.Name |> Option.defaultValue "") (fun text ->
+            textBox $"{key}.name" 72.0 (phase.Name |> Option.defaultValue "") (fun text ->
                 edit (fun p -> { p with Name = if String.IsNullOrWhiteSpace text then None else Some (text.Trim()) }))
             textBox $"{key}.kT" 55.0 (formatFloat phase.Temperature) (fun text ->
                 tryParseFloat text |> Option.iter (fun v -> edit (fun p -> { p with Temperature = v })))
-            intSpinner $"{key}.sweeps" 165.0 1 1_000_000_000 10_000 phase.NumSweeps (fun n ->
+            intSpinner $"{key}.sweeps" 140.0 1 1_000_000_000 10_000 phase.NumSweeps (fun n ->
                 edit (fun p -> { p with NumSweeps = max 1 n }))
             textBox $"{key}.hydrolysis" 60.0 (optText phase.HydrolysisRate) (fun text ->
                 parseOpt text |> Option.iter (fun v -> edit (fun p -> { p with HydrolysisRate = v })))
@@ -421,9 +421,9 @@ module Editor =
                         dispatch (Edit (fun s -> { s with Schedule = Constant v })))
                 | Cycle phases ->
                     row [
-                        label "name" 80.0
+                        label "name" 72.0
                         label "kT" 55.0
-                        label "sweeps" 165.0
+                        label "sweeps" 140.0
                         label "hydrolysis" 60.0
                         label "cap peel" 60.0
                     ]

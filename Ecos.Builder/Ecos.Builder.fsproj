@@ -10,6 +10,7 @@
     <Compile Include="Model.fs" />
     <Compile Include="Editor.fs" />
     <Compile Include="WorldView.fs" />
+    <Compile Include="Snapshot.fs" />
     <Compile Include="View.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
