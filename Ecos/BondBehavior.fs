@@ -179,7 +179,8 @@ module private StrongBond =
         let getStrongBonds id = BondMap.getBonds id strongBondMap
         let getWeakBonds id = BondMap.getBonds id weakBondMap
 
-        /// Counts stacks affected by A-B with the given B' partners.
+        /// Counts A's weak partners (A') that are strong-bonded
+        /// to any of the given B' atoms.
         let count idA bPrimes =
             getWeakBonds idA
                 |> Seq.where (fun idA' ->
