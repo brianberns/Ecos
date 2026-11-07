@@ -179,39 +179,27 @@ module private StrongBond =
         let getStrongBonds id = BondMap.getBonds id strongBondMap
         let getWeakBonds id = BondMap.getBonds id weakBondMap
 
-            // ordinary weak-bond stacks: A is weak-bonded to A', which is strong-bonded to B', which is weak-bonded to B
-        let nLadders =
-            let bPrimes = getWeakBonds atomB.Id
-            getWeakBonds atomA.Id
-                |> Seq.where (
-                    getStrongBonds >> BondBehavior.containsAny bPrimes)
-                |> Seq.length
-
-            // strong-bond loop: A is weak-bonded to A', which is strong-bonded to B', which is strong-bonded to B
-        let countSide idA idB =
-            let bPrimes = getStrongBonds idB
+        /// Counts stacks affected by A-B with the given B' partners.
+        let count idA bPrimes =
             getWeakBonds idA
                 |> Seq.where (fun idA' ->
                     getStrongBonds idA'
-                        |> Set.remove idA
                         |> BondBehavior.containsAny bPrimes)
                 |> Seq.length
 
-            // strong-bond loop: A is strong-bonded to A', which is weak-bonded to B', which is strong bonded to B
-        let nTurns =
+        let nHinge =
             let bPrimes = getStrongBonds atomB.Id
             getStrongBonds atomA.Id
                 |> Set.remove atomB.Id
                 |> Seq.sumBy (fun idA' ->
                     getWeakBonds idA'
-                        |> Set.remove atomA.Id
                         |> Seq.where bPrimes.Contains
                         |> Seq.length)
 
-        nLadders
-            + countSide atomA.Id atomB.Id
-            + countSide atomB.Id atomA.Id
-            + nTurns
+        (getWeakBonds atomB.Id |> count atomA.Id)           // ordinary weak-bond stacks
+            + (getStrongBonds atomA.Id |> count atomB.Id)   // loop side stack
+            + (getStrongBonds atomB.Id |> count atomA.Id)   // loop side stack (other side)
+            + nHinge                                        // loop hinge stack
 
     /// Strands can peel at their ends.
     let testPeel capPeel bondTypeMap bondMap atomA atomB =
