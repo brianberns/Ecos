@@ -356,11 +356,11 @@ module Editor =
                 edit (fun p -> { p with Name = if String.IsNullOrWhiteSpace text then None else Some (text.Trim()) }))
             textBox $"{key}.kT" 55.0 (formatFloat phase.Temperature) (fun text ->
                 tryParseFloat text |> Option.iter (fun v -> edit (fun p -> { p with Temperature = v })))
-            intSpinner $"{key}.sweeps" 120.0 1 1_000_000_000 10_000 phase.NumSweeps (fun n ->
+            intSpinner $"{key}.sweeps" 165.0 1 1_000_000_000 10_000 phase.NumSweeps (fun n ->
                 edit (fun p -> { p with NumSweeps = max 1 n }))
-            textBox $"{key}.hydrolysis" 65.0 (optText phase.HydrolysisRate) (fun text ->
+            textBox $"{key}.hydrolysis" 60.0 (optText phase.HydrolysisRate) (fun text ->
                 parseOpt text |> Option.iter (fun v -> edit (fun p -> { p with HydrolysisRate = v })))
-            textBox $"{key}.capPeel" 65.0 (optText phase.CapPeelBarrier) (fun text ->
+            textBox $"{key}.capPeel" 60.0 (optText phase.CapPeelBarrier) (fun text ->
                 parseOpt text |> Option.iter (fun v -> edit (fun p -> { p with CapPeelBarrier = v })))
             smallButton $"{key}.remove" "✕" "Remove this phase" (fun () ->
                 dispatch (Edit (fun s ->
@@ -423,9 +423,9 @@ module Editor =
                     row [
                         label "name" 80.0
                         label "kT" 55.0
-                        label "sweeps" 120.0
-                        label "hydrolysis" 65.0
-                        label "cap peel" 65.0
+                        label "sweeps" 165.0
+                        label "hydrolysis" 60.0
+                        label "cap peel" 60.0
                     ]
                     for i, phase in Array.indexed phases do
                         renderPhase i phase dispatch

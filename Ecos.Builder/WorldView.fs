@@ -35,9 +35,6 @@ module WorldView =
     /// the highest).
     let minTemperature, maxTemperature = 0.0, 5.0
 
-    let private (~~)(pt : Ecos.Point) =
-        Avalonia.Point(pt.X, pt.Y)
-
     let private renderRectangle (corner : Ecos.Point) (size : Ecos.Point) (color : Color) =
         Rectangle.create [
             Rectangle.left corner.X
@@ -75,7 +72,20 @@ module WorldView =
             .Mix(stressColor, ColourSpace.Oklab, getStressTint capPeelBarrier)
             |> toColor
 
-    let private renderEnvironment (run : Run) =
+    /// Where to draw things in a world that has been scrolled by the
+    /// given shift: each location moves back by the shift, wrapping
+    /// around the torus.
+    type private Placer(size : Point, shiftX : float, shiftY : float) =
+        let wrap (v : float) (n : int) =
+            let n = float n
+            ((v % n) + n) % n
+        member _.Place(loc : Point) =
+            Avalonia.Point(wrap (float loc.X - shiftX) size.X, wrap (float loc.Y - shiftY) size.Y)
+        /// The world location shown at the given canvas point.
+        member _.Unplace(x : float, y : float) =
+            Point.create (int (wrap (x + shiftX) size.X), int (wrap (y + shiftY) size.Y))
+
+    let private renderEnvironment (run : Run) (placer : Placer) =
         let spacing = 8
         let size = run.World.Size
         let getTemp = Run.getTemperature run
@@ -85,29 +95,37 @@ module WorldView =
                 for y in 0 .. spacing .. size.Y - 1 do
                     let width = min spacing (size.X - x)
                     let height = min spacing (size.Y - y)
-                    let center = Point.create (x + width / 2, y + height / 2)
+                    let center = placer.Unplace(float x + float width / 2.0, float y + float height / 2.0)
                     getColor (getTemp center) capPeelBarrier
                         |> renderRectangle (Point.create (x, y)) (Point.create (width, height))
         ]
 
-    let private renderWalls (world : World) =
+    let private renderWalls (world : World) (placer : Placer) =
         [
             for loc in world.Walls do
-                renderRectangle (loc - Point.create (1, 1)) (Point.create (2, 2)) Colors.Gray
+                let pt = placer.Place loc
+                Rectangle.create [
+                    Rectangle.left (pt.X - 1.0)
+                    Rectangle.top (pt.Y - 1.0)
+                    Rectangle.width 2.0
+                    Rectangle.height 2.0
+                    Rectangle.fill Colors.Gray
+                    Rectangle.useLayoutRounding false
+                ] :> IView
         ]
 
     let private strokeThickness = 0.4
 
-    let private renderAtoms (run : Run) =
+    let private renderAtoms (run : Run) (placer : Placer) =
         let templateIds = set run.Template
         [
             for atom in run.World.Atoms do
+                let pt = placer.Place atom.Location
                 Ellipse.create [
-                    Ellipse.width 2
-                    Ellipse.height 2
-                    let pt = atom.Location - Point.create (1, 1)
-                    Ellipse.left pt.X
-                    Ellipse.top pt.Y
+                    Ellipse.width 2.0
+                    Ellipse.height 2.0
+                    Ellipse.left (pt.X - 1.0)   // every atom is 2x2 centered on its location
+                    Ellipse.top (pt.Y - 1.0)
                     if templateIds.Contains atom.Id then
                         Ellipse.fill brushMap[atom.Type]
                     else
@@ -117,11 +135,11 @@ module WorldView =
                 ] :> IView
         ]
 
-    let private renderBonds bondType (getBrush : AtomId -> IBrush) (world : World) =
-        let drawLine brush start finish =
+    let private renderBonds bondType (getBrush : AtomId -> IBrush) (world : World) (placer : Placer) =
+        let drawLine brush (start : Avalonia.Point) (finish : Avalonia.Point) =
             Line.create [
-                Line.startPoint ~~start
-                Line.endPoint ~~finish
+                Line.startPoint start
+                Line.endPoint finish
                 Line.stroke (brush : IBrush)
                 Line.strokeThickness strokeThickness
             ] :> IView
@@ -132,9 +150,11 @@ module WorldView =
                         let a, b = world.Atoms[idA], world.Atoms[idB]
                         let brush = getBrush idA
                         let d = World.getDisplacement a b world
-                        yield drawLine brush a.Location (a.Location + d)
-                        if a.Location + d <> b.Location then   // crosses an edge: draw its other half too
-                            yield drawLine brush b.Location (b.Location - d)
+                        let d = Avalonia.Vector(float d.X, float d.Y)
+                        let ptA, ptB = placer.Place a.Location, placer.Place b.Location
+                        yield drawLine brush ptA (ptA + d)
+                        if Avalonia.Point.Distance(ptA + d, ptB) > 0.5 then   // crosses an edge: draw its other half too
+                            yield drawLine brush ptB (ptB - d)
         ]
 
     /// Brushes of the given colors, made once each.
@@ -156,10 +176,12 @@ module WorldView =
                 |> Seq.concat
                 |> Map
 
-    /// Renders the given run's world, scaled to fit, with the strong
+    /// Renders the given run's world, scrolled around the torus by the
+    /// given shift (in world units) and scaled to fit, with the strong
     /// bonds of each colored family in its color.
-    let render (run : Run) familyColors =
+    let render (run : Run) familyColors (shiftX : float, shiftY : float) =
         let world = run.World
+        let placer = Placer(world.Size, shiftX, shiftY)
         let familyBrushes = getFamilyBrushes familyColors world
         let getStrongBrush id =
             familyBrushes |> Map.tryFind id |> Option.defaultValue (Brushes.Black :> IBrush)
@@ -171,11 +193,11 @@ module WorldView =
                     Canvas.height (float world.Size.Y)
                     Canvas.clipToBounds true
                     Canvas.children [
-                        yield! renderEnvironment run
-                        yield! renderWalls world
-                        yield! renderAtoms run
-                        yield! renderBonds Strong getStrongBrush world
-                        yield! renderBonds Weak (fun _ -> Brushes.HotPink) world
+                        yield! renderEnvironment run placer
+                        yield! renderWalls world placer
+                        yield! renderAtoms run placer
+                        yield! renderBonds Strong getStrongBrush world placer
+                        yield! renderBonds Weak (fun _ -> Brushes.HotPink) world placer
                     ]
                 ])
         ]

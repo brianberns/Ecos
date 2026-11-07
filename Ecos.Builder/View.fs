@@ -103,7 +103,8 @@ module View =
         loop (source :?> Visual)
 
     /// The world, which the mouse wheel zooms about the pointer, a drag
-    /// pans when zoomed, and a double-click fits to the view again.
+    /// scrolls around the torus, and a double-click fits to the view and
+    /// unscrolls.
     let private renderWorld (model : Model) dispatch =
         let ox, oy = model.Offset
         let isDragging = model.DragFrom.IsSome
@@ -122,14 +123,15 @@ module View =
                 else dispatch (DragStart (pt.X, pt.Y))), SubPatchOptions.Never)
             Border.onPointerMoved ((fun args ->
                 if isDragging then
-                    let pt = args.GetPosition(findFrame args.Source)
-                    dispatch (DragTo (pt.X, pt.Y))), SubPatchOptions.OnChangeOf isDragging)
+                    let frame = findFrame args.Source
+                    let pt = args.GetPosition(frame)
+                    dispatch (DragTo (pt.X, pt.Y, frame.Bounds.Width, frame.Bounds.Height))), SubPatchOptions.OnChangeOf isDragging)
             Border.onPointerReleased ((fun _ -> dispatch DragEnd), SubPatchOptions.Never)
             Border.child (
                 Border.create [
                     Border.renderTransformOrigin (RelativePoint(0.0, 0.0, RelativeUnit.Absolute))
                     Border.renderTransform (MatrixTransform(Matrix(model.Zoom, 0.0, 0.0, model.Zoom, ox, oy)))
-                    Border.child (WorldView.render model.Run model.FamilyColors)
+                    Border.child (WorldView.render model.Run model.FamilyColors model.Shift)
                 ])
         ]
 

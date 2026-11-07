@@ -66,7 +66,11 @@ type Model =
         /// Offset of the magnified world view, in view coordinates.
         Offset : float * float
 
-        /// Where a drag to pan the view last was, if one is under way.
+        /// How far the world has been scrolled around the torus, in
+        /// world units.
+        Shift : float * float
+
+        /// Where a drag to scroll the world last was, if one is under way.
         DragFrom : (float * float) option
     }
 
@@ -105,11 +109,12 @@ type Message =
     /// Fits the world to the view again.
     | ResetZoom
 
-    /// Starts a drag to pan the view, at the given point.
+    /// Starts a drag to scroll the world, at the given point.
     | DragStart of float * float
 
-    /// Continues a drag to the given point.
-    | DragTo of float * float
+    /// Continues a drag to the given point, in a view of the given
+    /// width and height.
+    | DragTo of float * float * float * float
 
     /// Ends a drag.
     | DragEnd
@@ -136,7 +141,8 @@ module Model =
 
     /// A new spec: a 160 x 160 soup of W, X, Y, Z, P and Q, each 2% of
     /// the sites, with no strands, the standard physics (scenario A's),
-    /// and a constant kT of 0.25.
+    /// and a cycle of cold (kT 0.25, 200,000 sweeps) and hot (kT 3,
+    /// 100,000 sweeps).
     let defaultSpec : ScenarioSpec =
         {
             Name = "untitled"
@@ -149,7 +155,11 @@ module Model =
                 Map [ "W", 2.0; "X", 2.0; "Y", 2.0; "Z", 2.0; "H", 0.0; "P", 2.0; "Q", 2.0 ]
             FoodWithin = None
             Parameters = ScenarioSpec.ofParameters (Scenario.createScenarioA false).Parameters
-            Schedule = Constant 0.25
+            Schedule =
+                Cycle [|
+                    { Name = Some "cold"; Temperature = 0.25; NumSweeps = 200_000; HydrolysisRate = None; CapPeelBarrier = None }
+                    { Name = Some "hot"; Temperature = 3.0; NumSweeps = 100_000; HydrolysisRate = None; CapPeelBarrier = None }
+                |]
         }
 
     /// Folder in which specs are saved: "specs" in the repository (the
@@ -230,6 +240,7 @@ module Model =
                 SliderBase = None
                 Zoom = 1.0
                 Offset = (0.0, 0.0)
+                Shift = (0.0, 0.0)
                 DragFrom = None
             }
         model, Cmd.none
@@ -329,15 +340,18 @@ module Model =
                 if spec = model.Spec then model, Cmd.none
                 else editSpec spec model
             | ZoomAt (x, y, steps) -> zoomAt x y steps model, Cmd.none
-            | ResetZoom -> { model with Zoom = 1.0; Offset = (0.0, 0.0) }, Cmd.none
-            | DragStart (x, y) ->
-                if model.Zoom > 1.0 then { model with DragFrom = Some (x, y) }, Cmd.none
-                else model, Cmd.none
-            | DragTo (x, y) ->
+            | ResetZoom -> { model with Zoom = 1.0; Offset = (0.0, 0.0); Shift = (0.0, 0.0) }, Cmd.none
+            | DragStart (x, y) -> { model with DragFrom = Some (x, y) }, Cmd.none
+            | DragTo (x, y, viewWidth, viewHeight) ->
                 match model.DragFrom with
                     | Some (x0, y0) ->
-                        let ox, oy = model.Offset
-                        { model with Offset = (ox + x - x0, oy + y - y0); DragFrom = Some (x, y) }, Cmd.none
+                        let size = model.Run.World.Size
+                        let scale =   // view units per world unit
+                            model.Zoom * min (viewWidth / float size.X) (viewHeight / float size.Y)
+                        let sx, sy = model.Shift
+                        { model with
+                            Shift = (sx - (x - x0) / scale, sy - (y - y0) / scale)
+                            DragFrom = Some (x, y) }, Cmd.none
                     | None -> model, Cmd.none
             | DragEnd -> { model with DragFrom = None }, Cmd.none
             | Rename name -> { model with Spec = { model.Spec with Name = name } }, Cmd.none
