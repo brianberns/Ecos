@@ -90,6 +90,49 @@ module View =
                 ] :> IView
             | None -> note model.Status
 
+    /// Name of the frame around the world view.
+    let private frameName = "worldFrame"
+
+    /// The frame around the world view that holds the given element.
+    let private findFrame (source : obj) =
+        let rec loop (visual : Visual) =
+            match visual with
+                | null -> null
+                | :? Border as border when border.Name = frameName -> visual
+                | _ -> loop (Avalonia.VisualTree.VisualExtensions.GetVisualParent(visual))
+        loop (source :?> Visual)
+
+    /// The world, which the mouse wheel zooms about the pointer, a drag
+    /// pans when zoomed, and a double-click fits to the view again.
+    let private renderWorld (model : Model) dispatch =
+        let ox, oy = model.Offset
+        let isDragging = model.DragFrom.IsSome
+        Border.create [
+            Border.name frameName
+            Border.margin 8.0
+            Border.clipToBounds true
+            Border.background Brushes.Transparent   // so that the mouse is seen everywhere in it
+            Border.onPointerWheelChanged ((fun args ->
+                let pt = args.GetPosition(findFrame args.Source)
+                dispatch (ZoomAt (pt.X, pt.Y, args.Delta.Y))
+                args.Handled <- true), SubPatchOptions.Never)
+            Border.onPointerPressed ((fun args ->
+                let pt = args.GetPosition(findFrame args.Source)
+                if args.ClickCount = 2 then dispatch ResetZoom
+                else dispatch (DragStart (pt.X, pt.Y))), SubPatchOptions.Never)
+            Border.onPointerMoved ((fun args ->
+                if isDragging then
+                    let pt = args.GetPosition(findFrame args.Source)
+                    dispatch (DragTo (pt.X, pt.Y))), SubPatchOptions.OnChangeOf isDragging)
+            Border.onPointerReleased ((fun _ -> dispatch DragEnd), SubPatchOptions.Never)
+            Border.child (
+                Border.create [
+                    Border.renderTransformOrigin (RelativePoint(0.0, 0.0, RelativeUnit.Absolute))
+                    Border.renderTransform (MatrixTransform(Matrix(model.Zoom, 0.0, 0.0, model.Zoom, ox, oy)))
+                    Border.child (WorldView.render model.Run model.FamilyColors)
+                ])
+        ]
+
     let render (model : Model) dispatch =
         DockPanel.create [
             DockPanel.children [
@@ -121,9 +164,6 @@ module View =
                     Border.padding 4.0
                     Border.child (column [ renderStatus model; renderMessage model ])
                 ]
-                Border.create [
-                    Border.padding 8.0
-                    Border.child (WorldView.render model.Run model.FamilyColors)
-                ]
+                renderWorld model dispatch
             ]
         ]

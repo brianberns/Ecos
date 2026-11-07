@@ -50,6 +50,24 @@ type Model =
 
         /// Latest message for the status bar, e.g. "Saved".
         Status : string
+
+        /// Incremented with each edit. The run is rebuilt only once the
+        /// edits pause, so a burst of them costs one rebuild.
+        EditCount : int
+
+        /// Occupancies when the slider that scales them all began to
+        /// move, so that dragging it keeps their ratios although each is
+        /// rounded to a whole percent.
+        SliderBase : Map<string, float> option
+
+        /// Magnification of the world view (1 fits the window).
+        Zoom : float
+
+        /// Offset of the magnified world view, in view coordinates.
+        Offset : float * float
+
+        /// Where a drag to pan the view last was, if one is under way.
+        DragFrom : (float * float) option
     }
 
 /// Elmish messages.
@@ -70,8 +88,31 @@ type Message =
     /// Restarts the run from the start.
     | Restart
 
-    /// Changes the spec, and restarts if it changed.
+    /// Changes the spec, and restarts once the edits pause.
     | Edit of (ScenarioSpec -> ScenarioSpec)
+
+    /// Rebuilds the run if there has been no edit since the given one.
+    | RebuildAfter of int
+
+    /// Scales every type's occupancy to the given total, rounding each
+    /// to a whole percent.
+    | ScaleOccupancy of float
+
+    /// Zooms the view by the given number of wheel steps (in, if
+    /// positive) about the given point.
+    | ZoomAt of float * float * float
+
+    /// Fits the world to the view again.
+    | ResetZoom
+
+    /// Starts a drag to pan the view, at the given point.
+    | DragStart of float * float
+
+    /// Continues a drag to the given point.
+    | DragTo of float * float
+
+    /// Ends a drag.
+    | DragEnd
 
     /// Renames the spec, without restarting.
     | Rename of string
@@ -185,6 +226,11 @@ module Model =
                 LoadCount = 0
                 SavedNames = getSavedNames ()
                 Status = "New spec"
+                EditCount = 0
+                SliderBase = None
+                Zoom = 1.0
+                Offset = (0.0, 0.0)
+                DragFrom = None
             }
         model, Cmd.none
 
@@ -211,6 +257,37 @@ module Model =
         else stopwatch.Stop()
         { model with IsRunning = isRunning && model.Error.IsNone }
 
+    /// Time to wait after an edit before rebuilding, in case another
+    /// follows.
+    let private rebuildDelay = TimeSpan.FromMilliseconds 250.0
+
+    /// Command to rebuild after the given edit, if no other follows.
+    let private rebuildLater editCount : Cmd<Message> =
+        Cmd.ofEffect (fun dispatch ->
+            Avalonia.Threading.DispatcherTimer.RunOnce(
+                (fun () -> dispatch (RebuildAfter editCount)),
+                rebuildDelay) |> ignore)
+
+    /// Model with the given spec, to be rebuilt once edits pause.
+    let private editSpec spec model =
+        let editCount = model.EditCount + 1
+        { model with Spec = spec; EditCount = editCount }, rebuildLater editCount
+
+    /// Largest magnification.
+    let private maxZoom = 40.0
+
+    /// Model zoomed by the given number of wheel steps about the given
+    /// point, which stays where it is.
+    let private zoomAt x y steps model =
+        let zoom = model.Zoom * Math.Pow(1.2, steps) |> max 1.0 |> min maxZoom
+        if zoom = 1.0 then { model with Zoom = 1.0; Offset = (0.0, 0.0) }
+        else
+            let ox, oy = model.Offset
+            let factor = zoom / model.Zoom
+            { model with
+                Zoom = zoom
+                Offset = (x - (x - ox) * factor, y - (y - oy) * factor) }
+
     /// Saves the given spec under its name.
     let private saveSpec (spec : ScenarioSpec) =
         Directory.CreateDirectory(specsFolder) |> ignore
@@ -234,8 +311,35 @@ module Model =
                     with ex -> Error ex.Message
                 match spec with
                     | Ok spec when spec = model.Spec -> model, Cmd.none
-                    | Ok spec -> rebuild spec model, Cmd.none
+                    | Ok spec -> editSpec spec { model with SliderBase = None }
                     | Error msg -> { model with Status = msg }, Cmd.none
+            | RebuildAfter editCount ->
+                if editCount = model.EditCount then rebuild model.Spec model, Cmd.none
+                else model, Cmd.none
+            | ScaleOccupancy total ->
+                let baseOccupancy = model.SliderBase |> Option.defaultValue model.Spec.Occupancy
+                let baseTotal = baseOccupancy |> Map.toSeq |> Seq.sumBy snd
+                let total = total |> max 0.0 |> min 100.0
+                let occupancy =
+                    if baseTotal > 0.0 then
+                        baseOccupancy |> Map.map (fun _ p -> Math.Round(p * total / baseTotal))
+                    else model.Spec.Occupancy
+                let spec = { model.Spec with Occupancy = occupancy }
+                let model = { model with SliderBase = Some baseOccupancy }
+                if spec = model.Spec then model, Cmd.none
+                else editSpec spec model
+            | ZoomAt (x, y, steps) -> zoomAt x y steps model, Cmd.none
+            | ResetZoom -> { model with Zoom = 1.0; Offset = (0.0, 0.0) }, Cmd.none
+            | DragStart (x, y) ->
+                if model.Zoom > 1.0 then { model with DragFrom = Some (x, y) }, Cmd.none
+                else model, Cmd.none
+            | DragTo (x, y) ->
+                match model.DragFrom with
+                    | Some (x0, y0) ->
+                        let ox, oy = model.Offset
+                        { model with Offset = (ox + x - x0, oy + y - y0); DragFrom = Some (x, y) }, Cmd.none
+                    | None -> model, Cmd.none
+            | DragEnd -> { model with DragFrom = None }, Cmd.none
             | Rename name -> { model with Spec = { model.Spec with Name = name } }, Cmd.none
             | New -> load defaultSpec "New spec" model, Cmd.none
             | LoadSaved name ->

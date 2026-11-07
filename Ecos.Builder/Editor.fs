@@ -95,9 +95,7 @@ module Editor =
                     Slider.margin margin
                     Slider.verticalAlignment VerticalAlignment.Center
                     Slider.onValueChanged ((fun v ->
-                        dispatch (Edit (fun s ->
-                            if abs (v - getTotalOccupancy s) < 0.005 then s
-                            else scaleOccupancy v s))), SubPatchOptions.OnChangeOf "food.total")
+                        if abs (v - total) >= 0.5 then dispatch (ScaleOccupancy v)), SubPatchOptions.OnChangeOf (box ("food.total", total)))
                 ]
                 note $"{total:F1}%% in all"
             ]
@@ -157,24 +155,27 @@ module Editor =
             Border.child (
                 column [
                     row [
-                        textBox $"{key}.pattern" 250.0 strand.Pattern (fun text ->
+                        textBox $"{key}.pattern" 270.0 strand.Pattern (fun text ->
                             edit (fun st -> { st with Pattern = text.Trim() }))
                         label "x" 10.0
                         intSpinner $"{key}.count" 100.0 0 100_000 1 strand.Count (fun n ->
                             edit (fun st -> { st with Count = n }))
-                        checkBox $"{key}.template" "Template" strand.IsTemplate (fun flag ->
-                            edit (fun st -> { st with IsTemplate = flag }))
-                        let colorIndex =
-                            strandColors
-                                |> Array.tryFindIndex (fun (_, c) -> c = strand.Color)
-                                |> Option.defaultValue 0
-                        comboBox $"{key}.color" 100.0 (Array.map fst strandColors) colorIndex (fun i ->
-                            edit (fun st -> { st with Color = snd strandColors[i] }))
                         smallButton $"{key}.remove" "✕" "Remove this strand" (fun () ->
                             dispatch (Edit (fun s ->
                                 { s with
                                     Strands = s.Strands |> Array.removeAt index
                                     WeakBonds = [||] })))
+                    ]
+                    row [
+                        checkBox $"{key}.template" "Template" strand.IsTemplate (fun flag ->
+                            edit (fun st -> { st with IsTemplate = flag }))
+                        label "Color" 40.0
+                        let colorIndex =
+                            strandColors
+                                |> Array.tryFindIndex (fun (_, c) -> c = strand.Color)
+                                |> Option.defaultValue 0
+                        comboBox $"{key}.color" 110.0 (Array.map fst strandColors) colorIndex (fun i ->
+                            edit (fun st -> { st with Color = snd strandColors[i] }))
                     ]
                     match describePattern strand.Pattern with
                         | Ok text -> note text
@@ -192,8 +193,6 @@ module Editor =
     let private renderStrands (spec : ScenarioSpec) dispatch =
         column [
             heading "Strands"
-            note "Each copy is drawn from its pattern and scattered at random, straight. A color shows the strong bonds of every chain in the strand's family: any chain the pattern could draw, or a complete copy of one."
-            note "A pattern is terms separated by \"-\": atom letters (PHH), a set of which one is drawn ([WY]), Coding (one of WXYZ) or Cap (P or Q). A term can repeat a fixed number of times (8*[WY]) or a random number in a range ([1-2]*H). E.g. Cap-H-10*Coding-Cap."
             for i, strand in Array.indexed spec.Strands do
                 renderStrand i strand dispatch
             row [
@@ -211,6 +210,9 @@ module Editor =
                     smallButton "strands.clearPairs" "Clear" "Remove the pairings" (fun () ->
                         dispatch (Edit (fun s -> { s with WeakBonds = [||] })))
                 ]
+            heading "Help"
+            note "Each copy is drawn from its pattern and scattered at random, straight. A color shows the strong bonds of every chain in the strand's family: any chain the pattern could draw, or a complete copy of one."
+            note "A pattern is terms separated by \"-\": atom letters (PHH), a set of which one is drawn ([WY]), Coding (one of WXYZ) or Cap (P or Q). A term can repeat a fixed number of times (8*[WY]) or a random number in a range ([1-2]*H). E.g. Cap-H-10*Coding-Cap."
         ]
 
     /// Formats a bend limit.
