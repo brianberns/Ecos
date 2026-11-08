@@ -37,7 +37,7 @@ module ScenarioSpecTests =
 
     /// Number of weak bonds in the given world.
     let private countWeakBonds (world : World) =
-        world.BondTypeMap[Weak] |> Map.toSeq |> Seq.sumBy (snd >> Set.count) |> fun n -> n / 2
+        world.BondTypeMap[Weak] |> BondMap.toSeq |> Seq.sumBy (snd >> Set.count) |> fun n -> n / 2
 
     [<Fact>]
     let ``A spec of each registered scenario builds the same strands, walls and atoms`` () =
@@ -56,7 +56,7 @@ module ScenarioSpecTests =
             let strandWeakBonds (w : World) =   // free atoms' pairings aren't kept
                 let inStrands = getStrands w |> Seq.collect _.AtomIds |> set
                 w.BondTypeMap[Weak]
-                    |> Map.toSeq
+                    |> BondMap.toSeq
                     |> Seq.sumBy (fun (a, bs) ->
                         if inStrands.Contains a then bs |> Set.filter inStrands.Contains |> Set.count
                         else 0)

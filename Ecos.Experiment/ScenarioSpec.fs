@@ -579,7 +579,7 @@ module ScenarioSpec =
                 |> Map
         let weakBonds =
             world.BondTypeMap[Weak]
-                |> Map.toSeq
+                |> BondMap.toSeq
                 |> Seq.collect (fun (a, bs) -> bs |> Seq.where (fun b -> a < b) |> Seq.map (fun b -> a, b))
                 |> Seq.choose (fun (a, b) ->
                     match strandIndex.TryFind a, strandIndex.TryFind b with

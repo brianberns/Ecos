@@ -153,7 +153,7 @@ module WorldView =
 
     let private getBonds bondType (world : World) =
         world.BondTypeMap[bondType]
-            |> Map.toSeq
+            |> BondMap.toSeq
             |> Seq.collect (fun (idA, ids) ->
                 Seq.choose (fun idB ->
                     if idA < idB then

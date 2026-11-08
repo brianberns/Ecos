@@ -188,7 +188,7 @@ module Validity =
             // sharply
         let strongBondsValid =
             (Bonds.strongBondMap world)
-                |> Map.forall (fun idA ids ->
+                |> BondMap.forall (fun idA ids ->
                     ids.Count <= Chain.strongValence world.Atoms[idA].Type
                         && anglesAreAllowed parms world loc idA
                         && ids
@@ -200,7 +200,7 @@ module Validity =
             // no atom is listed with an empty set of bonds
         let bondSetsValid =
             world.BondTypeMap.BondMaps
-                |> Seq.forall (Map.forall (fun _ ids -> not ids.IsEmpty))
+                |> Seq.forall (BondMap.forall (fun _ ids -> not ids.IsEmpty))
 
             // no bond, strong or weak, crosses another
         let noCrossings =
@@ -213,7 +213,7 @@ module Validity =
             // strongly bonded
         let weakBondsValid =
             (Bonds.weakBondMap world)
-                |> Map.forall (fun idA ids ->
+                |> BondMap.forall (fun idA ids ->
                     ids
                         |> Set.forall (fun idB ->
                             Bonds.areWeaklyBonded world idB idA
@@ -240,7 +240,7 @@ module Validity =
             // weak bond is on the other's face
         let weakPartnersValid =
             (Bonds.weakBondMap world)
-                |> Map.forall (fun _ ids -> ids.Count <= 1)
+                |> BondMap.forall (fun _ ids -> ids.Count <= 1)
                 && facesAreValid world (strandsOf world)
 
             // every atom is stored under its own ID, and the world's cells
