@@ -236,13 +236,18 @@ module Editor =
         let edit f =
             dispatch (Edit (fun (s : ScenarioSpec) ->
                 { s with Parameters = setBond (f (getBond s.Parameters)) s.Parameters }))
-        let field id text value set =
+        let field id text tip value set =
             floatField $"{key}.{id}" text value (fun v -> edit (fun b -> set v b))
+                |> tipped tip
+        let isWeak = (name = "Weak")
+        let noChain = if isWeak then "\n\nNo effect on weak bonds: an atom has at most one, so they never form a chain." else ""
         column [
             heading $"{name} bonds"
-            field "energy" "Energy" bond.Energy (fun v b -> { b with Energy = v })
+            field "energy" "Energy"
+                "E: how much lower in energy the bonded state is than the unbonded one. With entropy s, the odds of bonded vs unbonded are e^(E/kT − s). Each stack adds the stack energy, and a bend subtracts its bend energy."
+                bond.Energy (fun v b -> { b with Energy = v })
             for pairKey, energy in Map.toSeq bond.PairEnergies do
-                row [
+                tipped "Energy of bonds between these two atom types, in place of the default energy above." <| row [
                     label "" 16.0
                     textBox $"{key}.pair.{pairKey}.key" 60.0 pairKey (fun text ->
                         match ScenarioSpec.tryParsePairKey text with
@@ -270,21 +275,36 @@ module Editor =
                                 |> Option.defaultValue "H-H"
                         { b with PairEnergies = b.PairEnergies |> Map.add newKey b.Energy }))
             ]
-            field "barrier" "Barrier" bond.Barrier (fun v b -> { b with Barrier = v })
-            field "stackReduction" "Barrier reduction per stack" bond.BarrierStackReduction (fun v b -> { b with BarrierStackReduction = v })
-            field "startBarrier" "Start barrier" bond.StartBarrier (fun v b -> { b with StartBarrier = v })
-            field "entropy" "Entropy" bond.Entropy (fun v b -> { b with Entropy = v })
-            field "hydrolysis" "Hydrolysis rate" bond.HydrolysisRate (fun v b -> { b with HydrolysisRate = v })
-            field "protectedHydrolysis" "Protected hydrolysis rate" bond.ProtectedHydrolysisRate (fun v b -> { b with ProtectedHydrolysisRate = v })
-            row [
+            field "barrier" "Barrier"
+                "Height of the hump a bond must cross to form or to break. It slows both directions by the same factor, e^(−barrier/kT), so it changes how fast bonds change, not which state is favored. Heat makes it easier to cross."
+                bond.Barrier (fun v b -> { b with Barrier = v })
+            field "stackReduction" "Barrier reduction per stack"
+                "How much each stack lowers the barrier (never below 0). A stack is a neighboring bond that this bond would line up with, e.g. a strong bond whose atoms are weak-paired to a template's bonded atoms. This is what makes templated joins fast."
+                bond.BarrierStackReduction (fun v b -> { b with BarrierStackReduction = v })
+            field "startBarrier" "Start barrier"
+                "Extra barrier for a bond between two atoms that have no other bond of this type, i.e. one that starts (or is all of) a strand. It applies to forming and to breaking such a bond."
+                bond.StartBarrier (fun v b -> { b with StartBarrier = v })
+            field "entropy" "Entropy"
+                "s: the entropy lost when this bond forms (the bonded state has e^s times fewer arrangements). It lifts the bonded state's free energy by kT·s, so the bond melts above kT = energy/s. With 0, the bond never melts."
+                bond.Entropy (fun v b -> { b with Entropy = v })
+            field "hydrolysis" "Hydrolysis rate"
+                "Chance that a bond of this type breaks outright, regardless of energy and barrier, each time it is picked for a toggle attempt. It doesn't depend on temperature. A phase can override it for strong bonds."
+                bond.HydrolysisRate (fun v b -> { b with HydrolysisRate = v })
+            field "protectedHydrolysis" "Protected hydrolysis rate"
+                ("The hydrolysis rate for a bond that is protected: a strong bond that is part of a stack, e.g. in a paired double strand."
+                    + (if isWeak then "\n\nNo effect on weak bonds: they are never protected." else ""))
+                bond.ProtectedHydrolysisRate (fun v b -> { b with ProtectedHydrolysisRate = v })
+            tipped ("Sharpest bend allowed where two bonds of this type meet at an atom: the cosine of the angle between the two bonds must be at most this. 0/1 allows bends up to a right angle, -4/5 only nearly straight, and 1/1 any bend." + noChain) <| row [
                 label "Bend limit (cosine)" labelWidth
                 textBox $"{key}.bendLimit" valueWidth (formatRational bond.BendLimit) (fun text ->
                     tryParseRational text |> Option.iter (fun r -> edit (fun b -> { b with BendLimit = r })))
                 note "0/1 right angle, -4/5 straight, 1/1 any"
             ]
-            field "bendStiffness" "Bend stiffness" bond.BendStiffness (fun v b -> { b with BendStiffness = v })
+            field "bendStiffness" "Bend stiffness"
+                ("κ: the energy cost of a bend where two bonds of this type meet at an atom, κ·(1 + cos φ) for an angle φ between the bonds. It's 0 when straight and 2κ when folded back, and it's taken off the bond's energy." + noChain)
+                bond.BendStiffness (fun v b -> { b with BendStiffness = v })
             for letter, kappa in Map.toSeq bond.BendStiffnesses do
-                row [
+                tipped "Bend stiffness at atoms of this type, in place of the default bend stiffness above." <| row [
                     label "" 16.0
                     label "at" 20.0
                     textBox $"{key}.bend.{letter}.key" 40.0 letter (fun text ->
@@ -319,20 +339,31 @@ module Editor =
     let private renderPhysics (spec : ScenarioSpec) dispatch =
         let parms = spec.Parameters
         let edit f = dispatch (Edit (fun s -> { s with Parameters = f s.Parameters }))
-        let field key text value set =
+        let field key text tip value set =
             floatField $"physics.{key}" text value (fun v -> edit (set v))
+                |> tipped tip
         column [
             heading "Event weights"
-            field "moveAtom" "Move an atom" parms.MoveAtomWeight (fun v p -> { p with MoveAtomWeight = v })
-            field "toggleStrong" "Toggle a strong bond" parms.ToggleStrongBondWeight (fun v p -> { p with ToggleStrongBondWeight = v })
-            field "toggleWeak" "Toggle a weak bond" parms.ToggleWeakBondWeight (fun v p -> { p with ToggleWeakBondWeight = v })
+            field "moveAtom" "Move an atom"
+                "How often an event tries to move an atom one step, relative to the other events. Free atoms and strands spread by these moves."
+                parms.MoveAtomWeight (fun v p -> { p with MoveAtomWeight = v })
+            field "toggleStrong" "Toggle a strong bond"
+                "How often an event picks an atom and a neighbor and tries to make the strong bond between them (if unbonded) or break it (if bonded), relative to the other events."
+                parms.ToggleStrongBondWeight (fun v p -> { p with ToggleStrongBondWeight = v })
+            field "toggleWeak" "Toggle a weak bond"
+                "How often an event picks an atom and a neighbor and tries to make or break the weak bond between them, relative to the other events."
+                parms.ToggleWeakBondWeight (fun v p -> { p with ToggleWeakBondWeight = v })
             note "Only their ratios matter."
             heading "Stacking and peeling"
-            field "stackEnergy" "Stack energy" parms.StackEnergy (fun v p -> { p with StackEnergy = v })
+            field "stackEnergy" "Stack energy"
+                "Energy added to a bond for each stack it is part of, i.e. each neighboring bond it lines up with. It deepens the bonded state, so paired double strands hold together and stacked pairs melt at a higher kT than lone ones."
+                parms.StackEnergy (fun v p -> { p with StackEnergy = v })
             infiniteFloatField "physics.peelBarrier" "Peel barrier" parms.PeelBarrier "no peeling" (fun v ->
                 edit (fun p -> { p with PeelBarrier = v }))
+                |> tipped "A strong bond at the end of a strand (a non-cap atom with no other strong bond) can also break with chance e^(−barrier/kT) per attempt, with no energy test. Blank: strands never peel."
             infiniteFloatField "physics.capPeelBarrier" "Cap peel barrier" parms.CapPeelBarrier "no cap peeling" (fun v ->
                 edit (fun p -> { p with CapPeelBarrier = v }))
+                |> tipped "A strong bond to a cap (P or Q) that isn't in a stack can also break with chance e^(−barrier/kT) per attempt, with no energy test. A phase can override it. Blank: caps never peel."
             note "Blank for none."
             renderBondType "Strong" _.Strong (fun b p -> { p with Strong = b }) parms.Strong dispatch
             renderBondType "Weak" _.Weak (fun b p -> { p with Weak = b }) parms.Weak dispatch
@@ -421,11 +452,11 @@ module Editor =
                         dispatch (Edit (fun s -> { s with Schedule = Constant v })))
                 | Cycle phases ->
                     row [
-                        label "name" 72.0
-                        label "kT" 55.0
-                        label "sweeps" 140.0
-                        label "hydrolysis" 60.0
-                        label "cap peel" 60.0
+                        label "name" 72.0 |> tipped "Name of the phase, shown in the status bar. Optional."
+                        label "kT" 55.0 |> tipped "Temperature of the phase, in energy units (kT)."
+                        label "sweeps" 140.0 |> tipped "How long the phase lasts. In a sweep, each atom gets about one event on average."
+                        label "hydrolysis" 60.0 |> tipped "Hydrolysis rate of unprotected strong bonds during this phase, in place of the Physics tab's. Blank: use the Physics tab's."
+                        label "cap peel" 60.0 |> tipped "Cap peel barrier during this phase, in place of the Physics tab's. Blank: use the Physics tab's."
                     ]
                     for i, phase in Array.indexed phases do
                         renderPhase i phase dispatch

@@ -130,6 +130,14 @@ module Fields =
             StackPanel.children children
         ] :> IView
 
+    /// The given view, with the given tooltip anywhere over it.
+    let tipped (tip : string) (view : IView) =
+        Border.create [
+            Border.tip tip
+            Border.background Brushes.Transparent   // so that the tip shows between controls too
+            Border.child view
+        ] :> IView
+
     /// A labeled float field.
     let floatField key text (value : float) (onCommit : float -> unit) =
         row [
