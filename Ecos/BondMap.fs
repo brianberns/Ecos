@@ -16,7 +16,9 @@ type BondMap =
 
     /// Answers IDs of atoms bound to the given atom.
     member bondMap.Item(atomId : AtomId) =
-        bondMap.BondSets[atomId]
+        let ids = bondMap.BondSets[atomId]
+        if ids.IsEmpty then failwith "No bonds"
+        else ids
 
     /// Indicates whether the given bond map is empty.
     member bondMap.IsEmpty =
@@ -83,14 +85,16 @@ type BondMap =
 module BondMap =
 
     /// Answers the IDs of all atoms bonded with the given atom.
-    let getBonds id (bondMap : BondMap) =
+    /// The bond map may be in a temporarily invalid state.
+    let private getBondsImpl (id : AtomId) (bondMap : BondMap) =
+        if id < bondMap.BondSets.Length then
+            bondMap.BondSets[id]
+        else
+            Set.empty
 
-        let impl id =
-            if id < bondMap.BondSets.Length then
-                bondMap[id]
-            else
-                Set.empty
-
+    /// Answers the IDs of all atoms bonded with the given atom.
+    let getBonds id bondMap =
+        let impl id = getBondsImpl id bondMap
         let result = impl id
         assert(Seq.forall (impl >> Set.contains id) result)
         result
@@ -124,7 +128,9 @@ module BondMap =
     let createBond idA idB bondMap =
 
         let impl idA idB (bondMap : BondMap) : BondMap =
-            let ids = Set.add idB bondMap[idA]
+            let ids =
+                getBondsImpl idA bondMap
+                    |> Set.add idB
             { BondSets = bondMap.BondSets.SetItem(idA, ids) }
 
         bondMap
@@ -137,8 +143,11 @@ module BondMap =
     let removeBond idA idB bondMap =
 
         let impl idA idB (bondMap : BondMap) : BondMap =
-            let ids = (getBonds idA bondMap).Remove(idB)
-            { BondSets = bondMap.BondSets.SetItem(idA, ids) }
+            let ids = getBondsImpl idA bondMap
+            if ids.IsEmpty then bondMap
+            else
+                let ids = ids.Remove(idB)
+                { BondSets = bondMap.BondSets.SetItem(idA, ids) }
 
         bondMap
             |> impl idA idB
