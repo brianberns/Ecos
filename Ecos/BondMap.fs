@@ -1,10 +1,12 @@
 namespace Ecos
 
+open System
 open System.Collections
 open System.Collections.Generic
 open System.Collections.Immutable
 
 /// Bidirectional bonds between atoms.
+[<CustomEquality; NoComparison>]
 type BondMap =
     private {
 
@@ -43,14 +45,40 @@ type BondMap =
     interface IEnumerable<KeyValuePair<AtomId, Set<AtomId>>> with
 
         /// Enumerates non-empty contents.
-        member this.GetEnumerator() =
-            this.GetEnumerator()
+        member bondMap.GetEnumerator() =
+            bondMap.GetEnumerator()
 
     interface IEnumerable with
 
         /// Enumerates non-empty contents.
-        member this.GetEnumerator() =
-            this.GetEnumerator()
+        member bondMap.GetEnumerator() =
+            bondMap.GetEnumerator()
+
+    /// Trims the given bond map's internal array.
+    member private bondMap.Trim() =
+        bondMap.BondSets
+            |> Seq.rev
+            |> Seq.skipWhile Set.isEmpty
+            |> Seq.toArray
+
+    /// Equality.
+    member bondMap.Equals(other : BondMap) =
+        bondMap.Trim() = other.Trim()
+
+    /// Equality.
+    override bondMap.Equals(other) =
+        match other with
+            | :? BondMap as other -> bondMap.Equals(other)
+            | _ -> false
+
+    /// Equality
+    interface IEquatable<BondMap> with
+        member bondMap.Equals(other) =
+            bondMap.Equals(other)
+
+    /// Hash code.
+    override bondMap.GetHashCode() =
+        bondMap.Trim().GetHashCode()
 
 module BondMap =
 
@@ -96,7 +124,7 @@ module BondMap =
     let createBond idA idB bondMap =
 
         let impl idA idB (bondMap : BondMap) : BondMap =
-            let ids = bondMap[idA] |> Set.add idB
+            let ids = Set.add idB bondMap[idA]
             { BondSets = bondMap.BondSets.SetItem(idA, ids) }
 
         bondMap
