@@ -7,36 +7,48 @@ open System.Collections.Immutable
 /// Bidirectional bonds between atoms.
 type BondMap =
     private {
-        Data : ImmutableArray<Set<AtomId>>
+
+        /// Sets of bonded atoms, indexed by atom ID.
+        BondSets : ImmutableArray<Set<AtomId>>
     }
 
+    /// Answers IDs of atoms bound to the given atom.
     member bondMap.Item(atomId : AtomId) =
-        bondMap.Data[atomId]
+        bondMap.BondSets[atomId]
 
+    /// Indicates whether the given bond map is empty.
     member bondMap.IsEmpty =
         Seq.isEmpty bondMap
 
+    /// Indicates whether the given atom is bonded to any other
+    /// atoms.
     member bondMap.ContainsKey(atomId : AtomId) =
-        atomId <= bondMap.Data.Length
+        atomId <= bondMap.BondSets.Length
             && not bondMap[atomId].IsEmpty
 
+    /// IDs of all bonded atoms.
     member bondMap.Keys =
         Seq.map (fun (KeyValue(id, _)) -> id) bondMap
 
+    /// Enumerates non-empty contents.
     member bondMap.GetEnumerator() =
         let pairs =
             seq {
-                for (id : AtomId), ids in Seq.indexed bondMap.Data do
+                for (id : AtomId), ids in Seq.indexed bondMap.BondSets do
                     if not ids.IsEmpty then
                         KeyValuePair(id, ids)
             }
         pairs.GetEnumerator()
 
     interface IEnumerable<KeyValuePair<AtomId, Set<AtomId>>> with
+
+        /// Enumerates non-empty contents.
         member this.GetEnumerator() =
             this.GetEnumerator()
 
     interface IEnumerable with
+
+        /// Enumerates non-empty contents.
         member this.GetEnumerator() =
             this.GetEnumerator()
 
@@ -46,7 +58,7 @@ module BondMap =
     let getBonds id (bondMap : BondMap) =
 
         let impl id =
-            if id < bondMap.Data.Length then
+            if id < bondMap.BondSets.Length then
                 bondMap[id]
             else
                 Set.empty
@@ -68,14 +80,15 @@ module BondMap =
         assert(impl idB idA = result)
         result
 
+    /// Ensures that the given bond map can contain bonds for at
+    /// least the given number of atoms.
     let private expand capacity (bondMap : BondMap) : BondMap =
-        let nNew = capacity - bondMap.Data.Length
+        let nNew = capacity - bondMap.BondSets.Length
         if nNew > 0 then
-            let builder =
-                ImmutableArray.CreateBuilder(capacity)
-            builder.AddRange(bondMap.Data)
+            let builder = ImmutableArray.CreateBuilder(capacity)
+            builder.AddRange(bondMap.BondSets)
             Seq.replicate nNew Set.empty |> builder.AddRange
-            { Data = builder.ToImmutable() }
+            { BondSets = builder.ToImmutable() }
         else bondMap
 
     /// Creates a bidirectional bond between the given atoms. If
@@ -83,11 +96,11 @@ module BondMap =
     let createBond idA idB bondMap =
 
         let impl idA idB (bondMap : BondMap) : BondMap =
-            let bondMap = expand (idA + 1) bondMap
             let ids = bondMap[idA] |> Set.add idB
-            { Data = bondMap.Data.SetItem(idA, ids) }
+            { BondSets = bondMap.BondSets.SetItem(idA, ids) }
 
         bondMap
+            |> expand ((max idA idB) + 1)
             |> impl idA idB
             |> impl idB idA
 
@@ -97,17 +110,22 @@ module BondMap =
 
         let impl idA idB (bondMap : BondMap) : BondMap =
             let ids = bondMap[idA].Remove(idB)
-            { Data = bondMap.Data.SetItem(idA, ids) }
+            { BondSets = bondMap.BondSets.SetItem(idA, ids) }
 
         bondMap
             |> impl idA idB
             |> impl idB idA
 
-    let empty : BondMap = { Data = ImmutableArray.Empty }
-    
+    /// Empty bond map.
+    let empty : BondMap =
+        { BondSets = ImmutableArray.Create() }
+
+    /// Converts the given bond map to a sequence.
     let toSeq (bondMap : BondMap) =
         Seq.map (fun (KeyValue(pair)) -> pair) bondMap
 
+    /// Determines whether the given predicate is true for all
+    /// entries in the given bond map.
     let forall pred (bondMap : BondMap) =
         Seq.forall (fun (KeyValue(key, value)) ->
             pred key value)
