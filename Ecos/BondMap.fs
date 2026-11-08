@@ -23,7 +23,7 @@ type BondMap =
     /// Indicates whether the given atom is bonded to any other
     /// atoms.
     member bondMap.ContainsKey(atomId : AtomId) =
-        atomId <= bondMap.BondSets.Length
+        atomId < bondMap.BondSets.Length
             && not bondMap[atomId].IsEmpty
 
     /// IDs of all bonded atoms.
