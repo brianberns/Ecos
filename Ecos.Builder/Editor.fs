@@ -298,7 +298,6 @@ module Editor =
                 label "Bend limit (cosine)" labelWidth
                 textBox $"{key}.bendLimit" valueWidth (formatRational bond.BendLimit) (fun text ->
                     tryParseRational text |> Option.iter (fun r -> edit (fun b -> { b with BendLimit = r })))
-                note "0/1 right angle, -4/5 straight, 1/1 any"
             ]
             field "bendStiffness" "Bend stiffness"
                 ("κ: the energy cost of a bend where two bonds of this type meet at an atom, κ·(1 + cos φ) for an angle φ between the bonds. It's 0 when straight and 2κ when folded back, and it's taken off the bond's energy." + noChain)
