@@ -78,7 +78,7 @@ type BondMap =
 
     /// Hash code.
     override bondMap.GetHashCode() =
-        bondMap.Trim().GetHashCode()
+        hash (bondMap.Trim())
 
 module BondMap =
 
@@ -137,7 +137,7 @@ module BondMap =
     let removeBond idA idB bondMap =
 
         let impl idA idB (bondMap : BondMap) : BondMap =
-            let ids = bondMap[idA].Remove(idB)
+            let ids = (getBonds idA bondMap).Remove(idB)
             { BondSets = bondMap.BondSets.SetItem(idA, ids) }
 
         bondMap
