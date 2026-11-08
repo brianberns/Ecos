@@ -28,7 +28,7 @@ type BondMap =
     /// atoms.
     member bondMap.ContainsKey(atomId : AtomId) =
         atomId < bondMap.BondSets.Length
-            && not bondMap[atomId].IsEmpty
+            && not bondMap.BondSets[atomId].IsEmpty
 
     /// IDs of all bonded atoms.
     member bondMap.Keys =
