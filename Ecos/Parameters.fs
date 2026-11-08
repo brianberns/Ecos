@@ -3,22 +3,43 @@ namespace Ecos
 open System
 
 /// Bond type-specific parameters.
-/// 
-/// Energy
-///   |            ----  <- barrier: in-between state
-///   |           /    \
-///   |   E_b    /      \
-///   |  --------        \
-///   |  unbonded         \      E_b + S
-///   |                    \
-///   |                     -------- bonded (lower by S)
-///   |
-///    ----------------------------------
-/// 
-/// The barrier affects how fast the system moves between the
-/// states, not which one it favors.
-/// 
-/// (Drawing by Claude, with my edits.)
+///
+///  Free energy
+///       │
+///       │            ___
+///       │           /   \
+///       │          /     \
+///       │         /   B   \
+///       │        /         \
+///     0 ┼_______/           \
+///       │  unbonded          \
+///       │                     \
+///       │                      \_______  bonded: −E + kT·s
+///       │                          ↑
+///       │                          │ kT·s: entropy lift, grows with heat
+///       │                          │
+///    −E ┼ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─┴─ ─ ─  energy alone
+///       │
+///       └──────────────────────────────────────→
+///          unbonded    in-between    bonded
+///
+/// E is the bond's energy: its type's energy (or pair energy), plus
+/// the stack energy per stack, minus any bend energy. s is the
+/// entropy the bond loses, which lifts the bonded state by kT·s, so
+/// the bonded state is favored only while kT < E/s:
+///
+///   bonded/unbonded = e^(E/kT − s)
+///
+/// With s = 0, a bond never melts. B is the barrier: the hump's height
+/// above the higher of the two states. It is the barrier, less the
+/// reduction per stack (never below 0), plus the start barrier if the
+/// bond starts a strand. Per attempt:
+///
+///   form  = e^(−B/kT) · min(1, e^(E/kT − s))
+///   break = e^(−B/kT) · min(1, e^(s − E/kT))
+///
+/// So the barrier affects how fast bonds change, not which state is
+/// favored.
 type BondTypeParameters =
     {
         /// Default energy delta of this bond type (S).
