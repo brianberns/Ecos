@@ -197,10 +197,12 @@ module Validity =
                                     && Chain.canJoin world.Atoms[idA].Type world.Atoms[idB].Type
                                     && isStronglyBonded world idB idA))
 
-            // no atom is listed with an empty set of bonds
+            // every bond, of any type, is between atoms of this world
         let bondSetsValid =
+            let isAtom id = id >= 0 && id < atoms.Length
             world.BondTypeMap.BondMaps
-                |> Seq.forall (BondMap.forall (fun _ ids -> not ids.IsEmpty))
+                |> Seq.forall (BondMap.forall (fun idA ids ->
+                    isAtom idA && Set.forall isAtom ids))
 
             // no bond, strong or weak, crosses another
         let noCrossings =
