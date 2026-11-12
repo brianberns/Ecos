@@ -1,0 +1,84 @@
+{
+  "Name": "New physics",
+  "Width": 160,
+  "Height": 160,
+  "Walls": [],
+  "Strands": [
+    {
+      "Pattern": "P-HH-8*[WY]-Q",
+      "Placement": {
+        "Scattered": {}
+      },
+      "Count": 1,
+      "IsTemplate": true
+    }
+  ],
+  "WeakBonds": [],
+  "Occupancy": {
+    "H": 2,
+    "P": 2,
+    "Q": 2,
+    "W": 2,
+    "X": 2,
+    "Y": 2,
+    "Z": 2
+  },
+  "Parameters": {
+    "MoveAtomWeight": 0.5,
+    "ToggleStrongBondWeight": 0.2,
+    "ToggleWeakBondWeight": 0.3,
+    "Strong": {
+      "Energy": 34,
+      "PairEnergies": {},
+      "Barrier": 40,
+      "BarrierStackReduction": 40,
+      "StartBarrier": 1,
+      "Entropy": 0,
+      "HydrolysisRate": 0,
+      "ProtectedHydrolysisRate": 0,
+      "BendLimit": {
+        "Numerator": 0,
+        "Denominator": 1
+      },
+      "BendStiffness": 1.5,
+      "BendStiffnesses": {}
+    },
+    "Weak": {
+      "Energy": 1.4,
+      "PairEnergies": {
+        "H-H": 2.5
+      },
+      "Barrier": 0,
+      "BarrierStackReduction": 0,
+      "StartBarrier": 0,
+      "Entropy": 3,
+      "HydrolysisRate": 0,
+      "ProtectedHydrolysisRate": 0,
+      "BendLimit": {
+        "Numerator": 1,
+        "Denominator": 1
+      },
+      "BendStiffness": 0,
+      "BendStiffnesses": {}
+    },
+    "StackEnergy": 1,
+    "PeelBarrier": 6,
+    "CapPeelBarrier": "Infinity"
+  },
+  "Schedule": {
+    "Cycle": {
+      "Item": [
+        {
+          "Name": "cold",
+          "Temperature": 0.25,
+          "NumSweeps": 200000
+        },
+        {
+          "Name": "hot",
+          "Temperature": 3,
+          "NumSweeps": 100000
+        }
+      ]
+    }
+  }
+}
