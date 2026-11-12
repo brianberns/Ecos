@@ -80,7 +80,7 @@ module Editor =
                 let letter = ScenarioSpec.toLetter atomType
                 row [
                     label letter 40.0
-                    spinner $"food.{letter}" 110.0 0m 100m 1m "0.##" (toDecimal (getOccupancy spec letter)) (fun v ->
+                    spinner $"food.{letter}" 110.0 0m 100m 0.1m "0.0##" (toDecimal (getOccupancy spec letter)) (fun v ->
                         edit (setOccupancy letter (float v)))
                     label "%" 15.0
                     note $"{ScenarioSpec.getFoodCount spec atomType:N0} atoms"
@@ -95,7 +95,7 @@ module Editor =
                     Slider.margin margin
                     Slider.verticalAlignment VerticalAlignment.Center
                     Slider.onValueChanged ((fun v ->
-                        if abs (v - total) >= 0.5 then dispatch (ScaleOccupancy v)), SubPatchOptions.OnChangeOf (box ("food.total", total)))
+                        if abs (v - total) >= 0.05 then dispatch (ScaleOccupancy v)), SubPatchOptions.OnChangeOf (box ("food.total", total)))
                 ]
                 note $"{total:F1}%% in all"
             ]

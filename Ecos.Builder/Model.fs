@@ -99,7 +99,7 @@ type Message =
     | RebuildAfter of int
 
     /// Scales every type's occupancy to the given total, rounding each
-    /// to a whole percent.
+    /// to a tenth of a percent.
     | ScaleOccupancy of float
 
     /// Zooms the view by the given number of wheel steps (in, if
@@ -333,7 +333,7 @@ module Model =
                 let total = total |> max 0.0 |> min 100.0
                 let occupancy =
                     if baseTotal > 0.0 then
-                        baseOccupancy |> Map.map (fun _ p -> Math.Round(p * total / baseTotal))
+                        baseOccupancy |> Map.map (fun _ p -> Math.Round(p * total / baseTotal, 1))
                     else model.Spec.Occupancy
                 let spec = { model.Spec with Occupancy = occupancy }
                 let model = { model with SliderBase = Some baseOccupancy }
