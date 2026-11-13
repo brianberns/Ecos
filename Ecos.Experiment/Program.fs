@@ -24,6 +24,8 @@ module Program =
                 Experiment15.run Experiment15.defaultSettings
             "experiment26", "Folding in a famine, with a hinge: does stress now favor the hinged hairpin-former over a non-former?",
                 Experiment26.run Experiment26.defaultSettings
+            "experiment27", "Copy in a feast, fold in a famine, with a primer: H-H pair energy and H supply",
+                Experiment27.run Experiment27.defaultSettings
         ]
 
     /// Prints usage.

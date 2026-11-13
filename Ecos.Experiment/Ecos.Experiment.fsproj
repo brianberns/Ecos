@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -20,6 +20,7 @@
     <Compile Include="Checks.fs" />
     <Compile Include="Registry.fs" />
     <Compile Include="ScenarioSpec.fs" />
+    <Compile Include="Experiment27.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 
