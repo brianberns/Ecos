@@ -522,9 +522,12 @@ module World =
 
             // compute start barrier
         let startBarrier =
-            if bondTypeParms.StartBarrier > 0
+            let startBarrier =
+                BondTypeParameters.getStartBarrier
+                    atomA.Type atomB.Type bondTypeParms
+            if startBarrier > 0
                 && BondBehavior.testStrandStart atomA atomB bondMap then
-                bondTypeParms.StartBarrier
+                startBarrier
             else 0.0
 
             // create or break bond?

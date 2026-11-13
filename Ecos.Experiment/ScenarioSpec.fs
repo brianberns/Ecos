@@ -355,6 +355,7 @@ module ScenarioSpec =
             Barrier = spec.Barrier
             BarrierStackReduction = spec.BarrierStackReduction
             StartBarrier = spec.StartBarrier
+            PairStartBarrierMap = Map.empty
             Entropy = spec.Entropy
             HydrolysisRate = spec.HydrolysisRate
             ProtectedHydrolysisRate = spec.ProtectedHydrolysisRate

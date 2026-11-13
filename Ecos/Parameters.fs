@@ -58,6 +58,10 @@ type BondTypeParameters =
         /// Barrier to starting a strand of this bond type.
         StartBarrier : float
 
+        /// Bidirectional atom type-specific start barriers, which
+        /// override the default.
+        PairStartBarrierMap : Map<AtomType * AtomType, float>
+
         /// Implicit entropy in this bond type (s).
         Entropy : float
 
@@ -102,6 +106,25 @@ module BondTypeParameters =
             parms with
                 PairEnergyMap =
                     parms.PairEnergyMap
+                        |> Map.add (atomTypeA, atomTypeB) energy
+                        |> Map.add (atomTypeB, atomTypeA) energy
+        }
+
+    /// Gets the start barrier for the given pairing.
+    let getStartBarrier atomTypeA atomTypeB parms =
+        let startBarrierOpt =
+            Map.tryFind (atomTypeA, atomTypeB) parms.PairStartBarrierMap
+        assert(startBarrierOpt =
+            Map.tryFind (atomTypeB, atomTypeA) parms.PairStartBarrierMap)
+        Option.defaultValue parms.StartBarrier startBarrierOpt
+
+    /// Adds the given start barrier for the given pair. This is
+    /// a bidirectional mapping.
+    let addStartBarrier atomTypeA atomTypeB energy parms =
+        {
+            parms with
+                PairStartBarrierMap =
+                    parms.PairStartBarrierMap
                         |> Map.add (atomTypeA, atomTypeB) energy
                         |> Map.add (atomTypeB, atomTypeA) energy
         }

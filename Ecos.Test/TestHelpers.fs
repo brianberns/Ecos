@@ -40,6 +40,7 @@ module TestParameters =
                 Barrier = 0
                 BarrierStackReduction = 0
                 StartBarrier = 0
+                PairStartBarrierMap = Map.empty
                 Entropy = 0
                 HydrolysisRate = 0
                 ProtectedHydrolysisRate = 0
