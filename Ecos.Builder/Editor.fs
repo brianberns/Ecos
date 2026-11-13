@@ -170,12 +170,19 @@ module Editor =
                         checkBox $"{key}.template" "Template" strand.IsTemplate (fun flag ->
                             edit (fun st -> { st with IsTemplate = flag }))
                         label "Color" 40.0
+                        // a color without a name (e.g. from a hand-edited spec) is offered by its hex string
+                        let sameColor a b =
+                            match a, b with
+                                | Some (a : string), Some b -> a.Equals(b, StringComparison.OrdinalIgnoreCase)
+                                | None, None -> true
+                                | _ -> false
+                        let colors =
+                            if strandColors |> Array.exists (fun (_, c) -> sameColor c strand.Color) then strandColors
+                            else Array.append strandColors [| strand.Color.Value, strand.Color |]
                         let colorIndex =
-                            strandColors
-                                |> Array.tryFindIndex (fun (_, c) -> c = strand.Color)
-                                |> Option.defaultValue 0
-                        comboBox $"{key}.color" 110.0 (Array.map fst strandColors) colorIndex (fun i ->
-                            edit (fun st -> { st with Color = snd strandColors[i] }))
+                            colors |> Array.findIndex (fun (_, c) -> sameColor c strand.Color)
+                        comboBox $"{key}.color" 110.0 (Array.map fst colors) colorIndex (fun i ->
+                            edit (fun st -> { st with Color = snd colors[i] }))
                     ]
                     match describePattern strand.Pattern with
                         | Ok text -> note text
