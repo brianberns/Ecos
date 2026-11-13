@@ -26,31 +26,36 @@ What's missing is a phenotype: a trait that does something, with costs and benef
 | Replicators arise from free atoms with no template | Done, though only very short ones (three atoms) |
 | Turnover, so that a full world keeps changing | Done |
 | Sequences that differ in fitness, and selection between them | Done, for pairing strength: a stronger pair's share rises from 0.5 to about 0.9 over 30 cycles |
-| A phenotype that does something beyond being copied | In progress: folding into a hairpin to survive hard times |
+| A phenotype that does something beyond being copied | In progress: under stress, strands that fold into a hairpin replace those that can't, in every run, but shorter folders then take over |
 | Adaptation to a varied environment | Not yet |
 
 ## Current direction: folding to survive
 
 **Hypothesis.** When food runs out, a strand that can fold back on itself into a hairpin protects itself, and one that can't is left exposed. Over cycles of plenty and want in a closed world, folders should outlast non-folders.
 
-**Setup (experiment 26).** A closed 160×160 world, seeded with two *hairpin-formers* and two *non-formers*, among a fixed supply of free atoms. Nothing is added or removed. The hairpin-former is `P WWXWYXZXWW HH XXWYWZXWXX Q`: two complementary arms around a hinge (H H) that bends freely, so it folds there into an 11-pair stem. The non-former has the same atoms and hinge in an order that can't fold. Each cycle is:
+**Setup (experiment 28).** A closed 160×160 world, seeded with two *hairpin-formers* and two *non-formers*, among a fixed supply of free atoms. Nothing is added or removed. A hairpin-former, e.g. `P WWXWYXZXWW HH XXWYWZXWXX Q`, has two complementary arms around a hinge (H H) that bends freely, so it folds there into an 11-pair stem. It is its own reverse complement, so its copies are siblings. Its non-former has each arm's letters shuffled: the same length, atoms, hinge and caps, but it can't fold (at most 2 pairs within itself). Each cycle is:
 
-1. a *feast*, cold (kT 0.3, 200,000 sweeps), for copying;
+1. a *feast*, cold (kT 0.25, 300,000 sweeps), for copying, or folding once food runs out;
 2. a *stress*, just as cold (50,000 sweeps), in which a cap peels off unless a stack protects it, as one does in a duplex or a folded hairpin;
-3. a *melt*, hot (kT 3, 100,000 sweeps), which separates duplexes and hairpins and unravels strands that lost a cap.
+3. a *melt*, hot (kT 3, 200,000 sweeps), which separates duplexes and hairpins and unravels strands that lost a cap.
+
+**Copying starts only at a primer.** Experiments 27 and 28 use new physics, in which copying and folding no longer get in each other's way:
+
+- *Only a primer starts a strand.* The strong start barrier is infinite except between two H atoms (start barrier 0), so a copy can start only at a template's hinge. Copies no longer start on the arms of a half-folded strand, which used to make copies switch templates at the fork and produce palindromic junk.
+- *Only stacked pairs last.* Weak pairs are weak (1.4, and 2.0 for H–H) and stacks modest (0.6), so lone pairs and stalled starts come apart.
+- *Strands are floppy* (bend stiffness 1, 0 at a hinge), so a strand left alone folds within about 100,000 sweeps.
+- *Food is balanced and scarce in H* (W, X, Y and Z 2% each, H 0.8%, P and Q 0.4%), so all of it runs out at about the same time, and short primed strands can't multiply on their own.
 
 **What we know.**
 
-- *Stress favors folders, but weakly.* With a cap peel barrier of 2.0, the hairpin family's share rose from 0.5 to about 0.7 over 24 cycles, against 0.49 in an unstressed control: higher than its control in 12 of 14 runs (p = 0.006). But both families shrank; the folders won by dying more slowly.
-- *Folding protects, but rarely happens.* Folded hairpins survive the stress about 95% of the time, single strands 10 to 75% (depending on the barrier). But at the end of a feast, typically one strand or fewer per world is folded. Most are paired with copies, and a duplex protects both families equally.
-- *Folding and copying get in each other's way.* At kT 0.3, a free atom paired alone with a strand is stable, so free atoms stick all along a strand's arms. A half-copied strand can't fold, and a half-folded one can't be copied, so a hairpin-former often does neither.
-- *A warmer stress doesn't help.* Above about kT 0.5, free atoms no longer stick, but hairpin-formers no longer fold either: the first pair of a fold has no stack to hold it.
-- *The non-former can fold loosely.* With bulges, its arms can make about 6 pairs across the hinge, though never more than 2 in a row. This is a possible confounder.
+- *The population copies in a feast and folds in a famine (experiment 27).* Without stress, the formers grow from 2 to about 17 per world over 20 cycles, until free H runs out. As food falls, the share of formers folded at the end of a feast rises from 0.11 to 0.44, and the share in duplexes with siblings falls from 0.79 to 0.26. The switch is gradual. Short primed palindromes, which overran earlier versions, never appeared (0 of 64 runs).
+- *Stress eliminates non-formers (experiment 28).* Without stress, formers and non-formers copy equally well (8.1 and 8.7 per world after 15 cycles). With a stress cap peel barrier of 1.4, the non-formers are nearly gone by cycle 5 (0.3 per world), and the formers' share is about 1.0, against 0.49 in the control: higher in all 10 runs where either survives (p = 0.001). Folded and duplexed formers survive the stress; single non-formers don't.
+- *Shorter hairpin-formers then take over.* Under stress, other strands that are their own reverse complement with a central hinge appear from about cycle 5 and outnumber the formers in 2 of 12 runs by cycle 15. They are deletions that keep the fold, such as `P WWW HH XXX Q`, or the tiny `P Y HH Z Q`. In the builder, after 50 million sweeps (two seeds), `P WWW HH XXX Q` and `P YYY HH ZZZ Q` supplanted the formers. Folding pays, but nothing pays for length.
+- *Abiogenesis is gone.* With an infinite start barrier and a strong barrier of 40 for any unstacked join, plain soup makes no strands. For the same reason, copying can make deletions (the template bends away and is skipped) but not insertions.
 
-**Next: a switch between folding and copying.** The idea, by analogy with RNA riboswitches, is that a strand should commit to one or the other, at a single site:
+Experiment 26 tried the same setup in the old physics. Stress favored folders only weakly there (a share of about 0.7 after 24 cycles), because copying started anywhere along a strand, and a half-copied strand can't fold.
 
-1. *Only stacked pairs are stable.* A weaker weak bond does this. At kT 0.3, lowering its energy from 2 to 1.2 stops free atoms from sticking (copying of a bare strand falls from 15 paired atoms to 1), while existing folds and duplexes all hold, and lone hairpin-formers fold more than twice as often (40% within 200,000 sweeps, against 17%).
-2. *Folding and copying start at the same site, the hinge.* A rule in the core would let the first pair next to the hinge form without a stack. Whichever pair forms there first, a fold's or a copy's, excludes the other; the winner then zips outward. Food sets the odds: a copy needs a free atom to arrive, a fold doesn't.
+**Next.** Physics that allows abiogenesis again, and insertions as well as deletions, without letting copies start on the arms. Then a phenotype that rewards length or information, not just folding.
 
 ## The model
 
@@ -89,7 +94,7 @@ One *sweep* is one attempted event per atom. Temperature can vary from place to 
 ### What makes copying happen
 
 - **Stacks.** When two neighboring atoms of one strand are paired with two neighboring atoms of another, the pairs form a stack, which adds binding energy and removes the barrier to the strong bond beside it. So free atoms join readily on a template, and almost never elsewhere.
-- **A barrier to starting.** Joining two free atoms, which starts a new strand, keeps a small barrier even on a template, so copies grow from few starts.
+- **A barrier to starting.** Joining two free atoms, which starts a new strand, keeps a small barrier even on a template, so copies grow from few starts. The barrier can be set per pair of atom types; in experiments 27 and 28 it is infinite except between two H atoms, so copies start only at a hinge.
 - **Caps.** A cap has only one strong bond, so a capped strand can't be extended. Caps are copied like other atoms, so length is inherited. A copy is its template reversed and complemented.
 - **Peeling.** A strong bond at an uncapped end breaks at a rate that rises with temperature (barrier 6), so unfinished strands melt back into free atoms in the heat. A cap whose bond isn't stacked can also peel, at its own barrier, which a phase can lower. This is how stress kills.
 - **Hydrolysis.** Optionally, strong bonds break one way at a fixed rate, lower where stacked. (Experiment 26 doesn't use it.)
@@ -99,7 +104,8 @@ Every rule except peeling and hydrolysis obeys detailed balance. Those two, with
 
 ## Open problems
 
-- **The simplest replicator wins.** Strands that arise by chance are three atoms long, and nothing yet favors anything longer. In a living world they displace a seeded 12-atom template every time.
+- **The simplest replicator wins.** Strands that arise by chance are three atoms long, and nothing yet favors anything longer. In a living world they displace a seeded 12-atom template every time. Under stress, short hairpin-formers likewise displace long ones.
+- **No abiogenesis in the new physics.** See the current direction, above.
 - **Strands don't spread.** A lineage stays near where it started, so growth in a large world is limited by the colony's edge.
 - **Phenotypes don't do much yet.** See the current direction, above.
 
@@ -120,6 +126,7 @@ Ideas that measurement did not support, so that they aren't tried again:
 |---|---|
 | `Ecos` | The core library: atoms, bonds, parameters, the world, and the update rule |
 | `Ecos.Desktop` | A desktop app (Avalonia) for watching a scenario run |
+| `Ecos.Builder` | A desktop app for building scenario specs (strands, food, physics and schedule) and watching them run |
 | `Ecos.Experiment` | Scenarios shared with the desktop app, and console experiments that measure them |
 | `Ecos.Test` | Unit and property tests |
 | `Avalonia.FuncUI` | Git submodule used by the desktop app |
@@ -147,7 +154,7 @@ dotnet test -c Release
 Run an experiment, optionally naming a CSV file for the results:
 
 ```bash
-dotnet run -c Release --project Ecos.Experiment -- experiment26 results.csv
+dotnet run -c Release --project Ecos.Experiment -- experiment28 results.csv
 ```
 
 | Experiment | Question |
@@ -161,6 +168,8 @@ dotnet run -c Release --project Ecos.Experiment -- experiment26 results.csv
 | `experiment8` | Head to head, does the stronger-pairing kind win, over a range of strengths? |
 | `experiment15` | How often does a self-complementary strand fold into a hairpin, by bend limit and stiffness? |
 | `experiment26` | In a closed world of feast, stress and melt, does a hairpin-former outlast a non-former? |
+| `experiment27` | With copies started only at a primer, do hairpin-formers copy in a feast and fold in a famine? |
+| `experiment28` | In the same physics, does stress favor hairpin-formers over non-formers, and do shorter hairpin-formers take over? |
 
 Other experiments are archived; their code is in the git history. Experiments run their worlds in parallel, and take from seconds to a few hours on a 24-core machine.
 

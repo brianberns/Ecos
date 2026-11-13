@@ -26,6 +26,8 @@ module Program =
                 Experiment26.run Experiment26.defaultSettings
             "experiment27", "Copy in a feast, fold in a famine, with a primer: H-H pair energy and H supply",
                 Experiment27.run Experiment27.defaultSettings
+            "experiment28", "Does stress favor hairpin-formers over non-formers in the new physics, and do shorter hairpin-formers take over?",
+                Experiment28.run Experiment28.defaultSettings
         ]
 
     /// Prints usage.
