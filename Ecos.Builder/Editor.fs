@@ -296,9 +296,9 @@ module Editor =
             field "stackReduction" "Barrier reduction per stack"
                 "How much each stack lowers the barrier (never below 0). A stack is a neighboring bond that this bond would line up with, e.g. a strong bond whose atoms are weak-paired to a template's bonded atoms. This is what makes templated joins fast."
                 bond.BarrierStackReduction (fun v b -> { b with BarrierStackReduction = v })
-            field "startBarrier" "Start barrier"
-                "Extra barrier for a bond between two atoms that have no other bond of this type, i.e. one that starts (or is all of) a strand. It applies to forming and to breaking such a bond."
-                bond.StartBarrier (fun v b -> { b with StartBarrier = v })
+            infiniteFloatField $"{key}.startBarrier" "Start barrier" bond.StartBarrier "no strand can start"
+                (fun v -> edit (fun b -> { b with StartBarrier = v }))
+                |> tipped "Extra barrier for a bond between two atoms that have no other bond of this type, i.e. one that starts (or is all of) a strand. It applies to forming and to breaking such a bond. Leave it blank for infinity: no strand can start, except between pairs given their own start barrier below."
             yield! pairRows "startPair" "start barrier"
                 "Start barrier for a bond between these two atom types, in place of the default start barrier above. E.g. with the default at inf (no strand can start) and H-H at 0, strands start only from a pair of H atoms, a primer."
                 (getPairStartBarriers bond) setPairStartBarriers getPairStartBarriers (fun b -> b.StartBarrier)
