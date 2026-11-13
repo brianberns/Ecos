@@ -262,13 +262,13 @@ module PropertyOracles =
             // type and energy that the given number of stacks depend on.
             // Forming changes the energy by the bond's (negative) energy and
             // loses the bond type's entropy; breaking does the reverse.
-        let acceptWith kT bondType nStacks isStart energyDelta entropyDelta =
-            exp (-Chain.bondBarrier parms bondType nStacks isStart / kT)
+        let acceptWith kT bondType idA idB nStacks isStart energyDelta entropyDelta =
+            exp (-Chain.bondBarrier parms bondType world.Atoms[idA].Type world.Atoms[idB].Type nStacks isStart / kT)
                 * min 1.0 (exp (entropyDelta - energyDelta / kT))
-        let acceptForm kT bondType nStacks isStart energy =
-            acceptWith kT bondType nStacks isStart energy -(Chain.bondEntropy parms bondType)
-        let acceptBreak kT bondType nStacks isStart energy =
-            acceptWith kT bondType nStacks isStart -energy (Chain.bondEntropy parms bondType)
+        let acceptForm kT bondType idA idB nStacks isStart energy =
+            acceptWith kT bondType idA idB nStacks isStart energy -(Chain.bondEntropy parms bondType)
+        let acceptBreak kT bondType idA idB nStacks isStart energy =
+            acceptWith kT bondType idA idB nStacks isStart -energy (Chain.bondEntropy parms bondType)
 
             // does a bond of the given type between the given atoms start a
             // strand? It does if neither atom has another bond of that type.
@@ -288,11 +288,11 @@ module PropertyOracles =
                             Chain.bondEnergy parms Weak atomA.Type world.Atoms[idB].Type
                                 + Chain.stackEnergy parms * float nStacks
                         if Bonds.areWeaklyBonded world idA idB then
-                            let pBreak = acceptBreak kT Weak nStacks (isStart Weak idA idB) energy
+                            let pBreak = acceptBreak kT Weak idA idB nStacks (isStart Weak idA idB) energy
                             let pHydrolysis = Chain.hydrolysisRate parms Weak world idA idB
                             weakBreak <- weakBreak + 1.0 - (1.0 - pBreak) * (1.0 - pHydrolysis)
                         elif canFormWeakBond world idA idB then
-                            weakForm <- weakForm + acceptForm kT Weak nStacks (isStart Weak idA idB) energy
+                            weakForm <- weakForm + acceptForm kT Weak idA idB nStacks (isStart Weak idA idB) energy
                     | _ -> ()
 
             for v in Chain.bondVectors do
@@ -309,7 +309,7 @@ module PropertyOracles =
                                 // failing that, if it peels
                             let p =
                                 if canBreakStrongBond world idA idB then
-                                    let pBreak = acceptBreak kT Strong nStacks (isStart Strong idA idB) energy
+                                    let pBreak = acceptBreak kT Strong idA idB nStacks (isStart Strong idA idB) energy
                                     let pPeel =
                                         if isExposed world idA idB then
                                             exp (-Chain.peelBarrier parms Strong / kT)
@@ -321,7 +321,7 @@ module PropertyOracles =
                             if isLong v then longBreak <- longBreak + p
                             if nStacks > 0 then stackedBreak <- stackedBreak + p
                         elif canFormStrongBond parms world idA idB then
-                            let p = acceptForm kT Strong nStacks (isStart Strong idA idB) energy
+                            let p = acceptForm kT Strong idA idB nStacks (isStart Strong idA idB) energy
                             strongForm <- strongForm + p
                             if isLong v then longForm <- longForm + p
                     | _ -> ()
@@ -1358,6 +1358,41 @@ module StackingRateTests =
     ///   there is, which must leave zero, not less, for the start
     ///   barrier to be added to. Otherwise a stacked start would have no
     ///   barrier at all.
+    /// An infinite start barrier stops strands from starting at all,
+    /// except between a pair of atom types that overrides it: here only
+    /// H atoms can start a strand (a primer). W and X can still join an
+    /// existing strand, so they may extend one that two H atoms began,
+    /// but no strand may contain no H.
+    [<Fact>]
+    let ``An infinite start barrier lets strands start only from pairs that override it`` () =
+        let size = 4
+        let rng = Random(12)
+        let rec addAtoms (types : AtomType list) world =
+            match types with
+                | [] -> world
+                | atomType :: rest ->
+                    let loc = Point.create (rng.Next(-size, size + 1), rng.Next(-size, size + 1))
+                    match World.tryAddAtom atomType loc world with
+                        | Some (world, _) -> addAtoms rest world
+                        | None -> addAtoms types world
+        let box =
+            TestWorld.empty
+                |> Chain.addBox size
+                |> addAtoms [ AtomType.H; AtomType.H; AtomType.W; AtomType.X; AtomType.W; AtomType.X ]
+        let parms =
+            TestParameters.create hotKT
+                |> TestParameters.withStartBarrier Double.PositiveInfinity 0.0
+                |> TestParameters.withPairStartBarriers Strong [ (AtomType.H, AtomType.H), 0.0 ]
+        let mutable world = box
+        let mutable nPrimed = 0
+        for _ in 1 .. 50000 do
+            world <- World.updateWith parms rng world
+            for strand in Ecos.Experiment.Experiment3.getStrands world do
+                let types = strand.AtomIds |> Array.map (fun id -> world.Atoms[id].Type)
+                Assert.Contains(AtomType.H, types)
+                if types.Length >= 2 then nPrimed <- nPrimed + 1
+        Assert.True(nPrimed > 0, "No strand started from the H pair")
+
     [<Fact>]
     let ``Bonds that start a strand form and break at the expected rate`` () =
         let size = 4   // atom locations have |x| <= size and |y| <= size
@@ -1390,7 +1425,15 @@ module StackingRateTests =
             // the same, with strong bonds toggled more often than weak
             // ones, and weights that don't sum to 1
         let reweighted = growing |> TestParameters.withEventWeights 1.0 1.5 0.5
+            // start barriers that depend on the pair of atom types: lower
+            // for W-X and higher for Y-Z than the default, and the reverse
+            // for weak bonds, so a bond that ignored its pair would show
+        let byPair =
+            hot
+                |> TestParameters.withPairStartBarriers Strong [ (AtomType.X, AtomType.W), 0.0; (AtomType.Y, AtomType.Z), 2.0 * hotKT ]
+                |> TestParameters.withPairStartBarriers Weak [ (AtomType.Z, AtomType.Y), hotKT ]
         inParallel [|
+            fun () -> checkEventRates "Box, with start barriers by pair" byPair 150000 (Random(11)) box
             fun () -> checkEventRates "Box, strands growing" growing 150000 (Random(9)) box
             fun () -> checkEventRates "Box, strands growing, reweighted" reweighted 150000 (Random(10)) box
             fun () -> checkEventRates "Box, with start barriers" hot 150000 (Random(4)) box

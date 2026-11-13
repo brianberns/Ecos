@@ -241,40 +241,55 @@ module Editor =
                 |> tipped tip
         let isWeak = (name = "Weak")
         let noChain = if isWeak then "\n\nNo effect on weak bonds: an atom has at most one, so they never form a chain." else ""
+
+            // rows that override a value for pairs of atom types, with a
+            // button to add one (starting at the given default)
+        let pairRows id (what : string) tip (map : Map<string, float>) (setMap : Map<string, float> -> BondTypeSpec -> BondTypeSpec) getMap getDefault =
+            [
+                for pairKey, value in Map.toSeq map do
+                    tipped tip <| row [
+                        label "" 16.0
+                        textBox $"{key}.{id}.{pairKey}.key" 60.0 pairKey (fun text ->
+                            match ScenarioSpec.tryParsePairKey text with
+                                | Some (a, b) ->
+                                    let newKey = ScenarioSpec.toPairKey a b
+                                    edit (fun b ->
+                                        let map : Map<string, float> = getMap b
+                                        match map.TryFind pairKey with
+                                            | Some x -> setMap (map |> Map.remove pairKey |> Map.add newKey x) b
+                                            | None -> b)
+                                | None -> ())
+                        label what 90.0
+                        textBox $"{key}.{id}.{pairKey}.value" valueWidth (formatFloat value) (fun text ->
+                            tryParseFloat text |> Option.iter (fun v ->
+                                edit (fun b -> setMap (getMap b |> Map.add pairKey v) b)))
+                        smallButton $"{key}.{id}.{pairKey}.remove" "✕" $"Remove this pair {what}" (fun () ->
+                            edit (fun b -> setMap (getMap b |> Map.remove pairKey) b))
+                    ]
+                row [
+                    label "" 16.0
+                    smallButton $"{key}.{id}.add" $"Add pair {what}" $"Override the {what} of one pair of atom types" (fun () ->
+                        edit (fun b ->
+                            let map : Map<string, float> = getMap b
+                            let newKey =
+                                pairChoices
+                                    |> Array.tryFind (fun k -> not (map.ContainsKey k))
+                                    |> Option.defaultValue "H-H"
+                            setMap (map |> Map.add newKey (getDefault b)) b))
+                ]
+            ]
+        let getPairStartBarriers (b : BondTypeSpec) = b.PairStartBarriers |> Option.defaultValue Map.empty
+        let setPairStartBarriers (map : Map<string, float>) (b : BondTypeSpec) =
+            { b with PairStartBarriers = if map.IsEmpty then None else Some map }
+
         column [
             heading $"{name} bonds"
             field "energy" "Energy"
                 "E: how much lower in energy the bonded state is than the unbonded one. With entropy s, the odds of bonded vs unbonded are e^(E/kT − s). Each stack adds the stack energy, and a bend subtracts its bend energy."
                 bond.Energy (fun v b -> { b with Energy = v })
-            for pairKey, energy in Map.toSeq bond.PairEnergies do
-                tipped "Energy of bonds between these two atom types, in place of the default energy above." <| row [
-                    label "" 16.0
-                    textBox $"{key}.pair.{pairKey}.key" 60.0 pairKey (fun text ->
-                        match ScenarioSpec.tryParsePairKey text with
-                            | Some (a, b) ->
-                                let newKey = ScenarioSpec.toPairKey a b
-                                edit (fun b ->
-                                    match b.PairEnergies.TryFind pairKey with
-                                        | Some e -> { b with PairEnergies = b.PairEnergies |> Map.remove pairKey |> Map.add newKey e }
-                                        | None -> b)
-                            | None -> ())
-                    label "energy" 50.0
-                    textBox $"{key}.pair.{pairKey}.value" valueWidth (formatFloat energy) (fun text ->
-                        tryParseFloat text |> Option.iter (fun v ->
-                            edit (fun b -> { b with PairEnergies = b.PairEnergies |> Map.add pairKey v })))
-                    smallButton $"{key}.pair.{pairKey}.remove" "✕" "Remove this pair energy" (fun () ->
-                        edit (fun b -> { b with PairEnergies = b.PairEnergies |> Map.remove pairKey }))
-                ]
-            row [
-                label "" 16.0
-                smallButton $"{key}.pair.add" "Add pair energy" "Override the energy of one pair of atom types" (fun () ->
-                    edit (fun b ->
-                        let newKey =
-                            pairChoices
-                                |> Array.tryFind (fun k -> not (b.PairEnergies.ContainsKey k))
-                                |> Option.defaultValue "H-H"
-                        { b with PairEnergies = b.PairEnergies |> Map.add newKey b.Energy }))
-            ]
+            yield! pairRows "pair" "energy"
+                "Energy of bonds between these two atom types, in place of the default energy above."
+                bond.PairEnergies (fun map b -> { b with PairEnergies = map }) (fun b -> b.PairEnergies) (fun b -> b.Energy)
             field "barrier" "Barrier"
                 "Height of the hump a bond must cross to form or to break. It slows both directions by the same factor, e^(−barrier/kT), so it changes how fast bonds change, not which state is favored. Heat makes it easier to cross."
                 bond.Barrier (fun v b -> { b with Barrier = v })
@@ -284,6 +299,9 @@ module Editor =
             field "startBarrier" "Start barrier"
                 "Extra barrier for a bond between two atoms that have no other bond of this type, i.e. one that starts (or is all of) a strand. It applies to forming and to breaking such a bond."
                 bond.StartBarrier (fun v b -> { b with StartBarrier = v })
+            yield! pairRows "startPair" "start barrier"
+                "Start barrier for a bond between these two atom types, in place of the default start barrier above. E.g. with the default at inf (no strand can start) and H-H at 0, strands start only from a pair of H atoms, a primer."
+                (getPairStartBarriers bond) setPairStartBarriers getPairStartBarriers (fun b -> b.StartBarrier)
             field "entropy" "Entropy"
                 "s: the entropy lost when this bond forms (the bonded state has e^s times fewer arrangements). It lifts the bonded state's free energy by kT·s, so the bond melts above kT = energy/s. With 0, the bond never melts."
                 bond.Entropy (fun v b -> { b with Entropy = v })

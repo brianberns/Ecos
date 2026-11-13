@@ -60,6 +60,11 @@ type BondTypeSpec =
         Barrier : float
         BarrierStackReduction : float
         StartBarrier : float
+
+        /// Start barriers that override the default, by pair, e.g.
+        /// "H-H". Absent (as in older specs) means none.
+        PairStartBarriers : Map<string, float> option
+
         Entropy : float
         HydrolysisRate : float
         ProtectedHydrolysisRate : float
@@ -309,18 +314,34 @@ module ScenarioSpec =
                     | _ -> None
             | _ -> None
 
+    /// The given map by pair of atom types, keyed by pair key instead
+    /// (each pair once).
+    let private toPairKeyMap (map : Map<AtomType * AtomType, float>) =
+        map
+            |> Map.toSeq
+            |> Seq.map (fun ((a, b), x) -> toPairKey a b, x)
+            |> Map
+
+    /// The given map by pair key, keyed by pair of atom types instead
+    /// (each pair both ways round).
+    let private ofPairKeyMap (map : Map<string, float>) =
+        (Map.empty, map)
+            ||> Map.fold (fun map key x ->
+                match tryParsePairKey key with
+                    | Some (a, b) -> map |> Map.add (a, b) x |> Map.add (b, a) x
+                    | None -> failwith $"Pair \"{key}\" is not two atom types, e.g. \"H-H\"")
+
     /// Bond-type parameters as data.
     let ofBondTypeParameters (parms : BondTypeParameters) =
         {
             Energy = parms.Energy
-            PairEnergies =
-                parms.PairEnergyMap
-                    |> Map.toSeq
-                    |> Seq.map (fun ((a, b), e) -> toPairKey a b, e)
-                    |> Map
+            PairEnergies = toPairKeyMap parms.PairEnergyMap
             Barrier = parms.Barrier
             BarrierStackReduction = parms.BarrierStackReduction
             StartBarrier = parms.StartBarrier
+            PairStartBarriers =
+                if parms.PairStartBarrierMap.IsEmpty then None
+                else Some (toPairKeyMap parms.PairStartBarrierMap)
             Entropy = parms.Entropy
             HydrolysisRate = parms.HydrolysisRate
             ProtectedHydrolysisRate = parms.ProtectedHydrolysisRate
@@ -335,12 +356,11 @@ module ScenarioSpec =
 
     /// Bond-type parameters from data.
     let toBondTypeParameters (spec : BondTypeSpec) : BondTypeParameters =
-        let pairEnergyMap =
-            (Map.empty, spec.PairEnergies)
-                ||> Map.fold (fun map key energy ->
-                    match tryParsePairKey key with
-                        | Some (a, b) -> map |> Map.add (a, b) energy |> Map.add (b, a) energy
-                        | None -> failwith $"Pair \"{key}\" is not two atom types, e.g. \"H-H\"")
+        let pairEnergyMap = ofPairKeyMap spec.PairEnergies
+        let pairStartBarrierMap =
+            spec.PairStartBarriers
+                |> Option.map ofPairKeyMap
+                |> Option.defaultValue Map.empty
         let bendStiffnessMap =
             spec.BendStiffnesses
                 |> Map.toSeq
@@ -355,7 +375,7 @@ module ScenarioSpec =
             Barrier = spec.Barrier
             BarrierStackReduction = spec.BarrierStackReduction
             StartBarrier = spec.StartBarrier
-            PairStartBarrierMap = Map.empty
+            PairStartBarrierMap = pairStartBarrierMap
             Entropy = spec.Entropy
             HydrolysisRate = spec.HydrolysisRate
             ProtectedHydrolysisRate = spec.ProtectedHydrolysisRate

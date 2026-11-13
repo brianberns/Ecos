@@ -140,6 +140,30 @@ module ScenarioSpecTests =
     let ``A hand-made spec survives saving as JSON, infinity included`` () =
         Assert.True((ScenarioSpec.ofJson (ScenarioSpec.toJson handMade) = handMade))
 
+    /// Strong bonds that start only from a pair of H atoms: an infinite
+    /// default start barrier, overridden for H-H.
+    let private primed =
+        let strong = { handMade.Parameters.Strong with StartBarrier = Double.PositiveInfinity; PairStartBarriers = Some (Map [ "H-H", 0.0 ]) }
+        { handMade with Parameters = { handMade.Parameters with Strong = strong } }
+
+    [<Fact>]
+    let ``Pair start barriers survive saving as JSON and reach the parameters`` () =
+        Assert.True((ScenarioSpec.ofJson (ScenarioSpec.toJson primed) = primed))
+        let parms = (ScenarioSpec.toParameters primed.Parameters).BondTypeParameterMap[Strong]
+        Assert.Equal(0.0, BondTypeParameters.getStartBarrier AtomType.H AtomType.H parms)
+        Assert.Equal(Double.PositiveInfinity, BondTypeParameters.getStartBarrier AtomType.W AtomType.X parms)
+        Assert.True((ScenarioSpec.ofParameters (ScenarioSpec.toParameters primed.Parameters) = primed.Parameters))
+
+    /// Specs saved before pair start barriers existed have no such
+    /// field, and must still load, with none.
+    [<Fact>]
+    let ``A spec without pair start barriers loads with none`` () =
+        let json = ScenarioSpec.toJson handMade
+        Assert.DoesNotContain("PairStartBarriers", json)
+        let spec = ScenarioSpec.ofJson json
+        Assert.Equal(None, spec.Parameters.Strong.PairStartBarriers)
+        Assert.True((ScenarioSpec.toParameters spec.Parameters).BondTypeParameterMap[Strong].PairStartBarrierMap.IsEmpty)
+
     [<Fact>]
     let ``A strand placed where there is no room is an error`` () =
         let spec =

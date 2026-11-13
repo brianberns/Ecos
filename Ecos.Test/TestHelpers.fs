@@ -165,6 +165,15 @@ module TestParameters =
                     ||> List.fold (fun p ((typeA, typeB), energy) ->
                         BondTypeParameters.addPairEnergy typeA typeB energy p))
 
+    /// The given parameters, with start barriers for particular pairs
+    /// of atom types.
+    let withPairStartBarriers bondType (pairs : ((AtomType * AtomType) * float) list) parms =
+        parms
+            |> withBondType bondType (fun p ->
+                (p, pairs)
+                    ||> List.fold (fun p ((typeA, typeB), barrier) ->
+                        BondTypeParameters.addStartBarrier typeA typeB barrier p))
+
 module World =
 
     /// Helper for creating monotype atoms. Type W can't pair with
@@ -403,8 +412,9 @@ module Chain =
     /// Oracle: barrier to forming or breaking a bond of the given type,
     /// with the given parameters, when the given number of stacks
     /// depend on that bond. Each such stack lowers the barrier, but not
-    /// below zero. Then, if the bond starts a strand (see below), the
-    /// bond type's start barrier is added. Either event is first
+    /// below zero. Then, if the bond starts a strand (see below), a
+    /// start barrier is added: the one listed for the pair of atom
+    /// types, in either order, or else the bond type's. Either event is first
     /// accepted with probability exp(-barrier / kT), and then with the
     /// usual Metropolis probability.
     ///
@@ -413,12 +423,19 @@ module Chain =
     /// between two atoms that have none, and breaking a bond that is
     /// the only one either atom has, so the start barrier slows both
     /// equally and doesn't change which state is favored.
-    let bondBarrier (parms : Parameters) bondType nStacks isStart =
+    let bondBarrier (parms : Parameters) bondType typeA typeB nStacks isStart =
         let bondTypeParms = parms.BondTypeParameterMap[bondType]
         let barrier =
             bondTypeParms.Barrier - bondTypeParms.BarrierStackReduction * float nStacks
                 |> max 0.0
-        if isStart then barrier + bondTypeParms.StartBarrier
+        let startBarrier =
+            match Map.tryFind (typeA, typeB) bondTypeParms.PairStartBarrierMap with
+                | Some b -> b
+                | None ->
+                    match Map.tryFind (typeB, typeA) bondTypeParms.PairStartBarrierMap with
+                        | Some b -> b
+                        | None -> bondTypeParms.StartBarrier
+        if isStart then barrier + startBarrier
         else barrier
 
     /// Oracle: entropy lost when a bond of the given type forms, with
