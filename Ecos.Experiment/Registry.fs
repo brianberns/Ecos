@@ -37,15 +37,6 @@ module Registry =
                     |]
             }
             {
-                Name = "Proposed physics"
-                Scenarios =
-                    [|
-                        ProposedPhysics.createScenarioC true 0.25
-                        ProposedPhysics.createScenarioC false 0.25
-                        ProposedPhysics.createLivingWorld 15.0
-                    |]
-            }
-            {
                 Name = "Experiment 1"
                 Scenarios = Experiment1.getScenarios Experiment1.defaultSettings
             }
@@ -75,9 +66,5 @@ module Registry =
             {
                 Name = "Experiment 15"
                 Scenarios = Experiment15.getScenarios Experiment15.defaultSettings
-            }
-            {
-                Name = "Experiment 26"
-                Scenarios = Experiment26.getScenarios Experiment26.defaultSettings
             }
         |]

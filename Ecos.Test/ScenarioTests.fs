@@ -396,55 +396,15 @@ module ScenarioTests =
                 Assert.InRange(id, 0, run.World.Atoms.Length - 1)
 
     [<Fact>]
-    let ``The longest hairpin stem needs complementary arms around a loop of two`` () =
-        let parse (text : string) =
-            text
-                |> Seq.map (function
-                    | 'W' -> AtomType.W | 'X' -> AtomType.X
-                    | 'Y' -> AtomType.Y | 'Z' -> AtomType.Z
-                    | 'P' -> AtomType.P | 'Q' -> AtomType.Q
-                    | c -> failwith $"Unknown atom type: {c}")
-                |> Seq.toArray
-        let expected =
-            [
-                "PWWYYXXQ", 3   // P-Q, W-X, W-X around the Y Y loop
-                "PWWYXXQ", 2    // a loop of one is too small for the inner W-X
-                "PWYXQ", 1      // only P-Q, around a loop of three
-                "PWXQ", 1       // P-Q around a loop of two; W-X would have none
-                "WWWW", 0       // nothing complementary
-                "PWWYYZXQ", 2   // P-Q and W-X, then W-Z doesn't pair
-            ]
-        for text, stem in expected do
-            Assert.True((Experiment26.getMaxStem (parse text) = stem), $"{text}: expected {stem}, got {Experiment26.getMaxStem (parse text)}")
-
-            // experiment 26's strands
-        Assert.Equal(11, Experiment26.getMaxStem Experiment26.hairpinFormer)
-        Assert.Equal(2, Experiment26.getMaxStem Experiment26.nonFormer)
-        Assert.Equal<AtomType[]>(   // the same atoms
-            Array.sort Experiment26.hairpinFormer,
-            Array.sort Experiment26.nonFormer)
-
-    [<Fact>]
-    let ``The sign test gives the binomial tail`` () =
-        Assert.Equal(0.75, Experiment26.getSignTestP 1 1, 10)   // at least one of two
-        Assert.Equal(1.0, Experiment26.getSignTestP 0 3, 10)
-        Assert.Equal(1.0 / 8.0, Experiment26.getSignTestP 3 0, 10)
-        Assert.Equal(37.0 / 256.0, Experiment26.getSignTestP 6 2, 10)   // (28 + 8 + 1) / 2^8
-
-    [<Fact>]
     let ``A scenario without a labeler labels no strands`` () =
         let run = Run.create 0 shortCycle
         Assert.Empty(Run.getStrandLabels run)
 
     [<Fact>]
-    let ``Experiment 26 labels each strand by family`` () =
-        let settings = Experiment26.defaultSettings
-        let scenario = Experiment26.getScenario settings settings.Variants[0]
-        let run = Run.create 0 scenario
+    let ``A scenario's labeler labels its strands`` () =
+        let label (world : World) =
+            Map [ for atom in world.Atoms -> atom.Id, "seed" ]
+        let run = Run.create 0 { shortCycle with TryLabelStrands = Some label }
         let labels = Run.getStrandLabels run
-        let n = settings.NonFormer.Length
-        Assert.Equal(2 * settings.NumSeeds * n, labels.Count)   // the seeds, but no free atoms
-        for i in 0 .. 2 * settings.NumSeeds - 1 do
-            let expected = if i % 2 = 0 then "former" else "non-former"   // seeded in alternation
-            for id in i * n .. i * n + n - 1 do
-                Assert.Equal(expected, labels[id])
+        Assert.Equal(run.World.Atoms.Length, labels.Count)
+        Assert.True(labels |> Map.forall (fun _ text -> text = "seed"))

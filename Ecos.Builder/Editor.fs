@@ -355,7 +355,7 @@ module Editor =
                             ScenarioSpec.atomTypes
                                 |> Array.map ScenarioSpec.toLetter
                                 |> Array.tryFind (fun l -> not (b.BendStiffnesses.ContainsKey l))
-                                |> Option.defaultValue "H"
+                                |> Option.defaultValue "W"
                         { b with BendStiffnesses = b.BendStiffnesses |> Map.add letter b.BendStiffness }))
             ]
         ]

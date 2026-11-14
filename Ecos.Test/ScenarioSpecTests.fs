@@ -98,12 +98,12 @@ module ScenarioSpecTests =
                 Walls = [| for x in -10 .. 2 .. 10 -> x, 16 |]
                 Strands =
                     [|
-                        { Pattern = "PHHWYQ"; Placement = At (-6, 0, true); Count = 1; IsTemplate = true; Color = None }
-                        { Pattern = "QXZHHP"; Placement = At (4, 2, false); Count = 1; IsTemplate = false; Color = Some "#00A000" }
+                        { Pattern = "PZZWYQ"; Placement = At (-6, 0, true); Count = 1; IsTemplate = true; Color = None }
+                        { Pattern = "QXZYYP"; Placement = At (4, 2, false); Count = 1; IsTemplate = false; Color = Some "#00A000" }
                         { Pattern = "PWXQ"; Placement = Scattered (Some 40); Count = 3; IsTemplate = false; Color = None }
                     |]
-                WeakBonds = [| (0, 1), (1, 4) |]   // the H at x = -4 in each
-                Occupancy = Map [ "W", 100.0 * 5.0 / 256.0; "X", 100.0 * 5.0 / 256.0; "H", 100.0 * 2.0 / 256.0 ]   // of 16 x 16 sites
+                WeakBonds = [| (0, 1), (1, 4) |]   // the Z and the Y at x = -4
+                Occupancy = Map [ "W", 100.0 * 5.0 / 256.0; "X", 100.0 * 5.0 / 256.0; "Z", 100.0 * 2.0 / 256.0 ]   // of 16 x 16 sites
                 FoodWithin = Some 30
                 Schedule = Cycle [| { Name = Some "stress"; Temperature = 0.3; NumSweeps = 100; HydrolysisRate = None; CapPeelBarrier = Some Double.PositiveInfinity } |]
         }
@@ -118,7 +118,7 @@ module ScenarioSpecTests =
             getStrands world
                 |> Array.map (fun s -> s.AtomIds |> Array.map (fun id -> ScenarioSpec.toLetter world.Atoms[id].Type) |> String.concat "")
                 |> Array.sort
-        Assert.Equal<string[]>([| "PHHWYQ"; "PWXQ"; "PWXQ"; "PWXQ"; "QXZHHP" |], sequences)
+        Assert.Equal<string[]>([| "PWXQ"; "PWXQ"; "PWXQ"; "PZZWYQ"; "QXZYYP" |], sequences)
         Assert.Equal(6, template.Length)
         Assert.Equal(1, countWeakBonds world)
         let center = Build.center world
@@ -140,17 +140,17 @@ module ScenarioSpecTests =
     let ``A hand-made spec survives saving as JSON, infinity included`` () =
         Assert.True((ScenarioSpec.ofJson (ScenarioSpec.toJson handMade) = handMade))
 
-    /// Strong bonds that start only from a pair of H atoms: an infinite
-    /// default start barrier, overridden for H-H.
+    /// Strong bonds that start only from a pair of Y atoms: an infinite
+    /// default start barrier, overridden for Y-Y.
     let private primed =
-        let strong = { handMade.Parameters.Strong with StartBarrier = Double.PositiveInfinity; PairStartBarriers = Some (Map [ "H-H", 0.0 ]) }
+        let strong = { handMade.Parameters.Strong with StartBarrier = Double.PositiveInfinity; PairStartBarriers = Some (Map [ "Y-Y", 0.0 ]) }
         { handMade with Parameters = { handMade.Parameters with Strong = strong } }
 
     [<Fact>]
     let ``Pair start barriers survive saving as JSON and reach the parameters`` () =
         Assert.True((ScenarioSpec.ofJson (ScenarioSpec.toJson primed) = primed))
         let parms = (ScenarioSpec.toParameters primed.Parameters).BondTypeParameterMap[Strong]
-        Assert.Equal(0.0, BondTypeParameters.getStartBarrier AtomType.H AtomType.H parms)
+        Assert.Equal(0.0, BondTypeParameters.getStartBarrier AtomType.Y AtomType.Y parms)
         Assert.Equal(Double.PositiveInfinity, BondTypeParameters.getStartBarrier AtomType.W AtomType.X parms)
         Assert.True((ScenarioSpec.ofParameters (ScenarioSpec.toParameters primed.Parameters) = primed.Parameters))
 
@@ -179,35 +179,35 @@ module ScenarioSpecTests =
 
     [<Fact>]
     let ``A pattern draws sequences of its form`` () =
-        let terms = ScenarioSpec.parsePattern "Cap-H-10*Coding-Cap"
+        let terms = ScenarioSpec.parsePattern "Cap-Z-10*Coding-Cap"
         let rng = Random(0)
         let isCap t = t = AtomType.P || t = AtomType.Q
         for _ in 1 .. 50 do
             let types = ScenarioSpec.samplePattern rng terms
             Assert.Equal(13, types.Length)
             Assert.True(isCap types[0] && isCap types[12])
-            Assert.Equal(AtomType.H, types[1])
-            Assert.True(types[2 .. 11] |> Array.forall (fun t -> not (isCap t) && t <> AtomType.H))
+            Assert.Equal(AtomType.Z, types[1])
+            Assert.True(types[2 .. 11] |> Array.forall (fun t -> not (isCap t)))
         let drawn = Array.init 200 (fun _ -> ScenarioSpec.samplePattern rng terms) |> Array.collect id |> Array.distinct
-        Assert.Equal(7, drawn.Length)   // every type turns up
+        Assert.Equal(6, drawn.Length)   // every type turns up
 
     [<Fact>]
     let ``Literal runs, sets and repeats combine`` () =
-        let types = ScenarioSpec.samplePattern (Random(1)) (ScenarioSpec.parsePattern "P-HH-8*[WY]-Q")
+        let types = ScenarioSpec.samplePattern (Random(1)) (ScenarioSpec.parsePattern "P-ZZ-8*[WY]-Q")
         Assert.Equal(12, types.Length)
-        Assert.Equal<AtomType[]>([| AtomType.P; AtomType.H; AtomType.H |], types[0 .. 2])
+        Assert.Equal<AtomType[]>([| AtomType.P; AtomType.Z; AtomType.Z |], types[0 .. 2])
         Assert.True(types[3 .. 10] |> Array.forall (fun t -> t = AtomType.W || t = AtomType.Y))
         Assert.Equal(AtomType.Q, types[11])
         Assert.Equal<AtomType[]>(
-            [| AtomType.P; AtomType.H; AtomType.W; AtomType.Q |],
-            ScenarioSpec.samplePattern (Random(2)) (ScenarioSpec.parsePattern "PHWQ"))
+            [| AtomType.P; AtomType.Z; AtomType.W; AtomType.Q |],
+            ScenarioSpec.samplePattern (Random(2)) (ScenarioSpec.parsePattern "PZWQ"))
         Assert.Equal<AtomType[]>(
-            [| AtomType.H; AtomType.H; AtomType.H |],
-            ScenarioSpec.samplePattern (Random(2)) (ScenarioSpec.parsePattern "3*H"))
+            [| AtomType.Z; AtomType.Z; AtomType.Z |],
+            ScenarioSpec.samplePattern (Random(2)) (ScenarioSpec.parsePattern "3*Z"))
 
     [<Fact>]
     let ``Invalid patterns are errors`` () =
-        for pattern in [ ""; "P--Q"; "PAQ"; "[WY"; "[]"; "x*W"; "-1*W"; "P-Foo-Q"; "[WA]"; "[2-1]*H"; "[1-]*H"; "[1-2*H" ] do
+        for pattern in [ ""; "P--Q"; "PAQ"; "[WY"; "[]"; "x*W"; "-1*W"; "P-Foo-Q"; "[WA]"; "[2-1]*W"; "[1-]*W"; "[1-2*W"; "PHQ" ] do
             match ScenarioSpec.tryParsePattern pattern with
                 | Ok _ -> failwith $"\"{pattern}\" should be invalid"
                 | Error _ -> ()
@@ -242,13 +242,13 @@ module ScenarioSpecTests =
 
     [<Fact>]
     let ``A repeat count can be a range`` () =
-        let terms = ScenarioSpec.parsePattern "P-[1-2]*H-[0-3]*[WY]-Q"
+        let terms = ScenarioSpec.parsePattern "P-[1-2]*Z-[0-3]*[WY]-Q"
         let rng = Random(0)
         let lengths =
             Array.init 300 (fun _ ->
                 let types = ScenarioSpec.samplePattern rng terms
-                let nH = types |> Array.where ((=) AtomType.H) |> Array.length
-                Assert.InRange(nH, 1, 2)
+                let nZ = types |> Array.where ((=) AtomType.Z) |> Array.length
+                Assert.InRange(nZ, 1, 2)
                 Assert.Equal(AtomType.P, types[0])
                 Assert.Equal(AtomType.Q, types[types.Length - 1])
                 types.Length)
@@ -256,17 +256,17 @@ module ScenarioSpecTests =
 
     [<Fact>]
     let ``A strand's family includes its copies, read either way`` () =
-        let regex = ScenarioSpec.toRegex (ScenarioSpec.parsePattern "P-HH-[1-2]*[WY]-Q")
+        let regex = ScenarioSpec.toRegex (ScenarioSpec.parsePattern "P-ZZ-[1-2]*[WY]-Q")
         let matches (text : string) = ScenarioSpec.matchesFamily regex (ScenarioSpec.parseSequence text)
-        Assert.True(matches "PHHWYQ")      // drawn
-        Assert.True(matches "PHHYQ")
-        Assert.True(matches "PZXHHQ")      // its copy (complement, reversed)
-        Assert.True(matches "QHHXZP")      // the copy read from its other end
-        Assert.True(matches "QYWHHP")      // drawn, read from the other end
-        Assert.False(matches "PHHWYWQ")    // too long
-        Assert.False(matches "PHWYQ")      // missing an H
-        Assert.False(matches "PHHXWQ")     // X W is neither drawn nor a copy of a draw read this way
-        Assert.False(matches "HHWY")       // uncapped
+        Assert.True(matches "PZZWYQ")      // drawn
+        Assert.True(matches "PZZYQ")
+        Assert.True(matches "PZXYYQ")      // its copy (complement, reversed)
+        Assert.True(matches "QYYXZP")      // the copy read from its other end
+        Assert.True(matches "QYWZZP")      // drawn, read from the other end
+        Assert.False(matches "PZZWYWQ")    // too long
+        Assert.False(matches "PZWYQ")      // missing a Z
+        Assert.False(matches "PZZXWQ")     // X W is neither drawn nor a copy of a draw read this way
+        Assert.False(matches "ZZWY")       // uncapped
 
     [<Fact>]
     let ``A spec saved without strand colors loads with none`` () =

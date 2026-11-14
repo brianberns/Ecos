@@ -594,20 +594,6 @@ module Scenario =
                     BendStiffnessMap =
                         Map.add atomType kappa bondTypeParms.BendStiffnessMap })
 
-    /// Default bend stiffness of strong bonds, from experiment 24h: stiff
-    /// enough to keep stems straight, but not so stiff that copying slows.
-    let defaultBendStiffness = 2.0
-
-    /// Default bend stiffness at hinge atoms (H): free.
-    let defaultHingeStiffness = 0.0
-
-    /// Gives strong bonds the default bend: right angles at most, stiff
-    /// everywhere but at H, which serves as a hinge.
-    let withHingedBend scenario =
-        scenario
-            |> withBend Strong Bend.rightAngle defaultBendStiffness
-            |> withBendStiffness Strong AtomType.H defaultHingeStiffness
-
     /// Sets the energy of the given type of bond between the given
     /// atom types in the given scenario.
     let withPairEnergy bondType atomTypeA atomTypeB energy scenario =
@@ -834,7 +820,7 @@ module Run =
         getParametersWith (getTemperature run) run
 
     /// Labels of the given run's labeled strands, by atom ID: e.g.
-    /// "former" or "non-former" in experiment 26. Atoms in unlabeled
+    /// "former" or "non-former". Atoms in unlabeled
     /// strands, or in scenarios that don't label strands, have none.
     let getStrandLabels run =
         match run.Scenario.TryLabelStrands with
