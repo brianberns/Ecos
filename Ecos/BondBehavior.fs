@@ -268,7 +268,6 @@ module private WeakBond =
         let atomTypeMin = min atomTypeA atomTypeB
         let atomTypeMax = max atomTypeA atomTypeB
         match atomTypeMin, atomTypeMax with
-            | AtomType.H, AtomType.H   // pairs with itself
             | AtomType.W, AtomType.X
             | AtomType.Y, AtomType.Z
             | AtomType.P, AtomType.Q -> true
