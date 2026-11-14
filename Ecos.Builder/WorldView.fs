@@ -100,31 +100,48 @@ module WorldView =
                         |> renderRectangle (Point.create (x, y)) (Point.create (width, height))
         ]
 
-    /// Zones, as tiles in the color of their temperature, if they have
-    /// their own now, and otherwise as a faint tint.
+    /// Zones: each outlined, and filled with the color of its temperature
+    /// if it has its own now. (With none, a zone is as warm as the world
+    /// around it, so it is shown by its outline alone.) Drawn in small
+    /// pieces, so that a zone that crosses an edge of the view wraps.
     let private renderZones (run : Run) (placer : Placer) =
         let size = run.World.Size
-        let color =
-            match Run.tryGetZoneTemperature run with
-                | Some temp ->
-                    getColor (temp (*uniform*)) (Run.getParameters run).CapPeelBarrier
-                | None -> Color.FromArgb(40uy, 255uy, 255uy, 255uy)
+        let fillOpt =
+            Run.tryGetZoneTemperature run
+                |> Option.map (fun temp ->
+                    getColor temp (Run.getParameters run).CapPeelBarrier)
+        let outline = Color.FromArgb(150uy, 64uy, 64uy, 64uy)
+        let thickness = 0.3
         let tile = 2
+        let piece (x : int) (y : int) (offsetX : float) (offsetY : float) (width : float) (height : float) (color : Color) =
+            let pt = placer.Place(run.World.NormalizeLocation(Point.create (x, y)))
+            Rectangle.create [
+                Rectangle.left (pt.X + offsetX)
+                Rectangle.top (pt.Y + offsetY)
+                Rectangle.width width
+                Rectangle.height height
+                Rectangle.fill color
+                Rectangle.useLayoutRounding false
+            ] :> IView
         [
             for zone in run.Scenario.Zones do
                 let left = size.X / 2 + zone.X - zone.Width / 2
                 let top = size.Y / 2 + zone.Y - zone.Height / 2
                 for dx in 0 .. tile .. zone.Width - 1 do
+                    let width = float (min tile (zone.Width - dx))
                     for dy in 0 .. tile .. zone.Height - 1 do
-                        let pt = placer.Place(run.World.NormalizeLocation(Point.create (left + dx, top + dy)))
-                        Rectangle.create [
-                            Rectangle.left pt.X
-                            Rectangle.top pt.Y
-                            Rectangle.width (float (min tile (zone.Width - dx)))
-                            Rectangle.height (float (min tile (zone.Height - dy)))
-                            Rectangle.fill color
-                            Rectangle.useLayoutRounding false
-                        ] :> IView
+                        let height = float (min tile (zone.Height - dy))
+                        match fillOpt with
+                            | Some fill -> yield piece (left + dx) (top + dy) 0.0 0.0 width height fill
+                            | None -> ()
+                        if dy = 0 then   // top edge
+                            yield piece (left + dx) (top + dy) 0.0 0.0 width thickness outline
+                        if dy + tile >= zone.Height then   // bottom edge
+                            yield piece (left + dx) (top + dy) 0.0 (height - thickness) width thickness outline
+                        if dx = 0 then   // left edge
+                            yield piece (left + dx) (top + dy) 0.0 0.0 thickness height outline
+                        if dx + tile >= zone.Width then   // right edge
+                            yield piece (left + dx) (top + dy) (width - thickness) 0.0 thickness height outline
         ]
 
     let private renderWalls (world : World) (placer : Placer) =
