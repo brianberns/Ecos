@@ -22,14 +22,18 @@ type Atom =
 
         /// Location of the atom in the world.
         Location : Point
+
+        /// Indicates whether the atom can move.
+        IsMobile : bool
     }
 
 module Atom =
 
     /// Creates an atom.
-    let create id typ location =
+    let create id typ location isMobile =
         {
             Id = id
             Type = typ
             Location = location
+            IsMobile = isMobile
         }

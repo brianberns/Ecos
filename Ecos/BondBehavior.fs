@@ -38,6 +38,10 @@ type private BondBehavior =
         /// well, via the given map).
         TestValence : BondTypeMap -> Atom -> bool
 
+        /// Determines whether a bond between the given atoms
+        /// can be toggled.
+        CanToggle : Atom -> Atom -> bool
+
         /// Counts stacks adjacent to a bond (existing or 
         /// proposed) between the given atoms.
         CountStacks : BondTypeMap -> Atom -> Atom -> int
@@ -153,6 +157,10 @@ module private StrongBond =
         let bonds = BondMap.getBonds atom.Id bondTypeMap[Strong]
         bonds.Count <= valence
 
+    /// Only mobile atoms can toggle strong bonds.
+    let canToggle atomA atomB =
+        atomA.IsMobile && atomB.IsMobile
+
     /// Counts stacks affected by the given (existing or proposed)
     /// strong bond:
     ///    A' ═══ B'   ══ strong bond
@@ -205,6 +213,7 @@ module private StrongBond =
             CrossBondDeltas = crossBondDeltas
             AreCompatible = areCompatible
             TestValence = testValence
+            CanToggle = canToggle
             CountStacks = countStacks
             TestBend = BondBehavior.testBendLimit
             TestPeel = testPeel
@@ -247,6 +256,10 @@ module private WeakBond =
         let bonds = BondMap.getBonds atom.Id bondTypeMap[Weak]
         bonds.Count <= 1
 
+    /// Can't toggle weak bond between fixed atoms.
+    let canToggle atomA atomB =
+        atomA.IsMobile || atomB.IsMobile
+
     /// Counts stacks affected by the given (existing or proposed)
     /// weak bond:
     ///    A' ══ A ══ A'   ══ strong bond
@@ -285,6 +298,7 @@ module private WeakBond =
             CrossBondDeltas = crossBondDeltas
             AreCompatible = areCompatible
             TestValence = testValence
+            CanToggle = canToggle
             CountStacks = countStacks
             TestBend = testBend
             TestPeel = testPeel

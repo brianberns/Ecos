@@ -104,15 +104,16 @@ module World =
         { world with
             AtomGrid = AtomGrid.copy world.AtomGrid }
 
-    /// Adds an atom with the given attributes to the given world
-    /// if it is valid.
-    let tryAddAtom atomType location (world : World) =
+    /// Adds a mobile atom with the given attributes to the given
+    /// world if it is valid.
+    let private tryAddAtomImpl
+        atomType location isMobile (world : World) =
         let location = world.NormalizeLocation(location)
         if isAvailable location None world then
             let world = copy world
             let atom =
                 let id = world.Atoms.Length
-                Atom.create id atomType location
+                Atom.create id atomType location isMobile
             let world =
                 { world with
                     AtomGrid =
@@ -120,7 +121,17 @@ module World =
             Some (world, atom)
         else None
 
-    /// Adds an atom with the given attributes to the given world.
+    /// Adds a mobile atom with the given attributes to the given
+    /// world if it is valid.
+    let tryAddAtom atomType location world =
+        tryAddAtomImpl atomType location true world
+
+    /// Adds an immobile atom with the given attributes to the given
+    /// world if it is valid.
+    let tryAddFixedAtom atomType location world =
+        tryAddAtomImpl atomType location false world
+
+    /// Adds a mobile atom with the given attributes to the given world.
     let addAtom atomType location world =
         match tryAddAtom atomType location world with
             | Some (world, _) -> world
@@ -416,27 +427,58 @@ module World =
         let id = rng.Next(world.Atoms.Length)
         let atom = world.Atoms[id]
 
-            // pick direction to move in
-        let delta = getRandomDirection rng
+            // atom is movable?
+        if atom.IsMobile then
 
-            // move atom in that direction provisionally
-        let atom' =
-            let loc = world.NormalizeLocation(atom.Location + delta)
-            { atom with Location = loc }
+                // pick direction to move in
+            let delta = getRandomDirection rng
 
-            // move the atom permanently?
-        if canMove atom' delta world then
-            AtomGrid.moveAtom atom atom' world.AtomGrid       // MUTATION: update world provisionally
-            let isValid =
-                testBonds parms atom' world
-                    && testMoveFaces atom' world
-                    && testBendEnergy parms rng atom atom' world
-            if isValid then
-                Some (world, MoveAtom id)
-            else
-                AtomGrid.moveAtom atom' atom world.AtomGrid   // MUTATION: undo move
-                None
+                // move atom in that direction provisionally
+            let atom' =
+                let loc = world.NormalizeLocation(atom.Location + delta)
+                { atom with Location = loc }
+
+                // move the atom permanently?
+            if canMove atom' delta world then
+                AtomGrid.moveAtom atom atom' world.AtomGrid       // MUTATION: update world provisionally
+                let isValid =
+                    testBonds parms atom' world
+                        && testMoveFaces atom' world
+                        && testBendEnergy parms rng atom atom' world
+                if isValid then
+                    Some (world, MoveAtom id)
+                else
+                    AtomGrid.moveAtom atom' atom world.AtomGrid   // MUTATION: undo move
+                    None
+            else None
+
         else None
+
+    /// Computes energy of the bond between the given atoms.
+    let private getBondEnergy
+        bondTypeParms bondMap stackEnergy nStacks atomA atomB world =
+
+        let bendEnergy =
+            if BondTypeParameters.hasBendStiffness bondTypeParms then
+                Bend.getBondEnergy
+                    bondTypeParms world.AtomGrid bondMap atomA atomB
+            else 0.0
+
+        BondTypeParameters.getEnergy
+            atomA.Type atomB.Type bondTypeParms
+            + stackEnergy * float nStacks
+            - bendEnergy
+
+    /// Computes the start barrier for the given pairing if it starts
+    /// a strand.
+    let private getStartBarrier bondTypeParms bondMap atomA atomB =
+        let startBarrier =
+            BondTypeParameters.getStartBarrier
+                atomA.Type atomB.Type bondTypeParms
+        if startBarrier > 0
+            && BondBehavior.testStrandStart atomA atomB bondMap then
+            startBarrier
+        else 0.0
 
     /// Applies Metropolis tests to the given bond energy.
     let private testBondEnergy
@@ -493,73 +535,69 @@ module World =
 
             // update world
         if isValid then
-            Some { world with _BondTypeMap = bondTypeMap }
+            let world = { world with _BondTypeMap = bondTypeMap }
+            let event = BreakBond (bondType, atomA.Id, atomB.Id)
+            Some (world, event)
         else None
 
+    /// Attempts to create a bond of the given type between the
+    /// given atoms in the given world.
+    let private tryCreateBond
+        bondType bondTypeParms atomA atomB world =
+        tryAddBond bondType bondTypeParms atomA atomB world
+            |> Option.map (fun world ->
+                let event =
+                    CreateBond (bondType, atomA.Id, atomB.Id)
+                world, event)
+
     /// Attempts to toggle a bond of the given type between
-    /// the atoms with the given IDs in the given world.
+    /// the given atoms in the given world.
     let private tryToggleBond
         parms (rng : Random) bondType atomA atomB (world : World) =
 
-            // count adjacent stacks
+            // bond is toggleable?
         let behavior = BehaviorMap.standard[bondType]
-        let nStacks =
-            behavior.CountStacks world.BondTypeMap atomA atomB
+        if behavior.CanToggle atomA atomB then
 
-            // compute bond energy
-        let bondTypeParms = parms.BondTypeParameterMap[bondType]
-        let bondMap = world.BondTypeMap[bondType]
-        let bondEnergy =
-            let bendEnergy =
-                if BondTypeParameters.hasBendStiffness bondTypeParms then
-                    Bend.getBondEnergy
-                        bondTypeParms world.AtomGrid bondMap atomA atomB
-                else 0.0
-            BondTypeParameters.getEnergy
-                atomA.Type atomB.Type bondTypeParms
-                + parms.StackEnergy * float nStacks
-                - bendEnergy
-
-            // compute start barrier
-        let startBarrier =
+                // prepare
+            let nStacks =
+                behavior.CountStacks world.BondTypeMap atomA atomB
+            let bondTypeParms = parms.BondTypeParameterMap[bondType]
+            let bondMap = world.BondTypeMap[bondType]
+            let bondEnergy =
+                getBondEnergy
+                    bondTypeParms bondMap
+                    parms.StackEnergy nStacks
+                    atomA atomB world
             let startBarrier =
-                BondTypeParameters.getStartBarrier
-                    atomA.Type atomB.Type bondTypeParms
-            if startBarrier > 0
-                && BondBehavior.testStrandStart atomA atomB bondMap then
-                startBarrier
-            else 0.0
+                getStartBarrier bondTypeParms bondMap atomA atomB
+            let temp = Parameters.getAvgTemperature atomA atomB parms
 
-            // create or break bond?
-        let temp = Parameters.getAvgTemperature atomA atomB parms
-        let testBond =
-            testBondEnergy rng temp
-                bondTypeParms.Barrier
-                bondTypeParms.BarrierStackReduction
-                startBarrier
-                nStacks
-        if BondMap.areBonded atomA.Id atomB.Id bondMap then
-            let bondTypeMap = world.BondTypeMap
-            if testBond bondTypeParms.Entropy bondEnergy
-                || testPeel
-                    rng parms temp behavior bondTypeMap bondMap atomA atomB
-                || testHydrolysis
-                    rng bondTypeParms behavior
-                    bondTypeMap atomA atomB then
-                tryBreakBond bondType atomA atomB world
-                    |> Option.map (fun world ->
-                        let event =
-                            BreakBond (bondType, atomA.Id, atomB.Id)
-                        world, event)
-            else None
-        else
-            if testBond -bondTypeParms.Entropy -bondEnergy then
-                tryAddBond bondType bondTypeParms atomA atomB world
-                    |> Option.map (fun world ->
-                        let event =
-                            CreateBond (bondType, atomA.Id, atomB.Id)
-                        world, event)
-            else None
+            /// Tests the given given bond energy.
+            let testBond =
+                testBondEnergy rng temp
+                    bondTypeParms.Barrier
+                    bondTypeParms.BarrierStackReduction
+                    startBarrier
+                    nStacks
+
+                // create or break bond?
+            if BondMap.areBonded atomA.Id atomB.Id bondMap then
+                let bondTypeMap = world.BondTypeMap
+                if testBond bondTypeParms.Entropy bondEnergy
+                    || testPeel
+                        rng parms temp behavior bondTypeMap bondMap atomA atomB
+                    || testHydrolysis
+                        rng bondTypeParms behavior
+                        bondTypeMap atomA atomB then
+                    tryBreakBond bondType atomA atomB world
+                else None
+            else
+                if testBond -bondTypeParms.Entropy -bondEnergy then
+                    tryCreateBond bondType bondTypeParms atomA atomB world
+                else None
+
+        else None
 
     /// Attempts to toggle a bond of the given type in the given
     /// world.
