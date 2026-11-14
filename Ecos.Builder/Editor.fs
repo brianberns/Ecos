@@ -183,6 +183,11 @@ module Editor =
                             colors |> Array.findIndex (fun (_, c) -> sameColor c strand.Color)
                         comboBox $"{key}.color" 110.0 (Array.map fst colors) colorIndex (fun i ->
                             edit (fun st -> { st with Color = snd colors[i] }))
+                        let fixings = [| "Mobile", None; "Fixed, joined", Some Joined; "Fixed, apart", Some Apart |]
+                        comboBox $"{key}.fixed" 120.0 (Array.map fst fixings)
+                            (fixings |> Array.findIndex (fun (_, f) -> f = strand.Fixed))
+                            (fun i -> edit (fun st -> { st with Fixed = snd fixings[i] }))
+                            |> tipped "A fixed strand's atoms never move. Joined, it is a template that free atoms copy. Apart, its atoms are not bonded to each other, so strands can pair with it but it copies nothing."
                     ]
                     match describePattern strand.Pattern with
                         | Ok text -> note text
@@ -208,7 +213,7 @@ module Editor =
                         { s with
                             Strands =
                                 Array.append s.Strands [|
-                                    { Pattern = "P-10*Coding-Q"; Placement = Scattered None; Count = 1; IsTemplate = true; Color = None }
+                                    { Pattern = "P-10*Coding-Q"; Placement = Scattered None; Count = 1; IsTemplate = true; Color = None; Fixed = None }
                                 |] })))
             ]
             if spec.WeakBonds.Length > 0 then

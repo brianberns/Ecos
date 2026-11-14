@@ -98,9 +98,9 @@ module ScenarioSpecTests =
                 Walls = [| for x in -10 .. 2 .. 10 -> x, 16 |]
                 Strands =
                     [|
-                        { Pattern = "PZZWYQ"; Placement = At (-6, 0, true); Count = 1; IsTemplate = true; Color = None }
-                        { Pattern = "QXZYYP"; Placement = At (4, 2, false); Count = 1; IsTemplate = false; Color = Some "#00A000" }
-                        { Pattern = "PWXQ"; Placement = Scattered (Some 40); Count = 3; IsTemplate = false; Color = None }
+                        { Pattern = "PZZWYQ"; Placement = At (-6, 0, true); Count = 1; IsTemplate = true; Color = None; Fixed = None }
+                        { Pattern = "QXZYYP"; Placement = At (4, 2, false); Count = 1; IsTemplate = false; Color = Some "#00A000"; Fixed = None }
+                        { Pattern = "PWXQ"; Placement = Scattered (Some 40); Count = 3; IsTemplate = false; Color = None; Fixed = None }
                     |]
                 WeakBonds = [| (0, 1), (1, 4) |]   // the Z and the Y at x = -4
                 Occupancy = Map [ "W", 100.0 * 5.0 / 256.0; "X", 100.0 * 5.0 / 256.0; "Z", 100.0 * 2.0 / 256.0 ]   // of 16 x 16 sites
@@ -170,8 +170,8 @@ module ScenarioSpecTests =
             { handMade with
                 Strands =
                     [|
-                        { Pattern = "PWQ"; Placement = At (0, 0, true); Count = 1; IsTemplate = false; Color = None }
-                        { Pattern = "PWQ"; Placement = At (2, 0, true); Count = 1; IsTemplate = false; Color = None }
+                        { Pattern = "PWQ"; Placement = At (0, 0, true); Count = 1; IsTemplate = false; Color = None; Fixed = None }
+                        { Pattern = "PWQ"; Placement = At (2, 0, true); Count = 1; IsTemplate = false; Color = None; Fixed = None }
                     |]
                 WeakBonds = [||] }
         let scenario = ScenarioSpec.toScenario spec
@@ -216,7 +216,7 @@ module ScenarioSpecTests =
     let ``Each scattered copy is drawn separately`` () =
         let spec =
             { handMade with
-                Strands = [| { Pattern = "P-10*Coding-Q"; Placement = Scattered None; Count = 6; IsTemplate = true; Color = None } |]
+                Strands = [| { Pattern = "P-10*Coding-Q"; Placement = Scattered None; Count = 6; IsTemplate = true; Color = None; Fixed = None } |]
                 WeakBonds = [||] }
         let scenario = ScenarioSpec.toScenario spec
         let world, template = scenario.Build scenario.Parameters (Random(4))
@@ -275,3 +275,72 @@ module ScenarioSpecTests =
         Assert.DoesNotContain("Color", stripped)
         let spec = ScenarioSpec.ofJson stripped
         Assert.True(spec.Strands |> Array.forall (fun st -> st.Color.IsNone))
+
+    /// The hand-made spec's strands, with a template fixed in place
+    /// (joined) and a row of fixed atoms that aren't joined (apart).
+    let private withFixed =
+        { handMade with
+            Strands =
+                Array.append handMade.Strands [|
+                    { Pattern = "PWWYQ"; Placement = At (-8, -8, true); Count = 1; IsTemplate = false; Color = None; Fixed = Some Joined }
+                    { Pattern = "QXXZP"; Placement = At (-8, -12, true); Count = 1; IsTemplate = false; Color = None; Fixed = Some Apart }
+                |] }
+
+    [<Fact>]
+    let ``Fixed strands are built of fixed atoms, joined or apart`` () =
+        let scenario = ScenarioSpec.toScenario withFixed
+        let world, _ = scenario.Build scenario.Parameters (Random(7))
+        let center = Build.center world
+        let rowAt y =
+            world.Atoms
+                |> Array.where (fun atom -> atom.Location.Y = center.Y + y && not atom.IsMobile)
+                |> Array.sortBy _.Location.X
+        let countStrong (atom : Atom) =
+            (BondMap.getBonds atom.Id world.BondTypeMap[Strong]).Count
+        let letters (atoms : Atom[]) =
+            atoms |> Array.map (fun atom -> ScenarioSpec.toLetter atom.Type) |> String.concat ""
+
+        let joined = rowAt -8
+        Assert.Equal("PWWYQ", letters joined)
+        Assert.Equal<int[]>([| 1; 2; 2; 2; 1 |], joined |> Array.map countStrong)
+
+        let apart = rowAt -12
+        Assert.Equal("QXXZP", letters apart)
+        Assert.Equal<int[]>(Array.replicate 5 0, apart |> Array.map countStrong)
+
+            // every other atom moves
+        Assert.Equal(10, world.Atoms |> Array.where (fun atom -> not atom.IsMobile) |> Array.length)
+
+    [<Fact>]
+    let ``Fixed strands survive saving as JSON, and mobile ones say nothing of it`` () =
+        Assert.True((ScenarioSpec.ofJson (ScenarioSpec.toJson withFixed) = withFixed))
+        Assert.DoesNotContain("Fixed", ScenarioSpec.toJson handMade)   // so specs saved before fixed strands still load
+        Assert.True((ScenarioSpec.ofJson (ScenarioSpec.toJson handMade)).Strands |> Array.forall (fun st -> st.Fixed.IsNone))
+
+    /// A spec taken from a built world keeps its fixed strands: the
+    /// joined one as a strand, and the row of separate fixed atoms as
+    /// one strand fixed apart.
+    [<Fact>]
+    let ``A spec taken from a world keeps its fixed strands`` () =
+        let spec = ScenarioSpec.ofScenario 7 (ScenarioSpec.toScenario withFixed)
+        let fixedSpecs =
+            spec.Strands
+                |> Array.where (fun st -> st.Fixed.IsSome)
+                |> Array.map (fun st -> st.Pattern, st.Placement, st.Fixed)
+                |> Array.sort
+        Assert.Equal<(string * StrandPlacement * Fixing option)[]>(
+            [|
+                "PWWYQ", At (-8, -8, true), Some Joined
+                "QXXZP", At (-8, -12, true), Some Apart
+            |],
+            fixedSpecs)
+
+            // and builds the same world again
+        let build (spec : ScenarioSpec) =
+            let scenario = ScenarioSpec.toScenario spec
+            let world, _ = scenario.Build scenario.Parameters (Random(7))
+            world.Atoms
+                |> Array.where (fun atom -> not atom.IsMobile)
+                |> Array.map (fun atom -> atom.Type, atom.Location)
+                |> Array.sort
+        Assert.Equal<(AtomType * Point)[]>(build withFixed, build spec)

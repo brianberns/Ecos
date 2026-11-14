@@ -14,7 +14,8 @@ open Ecos
 open Ecos.Experiment
 
 /// Draws a run's world: the temperature behind it, its walls, atoms
-/// (template atoms filled), strong bonds in black and weak bonds in pink.
+/// (template atoms filled, fixed atoms square), strong bonds in black and
+/// weak bonds in pink.
 /// (After the desktop runner's view.)
 module WorldView =
 
@@ -120,18 +121,33 @@ module WorldView =
         [
             for atom in run.World.Atoms do
                 let pt = placer.Place atom.Location
-                Ellipse.create [
-                    Ellipse.width 2.0
-                    Ellipse.height 2.0
-                    Ellipse.left (pt.X - 1.0)   // every atom is 2x2 centered on its location
-                    Ellipse.top (pt.Y - 1.0)
-                    if templateIds.Contains atom.Id then
-                        Ellipse.fill brushMap[atom.Type]
-                    else
-                        Ellipse.stroke brushMap[atom.Type]
-                        Ellipse.strokeThickness strokeThickness
-                    Ellipse.useLayoutRounding false
-                ] :> IView
+                let isFilled = templateIds.Contains atom.Id
+                if atom.IsMobile then
+                    Ellipse.create [
+                        Ellipse.width 2.0
+                        Ellipse.height 2.0
+                        Ellipse.left (pt.X - 1.0)   // every atom is 2x2 centered on its location
+                        Ellipse.top (pt.Y - 1.0)
+                        if isFilled then
+                            Ellipse.fill brushMap[atom.Type]
+                        else
+                            Ellipse.stroke brushMap[atom.Type]
+                            Ellipse.strokeThickness strokeThickness
+                        Ellipse.useLayoutRounding false
+                    ] :> IView
+                else   // a fixed atom is a square
+                    Rectangle.create [
+                        Rectangle.width 2.0
+                        Rectangle.height 2.0
+                        Rectangle.left (pt.X - 1.0)
+                        Rectangle.top (pt.Y - 1.0)
+                        if isFilled then
+                            Rectangle.fill brushMap[atom.Type]
+                        else
+                            Rectangle.stroke brushMap[atom.Type]
+                            Rectangle.strokeThickness strokeThickness
+                        Rectangle.useLayoutRounding false
+                    ] :> IView
         ]
 
     let private renderBonds bondType (getBrush : AtomId -> IBrush) (world : World) (placer : Placer) =

@@ -25,6 +25,19 @@ type StrandPlacement =
     /// may be bent or folded, are placed this way.)
     | Shape of locations : (int * int)[] * isRing : bool
 
+/// How the atoms of a fixed strand, which never move, are held.
+type Fixing =
+
+    /// Joined by strong bonds, like a mobile strand. Free atoms that
+    /// pair with it side by side are stacked, so it is a template:
+    /// they join into its complement.
+    | Joined
+
+    /// Not joined to each other: a row of separate fixed atoms. Free
+    /// atoms and strands pair with it, but with no stacks, so it
+    /// copies nothing: a surface to bind to.
+    | Apart
+
 /// A strand of a scenario spec.
 type StrandSpec =
     {
@@ -46,6 +59,10 @@ type StrandSpec =
         /// family (see ScenarioSpec.matchesFamily), e.g. "#00A000", or
         /// none for the usual black.
         Color : string option
+
+        /// How its atoms are fixed in place, or none (as in older specs)
+        /// if they move.
+        Fixed : Fixing option
     }
 
 /// Parameters of a bond type, as data: those of BondTypeParameters, with
@@ -417,44 +434,48 @@ module ScenarioSpec =
         }
 
     /// Adds atoms of the given types at the given locations (absolute),
-    /// if there is room for all of them. Answers the world and their IDs.
-    let private tryAddAtoms (atomTypes : AtomType[]) (locations : Point[]) (world : World) =
+    /// mobile or fixed, if there is room for all of them. Answers the
+    /// world and their IDs.
+    let private tryAddAtoms isFixed (atomTypes : AtomType[]) (locations : Point[]) (world : World) =
+        let tryAdd = if isFixed then World.tryAddFixedAtom else World.tryAddAtom
         (Some (world, []), Array.zip atomTypes locations)
             ||> Array.fold (fun acc (atomType, loc) ->
                 acc |> Option.bind (fun (world, ids) ->
-                    World.tryAddAtom atomType loc world
+                    tryAdd atomType loc world
                         |> Option.map (fun (world, atom) -> world, atom.Id :: ids)))
             |> Option.map (fun (world, ids) -> world, ids |> List.rev |> List.toArray)
 
     /// Joins the given atoms in order (and the last to the first, for a
-    /// ring).
-    let private join parms (ids : AtomId[]) isRing (world : World) =
+    /// ring), unless they are fixed apart.
+    let private join parms fixing (ids : AtomId[]) isRing (world : World) =
         let tryJoin (world : World) (a, b) =
             match World.tryAddStrongBond parms a b world with
                 | Some world -> world
                 | None -> failwith "A strand's atoms can't all be joined (too far apart, or bent too sharply)"
-        let world = Array.pairwise ids |> Array.fold tryJoin world
-        if isRing && ids.Length > 2 then tryJoin world (ids[ids.Length - 1], ids[0])
-        else world
+        if fixing = Some Apart then world
+        else
+            let world = Array.pairwise ids |> Array.fold tryJoin world
+            if isRing && ids.Length > 2 then tryJoin world (ids[ids.Length - 1], ids[0])
+            else world
 
     /// Adds a strand of the given types with its atoms at the given
     /// locations (absolute), joined in order. Answers the world and the
     /// strand's atom IDs.
-    let private addShape parms (atomTypes : AtomType[]) (locations : Point[]) isRing (world : World) =
+    let private addShape parms fixing (atomTypes : AtomType[]) (locations : Point[]) isRing (world : World) =
         if atomTypes.Length <> locations.Length then
             failwith $"A shaped strand has {atomTypes.Length} atom types but {locations.Length} locations"
-        match tryAddAtoms atomTypes locations world with
-            | Some (world, ids) -> join parms ids isRing world, ids
+        match tryAddAtoms (Option.isSome fixing) atomTypes locations world with
+            | Some (world, ids) -> join parms fixing ids isRing world, ids
             | None -> failwith "No room for a shaped strand's atoms"
 
     /// Adds a straight strand with its first atom at the given location
     /// (relative to the center), stepping by dx. Answers the world and
     /// the strand's atom IDs, if there is room.
-    let private tryAddStraight parms x y dx (atomTypes : AtomType[]) (world : World) =
+    let private tryAddStraight parms fixing x y dx (atomTypes : AtomType[]) (world : World) =
         let center = Build.center world
         let locations = Array.init atomTypes.Length (fun i -> center + Point.create (x + dx * i, y))
-        tryAddAtoms atomTypes locations world
-            |> Option.map (fun (world, ids) -> join parms ids false world, ids)
+        tryAddAtoms (Option.isSome fixing) atomTypes locations world
+            |> Option.map (fun (world, ids) -> join parms fixing ids false world, ids)
 
     /// Adds the given strand spec's strands. Answers the world and the
     /// atom IDs of each strand added.
@@ -468,13 +489,13 @@ module ScenarioSpec =
             | At (x, y, rightward) ->
                 if x % 2 <> 0 || y % 2 <> 0 then failwith $"Strand location ({x}, {y}) must be even"
                 let atomTypes = draw ()
-                match tryAddStraight parms x y (if rightward then 2 else -2) atomTypes world with
+                match tryAddStraight parms spec.Fixed x y (if rightward then 2 else -2) atomTypes world with
                     | Some (world, ids) -> world, [ ids ]
                     | None -> failwith $"No room for strand {spec.Pattern} at ({x}, {y})"
             | Shape (locations, isRing) ->
                 let center = Build.center world
                 let locations = locations |> Array.map (fun (x, y) -> center + Point.create (x, y))
-                let world, ids = addShape parms (draw ()) locations isRing world
+                let world, ids = addShape parms spec.Fixed (draw ()) locations isRing world
                 world, [ ids ]
             | Scattered maxDistOpt ->
                 let maxX, maxY =
@@ -489,7 +510,7 @@ module ScenarioSpec =
                                 failwith $"No room for strand {spec.Pattern} at random"
                             let x = 2 * rng.Next(-maxX / 2, (maxX - 2 * atomTypes.Length) / 2 + 1)
                             let y = 2 * rng.Next(-maxY / 2, maxY / 2 + 1)
-                            match tryAddStraight parms x y 2 atomTypes world with
+                            match tryAddStraight parms spec.Fixed x y 2 atomTypes world with
                                 | Some (world, ids) -> world, ids :: idss
                                 | None -> loop (nTries + 1)
                         loop 0)
@@ -574,10 +595,33 @@ module ScenarioSpec =
             let d = loc - center
             d.X, d.Y
         let templateIds = set template
-        let strands = getStrands world
+
+            // fixed atoms with no strong bonds, in rows: each run of them
+            // at steps of 2 along x is taken as a strand fixed apart
+        let strong = world.BondTypeMap[Strong]
+        let apart =
+            let atoms =
+                world.Atoms
+                    |> Array.where (fun atom ->
+                        not atom.IsMobile && (BondMap.getBonds atom.Id strong).IsEmpty)
+                    |> Array.sortBy (fun atom -> let x, y = relative atom.Location in y, x)
+            let rows = ResizeArray<ResizeArray<Atom>>()
+            for atom in atoms do
+                let x, y = relative atom.Location
+                let extends =
+                    rows.Count > 0
+                        && (let last = rows[rows.Count - 1] |> Seq.last
+                            relative last.Location = (x - 2, y))
+                if extends then rows[rows.Count - 1].Add(atom)
+                else rows.Add(ResizeArray [ atom ])
+            rows
+                |> Seq.map (fun row ->
+                    { AtomIds = row |> Seq.map _.Id |> Seq.toArray; IsRing = false })
+                |> Seq.toArray
+        let strands = Array.append (getStrands world) apart
         let strandSpecs =
             strands
-                |> Array.map (fun strand ->
+                |> Array.mapi (fun iStrand strand ->
                     {
                         Pattern =
                             strand.AtomIds |> Array.map (fun id -> toLetter world.Atoms[id].Type) |> String.concat ""
@@ -591,6 +635,10 @@ module ScenarioSpec =
                         Count = 1
                         IsTemplate = strand.AtomIds |> Array.exists templateIds.Contains
                         Color = None
+                        Fixed =
+                            if iStrand >= strands.Length - apart.Length then Some Apart
+                            elif world.Atoms[strand.AtomIds[0]].IsMobile then None
+                            else Some Joined
                     })
         let strandIndex =
             strands
