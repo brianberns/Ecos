@@ -108,6 +108,7 @@ module Fields =
         TextBox.create [
             TextBox.text text
             TextBox.width width
+            TextBox.minWidth 0.0   // or the theme's minimum makes a narrow box wider than asked
             TextBox.margin margin
             TextBox.verticalAlignment VerticalAlignment.Center
             TextBox.onLostFocus ((fun args -> onCommit (args.Source :?> TextBox).Text), options)
@@ -121,6 +122,22 @@ module Fields =
         StackPanel.create [
             StackPanel.orientation Orientation.Horizontal
             StackPanel.children children
+        ] :> IView
+
+    /// A row of a table: each cell in a column of the given width, which
+    /// includes the space around the cell's control. Rows with the same
+    /// widths line up, whatever their controls' own sizes.
+    let tableRow (widths : float[]) (cells : IView list) =
+        Grid.create [
+            Grid.columnDefinitions (widths |> Array.map string |> String.concat ",")
+            Grid.children [
+                for i, cell in List.indexed cells do
+                    Border.create [
+                        Grid.column i
+                        Border.clipToBounds true
+                        Border.child cell
+                    ] :> IView
+            ]
         ] :> IView
 
     /// A column of controls.

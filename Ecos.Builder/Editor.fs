@@ -400,6 +400,14 @@ module Editor =
 
     let private scheduleNames = [| "Constant"; "Cycle"; "Vent" |]
 
+    /// Widths of the columns of the table of phases: name, kT, sweeps,
+    /// hydrolysis, cap peel, zone kT, and the button that removes a phase.
+    /// Each includes the space around its control (4 on either side).
+    let private phaseColumns = [| 70.0; 52.0; 124.0; 66.0; 60.0; 58.0; 36.0 |]
+
+    /// Width of the control in the given column of the table of phases.
+    let private phaseWidth i = phaseColumns[i] - 8.0
+
     let private renderPhase index (phase : Phase) dispatch =
         let key = $"phase.{index}"
         let edit f =
@@ -411,18 +419,18 @@ module Editor =
         let parseOpt (text : string) =
             if String.IsNullOrWhiteSpace text then Some None
             else tryParseFloat text |> Option.map Some
-        row [
-            textBox $"{key}.name" 72.0 (phase.Name |> Option.defaultValue "") (fun text ->
+        tableRow phaseColumns [
+            textBox $"{key}.name" (phaseWidth 0) (phase.Name |> Option.defaultValue "") (fun text ->
                 edit (fun p -> { p with Name = if String.IsNullOrWhiteSpace text then None else Some (text.Trim()) }))
-            textBox $"{key}.kT" 55.0 (formatFloat phase.Temperature) (fun text ->
+            textBox $"{key}.kT" (phaseWidth 1) (formatFloat phase.Temperature) (fun text ->
                 tryParseFloat text |> Option.iter (fun v -> edit (fun p -> { p with Temperature = v })))
-            intSpinner $"{key}.sweeps" 140.0 1 1_000_000_000 10_000 phase.NumSweeps (fun n ->
+            intSpinner $"{key}.sweeps" (phaseWidth 2) 1 1_000_000_000 10_000 phase.NumSweeps (fun n ->
                 edit (fun p -> { p with NumSweeps = max 1 n }))
-            textBox $"{key}.hydrolysis" 60.0 (optText phase.HydrolysisRate) (fun text ->
+            textBox $"{key}.hydrolysis" (phaseWidth 3) (optText phase.HydrolysisRate) (fun text ->
                 parseOpt text |> Option.iter (fun v -> edit (fun p -> { p with HydrolysisRate = v })))
-            textBox $"{key}.capPeel" 60.0 (optText phase.CapPeelBarrier) (fun text ->
+            textBox $"{key}.capPeel" (phaseWidth 4) (optText phase.CapPeelBarrier) (fun text ->
                 parseOpt text |> Option.iter (fun v -> edit (fun p -> { p with CapPeelBarrier = v })))
-            textBox $"{key}.zone" 55.0 (optText phase.ZoneTemperature) (fun text ->
+            textBox $"{key}.zone" (phaseWidth 5) (optText phase.ZoneTemperature) (fun text ->
                 parseOpt text |> Option.iter (fun v -> edit (fun p -> { p with ZoneTemperature = v })))
             smallButton $"{key}.remove" "✕" "Remove this phase" (fun () ->
                 dispatch (Edit (fun s ->
@@ -483,7 +491,7 @@ module Editor =
                         let zones = s.Zones |> Option.defaultValue Array.empty
                         setZones (Array.append zones [| { X = 0; Y = 0; Width = 40; Height = 12 } |]) s)))
             ]
-            note "A zone is a rectangle that a phase can hold at its own temperature (zone kT), e.g. a refuge that stays cool in the heat. With no zone kT, a zone is as warm as the rest of the world."
+            note "A zone is a rectangle that a phase can hold at its own temperature (zone kT), e.g. a refuge that stays cool in the heat. All zones share a phase's zone kT. With none, a zone is as warm as the rest of the world."
         ]
 
     let private renderSchedule (spec : ScenarioSpec) dispatch =
@@ -520,13 +528,13 @@ module Editor =
                     floatField "schedule.kT" "Temperature (kT)" kT (fun v ->
                         dispatch (Edit (fun s -> { s with Schedule = Constant v })))
                 | Cycle phases ->
-                    row [
-                        label "name" 72.0 |> tipped "Name of the phase, shown in the status bar. Optional."
-                        label "kT" 55.0 |> tipped "Temperature of the phase, in energy units (kT)."
-                        label "sweeps" 140.0 |> tipped "How long the phase lasts. In a sweep, each atom gets about one event on average."
-                        label "hydrolysis" 60.0 |> tipped "Hydrolysis rate of unprotected strong bonds during this phase, in place of the Physics tab's. Blank: use the Physics tab's."
-                        label "cap peel" 60.0 |> tipped "Cap peel barrier during this phase, in place of the Physics tab's. Blank: use the Physics tab's."
-                        label "zone kT" 55.0 |> tipped "Temperature inside the zones during this phase. Blank: the same as the rest of the world."
+                    tableRow phaseColumns [
+                        label "name" (phaseWidth 0) |> tipped "Name of the phase, shown in the status bar. Optional."
+                        label "kT" (phaseWidth 1) |> tipped "Temperature of the phase, in energy units (kT)."
+                        label "sweeps" (phaseWidth 2) |> tipped "How long the phase lasts. In a sweep, each atom gets about one event on average."
+                        label "hydrolysis" (phaseWidth 3) |> tipped "Hydrolysis rate of unprotected strong bonds during this phase, in place of the Physics tab's. Blank: use the Physics tab's."
+                        label "cap peel" (phaseWidth 4) |> tipped "Cap peel barrier during this phase, in place of the Physics tab's. Blank: use the Physics tab's."
+                        label "zone kT" (phaseWidth 5) |> tipped "Temperature inside every zone during this phase. Blank: the same as the rest of the world."
                     ]
                     for i, phase in Array.indexed phases do
                         renderPhase i phase dispatch

@@ -185,7 +185,8 @@ module Model =
         if Directory.Exists specsFolder then
             Directory.GetFiles(specsFolder, "*.json")
                 |> Array.map Path.GetFileNameWithoutExtension
-                |> Array.sort
+                |> Array.sortWith (fun a b ->   // alphabetical, whatever the case
+                    String.Compare(a, b, StringComparison.CurrentCultureIgnoreCase))
         else Array.empty
 
     /// A name that can be used as a file name.
