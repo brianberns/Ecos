@@ -88,7 +88,7 @@ module WorldView =
     let private renderEnvironment (run : Run) (placer : Placer) =
         let spacing = 8
         let size = run.World.Size
-        let getTemp = Run.getTemperature run
+        let getTemp = Run.getBaseTemperature run   // zones are drawn over this
         let capPeelBarrier = (Run.getParameters run).CapPeelBarrier
         [
             for x in 0 .. spacing .. size.X - 1 do
@@ -98,6 +98,33 @@ module WorldView =
                     let center = placer.Unplace(float x + float width / 2.0, float y + float height / 2.0)
                     getColor (getTemp center) capPeelBarrier
                         |> renderRectangle (Point.create (x, y)) (Point.create (width, height))
+        ]
+
+    /// Zones, as tiles in the color of their temperature, if they have
+    /// their own now, and otherwise as a faint tint.
+    let private renderZones (run : Run) (placer : Placer) =
+        let size = run.World.Size
+        let color =
+            match Run.tryGetZoneTemperature run with
+                | Some temp ->
+                    getColor (temp (*uniform*)) (Run.getParameters run).CapPeelBarrier
+                | None -> Color.FromArgb(40uy, 255uy, 255uy, 255uy)
+        let tile = 2
+        [
+            for zone in run.Scenario.Zones do
+                let left = size.X / 2 + zone.X - zone.Width / 2
+                let top = size.Y / 2 + zone.Y - zone.Height / 2
+                for dx in 0 .. tile .. zone.Width - 1 do
+                    for dy in 0 .. tile .. zone.Height - 1 do
+                        let pt = placer.Place(run.World.NormalizeLocation(Point.create (left + dx, top + dy)))
+                        Rectangle.create [
+                            Rectangle.left pt.X
+                            Rectangle.top pt.Y
+                            Rectangle.width (float (min tile (zone.Width - dx)))
+                            Rectangle.height (float (min tile (zone.Height - dy)))
+                            Rectangle.fill color
+                            Rectangle.useLayoutRounding false
+                        ] :> IView
         ]
 
     let private renderWalls (world : World) (placer : Placer) =
@@ -209,6 +236,7 @@ module WorldView =
                     Canvas.clipToBounds true
                     Canvas.children [
                         yield! renderEnvironment run placer
+                        yield! renderZones run placer
                         yield! renderWalls world placer
                         yield! renderAtoms run placer
                         yield! renderBonds Strong getStrongBrush world placer

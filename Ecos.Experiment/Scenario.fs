@@ -24,7 +24,36 @@ type Phase =
         /// during this phase, if it differs from the scenario's, e.g.
         /// under stress.
         CapPeelBarrier : float option
+
+        /// Temperature (kT) inside the scenario's zones during this
+        /// phase, if it differs from the phase's own.
+        ZoneTemperature : float option
     }
+
+/// A rectangular part of a world that a phase can hold at its own
+/// temperature, e.g. a refuge that stays cool in the heat.
+type Zone =
+    {
+        /// Center of the zone, relative to the center of the world.
+        X : int
+        Y : int
+
+        /// Size of the zone. It covers locations from half its size
+        /// before its center up to, but not including, half after.
+        Width : int
+        Height : int
+    }
+
+module Zone =
+
+    /// Is the given location in the given zone of a world (a torus) of
+    /// the given size?
+    let contains (size : Point) (zone : Zone) (pt : Point) =
+        let within coord center extent period =
+            let d = ((coord - center + extent / 2) % period + period) % period   // distance past the zone's near edge, the way around
+            d < extent
+        within pt.X (size.X / 2 + zone.X) zone.Width size.X
+            && within pt.Y (size.Y / 2 + zone.Y) zone.Height size.Y
 
 /// A vent: a vertical line of hot rock that pulses. Between pulses,
 /// the temperature is cold everywhere. During a pulse, it is hottest
@@ -150,6 +179,15 @@ module Schedule =
             | Cycle phases -> (getPhase numSweeps phases |> fst).CapPeelBarrier
             | Constant _ | Vent _ -> None
 
+    /// Answers the temperature inside zones after the given number of
+    /// sweeps, if the schedule sets one. (It can change only when the
+    /// temperature does.)
+    let tryGetZoneTemperature numSweeps schedule =
+        assert(numSweeps >= 0)
+        match schedule with
+            | Cycle phases -> (getPhase numSweeps phases |> fst).ZoneTemperature
+            | Constant _ | Vent _ -> None
+
     /// Number of sweeps after which the given schedule repeats, if it
     /// changes at all.
     let tryGetPeriod = function
@@ -184,6 +222,10 @@ type Scenario =
 
         /// Temperature over time.
         Schedule : Schedule
+
+        /// Zones, which a phase of the schedule can hold at their own
+        /// temperature.
+        Zones : Zone[]
 
         /// Labels strands in the given world for display, if the
         /// scenario does: e.g. by family. Answers each labeled atom's
@@ -435,6 +477,7 @@ module Scenario =
         {
             Name = if withTemplate then "A" else "A, no template"
             Build = build withTemplate
+            Zones = Array.empty
             TryLabelStrands = None
             Parameters =
                 {
@@ -509,8 +552,8 @@ module Scenario =
                                 } }
                 Schedule =
                     Cycle [|
-                        { Name = Some "cold"; Temperature = 0.3; NumSweeps = 90_000; HydrolysisRate = None; CapPeelBarrier = None }
-                        { Name = Some "hot"; Temperature = 3.0; NumSweeps = 10_000; HydrolysisRate = None; CapPeelBarrier = None }
+                        { Name = Some "cold"; Temperature = 0.3; NumSweeps = 90_000; HydrolysisRate = None; CapPeelBarrier = None; ZoneTemperature = None }
+                        { Name = Some "hot"; Temperature = 3.0; NumSweeps = 10_000; HydrolysisRate = None; CapPeelBarrier = None; ZoneTemperature = None }
                     |]
         }
 
@@ -612,8 +655,8 @@ module Scenario =
             Name = if withTemplate then "C" else "C, no template"
             Schedule =
                 Cycle [|
-                    { Name = Some "cold"; Temperature = 0.3; NumSweeps = 200_000; HydrolysisRate = None; CapPeelBarrier = None }   // long enough for nearly every strand to be copied (one-sided pairing)
-                    { Name = Some "hot"; Temperature = 3.0; NumSweeps = 100_000; HydrolysisRate = None; CapPeelBarrier = None }
+                    { Name = Some "cold"; Temperature = 0.3; NumSweeps = 200_000; HydrolysisRate = None; CapPeelBarrier = None; ZoneTemperature = None }   // long enough for nearly every strand to be copied (one-sided pairing)
+                    { Name = Some "hot"; Temperature = 3.0; NumSweeps = 100_000; HydrolysisRate = None; CapPeelBarrier = None; ZoneTemperature = None }
                 |] }
             |> withStrongBarrier 40
             |> withHydrolysisRate 0.0
@@ -790,9 +833,35 @@ module Run =
             NumSweeps = 0
         }
 
-    /// Current temperature of the given run.
-    let getTemperature run =
+    /// Current temperature of the given run outside its zones.
+    let getBaseTemperature run =
         Schedule.getTemperature run.NumSweeps run.Schedule |> fst
+
+    /// Current temperature inside the given run's zones, if its
+    /// schedule sets one now and it has any zones.
+    let tryGetZoneTemperature run =
+        if run.Scenario.Zones.Length = 0 then None
+        else Schedule.tryGetZoneTemperature run.NumSweeps run.Schedule
+
+    /// Current temperature of the given run, and the number of sweeps
+    /// until it next changes, if it ever does.
+    let private getTemperatureAndChange run =
+        let getBase, untilChangeOpt =
+            Schedule.getTemperature run.NumSweeps run.Schedule
+        let getTemp =
+            match tryGetZoneTemperature run with
+                | Some zoneTemp ->
+                    let size = run.World.Size
+                    let zones = run.Scenario.Zones
+                    fun pt ->
+                        if zones |> Array.exists (fun zone -> Zone.contains size zone pt) then zoneTemp
+                        else getBase pt
+                | None -> getBase
+        getTemp, untilChangeOpt
+
+    /// Current temperature of the given run, zones included.
+    let getTemperature run =
+        getTemperatureAndChange run |> fst
 
     /// The given run's parameters with the given temperature, and with
     /// the hydrolysis rate and cap peel barrier its schedule sets now,
@@ -846,8 +915,7 @@ module Run =
         let rec loop numSweeps run =
             if numSweeps = 0 then run
             else
-                let getTemp, untilChangeOpt =
-                    Schedule.getTemperature run.NumSweeps run.Schedule
+                let getTemp, untilChangeOpt = getTemperatureAndChange run
                 let n =
                     match untilChangeOpt with
                         | Some untilChange -> min numSweeps untilChange

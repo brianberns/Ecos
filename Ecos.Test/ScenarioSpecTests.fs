@@ -105,7 +105,7 @@ module ScenarioSpecTests =
                 WeakBonds = [| (0, 1), (1, 4) |]   // the Z and the Y at x = -4
                 Occupancy = Map [ "W", 100.0 * 5.0 / 256.0; "X", 100.0 * 5.0 / 256.0; "Z", 100.0 * 2.0 / 256.0 ]   // of 16 x 16 sites
                 FoodWithin = Some 30
-                Schedule = Cycle [| { Name = Some "stress"; Temperature = 0.3; NumSweeps = 100; HydrolysisRate = None; CapPeelBarrier = Some Double.PositiveInfinity } |]
+                Schedule = Cycle [| { Name = Some "stress"; Temperature = 0.3; NumSweeps = 100; HydrolysisRate = None; CapPeelBarrier = Some Double.PositiveInfinity; ZoneTemperature = None } |]
         }
 
     [<Fact>]
@@ -344,3 +344,113 @@ module ScenarioSpecTests =
                 |> Array.map (fun atom -> atom.Type, atom.Location)
                 |> Array.sort
         Assert.Equal<(AtomType * Point)[]>(build withFixed, build spec)
+
+    /// The hand-made spec with a zone around (0, -8), 12 wide and 8
+    /// high, in a cycle whose hot phase holds zones cool.
+    let private withZone =
+        { handMade with
+            Zones = Some [| { X = 0; Y = -8; Width = 12; Height = 8 } |]
+            Schedule =
+                Cycle [|
+                    { Name = Some "cold"; Temperature = 0.3; NumSweeps = 100; HydrolysisRate = None; CapPeelBarrier = None; ZoneTemperature = None }
+                    { Name = Some "hot"; Temperature = 3.0; NumSweeps = 50; HydrolysisRate = None; CapPeelBarrier = None; ZoneTemperature = Some 0.5 }
+                |] }
+
+    [<Fact>]
+    let ``A zone covers its rectangle, around the torus`` () =
+        let size = Point.create (60, 40)   // center (30, 20)
+        let zone = { X = 0; Y = -8; Width = 12; Height = 8 }   // x 24 to 35, y 8 to 15
+        let contains x y = Zone.contains size zone (Point.create (x, y))
+        Assert.True(contains 24 8)
+        Assert.True(contains 35 15)
+        Assert.True(contains 30 12)
+        Assert.False(contains 23 12)
+        Assert.False(contains 36 12)
+        Assert.False(contains 30 7)
+        Assert.False(contains 30 16)
+
+            // a zone that runs off one edge comes back on the other
+        let edge = { X = -28; Y = 0; Width = 8; Height = 4 }   // x -2 to 5, which is 58, 59, 0 to 5
+        let onEdge x = Zone.contains size edge (Point.create (x, 20))
+        Assert.True(onEdge 58)
+        Assert.True(onEdge 0)
+        Assert.True(onEdge 5)
+        Assert.False(onEdge 6)
+        Assert.False(onEdge 57)
+
+    [<Fact>]
+    let ``A phase's zone temperature holds inside zones, and only there`` () =
+        let run = Run.create 0 (ScenarioSpec.toScenario withZone)
+        let center = Build.center run.World
+        let inside = center + Point.create (0, -8)
+        let outside = center + Point.create (0, 8)
+        let temperatures run =
+            let getTemp = (Run.getParameters run).GetTemperature
+            getTemp inside, getTemp outside
+
+            // the cold phase sets no zone temperature
+        Assert.Equal((0.3, 0.3), temperatures run)
+        Assert.Equal(None, Run.tryGetZoneTemperature run)
+
+            // the hot phase holds the zone cool
+        let run = Run.advance 100 run
+        Assert.Equal((0.5, 3.0), temperatures run)
+        Assert.Equal(Some 0.5, Run.tryGetZoneTemperature run)
+        Assert.Equal(3.0, Run.getBaseTemperature run inside)
+
+            // and cold again
+        let run = Run.advance 50 run
+        Assert.Equal((0.3, 0.3), temperatures run)
+
+    [<Fact>]
+    let ``Without zones, a zone temperature changes nothing`` () =
+        let run =
+            Run.create 0 (ScenarioSpec.toScenario { withZone with Zones = None })
+                |> Run.advance 100
+        let getTemp = (Run.getParameters run).GetTemperature
+        Assert.Equal(3.0, getTemp (Build.center run.World + Point.create (0, -8)))
+        Assert.Equal(None, Run.tryGetZoneTemperature run)
+
+    /// A cool zone is a refuge: in a hot phase that peels caps, capped
+    /// strands inside it keep their caps and those outside lose them.
+    [<Fact>]
+    let ``Caps peel in the heat but not in a cool zone`` () =
+        let spec =
+            { withZone with
+                Width = 80; Height = 80; Walls = [||]; WeakBonds = [||]
+                Occupancy = Map.empty
+                Zones = Some [| { X = 0; Y = -20; Width = 80; Height = 36 } |]   // the upper half, short of the middle
+                Strands =
+                    [|
+                        for y in -28 .. 4 .. -12 do   // well inside the zone
+                            { Pattern = "PWWQ"; Placement = At (-4, y, true); Count = 1; IsTemplate = true; Color = None; Fixed = None }
+                        for y in 12 .. 4 .. 28 do     // well outside it
+                            { Pattern = "PWWQ"; Placement = At (-4, y, true); Count = 1; IsTemplate = false; Color = None; Fixed = None }
+                    |]
+                Schedule =
+                    Cycle [|
+                        { Name = Some "hot"; Temperature = 3.0; NumSweeps = 20_000; HydrolysisRate = None; CapPeelBarrier = Some 3.0; ZoneTemperature = Some 0.3 }
+                    |] }
+        let run = Run.create 0 (ScenarioSpec.toScenario spec)
+        let center = Build.center run.World
+        let countCapped (run : Run) inZone =
+            getStrands run.World
+                |> Array.where (fun strand ->
+                    let y = run.World.Atoms[strand.AtomIds[0]].Location.Y - center.Y
+                    strand.AtomIds.Length = 4 && (y < 0) = inZone)
+                |> Array.length
+        Assert.Equal(5, countCapped run true)
+        Assert.Equal(5, countCapped run false)
+        let run = Run.advance 1000 run
+        Assert.True(countCapped run true >= 4, $"Only {countCapped run true} of 5 strands in the cool zone kept their caps")
+        Assert.True(countCapped run false <= 1, $"{countCapped run false} of 5 strands in the heat kept their caps")
+
+    [<Fact>]
+    let ``Zones survive saving as JSON, and specs without them say nothing of them`` () =
+        Assert.True((ScenarioSpec.ofJson (ScenarioSpec.toJson withZone) = withZone))
+        let json = ScenarioSpec.toJson handMade
+        Assert.DoesNotContain("Zone", json)   // so specs saved before zones still load
+        Assert.Equal(None, (ScenarioSpec.ofJson json).Zones)
+        let scenario = ScenarioSpec.toScenario withZone
+        Assert.Equal<Zone[]>(withZone.Zones.Value, scenario.Zones)
+        Assert.Equal(withZone.Zones, (ScenarioSpec.ofScenario 0 scenario).Zones)

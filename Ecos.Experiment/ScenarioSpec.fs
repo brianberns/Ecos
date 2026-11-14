@@ -145,6 +145,10 @@ type ScenarioSpec =
 
         /// Temperature over time.
         Schedule : Schedule
+
+        /// Zones, which a phase of the schedule can hold at their own
+        /// temperature. Absent (as in older specs) means none.
+        Zones : Zone[] option
     }
 
 module ScenarioSpec =
@@ -581,6 +585,7 @@ module ScenarioSpec =
             Build = build spec
             Parameters = toParameters spec.Parameters
             Schedule = spec.Schedule
+            Zones = spec.Zones |> Option.defaultValue Array.empty
             TryLabelStrands = None
         }
 
@@ -689,6 +694,7 @@ module ScenarioSpec =
             FoodWithin = foodWithin
             Parameters = ofParameters scenario.Parameters
             Schedule = scenario.Schedule
+            Zones = if scenario.Zones.Length = 0 then None else Some scenario.Zones
         }
 
     /// JSON options for specs: F# types, readable, and infinite barriers

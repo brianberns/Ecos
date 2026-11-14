@@ -155,10 +155,11 @@ module Model =
                 Map [ "W", 2.0; "X", 2.0; "Y", 2.0; "Z", 2.0; "P", 2.0; "Q", 2.0 ]
             FoodWithin = None
             Parameters = ScenarioSpec.ofParameters (Scenario.createScenarioC false).Parameters
+            Zones = None
             Schedule =
                 Cycle [|
-                    { Name = Some "cold"; Temperature = 0.25; NumSweeps = 200_000; HydrolysisRate = None; CapPeelBarrier = None }
-                    { Name = Some "hot"; Temperature = 3.0; NumSweeps = 100_000; HydrolysisRate = None; CapPeelBarrier = None }
+                    { Name = Some "cold"; Temperature = 0.25; NumSweeps = 200_000; HydrolysisRate = None; CapPeelBarrier = None; ZoneTemperature = None }
+                    { Name = Some "hot"; Temperature = 3.0; NumSweeps = 100_000; HydrolysisRate = None; CapPeelBarrier = None; ZoneTemperature = None }
                 |]
         }
 

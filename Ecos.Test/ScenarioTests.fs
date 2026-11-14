@@ -25,8 +25,8 @@ module ScenarioTests =
         { Scenario.createScenarioB true with
             Schedule =
                 Cycle [|
-                    { Name = Some "cold"; Temperature = 0.3; NumSweeps = 70; HydrolysisRate = None; CapPeelBarrier = None }
-                    { Name = Some "hot"; Temperature = 3.0; NumSweeps = 30; HydrolysisRate = None; CapPeelBarrier = None }
+                    { Name = Some "cold"; Temperature = 0.3; NumSweeps = 70; HydrolysisRate = None; CapPeelBarrier = None; ZoneTemperature = None }
+                    { Name = Some "hot"; Temperature = 3.0; NumSweeps = 30; HydrolysisRate = None; CapPeelBarrier = None; ZoneTemperature = None }
                 |] }
 
     [<Fact>]
@@ -47,8 +47,8 @@ module ScenarioTests =
     let ``A schedule gives each phase's temperature and the time left in it`` () =
         let schedule =
             Cycle [|
-                { Name = None; Temperature = 1.0; NumSweeps = 3; HydrolysisRate = None; CapPeelBarrier = None }
-                { Name = None; Temperature = 2.0; NumSweeps = 2; HydrolysisRate = None; CapPeelBarrier = None }
+                { Name = None; Temperature = 1.0; NumSweeps = 3; HydrolysisRate = None; CapPeelBarrier = None; ZoneTemperature = None }
+                { Name = None; Temperature = 2.0; NumSweeps = 2; HydrolysisRate = None; CapPeelBarrier = None; ZoneTemperature = None }
             |]
         let expected =
             [
@@ -189,8 +189,8 @@ module ScenarioTests =
     /// scenario's own rate.
     let private stressCycle rate =
         Cycle [|
-            { Name = Some "feast"; Temperature = 0.3; NumSweeps = 10; HydrolysisRate = None; CapPeelBarrier = None }
-            { Name = Some "stress"; Temperature = 0.5; NumSweeps = 5; HydrolysisRate = Some rate; CapPeelBarrier = None }
+            { Name = Some "feast"; Temperature = 0.3; NumSweeps = 10; HydrolysisRate = None; CapPeelBarrier = None; ZoneTemperature = None }
+            { Name = Some "stress"; Temperature = 0.5; NumSweeps = 5; HydrolysisRate = Some rate; CapPeelBarrier = None; ZoneTemperature = None }
         |]
 
     [<Fact>]
@@ -232,8 +232,8 @@ module ScenarioTests =
     /// barrier, between phases that use the scenario's own barrier.
     let private capPeelCycle barrier =
         Cycle [|
-            { Name = Some "feast"; Temperature = 0.3; NumSweeps = 10; HydrolysisRate = None; CapPeelBarrier = None }
-            { Name = Some "stress"; Temperature = 0.5; NumSweeps = 5; HydrolysisRate = None; CapPeelBarrier = Some barrier }
+            { Name = Some "feast"; Temperature = 0.3; NumSweeps = 10; HydrolysisRate = None; CapPeelBarrier = None; ZoneTemperature = None }
+            { Name = Some "stress"; Temperature = 0.5; NumSweeps = 5; HydrolysisRate = None; CapPeelBarrier = Some barrier; ZoneTemperature = None }
         |]
 
     [<Fact>]
@@ -277,7 +277,7 @@ module ScenarioTests =
 
             // an unnamed phase, and a schedule without phases
         let unnamed =
-            Cycle [| { Name = None; Temperature = 1.0; NumSweeps = 1; HydrolysisRate = None; CapPeelBarrier = None } |]
+            Cycle [| { Name = None; Temperature = 1.0; NumSweeps = 1; HydrolysisRate = None; CapPeelBarrier = None; ZoneTemperature = None } |]
         Assert.Equal(None, Schedule.tryGetPhaseName 0 unnamed)
         let run = { run with Schedule = Constant 0.5 }
         Assert.Equal(None, Run.tryGetPhaseName run)
@@ -295,8 +295,8 @@ module ScenarioTests =
                     Array.empty
                 Schedule =   // a stress phase long enough for many attempts to break each bond
                     Cycle [|
-                        { Name = None; Temperature = 0.3; NumSweeps = 10; HydrolysisRate = None; CapPeelBarrier = None }
-                        { Name = None; Temperature = 0.5; NumSweeps = 1000; HydrolysisRate = Some 1.0; CapPeelBarrier = None }
+                        { Name = None; Temperature = 0.3; NumSweeps = 10; HydrolysisRate = None; CapPeelBarrier = None; ZoneTemperature = None }
+                        { Name = None; Temperature = 0.5; NumSweeps = 1000; HydrolysisRate = Some 1.0; CapPeelBarrier = None; ZoneTemperature = None }
                     |] }
                 |> Scenario.withHydrolysisRate 0.0
         let nStrongBonds (run : Run) =

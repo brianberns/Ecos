@@ -422,6 +422,8 @@ module Editor =
                 parseOpt text |> Option.iter (fun v -> edit (fun p -> { p with HydrolysisRate = v })))
             textBox $"{key}.capPeel" 60.0 (optText phase.CapPeelBarrier) (fun text ->
                 parseOpt text |> Option.iter (fun v -> edit (fun p -> { p with CapPeelBarrier = v })))
+            textBox $"{key}.zone" 55.0 (optText phase.ZoneTemperature) (fun text ->
+                parseOpt text |> Option.iter (fun v -> edit (fun p -> { p with ZoneTemperature = v })))
             smallButton $"{key}.remove" "✕" "Remove this phase" (fun () ->
                 dispatch (Edit (fun s ->
                     match s.Schedule with
@@ -446,6 +448,44 @@ module Editor =
             intField "vent.hotSweeps" "Sweeps per pulse" 1 1_000_000_000 10_000 vent.HotSweeps (fun n -> edit (fun v -> { v with HotSweeps = max 1 n }))
         ]
 
+    /// Zones: rectangles that a phase can hold at its own temperature.
+    let private renderZones (spec : ScenarioSpec) dispatch =
+        let zones = spec.Zones |> Option.defaultValue Array.empty
+        let setZones (zones : Zone[]) (s : ScenarioSpec) =
+            { s with Zones = if zones.Length = 0 then None else Some zones }
+        let edit index f =
+            dispatch (Edit (fun s ->
+                let zones = s.Zones |> Option.defaultValue Array.empty
+                setZones (zones |> Array.updateAt index (f zones[index])) s))
+        column [
+            heading "Zones"
+            if zones.Length > 0 then
+                row [
+                    label "center x" 100.0 |> tipped "Center of the zone, from the center of the world."
+                    label "center y" 100.0
+                    label "width" 100.0
+                    label "height" 100.0
+                ]
+            for i, zone in Array.indexed zones do
+                let key = $"zone.{i}"
+                row [
+                    intSpinner $"{key}.x" 100.0 -10_000 10_000 2 zone.X (fun n -> edit i (fun z -> { z with X = n }))
+                    intSpinner $"{key}.y" 100.0 -10_000 10_000 2 zone.Y (fun n -> edit i (fun z -> { z with Y = n }))
+                    intSpinner $"{key}.width" 100.0 2 10_000 2 zone.Width (fun n -> edit i (fun z -> { z with Width = max 2 n }))
+                    intSpinner $"{key}.height" 100.0 2 10_000 2 zone.Height (fun n -> edit i (fun z -> { z with Height = max 2 n }))
+                    smallButton $"{key}.remove" "✕" "Remove this zone" (fun () ->
+                        dispatch (Edit (fun s ->
+                            setZones ((s.Zones |> Option.defaultValue Array.empty) |> Array.removeAt i) s)))
+                ]
+            row [
+                button "zones.add" "Add zone" (fun () ->
+                    dispatch (Edit (fun s ->
+                        let zones = s.Zones |> Option.defaultValue Array.empty
+                        setZones (Array.append zones [| { X = 0; Y = 0; Width = 40; Height = 12 } |]) s)))
+            ]
+            note "A zone is a rectangle that a phase can hold at its own temperature (zone kT), e.g. a refuge that stays cool in the heat. With no zone kT, a zone is as warm as the rest of the world."
+        ]
+
     let private renderSchedule (spec : ScenarioSpec) dispatch =
         let index =
             match spec.Schedule with
@@ -464,8 +504,8 @@ module Editor =
                         | 0 -> Constant firstKT
                         | 1 ->
                             Cycle [|
-                                { Name = Some "cold"; Temperature = firstKT; NumSweeps = 200_000; HydrolysisRate = None; CapPeelBarrier = None }
-                                { Name = Some "hot"; Temperature = 3.0; NumSweeps = 100_000; HydrolysisRate = None; CapPeelBarrier = None }
+                                { Name = Some "cold"; Temperature = firstKT; NumSweeps = 200_000; HydrolysisRate = None; CapPeelBarrier = None; ZoneTemperature = None }
+                                { Name = Some "hot"; Temperature = 3.0; NumSweeps = 100_000; HydrolysisRate = None; CapPeelBarrier = None; ZoneTemperature = None }
                             |]
                         | _ -> Vent { Scenario.seamVent with Period = s.Width }
                 { s with Schedule = schedule }))
@@ -486,6 +526,7 @@ module Editor =
                         label "sweeps" 140.0 |> tipped "How long the phase lasts. In a sweep, each atom gets about one event on average."
                         label "hydrolysis" 60.0 |> tipped "Hydrolysis rate of unprotected strong bonds during this phase, in place of the Physics tab's. Blank: use the Physics tab's."
                         label "cap peel" 60.0 |> tipped "Cap peel barrier during this phase, in place of the Physics tab's. Blank: use the Physics tab's."
+                        label "zone kT" 55.0 |> tipped "Temperature inside the zones during this phase. Blank: the same as the rest of the world."
                     ]
                     for i, phase in Array.indexed phases do
                         renderPhase i phase dispatch
@@ -499,6 +540,7 @@ module Editor =
                                     | _ -> s)))
                     ]
                     note $"""Period {Array.sumBy (fun (p : Phase) -> p.NumSweeps) phases:N0} sweeps. Hydrolysis and cap peel are blank to use the physics' own."""
+                    renderZones spec dispatch
                 | Vent vent -> renderVent vent dispatch
         ]
 
