@@ -154,53 +154,22 @@ module private StrongBond =
         bonds.Count <= valence
 
     /// Counts stacks affected by the given (existing or proposed)
-    /// strong bond. Included scenarios:
-    /// 
-    /// Ordinary weak-bond stacks:
+    /// strong bond:
     ///    A' ═══ B'   ══ strong bond
     ///    ┆      ┆    ┆  weak bond
     ///    A  ═?═ B
     ///    ┆      ┆
     ///    A' ═══ B'
-    ///
-    /// Strong-bond loop where this bond is on the side (counts as one stack):
-    ///    A' ═══ B'   ══ strong bond
-    ///    ┆      |    |  strong bond
-    ///    A  ═?═ B    ┆  weak bond
-    ///
-    /// Strong-bond loop where this bond is the hinge (counts as one stack):
-    ///    A' --- B'   ══ strong bond
-    ///    |      |    |  strong bond
-    ///    A  ═?═ B    -- weak bond
     let countStacks (bondTypeMap : BondTypeMap) atomA atomB =
-
         let strongBondMap = bondTypeMap[Strong]
         let weakBondMap = bondTypeMap[Weak]
-        let getStrongBonds id = BondMap.getBonds id strongBondMap
-        let getWeakBonds id = BondMap.getBonds id weakBondMap
-
-        /// Counts A's weak partners (A') that are strong-bonded
-        /// to any of the given B' atoms.
-        let count idA bPrimes =
-            getWeakBonds idA
-                |> Seq.where (fun idA' ->
-                    getStrongBonds idA'
-                        |> BondBehavior.containsAny bPrimes)
-                |> Seq.length
-
-        let nHinge =
-            let bPrimes = getStrongBonds atomB.Id
-            getStrongBonds atomA.Id
-                |> Set.remove atomB.Id
-                |> Seq.sumBy (fun idA' ->
-                    getWeakBonds idA'
-                        |> Seq.where bPrimes.Contains
-                        |> Seq.length)
-
-        (getWeakBonds atomB.Id |> count atomA.Id)           // ordinary weak-bond stacks
-            + (getStrongBonds atomA.Id |> count atomB.Id)   // loop side stack
-            + (getStrongBonds atomB.Id |> count atomA.Id)   // loop side stack (other side)
-            + nHinge                                        // loop hinge stack
+        let bPrimes = BondMap.getBonds atomB.Id weakBondMap
+        BondMap.getBonds atomA.Id weakBondMap
+            |> Seq.where (fun idA' ->
+                BondMap.getBonds idA' strongBondMap
+                    |> Seq.exists (fun idB' ->
+                        bPrimes.Contains(idB')))
+            |> Seq.length
 
     /// Strands can peel at their ends.
     let testPeel capPeel bondTypeMap bondMap atomA atomB =
@@ -278,36 +247,22 @@ module private WeakBond =
         let bonds = BondMap.getBonds atom.Id bondTypeMap[Weak]
         bonds.Count <= 1
 
-    /// Counts stacks affected by the given (existing or 
-    /// proposed) weak bond:
+    /// Counts stacks affected by the given (existing or proposed)
+    /// weak bond:
     ///    A' ══ A ══ A'   ══ strong bond
     ///    ┆     ┆    ┆    ┆  weak bond
     ///    ┆     ?    ┆
     ///    ┆     ┆    ┆
     ///    B' ══ B ══ B'
-    ///
-    /// This also counts a strong-bond loop:
-    ///       ══ A ══ A'   ══ strong bond
-    ///          ┆    |    |  strong bond
-    ///          ?    |    ┆  weak bond
-    ///          ┆    |
-    ///       ══ B ══ B'
     let countStacks (bondTypeMap : BondTypeMap) atomA atomB =
-
         let strongBondMap = bondTypeMap[Strong]
         let weakBondMap = bondTypeMap[Weak]
         let bPrimes = BondMap.getBonds atomB.Id strongBondMap
-
         BondMap.getBonds atomA.Id strongBondMap
             |> Seq.where (fun idA' ->
-
-                    // ordinary weak-bond stack: A' is weak-bonded to B', which is strong-bonded to B
                 BondMap.getBonds idA' weakBondMap
-                    |> BondBehavior.containsAny bPrimes
-
-                    // tight strong-bond stack: A' is strong-bonded to B', which is strong-bonded to B
-                    || BondMap.getBonds idA' strongBondMap
-                        |> BondBehavior.containsAny bPrimes)
+                    |> Seq.exists (fun idB' ->
+                        bPrimes.Contains(idB')))
             |> Seq.length
 
     /// Weak bonds can't bend, because they can't form a chain.
