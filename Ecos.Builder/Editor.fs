@@ -403,7 +403,7 @@ module Editor =
     /// Widths of the columns of the table of phases: name, kT, sweeps,
     /// hydrolysis, cap peel, zone kT, and the button that removes a phase.
     /// Each includes the space around its control (4 on either side).
-    let private phaseColumns = [| 70.0; 52.0; 124.0; 66.0; 60.0; 58.0; 36.0 |]
+    let private phaseColumns = [| 70.0; 52.0; 88.0; 80.0; 66.0; 60.0; 36.0 |]
 
     /// Width of the control in the given column of the table of phases.
     let private phaseWidth i = phaseColumns[i] - 8.0
@@ -424,8 +424,8 @@ module Editor =
                 edit (fun p -> { p with Name = if String.IsNullOrWhiteSpace text then None else Some (text.Trim()) }))
             textBox $"{key}.kT" (phaseWidth 1) (formatFloat phase.Temperature) (fun text ->
                 tryParseFloat text |> Option.iter (fun v -> edit (fun p -> { p with Temperature = v })))
-            intSpinner $"{key}.sweeps" (phaseWidth 2) 1 1_000_000_000 10_000 phase.NumSweeps (fun n ->
-                edit (fun p -> { p with NumSweeps = max 1 n }))
+            textBox $"{key}.sweeps" (phaseWidth 2) (string phase.NumSweeps) (fun text ->
+                tryParseInt text |> Option.iter (fun n -> edit (fun p -> { p with NumSweeps = max 1 n })))
             textBox $"{key}.hydrolysis" (phaseWidth 3) (optText phase.HydrolysisRate) (fun text ->
                 parseOpt text |> Option.iter (fun v -> edit (fun p -> { p with HydrolysisRate = v })))
             textBox $"{key}.capPeel" (phaseWidth 4) (optText phase.CapPeelBarrier) (fun text ->
@@ -465,22 +465,27 @@ module Editor =
             dispatch (Edit (fun s ->
                 let zones = s.Zones |> Option.defaultValue Array.empty
                 setZones (zones |> Array.updateAt index (f zones[index])) s))
+        let zoneColumns = [| 80.0; 80.0; 80.0; 80.0; 36.0 |]
+        let zoneWidth = 72.0
         column [
             heading "Zones"
             if zones.Length > 0 then
-                row [
-                    label "center x" 100.0 |> tipped "Center of the zone, from the center of the world."
-                    label "center y" 100.0
-                    label "width" 100.0
-                    label "height" 100.0
+                tableRow zoneColumns [
+                    label "center x" zoneWidth |> tipped "Center of the zone, from the center of the world."
+                    label "center y" zoneWidth
+                    label "width" zoneWidth
+                    label "height" zoneWidth
                 ]
             for i, zone in Array.indexed zones do
                 let key = $"zone.{i}"
-                row [
-                    intSpinner $"{key}.x" 100.0 -10_000 10_000 2 zone.X (fun n -> edit i (fun z -> { z with X = n }))
-                    intSpinner $"{key}.y" 100.0 -10_000 10_000 2 zone.Y (fun n -> edit i (fun z -> { z with Y = n }))
-                    intSpinner $"{key}.width" 100.0 2 10_000 2 zone.Width (fun n -> edit i (fun z -> { z with Width = max 2 n }))
-                    intSpinner $"{key}.height" 100.0 2 10_000 2 zone.Height (fun n -> edit i (fun z -> { z with Height = max 2 n }))
+                let intBox name (value : int) (set : int -> Zone -> Zone) =
+                    textBox $"{key}.{name}" zoneWidth (string value) (fun text ->
+                        tryParseInt text |> Option.iter (fun n -> edit i (set n)))
+                tableRow zoneColumns [
+                    intBox "x" zone.X (fun n z -> { z with X = n })
+                    intBox "y" zone.Y (fun n z -> { z with Y = n })
+                    intBox "width" zone.Width (fun n z -> { z with Width = max 2 n })
+                    intBox "height" zone.Height (fun n z -> { z with Height = max 2 n })
                     smallButton $"{key}.remove" "✕" "Remove this zone" (fun () ->
                         dispatch (Edit (fun s ->
                             setZones ((s.Zones |> Option.defaultValue Array.empty) |> Array.removeAt i) s)))
