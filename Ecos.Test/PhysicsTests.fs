@@ -739,21 +739,21 @@ module BoxPhysicsTests =
     let ``Two dimers in a box follow the Boltzmann distribution with no stack energy`` () =
         twoDimersInABox 0.0
 
-    /// Tight loops: four atoms, W0 H1 H2 X3, at the corners of a square,
+    /// Tight loops: four atoms, W0 Y1 Z2 X3, at the corners of a square,
     /// each held in place by a ring of walls, so only bonds change. Strong
     /// bonds (in either direction) can form between any two of them,
     /// with no bend stiffness, and weak bonds can form between 0 and 3
     /// and between 1 and 2. We enumerate every set of bonds the model
     /// considers valid. A state's energy is its bond energies plus
-    /// stackEnergy per stack, where a stack is any four-cycle of bonds
-    /// that includes a weak bond: a ladder (two weak bonds and two
-    /// strong) or a tight loop (one weak bond and three strong). Since
-    /// a directed strong bond can be proposed only from its first atom,
-    /// but broken from either, each one also halves a state's weight.
+    /// stackEnergy per stack, where a stack is a ladder: a four-cycle
+    /// of two weak bonds and two strong. A tight loop (one weak bond
+    /// and three strong) is not a stack. Since a directed strong bond
+    /// can be proposed only from its first atom, but broken from
+    /// either, each one also halves a state's weight.
     ///
     /// Each bond type counts the stacks it's part of separately, so
-    /// this checks that both count tight loops: if either didn't, loops
-    /// would form and break at rates that don't balance.
+    /// this checks that neither counts tight loops: if either did,
+    /// loops would form and break at rates that don't balance.
     let private tightLoopInABox stackEnergy =
         let parms =
             { TestParameters.basic 1.0 with StackEnergy = stackEnergy }
@@ -811,8 +811,9 @@ module BoxPhysicsTests =
                             | _ -> ()
             ]
 
-            // stacks: four-cycles of bonds with at least one weak bond
-        let countStacks (world : World) =
+            // four-cycles of bonds with the given number of weak bonds:
+            // two make a stack, one a tight loop
+        let countCycles nWeak (world : World) =
             let strong = Bonds.strongBonds world
             let weak = Bonds.weakBonds world
             let isWeak (i, j) = weak.Contains (min i j, max i j)
@@ -820,8 +821,10 @@ module BoxPhysicsTests =
             List.sum [
                 for cycle in [ [ 0; 1; 2; 3 ]; [ 0; 1; 3; 2 ]; [ 0; 2; 1; 3 ] ] do
                     let edges = List.pairwise (cycle @ [ cycle.Head ])
-                    if List.forall isBonded edges && List.exists isWeak edges then 1
+                    if List.forall isBonded edges
+                        && (edges |> List.filter isWeak |> List.length) = nWeak then 1
             ]
+        let countStacks = countCycles 2
 
             // exact Boltzmann weights
         let state world = Bonds.directedStrongBonds world, Bonds.weakBonds world
@@ -841,9 +844,11 @@ module BoxPhysicsTests =
 
             // make sure tight loops are actually part of the test
         Assert.True(
-            states |> List.exists (fun world ->
-                countStacks world > 0 && (Bonds.weakBonds world).Count = 1),
+            states |> List.exists (fun world -> countCycles 1 world > 0),
             "No tight loops enumerated")
+        Assert.True(
+            states |> List.exists (fun world -> countStacks world > 0),
+            "No stacks enumerated")
 
             // sample states. Samples close together are correlated.
         let samples = sample parms 16 2000 1000 2000 state walled

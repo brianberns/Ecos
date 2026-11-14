@@ -94,9 +94,8 @@ module PropertyOracles =
     /// a bond between the given atoms (existing or proposed), of the
     /// given type. A tight loop is a four-cycle of bonds, one weak and
     /// three strong: a turn of two atoms in a strand, with the atoms on
-    /// either side of the turn paired. It counts as a stack. Found by
-    /// walking every four-cycle through the bond, rather than by
-    /// looking for a particular shape as World does.
+    /// either side of the turn paired. It does not count as a stack.
+    /// Found by walking every four-cycle through the bond.
     let countTightLoops (world : World) bondType idA idB =
         let neighbors id =
             Set.union (partners Strong world id) (partners Weak world id)
@@ -116,17 +115,15 @@ module PropertyOracles =
 
     /// Oracle: number of stacks that a weak bond between the given
     /// atoms takes part in (or would, if formed): the other weak bonds
-    /// that it's stacked with, plus the tight loops it closes. Found by
-    /// scanning every weak bond in the world, rather than by walking
-    /// out from A as World does.
+    /// that it's stacked with. A tight loop that it closes is not one.
+    /// Found by scanning every weak bond in the world, rather than by
+    /// walking out from A as World does.
     let countStacks (world : World) idA idB =
-        let nLadders =
-            weakBonds world
-                |> Seq.filter (fun (idC, idD) ->
-                    set [ idC; idD ] <> set [ idA; idB ]
-                        && areStacked world (idA, idB) (idC, idD))
-                |> Seq.length
-        nLadders + countTightLoops world Weak idA idB
+        weakBonds world
+            |> Seq.filter (fun (idC, idD) ->
+                set [ idC; idD ] <> set [ idA; idB ]
+                    && areStacked world (idA, idB) (idC, idD))
+            |> Seq.length
 
     /// Number of strong bonds the given atom has.
     let strongBondCount (world : World) id =
@@ -171,10 +168,9 @@ module PropertyOracles =
     /// are strongly bonded to each other, unless the pair is already
     /// stacked the other way round. Each atom has at most one weak
     /// partner, so at most one such stack can depend on a strong bond.
-    /// Tight loops that the bond is part of count too.
+    /// Tight loops that the bond is part of don't count.
     let countStacksStrong (world : World) idA idB =
-        countTightLoops world Strong idA idB
-        + List.sum [
+        List.sum [
             for idPartnerA in Bonds.weakPartners world idA do
                 for idPartnerB in Bonds.weakPartners world idB do
                     let distinct =
@@ -480,8 +476,7 @@ module PropertyOracles =
     /// A world for testing tight loops: a strand W0->Y1->Z2->X3 bent
     /// into a U, so that W0 and X3 can pair across the two-atom turn,
     /// confined to a small box so that bonds form and break
-    /// constantly. When the pair exists, it's stacked on the Y1-Z2
-    /// bond.
+    /// constantly.
     let tightLoopWorld =
         TestWorld.empty
             |> World.addAtom AtomType.W (Point.create (-1, -1))   // 0
@@ -1454,23 +1449,24 @@ module StackingRateTests =
                         $"{label}, with start barriers" stacked 200000 (Random(5 + i)) world
         |]
 
-    /// A tight loop is a stack, at the right rates: the pair across a
-    /// two-atom turn is stacked on the bond between the turn's atoms,
-    /// so it's harder to break, and so are the three strong bonds it
-    /// depends on. The oracle finds tight loops as four-cycles of
-    /// bonds, independently of World. Three cases, as for the ladder:
+    /// A tight loop is not a stack: the pair across a two-atom turn,
+    /// and the three strong bonds around the turn, form and break at
+    /// the rates of unstacked bonds. Three cases, as for the ladder:
     /// * The weak bond, with strong bonds fixed.
     /// * The strong bonds, which have no energy or barrier of their
     ///   own, with a strong pair.
     /// * The same, with a barrier that only a stack removes.
     [<Fact>]
-    let ``A tight loop is stacked at the expected rate`` () =
+    let ``A tight loop is not stacked`` () =
 
-            // the world is built as intended: the pair would close one loop
+            // the world is built as intended: the pair would close one loop,
+            // which is no stack
         let paired = World.addWeakBond tightLoopBuildParameters 0 3 tightLoopWorld
-        Assert.Equal(1, countStacks paired 0 3)
+        Assert.Equal(1, countTightLoops paired Weak 0 3)
+        Assert.Equal(0, countStacks paired 0 3)
         for idA, idB in [ 0, 1; 1, 2; 2, 3 ] do
-            Assert.Equal(1, countStacksStrong paired idA idB)
+            Assert.Equal(1, countTightLoops paired Strong idA idB)
+            Assert.Equal(0, countStacksStrong paired idA idB)
 
         let weak = TestParameters.create 0.7 |> withTightLoopBends
         let strong =
