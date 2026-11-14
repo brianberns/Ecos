@@ -15,12 +15,9 @@
     <Compile Include="Experiment4.fs" />
     <Compile Include="Experiment8.fs" />
     <Compile Include="Experiment15.fs" />
-    <Compile Include="Experiment26.fs" />
-    <Compile Include="ProposedPhysics.fs" />
     <Compile Include="Checks.fs" />
     <Compile Include="Registry.fs" />
     <Compile Include="ScenarioSpec.fs" />
-    <Compile Include="Experiment27.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 

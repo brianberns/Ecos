@@ -59,14 +59,14 @@ What's missing is a phenotype: a trait that does something, with costs and benef
 - The world is a 2D square lattice that wraps around (a torus). Each atom occupies a 2×2 block of sites, and no two atoms may overlap.
 - Atoms are never created or destroyed, so mass is conserved.
 - Walls are immovable blocks the size of an atom. The standard world has none.
-- There are seven atom types. W, X, Y and Z are coding atoms. P and Q are caps that end a strand. H is a hinge: it pairs with itself, and strong bonds bend freely at it.
+- There are six atom types. W, X, Y and Z are coding atoms. P and Q are caps that end a strand.
 
 ### Bonds
 
 | | Strong bonds | Weak bonds |
 |---|---|---|
 | Role | Join atoms along a strand | Pair atoms on different strands, or within one |
-| Which atoms | Any two, except two caps | Complementary types only: W–X, Y–Z, P–Q, H–H |
+| Which atoms | Any two, except two caps | Complementary types only: W–X, Y–Z, P–Q |
 | Limit per atom | Two (one in, one out), or one for a cap | One |
 | Direction | From an atom to the next, so a strand runs head to tail | A partner must lie on the strand's face |
 | Bending | Up to a right angle at each atom, at an energy cost (stiffness 2, or 0 at a hinge) | Free |

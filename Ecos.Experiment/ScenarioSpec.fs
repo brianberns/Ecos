@@ -75,7 +75,7 @@ type BondTypeSpec =
         BendStiffness : float
 
         /// Bend stiffnesses that override the default, by atom type,
-        /// e.g. "H".
+        /// e.g. "Y".
         BendStiffnesses : Map<string, float>
     }
 
@@ -134,13 +134,13 @@ module ScenarioSpec =
 
     /// Every atom type, in display order.
     let atomTypes =
-        [| AtomType.W; AtomType.X; AtomType.Y; AtomType.Z; AtomType.H; AtomType.P; AtomType.Q |]
+        [| AtomType.W; AtomType.X; AtomType.Y; AtomType.Z; AtomType.P; AtomType.Q |]
 
     /// Letter of the given atom type.
     let toLetter (atomType : AtomType) =
         match atomType with
             | AtomType.W -> "W" | AtomType.X -> "X" | AtomType.Y -> "Y" | AtomType.Z -> "Z"
-            | AtomType.H -> "H" | AtomType.P -> "P" | AtomType.Q -> "Q"
+            | AtomType.P -> "P" | AtomType.Q -> "Q"
 
     /// Atom type of the given letter, if any.
     let tryParseAtomType (letter : string) =
@@ -194,7 +194,7 @@ module ScenarioSpec =
     /// repeated as "n*term", or a random number of times in a range as
     /// "[m-n]*term". A term is a run of atom letters ("PHH"),
     /// a set of letters of which one is drawn ("[WY]"), or a named set:
-    /// "Coding" ([WXYZ]) or "Cap" ([PQ]). E.g. "Cap-H-10*Coding-Cap".
+    /// "Coding" ([WXYZ]) or "Cap" ([PQ]). E.g. "Cap-W-10*Coding-Cap".
     let tryParsePattern (pattern : string) : Result<PatternTerm[], string> =
         let parseTerm (term : string) =
             let term = term.Trim()
@@ -300,7 +300,7 @@ module ScenarioSpec =
         let percent = spec.Occupancy |> Map.tryFind (toLetter atomType) |> Option.defaultValue 0.0
         int (Math.Round(percent / 100.0 * float (getSiteCount spec)))
 
-    /// Key of a pair of atom types, e.g. "H-H", in alphabetical order.
+    /// Key of a pair of atom types, e.g. "W-X", in alphabetical order.
     let toPairKey a b =
         let a, b = toLetter a, toLetter b
         if a <= b then $"{a}-{b}" else $"{b}-{a}"
@@ -329,7 +329,7 @@ module ScenarioSpec =
             ||> Map.fold (fun map key x ->
                 match tryParsePairKey key with
                     | Some (a, b) -> map |> Map.add (a, b) x |> Map.add (b, a) x
-                    | None -> failwith $"Pair \"{key}\" is not two atom types, e.g. \"H-H\"")
+                    | None -> failwith $"Pair \"{key}\" is not two atom types, e.g. \"W-X\"")
 
     /// Bond-type parameters as data.
     let ofBondTypeParameters (parms : BondTypeParameters) =

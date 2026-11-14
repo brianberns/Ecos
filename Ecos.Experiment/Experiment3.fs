@@ -163,7 +163,6 @@ module Experiment3 =
         | AtomType.X -> AtomType.W
         | AtomType.Y -> AtomType.Z
         | AtomType.Z -> AtomType.Y
-        | AtomType.H -> AtomType.H
         | AtomType.P -> AtomType.Q
         | AtomType.Q -> AtomType.P
 

@@ -178,14 +178,16 @@ module RegressionTests =
     /// a random number for every unstacked cap, even when its barrier
     /// is infinite. Recorded again once a tight strong-bond loop
     /// counted as a stack.
+    /// Worlds with random atom types were recorded again once H was
+    /// removed; the others were unchanged.
     let private expected =
         Map [
-            ("cold", 1), [ "c96a8965ce3ff499"; "31f56bf540b5981b"; "00957a002f664298"; "fe20b959c0b4a240" ]
-            ("cold", 2), [ "7e9e3a8542dd65d8"; "8db911a5e2d4ebf2"; "cdaacaf8a3fc0c36"; "548b10c1dfcf6d31" ]
-            ("hot", 1), [ "cf3382434ae5fd5b"; "6ffe9e69a21c05e2"; "0effe410e877490e"; "b4d4a709e20652af" ]
-            ("hot", 2), [ "d8694b2d11d3e3f7"; "6463293784be126b"; "386c73cc261ddac0"; "977cd1399a7bb361" ]
-            ("all rules", 1), [ "67491f1d8b49820d"; "afa7281c78448de4"; "b6ab02d68c7d8210"; "b6774317b1090241" ]
-            ("all rules", 2), [ "7a933522242758fe"; "cac39bdb1d835956"; "1edf682953b37423"; "932d64e36f11436e" ]
+            ("cold", 1), [ "ce951614ca6a865c"; "70b194d9552326a0"; "3a250302ada2ff50"; "908181d9f5719112" ]
+            ("cold", 2), [ "44b19f7a7b81ec64"; "b8ae7ecee26543a8"; "b30252ffe8ad53f8"; "92f8f9edf42dce15" ]
+            ("hot", 1), [ "f06c61928b60421d"; "d25977b19b5e39d6"; "26796be00e6b9b95"; "be038e72a659905b" ]
+            ("hot", 2), [ "bfcb7db8454da030"; "f73f8e778a06a154"; "af2f3721b76bb175"; "5c751b2f212be47e" ]
+            ("all rules", 1), [ "9148bf51b7f9b767"; "22c258fdfb794aa7"; "103d14af15cc43a3"; "ed2af1d04cea4196" ]
+            ("all rules", 2), [ "8d1a234e51ab42a1"; "41aa6df09ad6b9cf"; "dd2c49c2032d2c28"; "e8fe5357b233ad36" ]
             ("copying", 1), [ "8a769c200594b8e4"; "f489e773a5bebd63"; "a749484540084187"; "0961ccadbffee672" ]
             ("copying", 2), [ "0961f7d6e39288c9"; "c0814b730aebc9bb"; "d0abaa735c9bff34"; "7e9425208a2e9fa7" ]
             ("standard physics", 1), [ "8cb156b92057dd55"; "28f1b16c28276182"; "ede52cef89015551"; "56869a8dbb771c7a" ]

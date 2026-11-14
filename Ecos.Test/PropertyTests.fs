@@ -477,16 +477,16 @@ module PropertyOracles =
     let tightLoopBuildParameters =
         withTightLoopBends TestParameters.standard
 
-    /// A world for testing tight loops: a strand W0->H1->H2->X3 bent
+    /// A world for testing tight loops: a strand W0->Y1->Z2->X3 bent
     /// into a U, so that W0 and X3 can pair across the two-atom turn,
     /// confined to a small box so that bonds form and break
-    /// constantly. When the pair exists, it's stacked on the H1-H2
+    /// constantly. When the pair exists, it's stacked on the Y1-Z2
     /// bond.
     let tightLoopWorld =
         TestWorld.empty
             |> World.addAtom AtomType.W (Point.create (-1, -1))   // 0
-            |> World.addAtom AtomType.H (Point.create (-1, 1))    // 1
-            |> World.addAtom AtomType.H (Point.create (1, 1))     // 2
+            |> World.addAtom AtomType.Y (Point.create (-1, 1))    // 1
+            |> World.addAtom AtomType.Z (Point.create (1, 1))     // 2
             |> World.addAtom AtomType.X (Point.create (1, -1))    // 3
             |> World.addStrongBond tightLoopBuildParameters 3 2
             |> World.addStrongBond tightLoopBuildParameters 2 1
@@ -1360,9 +1360,11 @@ module StackingRateTests =
     ///   barrier at all.
     /// An infinite start barrier stops strands from starting at all,
     /// except between a pair of atom types that overrides it: here only
-    /// H atoms can start a strand (a primer). W and X can still join an
-    /// existing strand, so they may extend one that two H atoms began,
-    /// but no strand may contain no H.
+    /// Y atoms can start a strand (a primer). W and X can still join an
+    /// existing strand, so they may extend one that two Y atoms began.
+    /// (A strand with no Y can still arise, when one that Y atoms began
+    /// breaks in the middle, so the test is of each bond that starts a
+    /// strand, not of the strands.)
     [<Fact>]
     let ``An infinite start barrier lets strands start only from pairs that override it`` () =
         let size = 4
@@ -1378,20 +1380,29 @@ module StackingRateTests =
         let box =
             TestWorld.empty
                 |> Chain.addBox size
-                |> addAtoms [ AtomType.H; AtomType.H; AtomType.W; AtomType.X; AtomType.W; AtomType.X ]
+                |> addAtoms [ AtomType.Y; AtomType.Y; AtomType.W; AtomType.X; AtomType.W; AtomType.X ]
         let parms =
             TestParameters.create hotKT
                 |> TestParameters.withStartBarrier Double.PositiveInfinity 0.0
-                |> TestParameters.withPairStartBarriers Strong [ (AtomType.H, AtomType.H), 0.0 ]
+                |> TestParameters.withPairStartBarriers Strong [ (AtomType.Y, AtomType.Y), 0.0 ]
         let mutable world = box
         let mutable nPrimed = 0
         for _ in 1 .. 50000 do
-            world <- World.updateWith parms rng world
-            for strand in Ecos.Experiment.Experiment3.getStrands world do
-                let types = strand.AtomIds |> Array.map (fun id -> world.Atoms[id].Type)
-                Assert.Contains(AtomType.H, types)
-                if types.Length >= 2 then nPrimed <- nPrimed + 1
-        Assert.True(nPrimed > 0, "No strand started from the H pair")
+            let before = world
+            match Ecos.World.tryUpdate parms rng before with
+                | Some (after, event) ->
+                    match event with
+                        | CreateBond (Strong, idA, idB) ->
+                            let isFree id =
+                                (BondMap.getBonds id before.BondTypeMap[Strong]).IsEmpty
+                            if isFree idA && isFree idB then   // the bond started a strand
+                                Assert.Equal(AtomType.Y, before.Atoms[idA].Type)
+                                Assert.Equal(AtomType.Y, before.Atoms[idB].Type)
+                                nPrimed <- nPrimed + 1
+                        | _ -> ()
+                    world <- after
+                | None -> ()
+        Assert.True(nPrimed > 0, "No strand started from the Y pair")
 
     [<Fact>]
     let ``Bonds that start a strand form and break at the expected rate`` () =

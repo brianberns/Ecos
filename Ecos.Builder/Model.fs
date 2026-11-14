@@ -152,7 +152,7 @@ module Model =
             Strands = [||]
             WeakBonds = [||]
             Occupancy =
-                Map [ "W", 2.0; "X", 2.0; "Y", 2.0; "Z", 2.0; "H", 0.0; "P", 2.0; "Q", 2.0 ]
+                Map [ "W", 2.0; "X", 2.0; "Y", 2.0; "Z", 2.0; "P", 2.0; "Q", 2.0 ]
             FoodWithin = None
             Parameters = ScenarioSpec.ofParameters (Scenario.createScenarioC false).Parameters
             Schedule =

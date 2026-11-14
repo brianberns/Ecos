@@ -22,10 +22,6 @@ module Program =
                 Experiment8.run Experiment8.defaultSettings
             "experiment15", "Hairpins of a self-complementary strand, by bend limit and stiffness",
                 Experiment15.run Experiment15.defaultSettings
-            "experiment26", "Folding in a famine, with a hinge: does stress now favor the hinged hairpin-former over a non-former?",
-                Experiment26.run Experiment26.defaultSettings
-            "experiment27", "Copy in a feast, fold in a famine, with a primer: H-H pair energy and H supply",
-                Experiment27.run Experiment27.defaultSettings
         ]
 
     /// Prints usage.
@@ -37,7 +33,7 @@ module Program =
         for name, description, _ in experiments do
             printfn "   %-13s %s" name description
         printfn ""
-        printfn "Experiments 6, 7, 9 to 14 and 16 to 25 are archived: see the git history."
+        printfn "Experiments 6, 7, 9 to 14 and 16 to 27 are archived: see the git history."
         printfn ""
         printfn "checks: confirms, in several minutes, that the model's key accomplishments still hold."
 
